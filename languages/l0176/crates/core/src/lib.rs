@@ -164,9 +164,17 @@ impl Dialect for L0176 {
 
     /// Only `present` signs (C6 part 2, decision 1), so only `present` results (and every
     /// `/compile`'s, which is `present`) are `cache: false`, whatever they hold: an error or an
-    /// unsigned result included, as the legacy API needs. An `evaluate` result is unsigned.
+    /// unsigned result included, as the legacy API needs. An `evaluate` result is unsigned. (The
+    /// kernel never caches a replay, whatever this says.)
     fn cacheable_in(&self, mode: Mode) -> bool {
-        mode == Mode::Evaluate
+        mode != Mode::Present
+    }
+
+    /// B6 (docs/b6-command-repair-plan.md decision 6): every save goes through
+    /// `ExecContext::invoke`, the save's command branch runs in `Replay` (answered from its
+    /// recorded result), and nothing in L0176 fetches on its own. Signing is `present`-only.
+    fn materializes(&self) -> bool {
+        true
     }
 
     /// One runtime-expanding intent per save call site (C6 plan, decision 1): a site may run any
@@ -388,7 +396,10 @@ async fn save_to_itembank(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -
         // validated and reported beside the activity, and policy is never asked. (The kernel
         // refuses any protected call in `evaluate` too.)
         json!({ "skipped": "evaluate", "fn": protection::SAVE, "occurrence": key })
-    } else if is_brokered(cx.exec()) {
+    } else if is_brokered(cx.exec()) || cx.exec().is_replay() {
+        // A replay (B6, decision 6) takes the command branch with no session: the occurrence is
+        // expanded exactly as the original's was, and the kernel answers the save from its
+        // recorded result, or fails it. Nothing is written or asked.
         // A command's save is an expansion of its site's intent, keyed by the call's ordinal at
         // that site; a compile's is `<key>.<N>`, as always.
         let occurrence = if cx.exec().is_command() {
@@ -456,7 +467,8 @@ async fn init(cx: &mut Evaluator<'_>, id: NodeId, elts: &[NodeId]) -> Value {
         return value(activity);
     }
     // Data for the next stage is never signed (C6 part 2, decision 1): the activity, validated.
-    if cx.exec().mode() == Mode::Evaluate {
+    // Only `present` signs, so neither does a replay (B6) or any mode added later.
+    if cx.exec().mode() != Mode::Present {
         return value(activity);
     }
     let key = occurrence_key(cx, id, "INIT");
@@ -505,8 +517,9 @@ async fn prog(cx: &mut Evaluator<'_>, id: NodeId) -> Value {
         return value(activity);
     }
     // Data for the next stage is never signed (C6 part 2, decision 1): only the head's
-    // `present` signs, so an `evaluate` result carries no `request` or `signing`.
-    if cx.exec().mode() == Mode::Evaluate {
+    // `present` signs, so an `evaluate` result carries no `request` or `signing`, and neither
+    // does a replay (B6) or any mode added later.
+    if cx.exec().mode() != Mode::Present {
         return top;
     }
     if is_brokered(cx.exec()) {

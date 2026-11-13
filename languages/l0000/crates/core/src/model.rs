@@ -134,14 +134,22 @@ pub enum ModelKind {
 
 /// What a result is for: data for the next stage of a chain, or what the final consumer gets.
 /// The API sets it, never the language (design §5, rule 2).
+///
+/// `Replay` (B6, docs/b6-command-repair-plan.md decision 6) rebuilds a command stage's result
+/// from its recorded occurrences: protected calls answer from the record and nothing live runs.
+/// Only [`Compiler::materialize`](crate::Compiler::materialize) sets it; a request's `mode`
+/// never can ([`Mode::from_json`]). Every live path (signing, system sessions, protected calls
+/// past the record) is allowed only in `Present`, so a mode added later is closed by default.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Mode {
     #[default]
     Evaluate,
     Present,
+    Replay,
 }
 
 impl Mode {
+    /// A request's mode: `evaluate` (the default) or `present`. Never `Replay`.
     pub fn from_json(json: &Json) -> Result<Self, String> {
         match json {
             Json::Null => Ok(Self::Evaluate),

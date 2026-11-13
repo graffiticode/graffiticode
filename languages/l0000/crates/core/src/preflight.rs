@@ -37,6 +37,17 @@ pub struct StageManifest {
     /// Every protected function the program can reach: every explicit node, dead code
     /// included, plus implicit ones. Sorted, each once.
     pub required_functions: Vec<String>,
+    /// 1 when this revision can rebuild a command stage from its records (B6,
+    /// [`crate::Dialect::materializes`]); absent otherwise. Admission records it per stage, so
+    /// a repair reads whether the revision the original pinned supports replay from the
+    /// record, never from a later revision (docs/b6-command-repair-plan.md decision 11). Not
+    /// part of the stage binding: a session binds the fields policy signed.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub replay: u32,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
 }
 
 /// A deployed revision's identity. Absent outside Cloud Run (or for a revision the deploy CLI
@@ -122,6 +133,7 @@ mod tests {
             image_digest: "i".into(),
             registry_version: 6,
             required_functions: vec!["y".into(), "x".into()],
+            replay: 0,
         }
     }
 
@@ -157,5 +169,8 @@ mod tests {
                 "revision": "r", "imageDigest": "i", "registryVersion": 6, "requiredFunctions": ["y", "x"],
             })
         );
+        // A revision that replays says so; one that doesn't, says nothing.
+        let wire = serde_json::to_value(StageManifest { replay: 1, ..manifest() }).unwrap();
+        assert_eq!(wire["replay"], json!(1));
     }
 }

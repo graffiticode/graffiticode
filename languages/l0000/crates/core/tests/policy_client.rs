@@ -175,6 +175,7 @@ fn manifest() -> StageManifest {
         image_digest: "i".into(),
         registry_version: 6,
         required_functions: vec!["sign-it".into()],
+        replay: 0,
     }
 }
 

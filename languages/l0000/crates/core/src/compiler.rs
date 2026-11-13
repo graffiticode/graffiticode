@@ -10,11 +10,11 @@ use crate::check::check;
 use crate::dialect::Dialect;
 use crate::error::Diagnostic;
 use crate::eval::{Context, Evaluator};
-use crate::exec::{ExecContext, Identity, ProtectedEffect};
+use crate::exec::{ExecContext, Identity, ProtectedEffect, Recorded};
 use crate::model::{Intent, Mode, Model, ModelKind};
 use crate::preflight::{RevisionIdentity, StageManifest, digest_of, required_protected_functions};
 use crate::protected::{PolicyClient, admit, admit_command, admit_planned};
-use crate::schema::{NoSchemas, SchemaSource};
+use crate::schema::{NoSchemas, ReplaySchemas, SchemaSource};
 use crate::secret::Keyring;
 use crate::value::Value;
 
@@ -47,13 +47,16 @@ pub struct Compilation {
     /// default: the language's own [`Dialect::cacheable_in`] its mode.
     pub restriction: Option<crate::exec::Restriction>,
     /// What the result is for: `present` for a compile and a command's `start`, the request's
-    /// mode for an interpretation.
+    /// mode for an interpretation, `replay` for a materialization.
     pub mode: Mode,
+    /// B6: the occurrences answered from their records, by intent, when there were any (a
+    /// materialization, or a repair's `start`). Never bound, minted or performed.
+    pub replayed: Option<BTreeMap<String, Vec<String>>>,
 }
 
 impl Compilation {
     fn of(result: Result<Value, Vec<Diagnostic>>, mode: Mode) -> Self {
-        Self { result, effects: Vec::new(), occurrences: None, restriction: None, mode }
+        Self { result, effects: Vec::new(), occurrences: None, restriction: None, mode, replayed: None }
     }
 }
 
@@ -109,8 +112,15 @@ impl Compiler {
     }
 
     /// Whether a result in `mode` may be cached (see [`Dialect::cacheable_in`]).
+    /// A replay's result is never cached: it is rebuilt for one command, on request.
     pub fn cacheable_in(&self, mode: Mode) -> bool {
-        self.dialect.cacheable_in(mode)
+        mode != Mode::Replay && self.dialect.cacheable_in(mode)
+    }
+
+    /// Whether this language rebuilds a command stage from its records (B6, see
+    /// [`Dialect::materializes`]).
+    pub fn materializes(&self) -> bool {
+        self.dialect.materializes()
     }
 
     /// The answer `/compile` and `/interpret` give for `compiled`, in the envelope the
@@ -151,6 +161,11 @@ impl Compiler {
         if let Some(occurrences) = &compiled.occurrences {
             envelope["occurrences"] = json!(occurrences);
         }
+        // The occurrences answered from their records (B6), which the gateway checks against
+        // what it recorded.
+        if let Some(replayed) = compiled.replayed.as_ref().filter(|r| !r.is_empty()) {
+            envelope["replayed"] = json!(replayed);
+        }
         envelope
     }
 
@@ -180,7 +195,7 @@ impl Compiler {
         let result = self.run(code, data, config, &mut exec, None).await;
         let occurrences = exec.command_occurrences().cloned();
         let restriction = exec.restriction();
-        Compilation { result, effects: exec.into_effects(), occurrences, restriction, mode }
+        Compilation { result, effects: exec.into_effects(), occurrences, restriction, mode, replayed: None }
     }
 
     async fn run(
@@ -206,10 +221,10 @@ impl Compiler {
             let stage = exec.stage().map(str::to_owned);
             let manifest = self.stage_manifest(code, &program, &ast, stage, config)?;
             admit_planned(dialect, self.policy.as_ref(), exec, &manifest).await
-        } else if exec.mode() == Mode::Evaluate {
-            // `evaluate` acts on nothing (C6 part 2), so there is nothing to admit, and policy
-            // isn't asked for a snapshot. A protected call in it is refused
-            // (`ExecContext::invoke`), as is a system session.
+        } else if exec.mode() != Mode::Present {
+            // Only `present` acts: `evaluate` (C6 part 2) and a replay (B6) have nothing to
+            // admit, and policy isn't asked for a snapshot. A live protected call in either is
+            // refused (`ExecContext::invoke`), as is a system session.
             Vec::new()
         } else {
             admit(&ast, dialect, self.policy.as_ref(), exec).await
@@ -220,10 +235,13 @@ impl Compiler {
         self.check(&ast)?;
         let data = upstream(data);
         let config = Value::from_json(config);
+        // A replay reads nothing live (B6): its schema source refuses every `use`, so the
+        // compiler's own (HTTP in production) is never consulted.
+        let schemas: &dyn SchemaSource = if exec.mode() == Mode::Replay { &ReplaySchemas } else { &*self.schemas };
         Evaluator::new(Context {
             ast: &ast,
             dialect,
-            schemas: &*self.schemas,
+            schemas,
             keyring: &self.keyring,
             data: &data,
             config: &config,
@@ -302,6 +320,22 @@ impl Compiler {
     /// intents. Refused, before anything runs, for a model of another language, a model with no
     /// intents, and an identity without a command session.
     pub async fn start(&self, model: &Model, input: &Json, config: &Json, identity: Identity) -> Compilation {
+        self.start_with(model, input, config, identity, None).await
+    }
+
+    /// [`start`](Self::start) for a repair (B6, docs/b6-command-repair-plan.md decision 7a): the
+    /// stage's `recorded` occurrences answer from their records, with no bind, token or call;
+    /// a blocked one stops the stage before any call; every other occurrence runs live, exactly
+    /// as in a `start`. A recorded completed occurrence the run never reaches fails the stage:
+    /// the repair didn't follow the original's path.
+    pub async fn start_with(
+        &self,
+        model: &Model,
+        input: &Json,
+        config: &Json,
+        identity: Identity,
+        recorded: Option<Recorded>,
+    ) -> Compilation {
         let refuse = |message: String, code: &str| {
             Compilation::of(Err(vec![Diagnostic::new(message).with_code(code)]), Mode::Present)
         };
@@ -322,12 +356,108 @@ impl Compiler {
         }
         let mut exec = ExecContext::new(identity);
         exec.set_policy(self.policy.clone());
-        let result = self.run(program, input, config, &mut exec, Some(model.intents.clone())).await;
+        let replaying = recorded.is_some();
+        let result = self.run_recorded(program, input, config, &mut exec, model.intents.clone(), recorded, true).await;
         // The occurrences performed, even when the stage failed partway: what was bound is the
         // stage's to close.
         let occurrences = Some(exec.command_occurrences().cloned().unwrap_or_default());
+        let replayed = replaying.then(|| exec.replayed_occurrences().cloned().unwrap_or_default());
         let restriction = exec.restriction();
-        Compilation { result, effects: exec.into_effects(), occurrences, restriction, mode: Mode::Present }
+        Compilation { result, effects: exec.into_effects(), occurrences, restriction, mode: Mode::Present, replayed }
+    }
+
+    /// Rebuilds a command stage's result from its records (B6, docs/b6-command-repair-plan.md
+    /// decision 6): `model` (the admitted one, carrying its intents) runs on `input`, the
+    /// stage's pinned input, in [`Mode::Replay`]. Occurrence ids are expanded exactly as the
+    /// original's, with no session. Every protected call answers from `recorded`, or fails the
+    /// stage; nothing is bound, minted, signed, observed or sent, and no policy is consulted.
+    /// Refused for a language that doesn't [`materialize`](Dialect::materializes), a model of
+    /// another language, and a model with no intents (a stage without effects isn't replayed:
+    /// its recorded output is taken as it is).
+    pub async fn materialize(&self, model: &Model, input: &Json, config: &Json, recorded: Recorded) -> Compilation {
+        let refuse = |message: String, code: &str| {
+            Compilation::of(Err(vec![Diagnostic::new(message).with_code(code)]), Mode::Replay)
+        };
+        if !self.dialect.materializes() {
+            return refuse(
+                format!("Error: L{} can't rebuild a command from its records.", self.dialect.lang_id()),
+                "materialize-unsupported",
+            );
+        }
+        if model.lang != self.dialect.lang_id() {
+            return refuse(
+                format!("Error: a model from L{} can't be materialized by L{}", model.lang, self.dialect.lang_id()),
+                "model-language-mismatch",
+            );
+        }
+        let ModelKind::Plan(program) = &model.kind else {
+            return refuse("Error: a value model has no effects to replay.".to_owned(), "no-intents");
+        };
+        if model.intents.is_empty() {
+            return refuse("Error: this model declares no effects to replay.".to_owned(), "no-intents");
+        }
+        // No identity: no user, connection, session or system session. Policy isn't given to
+        // the context either, so nothing in it could be asked.
+        let mut exec = ExecContext::new(Identity::default());
+        exec.set_mode(Mode::Replay);
+        let result =
+            self.run_recorded(program, input, config, &mut exec, model.intents.clone(), Some(recorded), false).await;
+        let replayed = Some(exec.replayed_occurrences().cloned().unwrap_or_default());
+        Compilation { result, effects: Vec::new(), occurrences: None, restriction: None, mode: Mode::Replay, replayed }
+    }
+
+    /// Runs a command stage with its recorded occurrences: a `start` (`live`, admitted by its
+    /// session) or a replay (no admission: nothing in it acts). Fails when a recorded completed
+    /// occurrence is never reached.
+    #[allow(clippy::too_many_arguments)]
+    async fn run_recorded(
+        &self,
+        program: &Json,
+        input: &Json,
+        config: &Json,
+        exec: &mut ExecContext,
+        intents: Vec<Intent>,
+        recorded: Option<Recorded>,
+        live: bool,
+    ) -> Result<Value, Vec<Diagnostic>> {
+        let has_records = recorded.is_some();
+        // The records join the command state when it is set: by admission inside `run` for a
+        // live start, here for a replay.
+        if let Some(recorded) = recorded {
+            exec.set_pending_recorded(recorded);
+        }
+        if !live {
+            exec.set_command(intents.clone());
+        }
+        let result = self.run(program, input, config, exec, live.then_some(intents)).await;
+        // A call the records refused fails the stage, whether or not the dialect made it an
+        // error: a replay that couldn't answer, or a repair that reached what it wasn't given.
+        let refusals = exec.record_refusals();
+        if !refusals.is_empty() {
+            let mut errors: Vec<Diagnostic> = refusals
+                .iter()
+                .map(|(reason, message)| Diagnostic::new(format!("Error: {message}")).with_code(reason.clone()))
+                .collect();
+            if let Err(reported) = result {
+                let more: Vec<Diagnostic> =
+                    reported.into_iter().filter(|d| !errors.iter().any(|e| e.message == d.message)).collect();
+                errors.extend(more);
+            }
+            return Err(errors);
+        }
+        if has_records && result.is_ok() {
+            let unreached = exec.unreached_recorded();
+            if !unreached.is_empty() {
+                return Err(vec![
+                    Diagnostic::new(format!(
+                        "Error: recorded occurrences were never reached: {}",
+                        unreached.join(", ")
+                    ))
+                    .with_code("recorded-not-reached"),
+                ]);
+            }
+        }
+        result
     }
 
     /// Preflight: this stage's manifest, or the errors that would stop it compiling.
@@ -396,6 +526,7 @@ impl Compiler {
             image_digest: image_digest.clone(),
             registry_version,
             required_functions: required_protected_functions(ast, dialect),
+            replay: u32::from(dialect.materializes()),
         })
     }
 }

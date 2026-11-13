@@ -32,6 +32,7 @@ fn revision() -> RevisionIdentity {
 /// expansion keyed by its argument. `hello` reads through an observation.
 struct Cmd {
     expanding: bool,
+    materializes: bool,
     protected: Vec<(String, ProtectedFunction)>,
     reads: Arc<Mutex<usize>>,
 }
@@ -40,9 +41,15 @@ impl Cmd {
     fn new(expanding: bool) -> Self {
         Self {
             expanding,
+            materializes: false,
             protected: vec![("SAVE_IT".to_owned(), ProtectedFunction::new("save-it", ProtectedKind::Write))],
             reads: Arc::default(),
         }
+    }
+
+    /// Opted in to materialization (B6).
+    fn materializing(expanding: bool) -> Self {
+        Self { materializes: true, ..Self::new(expanding) }
     }
 }
 
@@ -100,6 +107,10 @@ impl Dialect for Cmd {
 
     fn registry_version(&self) -> Option<u32> {
         Some(6)
+    }
+
+    fn materializes(&self) -> bool {
+        self.materializes
     }
 
     fn intents(&self, ast: &Ast) -> Vec<Intent> {
@@ -372,4 +383,184 @@ async fn an_observation_is_read_once_and_replayed() {
         assert_eq!(started.result.unwrap().to_json().map(|j| j.to_string()), Some("{\"b\":2,\"a\":1}".to_owned()));
     }
     assert_eq!(*reads.lock().unwrap(), 1, "the read ran once; the retry replayed its record");
+}
+
+// B6 (docs/b6-command-repair-plan.md decisions 6 and 7a): a command stage rebuilt from its
+// records in the replay mode, and a repair's `start` that answers completed occurrences from
+// their records and runs only the rest.
+
+mod replay {
+    use super::*;
+    use graffiticode_l0000::{Mode, Recorded, RecordedOccurrence, canonical::args_digest};
+
+    const SRC: &str = "map (<x: save-it x>) [1 2]..";
+
+    fn record(payload: Json) -> RecordedOccurrence {
+        RecordedOccurrence { argd: args_digest(&payload), result: json!({ "saved": payload }) }
+    }
+
+    fn occurrence(n: u32) -> String {
+        runtime_occurrence_id("batch", &format!("item {n}"))
+    }
+
+    fn both_completed() -> Recorded {
+        Recorded {
+            completed: [(occurrence(1), record(json!(1))), (occurrence(2), record(json!(2)))].into_iter().collect(),
+            ..Recorded::default()
+        }
+    }
+
+    fn untouched(policy: &Policy) {
+        assert!(policy.binds.lock().unwrap().is_empty(), "nothing is bound");
+        assert!(policy.minted.lock().unwrap().is_empty(), "nothing is minted or sent");
+        assert_eq!(*policy.snapshots.lock().unwrap(), 0, "policy is never asked");
+        assert!(policy.recorded.lock().unwrap().is_none(), "nothing is observed");
+    }
+
+    #[tokio::test]
+    async fn a_stage_materializes_to_its_original_answer_from_records_alone() {
+        let (compiler, policy, model) = setup(SRC, true).await;
+        let original = compiler.start(&model, &json!({}), &Json::Null, command("s0")).await;
+        let original = original.result.unwrap().to_json();
+        drop(policy);
+
+        let (_, policy, _) = setup(SRC, true).await;
+        let compiler = materializing(&policy);
+        let replayed = compiler.materialize(&model, &json!({}), &Json::Null, both_completed()).await;
+        assert_eq!(replayed.mode, Mode::Replay);
+        assert_eq!(replayed.result.as_ref().unwrap().to_json(), original);
+        // The same occurrence ids as the original's, expanded with no session.
+        assert_eq!(replayed.replayed.unwrap()["batch"], vec![occurrence(1), occurrence(2)]);
+        assert!(replayed.effects.is_empty() && replayed.occurrences.is_none());
+        // The compiler has a policy client; a replay never reaches it.
+        untouched(&policy);
+        let envelope =
+            compiler.envelope(&compiler.materialize(&model, &json!({}), &Json::Null, both_completed()).await);
+        assert_eq!(envelope["cache"], json!(false));
+        assert_eq!(envelope["replayed"]["batch"], json!([occurrence(1), occurrence(2)]));
+    }
+
+    #[tokio::test]
+    async fn a_replay_fails_without_its_exact_records() {
+        let (_, policy, model) = setup(SRC, true).await;
+        let compiler = materializing(&policy);
+        let replay = |recorded: Recorded| {
+            let (compiler, model) = (&compiler, &model);
+            async move { compiler.materialize(model, &json!({}), &Json::Null, recorded).await }
+        };
+        let code = |c: graffiticode_l0000::Compilation| c.result.unwrap_err()[0].code.clone();
+        // A missing record fails the stage, though this dialect makes the refusal a value.
+        let mut missing = both_completed();
+        missing.completed.remove(&occurrence(2));
+        assert_eq!(code(replay(missing).await).as_deref(), Some("not-recorded"));
+        // A record of other arguments.
+        let mut other = both_completed();
+        other.completed.insert(occurrence(2), RecordedOccurrence { argd: args_digest(&json!(3)), ..record(json!(2)) });
+        assert_eq!(code(replay(other).await).as_deref(), Some("args-mismatch"));
+        // A record the program never reaches: it didn't follow the original's path.
+        let mut extra = both_completed();
+        extra.completed.insert(occurrence(3), record(json!(3)));
+        let refused = replay(extra).await.result.unwrap_err();
+        assert_eq!(refused[0].code.as_deref(), Some("recorded-not-reached"));
+        untouched(&policy);
+    }
+
+    #[tokio::test]
+    async fn materialize_is_refused_where_there_is_nothing_to_replay() {
+        let (compiler, policy, model) = setup(SRC, true).await;
+        // The language hasn't opted in.
+        let refused = compiler.materialize(&model, &json!({}), &Json::Null, both_completed()).await;
+        assert_eq!(refused.result.unwrap_err()[0].code.as_deref(), Some("materialize-unsupported"));
+        let compiler = materializing(&policy);
+        let no_intents = Model { intents: Vec::new(), ..model.clone() };
+        let refused = compiler.materialize(&no_intents, &json!({}), &Json::Null, both_completed()).await;
+        assert_eq!(refused.result.unwrap_err()[0].code.as_deref(), Some("no-intents"));
+        let other = Model::new("0176", model.kind.clone());
+        let refused = compiler.materialize(&other, &json!({}), &Json::Null, both_completed()).await;
+        assert_eq!(refused.result.unwrap_err()[0].code.as_deref(), Some("model-language-mismatch"));
+    }
+
+    #[tokio::test]
+    async fn a_replay_reads_nothing() {
+        let src = "hello \"world\"..";
+        let dialect = Cmd::materializing(false);
+        let reads = Arc::clone(&dialect.reads);
+        let policy = Policy::default();
+        let compiler = Compiler::new(dialect).with_policy(policy.clone()).with_revision(revision());
+        let model = Model {
+            intents: vec![Intent::fixed("never", "save-it", "toy.write", vec!["n0.0".into()])],
+            ..compiler.model(program(src), &Json::Null).await.unwrap()
+        };
+        let replayed = compiler.materialize(&model, &json!({}), &Json::Null, Recorded::default()).await;
+        let answer = format!("{:?}", replayed.result);
+        assert!(answer.contains("unobserved"), "{answer}");
+        // Reading isn't a record refusal: the dialect decides what an unobserved read means, and
+        // a materializing language reads nothing.
+        assert_eq!(*reads.lock().unwrap(), 0, "the read never ran");
+        untouched(&policy);
+    }
+
+    #[tokio::test]
+    async fn a_repair_runs_only_what_isn_t_completed() {
+        let (compiler, _, model) = setup(SRC, true).await;
+        let original = compiler.start(&model, &json!({}), &Json::Null, command("s0")).await.result.unwrap().to_json();
+        // Item 1 completed; item 2 failed and is selected (it has no record).
+        let (compiler, policy, _) = setup(SRC, true).await;
+        let recorded =
+            Recorded { completed: [(occurrence(1), record(json!(1)))].into_iter().collect(), ..Recorded::default() };
+        let repaired = compiler.start_with(&model, &json!({}), &Json::Null, command("s0"), Some(recorded)).await;
+        assert_eq!(repaired.result.as_ref().unwrap().to_json(), original, "item 1's recorded result is in the output");
+        let binds: Vec<_> = policy.binds.lock().unwrap().iter().map(|b| b.occurrence_id.clone()).collect();
+        assert_eq!(binds, vec![occurrence(2)], "only item 2 is bound");
+        assert_eq!(*policy.minted.lock().unwrap(), vec![occurrence(2)], "and only item 2 executes, once");
+        assert_eq!(repaired.occurrences.unwrap()["batch"], vec![occurrence(2)]);
+        assert_eq!(repaired.replayed.unwrap()["batch"], vec![occurrence(1)]);
+        assert_eq!(repaired.effects.len(), 1, "an answer from a record is no effect");
+    }
+
+    #[tokio::test]
+    async fn a_blocked_occurrence_stops_the_repair_before_any_call() {
+        let (compiler, policy, model) = setup(SRC, true).await;
+        // Item 1 is recorded, but neither completed nor selected.
+        let recorded = Recorded { blocked: [occurrence(1)].into_iter().collect(), ..Recorded::default() };
+        let repaired = compiler.start_with(&model, &json!({}), &Json::Null, command("s0"), Some(recorded)).await;
+        let errors = repaired.result.unwrap_err();
+        assert_eq!(errors[0].code.as_deref(), Some("not-selected"), "{errors:?}");
+        // Item 2 comes after it, and doesn't run live either.
+        assert!(policy.binds.lock().unwrap().is_empty());
+        assert!(policy.minted.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_record_of_other_arguments_stops_every_later_live_call() {
+        // Item 1 is recorded completed, but with other arguments; item 2 has no record. The
+        // dialect carries on after the refusal, and item 2 must still not run live.
+        let (compiler, policy, model) = setup(SRC, true).await;
+        let recorded = Recorded {
+            completed: [(occurrence(1), RecordedOccurrence { argd: args_digest(&json!(9)), ..record(json!(1)) })]
+                .into_iter()
+                .collect(),
+            ..Recorded::default()
+        };
+        let repaired = compiler.start_with(&model, &json!({}), &Json::Null, command("s0"), Some(recorded)).await;
+        let errors = repaired.result.unwrap_err();
+        assert_eq!(errors[0].code.as_deref(), Some("args-mismatch"), "{errors:?}");
+        assert!(policy.binds.lock().unwrap().is_empty(), "nothing is bound after the refusal");
+        assert!(policy.minted.lock().unwrap().is_empty(), "nothing executes after the refusal");
+    }
+
+    #[tokio::test]
+    async fn the_replay_mode_acts_on_nothing_live() {
+        let (compiler, policy, model) = setup(SRC, true).await;
+        // A request can't ask for it; `evaluate` still refuses every protected call.
+        assert!(Mode::from_json(&json!("replay")).is_err());
+        let read = compiler.interpret(&model, &json!({}), &Json::Null, Mode::Evaluate, command("s0")).await;
+        assert!(format!("{:?}", read.result).contains("refused"));
+        assert!(policy.minted.lock().unwrap().is_empty());
+    }
+
+    /// A compiler for `Cmd` opted in to materialization, with `policy` as its client.
+    fn materializing(policy: &Policy) -> Compiler {
+        Compiler::new(Cmd::materializing(true)).with_policy(policy.clone()).with_revision(revision())
+    }
 }

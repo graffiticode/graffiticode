@@ -934,6 +934,7 @@ mod preflight {
                 image_digest: format!("sha256:{}", "1".repeat(64)),
                 registry_version: 6,
                 required_functions: vec!["save-it".into()],
+                replay: 0,
             })
         );
     }
