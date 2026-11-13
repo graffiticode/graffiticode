@@ -317,6 +317,9 @@ export const buildCommandWorker = ({
         return null;
       };
       if (!admitted.intents.length) {
+        // One line per call to a stage's service, naming the command: the
+        // B6 drive's evidence that a recorded stage was never run again.
+        log(`command ${id}: call interpret ${stage} L${admitted.lang} at ${admitted.tagUrl}`);
         const answer = await language.interpret({ lang: admitted.lang, model, input, mode: "evaluate", baseUrl: admitted.tagUrl });
         // A stage with no effects is safe to ask again: a lost answer leaves
         // the command pending for recovery, never failed.
@@ -341,6 +344,7 @@ export const buildCommandWorker = ({
         await step(() => policy.settle({ commandId: id, generation: g }));
         return stop();
       }
+      log(`command ${id}: call start ${stage} L${admitted.lang} at ${admitted.tagUrl}${recorded ? " (repair, with its recorded occurrences)" : ""}`);
       let answer = await language.start({ lang: admitted.lang, model, input: JSON.parse(pinned.text), commandSession: sessionToken, stage, baseUrl: admitted.tagUrl, ...(recorded ? { recorded: recorded(stage) } : {}) });
       // The drive's faults (faults.js), never set in production: the writes
       // have run, and the worker dies, or the head's answer is lost.

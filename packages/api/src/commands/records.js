@@ -103,6 +103,7 @@ export const materializeFromRecords = async ({ policy, language, view, stage, lo
     const occ = view.occurrences.find(o => o.stage === stage && o.occurrenceId === occurrenceId);
     return { ok: false, reason: occ?.current === "completed" ? "output-unavailable" : "not-complete", stage, occurrenceId };
   }
+  log(`command ${id}: call materialize ${stage} L${admitted.lang} at ${admitted.tagUrl}`);
   const answer = await language.materialize({ lang: admitted.lang, model: view.models.get(stage), input: JSON.parse(pinned.text), recorded, baseUrl: admitted.tagUrl });
   if (answer?.responseLost) return { ok: false, reason: "unavailable", stage };
   if (Array.isArray(answer?.errors) && answer.errors.length > 0) {
@@ -125,6 +126,7 @@ const materializeChain = async ({ policy, language, view, log }) => {
     } else {
       const { output } = await policy.read({ commandId: view.state.commandId, what: "output", stage });
       if (!output) return { ok: false, reason: "not-recorded", stage };
+      log(`command ${view.state.commandId}: ${stage} from its recorded output, not run`);
       envelope = JSON.parse(output.text);
     }
   }

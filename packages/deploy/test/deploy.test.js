@@ -564,6 +564,43 @@ test("the repository's deploy.json keeps Policy's B6 recording floor", async () 
   assert.deepEqual(floor, { milestone: "B6-recording", commit: "d322c227a019abbe10d50108398764aee8e5d2d0", floor: true });
 });
 
+// B6 slice 5 (the owner's review of #389): before any repair exists, Policy's
+// floor is slice 4's merge, the first Policy that guards and settles repairs.
+// Rolling back to slice 3's or slice 2's Policy is refused, with or without
+// --below-baseline. The commits are the real ones, in their real order.
+const SLICE2 = "d5b0e8ab5c96bd41c27f36a6ad3983169ca29ef1";
+const SLICE3 = "0f1483b71bcf5cf5b8f89bc802ac1cced35db93c";
+const SLICE4 = "2ce1433542edc995787dede3683a5527a5218171";
+const RECORDING = "d322c227a019abbe10d50108398764aee8e5d2d0";
+const history = {
+  git: {
+    isAncestor: async (base, commit) => {
+      const parents = { [SLICE4]: SLICE3, [SLICE3]: SLICE2, [SLICE2]: RECORDING };
+      for (let at = commit; at; at = parents[at]) if (at === base) return true;
+      return false;
+    }
+  }
+};
+test("Policy's floor is B6 slice 4's merge: a rollback to slice 3's or slice 2's Policy is refused", async t => {
+  const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
+  const floors = raw.services.policy.baselines.filter(b => b.floor === true);
+  assert.deepEqual(floors.map(b => [b.milestone, b.commit]), [["B6-recording", RECORDING], ["B6-repairs", SLICE4]]);
+  const policyFloors = withBaselines(floors);
+  for (const older of [SLICE3, SLICE2]) {
+    const h = await harness(t);
+    await release(context, { ...source, commit: older }, h.deps);
+    const latest = await release(context, { ...source, commit: SLICE4 }, h.deps);
+    for (const allowBelowBaseline of [false, true]) {
+      await assert.rejects(rollback(policyFloors, latest, { ...h.deps, ...history, allowBelowBaseline, switchState: switchOff }), /below the B6-repairs floor; refusing, with no override/);
+    }
+  }
+  // A target at the floor rolls back as before.
+  const h = await harness(t);
+  await release(context, { ...source, commit: SLICE4 }, h.deps);
+  const latest = await release(context, { ...source, commit: SLICE4 }, h.deps);
+  assert.equal((await rollback(policyFloors, latest, { ...h.deps, ...history })).status, "rolled-back");
+});
+
 test("a service that enforces the switch never rolls back below its first milestone", async t => {
   const h = await harness(t);
   const receipt = await release(context, source, h.deps);
@@ -1574,6 +1611,13 @@ test("a flag the serving revision has but deploy.json doesn't name is refused: d
   assert.deepEqual(unmanagedFlagProblems(live, { env: { INTERPRETER_L0179: "off", COMPILE_GENERATION_L0179: "rust-2" } }), []);
   assert.deepEqual(unmanagedFlagProblems(live, { env: {}, removeEnv: ["INTERPRETER_L0179"] }), []);
   assert.deepEqual(unmanagedFlagProblems({ COMMANDS_L0013: "on", INTERPRETER_L0013: "on" }, { env: {} }), ["COMMANDS_L0013", "INTERPRETER_L0013"]);
+  // B6: a live REPAIR_LNNNN is kept by a release too, so deleting it is
+  // refused; it is turned off by value or removed explicitly. It changes no
+  // compiled result, so it needs no compile generation.
+  assert.deepEqual(unmanagedFlagProblems({ REPAIR_L0176: "on" }, { env: {} }), ["REPAIR_L0176"]);
+  assert.deepEqual(unmanagedFlagProblems({ REPAIR_L0176: "on" }, { env: { REPAIR_L0176: "off" } }), []);
+  assert.deepEqual(unmanagedFlagProblems({ REPAIR_L0176: "on" }, { env: {}, removeEnv: ["REPAIR_L0176"] }), []);
+  assert.deepEqual(flagGenerationProblems({ REPAIR_L0176: "off" }, { REPAIR_L0176: "on" }), []);
   // In a release: refused before anything is built, and allowed once the flag is set by value.
   const h = await harness(t);
   h.revisions.set("api-old", { metadata: { labels: {} }, spec: { containers: [{ env: [{ name: "COMPILE_GENERATION_L0179", value: "interp-1" }, { name: "INTERPRETER_L0179", value: "on" }] }] } });
