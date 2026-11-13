@@ -182,8 +182,14 @@ Each has a recommendation; the plan below assumes it.
      - The checks before anything is allocated:
        1. the gates on the command itself: `not-original`, `command-pending`, `not-admitted`, `revision-unsupported`, `not-recorded`;
        2. then each selected occurrence: `occurrence-claimed`, with the holder named in the refusal's `detail`, or `not-eligible`.
-     - A key names one repair, of one original: the original's own key, or a key reused for another original, is refused `idempotency-key-reused`. A selection is at most 100 occurrences.
-   - **The gates in detail** (`repairGate`, applied the same way at allocation and in the claim's transaction):
+     - **A key already used answers from its record**, before anything that changes as repairs run (eligibility, claims). After the owner and access checks, a key holding a repair of this original, with the original's binding (and, when the request names occurrences, the same selection), returns that repair, `reused`, whether it is allocated, admitted or finished. Any other holder of the key is refused `idempotency-key-reused`: the original's own key, a repair of another original, another selection, or a legacy invocation. A selection is at most 100 occurrences.
+   - **The canonical snapshot** (`canonicalStages`; the owner's review of #386). A stage a repair runs that the original never reached, resumed by 7b, records its pinned input and output in the repair. So the original keeps a `canonical` map, written in the same transactions:
+     - for each stage, the first pinned input any repair installed for it, which every later repair must pin too (`input-conflict` otherwise, checked before `input-not-output`);
+     - the latest output any repair recorded for it;
+     - each naming the repair that recorded it.
+
+     The gates, the resume check and `revision-retired` read the original's stages merged with this snapshot. A resumed stage counts as having run, with that input and output, so a failure in it can be repaired again, and a stage a repair already resumed isn't resumed again.
+   - **The gates in detail** (`repairGate`, applied the same way at allocation and in the claim's transaction, over the merged stages):
      - every intent-bearing stage's admitted manifest says `replay: 1`;
      - the admission says `recording: 1`;
      - every stage that wasn't `not-reached` has a recorded output digest, or, for a stage with intents, a pinned input (a `"too-large"` output marker counts as no output);
@@ -203,18 +209,19 @@ Each has a recommendation; the plan below assumes it.
      - An occurrence new to the stage is claimed in the bind transaction. It counts once toward the intent's bound, alongside the original's count (`repairCounts` on the original).
    - **Mint and authorize-execution for a repair** need the pending entry this repair holds: `occurrence-not-claimed` otherwise, once the repair has finished, for example.
    - **A repair's `finish`:**
-     - its status counts only the stages it touched;
+     - its status counts only the stages it touched: ran, bound in, pinned an input for, or recorded an output for;
+     - a repair with no operations of its own, one that only resumed stages with no effects, is `completed` when it recorded a result and every stage it touched finished (an intent-bearing one closed). Otherwise it is `failed`, since nothing was written;
      - it never makes its own publication due. Publication goes to the original's artifact (decision 8, slice 4).
    - **Reconciliation** (`POST /v1/receipts/reconcile`, from the console):
      - When an operation has an `applied` and `final` verdict, Policy writes a ledger entry for it, but only for an occurrence whose current outcome is `uncertain`: the original's own, or one a repair settled `uncertain`.
      - The entry is `completed`, `source: "reconciliation"`. Its output is the result when Broker's `resultSource` is `outcome` or `evidence`, otherwise `{ unavailable: <resultSource> }`.
-     - Nothing else changes: an `unresolved` or non-final verdict, a `failed` or `partial` occurrence, and the original's frozen outcome. This is live as soon as Policy ships; it only records what Broker established.
+     - Nothing else changes: an `unresolved` or non-final verdict, a `failed` or `partial` occurrence, and the original's frozen outcome. This is live as soon as Policy ships (the owner agreed, 2026-11-13); it only records what Broker established, and dispatches nothing.
    - **Who may own a repair.**
      - A lease, takeover and the due list take a `repairs` capability beside `recording`. A repair is owned only by a worker that states `repairs: 1` (`worker-unsupported` otherwise), and listed as due only to one.
      - The live api states no such capability, so it can never own or sweep a repair. Until slice 4's api, nothing allocates one.
    - **Reads.** `records/state` now includes `kind`, `repairOf` and `selection`, and there is a new read, `records/ledger`, which returns the original's ledger.
    - **New failure reasons:**
-     - conflict: `occurrence-claimed`, `not-eligible`, `nothing-to-repair`, `revision-unsupported`, `not-recorded`, `revision-retired`, `command-pending`, `not-selected`, `binding-mismatch`, `occurrence-not-claimed`;
+     - conflict: `occurrence-claimed`, `not-eligible`, `nothing-to-repair`, `revision-unsupported`, `not-recorded`, `revision-retired`, `command-pending`, `not-selected`, `binding-mismatch`, `occurrence-not-claimed`, `input-conflict`;
      - malformed: `not-original`, `kind-mismatch`.
    - **Release:** Policy only, above its `B6-recording` floor. Repair stays unreachable: no api route calls `/repairs`, and no live worker states `repairs: 1`.
 4. **Api: the repair run.** The routes. The worker's repair path: the repaired stage starts under the repair's invocation with its recorded occurrences (7a); on stage completion, install its output and the next pinned input and resume; on full completion, assemble and publish as the original invocation's artifact. Tests:

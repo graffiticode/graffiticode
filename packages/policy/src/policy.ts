@@ -60,8 +60,8 @@ import { CONTRACT_VERSION, SUPPORTED_CONTRACT_VERSIONS, manifestProblems, pinned
 import { issueToken, verifyToken } from "./tokens.js";
 import { grantIdFor, isExpired } from "./grants.js";
 import { InvocationConflict, AdmissionRefused, ProtocolMismatch } from "./invocations.js";
-import { CommandRefused, COMMAND_ID_RE, WORKER_RE, commandSummary, ownerRefusal, requestProblem } from "./commands.js";
-import { RUNTIME_PREFIX, runtimeOccurrenceId, repairGate } from "./command-records.js";
+import { CommandRefused, COMMAND_ID_RE, WORKER_RE, commandIdFor, commandSummary, ownerRefusal, requestProblem } from "./commands.js";
+import { RUNTIME_PREFIX, runtimeOccurrenceId, repairGate, canonicalStages } from "./command-records.js";
 import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
 import { SYSTEM_PREVIEW_SUBJECT, sessionProvenance, provenanceRefusal } from "./provenance.js";
@@ -331,6 +331,21 @@ export const createPolicy = ({
     const connection = await connections.get(original.connectionId);
     const access = await accessFor(connection, user.uid);
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+    // A key already used answers from its record, before anything that
+    // changes as repairs run (eligibility, claims): the same repair of this
+    // original, under the original's binding and, when the request names
+    // occurrences, the same selection. Anything else holding the key is
+    // refused.
+    const existing = await commands.get(commandIdFor(user.uid, idempotencyKey));
+    if (existing) {
+      const named = occurrences === null ? null : JSON.stringify(occurrences.map(({ stage, occurrenceId }) => ({ stage, occurrenceId })));
+      const same = existing.kind === "repair" && existing.repairOf === commandId && existing.uid === user.uid &&
+        existing.connectionId === original.connectionId && existing.taskId === original.taskId && existing.binding?.inputDigest === original.binding?.inputDigest &&
+        (named === null || JSON.stringify(existing.selection) === named);
+      if (!same) return deny("idempotency-key-reused", record);
+      await audit({ ...record, ownerUid: connection.ownerUid, commandId: existing.commandId, outcome: "allowed", reason: "reused" });
+      return { ...commandSummary(existing), reused: true, owned: false, ownerUid: connection.ownerUid };
+    }
     // The gates on the command itself first; the selection's after it.
     const commandGate = repairGate(original);
     if (commandGate) return deny(commandGate, record);
@@ -344,7 +359,7 @@ export const createPolicy = ({
         .sort((a, b) => (a.stage === b.stage ? (a.occurrenceId < b.occurrenceId ? -1 : 1) : (a.stage < b.stage ? -1 : 1)));
       // With nothing to retry, a repair still resumes the stages the original
       // never reached, once every occurrence below them completed (7b).
-      const resumable = Object.values(original.stages ?? {}).some((st: { state?: string }) => st.state === "not-reached") && states.every(st => st.current === "completed");
+      const resumable = Object.values(canonicalStages(original)).some((st: { state?: string }) => st.state === "not-reached") && states.every(st => st.current === "completed");
       if (selection.length === 0 && !resumable) return deny("nothing-to-repair", record);
       // One transaction claims them all: within its write limit, or name them.
       if (selection.length > MAX_REPAIR_SELECTION) return deny("bad-request", record);
@@ -557,7 +572,7 @@ export const createPolicy = ({
         return deny("not-granted", { ...record, ownerUid: connection.ownerUid });
       }
       const admitted = original.admission.stages[pinned.stage];
-      const runs = (admitted?.intents ?? []).length > 0 || original.stages?.[pinned.stage]?.state === "not-reached";
+      const runs = (admitted?.intents ?? []).length > 0 || canonicalStages(original)[pinned.stage]?.state === "not-reached";
       if (runs && !(await revisionAvailable(pinned.lang, pinned.revision))) return deny("revision-retired", record);
     }
     let admitted;

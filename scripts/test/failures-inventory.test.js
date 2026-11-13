@@ -37,6 +37,8 @@ const RETURNED = {
   // Commands (B5): an owner request's refusal, and a payload's problem.
   ownerRefusal: /return "([a-z0-9-]+)";/g,
   requestProblem: /return "([a-z0-9-]+)";/g,
+  // Repairs (B6): the eligibility gates.
+  repairGate: /return "([a-z0-9-]+)";/g,
 };
 
 // Strings the forms also match that aren't refusals: audit annotations of an
@@ -45,7 +47,9 @@ const NOT_REFUSALS = new Set(["canary-during-maintenance", "system-preview", "pu
   // Reconciliation's findings, on allowed outcomes (WRITE-02, W5).
   "applied", "unresolved", "no-evidence", "evidence-format-unknown", "read-failed", "resolution-conflict",
   // Commands (B5): a key the legacy path holds, and a lease taken over.
-  "legacy-key", "takeover"]);
+  "legacy-key", "takeover",
+  // Repairs (B6): a repair admitted, and a verdict recorded in the ledger.
+  "repair", "reconciled"]);
 
 const functionBody = (text, name) => {
   const start = text.search(new RegExp(`const ${name} = `));

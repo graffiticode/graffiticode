@@ -88,6 +88,8 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   ...cat("conflict", [
     "occurrence-claimed", "not-eligible", "nothing-to-repair", "revision-unsupported", "not-recorded", "revision-retired",
     "command-pending", "not-selected", "binding-mismatch", "occurrence-not-claimed",
+    // A repair pinning an input other than the stage's canonical one.
+    "input-conflict",
   ]),
   ...cat("malformed", ["not-original", "kind-mismatch"]),
   // The C6 bridge: a compile that ran as a command, answered with an outcome

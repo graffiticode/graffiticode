@@ -90,12 +90,38 @@ const outputOf = result => {
 // An occurrence's outcomes, settled or held, in the ledger.
 const SETTLED = new Set(["completed", "failed", "partial", "uncertain"]);
 
+// The original's stages as its repairs left them (the owner's review of
+// #386). A stage a repair ran keeps, in the original's `canonical` snapshot,
+// the first pinned input any repair installed for it (every later repair
+// must pin the same) and the latest output, each naming the repair that
+// recorded it. This merges that snapshot over the original's own records:
+// a stage the original never reached and a repair resumed has run, with the
+// repair's input and output.
+const isDigest = v => typeof v === "string" && DIGEST_RE.test(v);
+export const canonicalStages = original => {
+  const own = original?.stages ?? {};
+  const canonical = original?.canonical ?? {};
+  const names = new Set([...Object.keys(own), ...Object.keys(canonical)]);
+  return Object.fromEntries([...names].map(name => {
+    const o = own[name] ?? {};
+    const c = canonical[name];
+    if (!c) return [name, o];
+    return [name, {
+      ...o,
+      state: o.state === "not-reached" || !o.state ? "ran" : o.state,
+      pinnedInput: typeof o.pinnedInput === "string" ? o.pinnedInput : (c.pinnedInput?.digest ?? null),
+      output: c.output ? c.output.digest : o.output,
+    }];
+  }));
+};
+
 // Why a command can't be repaired, or null (decision 11, before any claim):
 // it must be an original command, finished, admitted on revisions that
 // replay (every intent-bearing stage's own preflight said `replay: 1`), and
 // recorded (`recording: 1`), with what the repair and the assembly need:
 // every stage that ran has its output, or for a stage with intents its
-// pinned input, and every stage with a selected occurrence its pinned input.
+// pinned input, and every stage with a selected occurrence its pinned input,
+// from the original's records and its repairs' (canonicalStages).
 export const repairGate = (original, selection = []) => {
   if (!original) return "command-not-found";
   if ((original.kind ?? "command") !== "command") return "not-original";
@@ -105,16 +131,16 @@ export const repairGate = (original, selection = []) => {
   const stages = Object.entries(admission.stages ?? {}) as [string, { intents?: unknown[], replay?: number }][];
   if (stages.some(([, a]) => (a.intents ?? []).length > 0 && a.replay !== 1)) return "revision-unsupported";
   if (admission.recording !== 1) return "not-recorded";
+  const recorded = canonicalStages(original);
   for (const [name, a] of stages) {
-    const own = original.stages?.[name] ?? {};
+    const own = recorded[name] ?? {};
     if (own.state === "not-reached") continue;
     const hasIntents = (a.intents ?? []).length > 0;
     // An output too large to record (`"too-large"`) is no output.
-    const output = typeof own.output === "string" && DIGEST_RE.test(own.output);
-    if (!output && !(hasIntents && typeof own.pinnedInput === "string")) return "not-recorded";
+    if (!isDigest(own.output) && !(hasIntents && typeof own.pinnedInput === "string")) return "not-recorded";
   }
   for (const { stage } of selection) {
-    if (typeof original.stages?.[stage]?.pinnedInput !== "string") return "not-recorded";
+    if (typeof recorded[stage]?.pinnedInput !== "string") return "not-recorded";
   }
   return null;
 };
@@ -143,6 +169,11 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
   const stageOf = (command, stage) => command.stages?.[stage] ?? { state: "pending", expansion: "open", pinnedInput: null };
   const admittedIntents = (command, stage) => command.admission?.stages?.[stage]?.intents ?? null;
   const at = () => new Date(now()).toISOString();
+  // A repair's stage input or output, kept in its original's snapshot.
+  const recordCanonical = (tx, original, stage, patch) => {
+    const canonical = { ...(original.canonical ?? {}), [stage]: { ...(original.canonical?.[stage] ?? {}), ...patch } };
+    tx.set(cmdPath(original.commandId), { ...original, canonical, updatedAt: at() });
+  };
 
   // Every occurrence of an original command, with its current outcome (B6
   // decisions 1 and 4): `current` is the ledger's settled outcome, else the
@@ -208,18 +239,28 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
     // §5: a stage's pinned input, installed once; a later owner gets the first.
     // A command that records outputs (B6, decision 5) pins exactly the output
     // recorded for the stage below: the two can't diverge.
+    // A repair (B6) pins the stage's canonical input when it has one, from
+    // the original or an earlier repair (`input-conflict` otherwise), and
+    // otherwise records its own as the canonical one; the output below is
+    // its own, or else the canonical one.
     installInput: ({ commandId, generation, stage, text }) => owned(commandId, generation, async (tx, command) => {
       requireStage(stage);
       requirePayload(text);
       if (command.phase !== "admitted") throw new CommandRefused("not-admitted");
+      const original = command.kind === "repair" ? await tx.get(cmdPath(command.repairOf)) : null;
+      const recorded = original ? canonicalStages(original) : null;
+      const digest = sha256(text);
+      const canonicalInput = recorded?.[stage]?.pinnedInput;
+      if (typeof canonicalInput === "string" && canonicalInput !== digest) throw new CommandRefused("input-conflict", { stage });
       if (command.admission?.recording === 1) {
-        const below = stageOf(command, stageBelow(stage)).output;
-        if (typeof below === "string" && below !== sha256(text)) throw new CommandRefused("input-not-output");
+        const below = stageOf(command, stageBelow(stage)).output ?? recorded?.[stageBelow(stage)]?.output;
+        if (typeof below === "string" && below !== digest) throw new CommandRefused("input-not-output");
       }
-      const { installed, created } = await installOnce(tx, sub(commandId, "inputs", stage), { stage, text, digest: sha256(text) });
+      const { installed, created } = await installOnce(tx, sub(commandId, "inputs", stage), { stage, text, digest });
       if (created) {
         const stages = { ...command.stages, [stage]: { ...stageOf(command, stage), pinnedInput: installed.digest } };
         touch(tx, command, { stages });
+        if (original && typeof canonicalInput !== "string") recordCanonical(tx, original, stage, { pinnedInput: { digest: installed.digest, commandId } });
       }
       return { stage, digest: installed.digest, text: installed.text };
     }),
@@ -229,14 +270,17 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
     // another is refused. An output over the payload limit is recorded as too
     // large, never truncated: that stage can't be materialized, and recovery
     // above it falls back to the pinned input.
+    // A repair's output (B6) is also its original's latest for the stage.
     installOutput: ({ commandId, generation, stage, text }) => owned(commandId, generation, async (tx, command) => {
       requireStage(stage);
       if (command.phase !== "admitted") throw new CommandRefused("not-admitted");
       if (!command.admission?.stages?.[stage]) throw new CommandRefused("bad-request");
+      const original = command.kind === "repair" ? await tx.get(cmdPath(command.repairOf)) : null;
       const problem = payloadProblem(text);
       if (problem === "input-too-large") {
         if (stageOf(command, stage).output === undefined) {
           touch(tx, command, { stages: { ...command.stages, [stage]: { ...stageOf(command, stage), output: "too-large" } } });
+          if (original) recordCanonical(tx, original, stage, { output: { digest: "too-large", commandId } });
         }
         return { stage, tooLarge: true };
       }
@@ -248,6 +292,7 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
         return { stage, digest };
       }
       touch(tx, command, { stages: { ...command.stages, [stage]: { ...stageOf(command, stage), output: digest } } });
+      if (original) recordCanonical(tx, original, stage, { output: { digest, commandId } });
       return { stage, digest };
     }),
 
@@ -468,16 +513,27 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       // intents are all static, closed at admission — when every admitted
       // occurrence has an outcome, so a revoked connection can't keep a fully
       // settled stage open (§4, §7).
-      // A repair runs only some stages: the ones it touched decide.
+      // A repair runs only some stages: the ones it touched (ran, bound in,
+      // pinned or recorded an output for) decide.
       const boundStages = new Set(occurrences.map(o => o.stage));
-      const stages = Object.entries(command.admission?.stages ?? {}).filter(([name]) => !repair || stageOf(command, name).state !== "pending" || boundStages.has(name)).map(([name, s]) => {
+      const touched = name => {
+        const own = stageOf(command, name);
+        return own.state !== "pending" || boundStages.has(name) || typeof own.output === "string" || typeof own.pinnedInput === "string";
+      };
+      const stages = Object.entries(command.admission?.stages ?? {}).filter(([name]) => !repair || touched(name)).map(([name, s]) => {
         const intents = (s as { intents?: { id: string, runtime?: boolean, occurrences?: string[] }[] }).intents ?? [];
         const own = stageOf(command, name);
         const allStatic = intents.length > 0 && intents.every(i => !i.runtime);
         const settled = allStatic && intents.every(i => (i.occurrences ?? []).every(occ => outcomes.has(docKey(name, occ))));
         return { ...own, ...(settled ? { state: "ran", expansion: "closed" } : {}), hasIntents: intents.length > 0 };
       });
-      const status = aggregateStatus({ operations, stages });
+      // A repair with no operations of its own (one that only resumed stages
+      // with no effects, 7b) completed when every stage it touched finished
+      // and it recorded a result; anything short of that wrote nothing, and
+      // failed. Otherwise, as any command.
+      const status = repair && operations.length === 0
+        ? (result !== null && stages.length > 0 && stages.every(st => st.state !== "not-reached" && (!st.hasIntents || (st.state === "ran" && st.expansion === "closed"))) ? "completed" : "failed")
+        : aggregateStatus({ operations, stages });
       const counts = { ...command.counts, completed: 0, failed: 0, partial: 0, uncertain: 0 };
       for (const o of operations) counts[o.outcome]++;
       const available = result !== null;

@@ -429,3 +429,105 @@ describe("who may own a repair", () => {
     expect(await policy.leaseCommand({ caller: GATEWAY, commandId: repair.commandId, worker: "new", generation: 1, takeOver: true, recording: 1, repairs: 1 })).toMatchObject({ generation: 2 });
   });
 });
+
+// The owner's review of #386.
+describe("a repair's key, retried", () => {
+  it("answers the same repair after admission, and after it finished, by default or naming its selection", async () => {
+    await runOriginal();
+    const repair = await repairOf();
+    await admitRepair(repair);
+    expect(await repairOf()).toMatchObject({ commandId: repair.commandId, reused: true, owned: false, phase: "admitted" });
+    expect(await repairOf({ occurrences: [{ stage: "s1", occurrenceId: B(1) }] })).toMatchObject({ commandId: repair.commandId, reused: true });
+    await repairBind(repair, B(1));
+    receipts.push({ operationId: `${repair.invocationId}/s1/${B(1)}`, status: "succeeded", recorded: true, steps: [], result: { saved: true } });
+    await settle(repair.commandId);
+    await writeAs(repair.commandId)("closeStage", { stage: "s1", occurrences: { batch: [B(1)] } });
+    await writeAs(repair.commandId)("finish", { result: null });
+    expect(await repairOf()).toMatchObject({ commandId: repair.commandId, reused: true, status: "completed" });
+  });
+
+  it("refuses the key for another selection or another original, and keeps the owner and access checks first", async () => {
+    await runOriginal();
+    const repair = await repairOf();
+    await admitRepair(repair);
+    await denied(repairOf({ occurrences: [{ stage: "s1", occurrenceId: "n1.0" }] }), "idempotency-key-reused");
+    await denied(policy.allocateRepair({ caller: GATEWAY, user: { uid: OTHER }, commandId: original.commandId, idempotencyKey: "repair-1", worker: "w" }), "command-not-found");
+    await connections.put({ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "disabled" });
+    await denied(repairOf(), "connection-disabled");
+  });
+});
+
+describe("a stage a repair resumed", () => {
+  // Both stages are L0176. The original completes s1 and never reaches s0; a
+  // first repair resumes s0, whose save fails.
+  const resumedThenFailed = async () => {
+    const command = await policy.allocateCommand({
+      caller: GATEWAY, user: { uid: OWNER }, connectionId: "conn-1", taskId: encodeChainId(TASKS), inputDigest: hex("9"), idempotencyKey: "two-stages", lang: "0176", request: "{}", worker: "api-1",
+    });
+    const write = writeAs(command.commandId);
+    for (const stage of ["s0", "s1"]) await write("installModel", { stage, text: MODEL_S1 });
+    const m = manifests()[1];
+    await policy.admitCommand({ caller: GATEWAY, commandId: command.commandId, generation: 1, taskIds: TASKS, stages: [{ ...m, stage: "s0" }, m], recording: 1 });
+    await write("installInput", { stage: "s1", text: "{\"data\":{\"items\":[1]}}" });
+    await write("bindOccurrence", { stage: "s1", occurrenceId: "n1.0", intentId: "save", args: ARGS, argd: ARGD });
+    receipts.push({ operationId: `${command.invocationId}/s1/n1.0`, status: "succeeded", recorded: true, steps: [], result: { saved: true, references: ["tail"] } });
+    await settle(command.commandId);
+    await write("closeStage", { stage: "s1", occurrences: { save: ["n1.0"], batch: [] } });
+    await write("installOutput", { stage: "s1", text: "{\"data\":{\"items\":[1]}}" });
+    await write("markNotReached", { stages: ["s0"] });
+    original = await write("finish", { result: null });
+    const first = await repairOf({ idempotencyKey: "resume-head" });
+    expect(first.selection).toEqual([]);
+    await admitRepair(first);
+    await writeAs(first.commandId)("installInput", { stage: "s0", text: "{\"data\":{\"items\":[1]}}" });
+    await writeAs(first.commandId)("bindOccurrence", { stage: "s0", occurrenceId: "n1.0", intentId: "save", args: ARGS, argd: ARGD });
+    receipts.push({ operationId: `${first.invocationId}/s0/n1.0`, status: "failed", recorded: true, steps: [] });
+    await settle(first.commandId);
+    await writeAs(first.commandId)("closeStage", { stage: "s0", occurrences: { save: ["n1.0"], batch: [] } });
+    await writeAs(first.commandId)("finish", { result: null });
+    return first;
+  };
+
+  it("keeps the first repair's input as the stage's canonical one, and its failure is repairable by another", async () => {
+    const first = await resumedThenFailed();
+    const snapshot = commandStore.commands.get(original.commandId).canonical;
+    expect(snapshot.s0.pinnedInput).toMatchObject({ commandId: first.commandId });
+    const entries = await records.listLedger(original.commandId);
+    expect(entries.find(e => e.stage === "s0" && e.occurrenceId === "n1.0").status).toBe("failed");
+    const second = await repairOf({ idempotencyKey: "retry-head", occurrences: [{ stage: "s0", occurrenceId: "n1.0" }] });
+    expect(second.selection).toEqual([{ stage: "s0", occurrenceId: "n1.0" }]);
+    await admitRepair(second);
+    // It must pin the canonical input, and nothing else.
+    await expect(writeAs(second.commandId)("installInput", { stage: "s0", text: "{\"data\":{\"items\":[2]}}" })).rejects.toMatchObject({ reason: "input-conflict" });
+    expect(await writeAs(second.commandId)("installInput", { stage: "s0", text: "{\"data\":{\"items\":[1]}}" })).toMatchObject({ stage: "s0" });
+    expect(await repairBind(second, "n1.0", { stage: "s0" })).toMatchObject({ bound: true });
+    expect(commandStore.commands.get(original.commandId).canonical.s0.pinnedInput.commandId).toBe(first.commandId);
+  });
+});
+
+describe("a repair that only resumes a stage with no effects (7b)", () => {
+  it("completes with the result it recorded", async () => {
+    await runOriginal({ batch: "succeeded" });
+    const repair = await repairOf();
+    expect(repair.selection).toEqual([]);
+    await admitRepair(repair);
+    await writeAs(repair.commandId)("installOutput", { stage: "s0", text: "{\"data\":{\"count\":2},\"errors\":[]}" });
+    const done = await writeAs(repair.commandId)("finish", { result: "{\"count\":2}" });
+    expect(done).toMatchObject({ status: "completed", result: { state: "available" }, publication: { state: "none" } });
+    // Its output is the stage's, in the original's snapshot.
+    expect(commandStore.commands.get(original.commandId).canonical.s0.output).toMatchObject({ commandId: repair.commandId });
+  });
+
+  it("fails when it recorded no result, or touched no stage", async () => {
+    await runOriginal({ batch: "succeeded" });
+    const repair = await repairOf();
+    const idle = await repairOf({ idempotencyKey: "idle" });
+    await admitRepair(repair);
+    await admitRepair(idle);
+    expect((await writeAs(idle.commandId)("finish", { result: "{}" })).status).toBe("failed");
+    await writeAs(repair.commandId)("installOutput", { stage: "s0", text: "{\"data\":{\"count\":2},\"errors\":[]}" });
+    expect((await writeAs(repair.commandId)("finish", { result: null })).status).toBe("failed");
+    // Once a repair recorded s0's output, there is nothing left to resume.
+    await denied(repairOf({ idempotencyKey: "later" }), "nothing-to-repair");
+  });
+});
