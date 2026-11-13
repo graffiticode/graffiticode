@@ -548,3 +548,33 @@ describe("the repair flag for a composed command", () => {
     expect(provider).toHaveLength(0);
   });
 });
+
+// The owner's review of #389: the drive's call evidence. Every call to a
+// stage's service is logged against its command, and so is a stage taken
+// from its recorded output instead.
+describe("call evidence", () => {
+  it("names each call materialization makes, and each stage it didn't run", async () => {
+    faults.drop = new Set(["one-n1.0"]);
+    const { command } = await run(ONE);
+    reconciled = () => [{ operationId: `${command.invocationId}/s0/n1.0`, verdict: "applied", final: true, result: { saved: provider[0], ref: "one-n1.0" }, resultSource: "evidence" }];
+    await policy.reconcile({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", invocationId: command.invocationId });
+    const lines = [];
+    const out = await materializeCommand({ policy: client(), language, artifactStorer: artifacts, commandId: command.commandId, registryVersion: REGISTRY_VERSION, form: ARTIFACT_RESULT_FORM, log: line => lines.push(line) });
+    expect(out).toEqual({ ok: true, published: "current" });
+    expect(lines).toEqual([
+      `command ${command.commandId}: s1 from its recorded output, not run`,
+      `command ${command.commandId}: call materialize s0 L0176 at ${TAG("0176")}`,
+    ]);
+  });
+
+  it("names each call a repair makes", async () => {
+    faults.reject = new Set(["ab-n1.1"]);
+    const { command } = await run(AB);
+    faults.reject = new Set();
+    const repair = await client().allocateRepair({ commandId: command.commandId, idempotencyKey: "repair-1", worker: "w-repair" });
+    const lines = [];
+    const worker = buildCommandWorker({ policy: client(), taskStorer: tasksOf, language, artifactStorer: artifacts, worker: "w-repair", setInterval: () => null, clearInterval: () => {}, log: line => lines.push(line) });
+    await worker({ commandId: repair.commandId, generation: 1 });
+    expect(lines.filter(l => l.includes(": call "))).toEqual([`command ${repair.commandId}: call start s0 L0176 at ${TAG("0176")} (repair, with its recorded occurrences)`]);
+  });
+});

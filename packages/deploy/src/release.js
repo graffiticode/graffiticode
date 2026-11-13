@@ -209,11 +209,14 @@ export function flagGenerationProblems(before, after) {
 // keeps it (--update-env-vars keeps every variable it isn't given), so deleting
 // the line doesn't turn the flag off. The B5 rehearsal (2026-11-06) found this:
 // "removing" INTERPRETER_L0179 left it on in production. A flag is turned off by
-// value ("off"), or removed explicitly with removeEnv.
+// value ("off"), or removed explicitly with removeEnv. B6's REPAIR_LNNNN is
+// such a flag too (the owner's review of #389); it changes no compiled
+// result, so it isn't tied to a compile generation (flagGenerationProblems).
+const MANAGED_FLAG_RE = /^(INTERPRETER|COMMANDS|REPAIR)_L\d{4}$/;
 export function unmanagedFlagProblems(before, config) {
   const env = config.env || {};
   const removed = new Set(config.removeEnv || []);
-  return Object.keys(before).filter(name => FLAG_RE.test(name) && !(name in env) && !removed.has(name)).sort();
+  return Object.keys(before).filter(name => MANAGED_FLAG_RE.test(name) && !(name in env) && !removed.has(name)).sort();
 }
 const describeFlagProblems = problems => problems.map(p => `${p.flags.join(" and ")} change${p.flags.length > 1 ? "" : "s"} but ${p.generation} doesn't`).join("; ");
 

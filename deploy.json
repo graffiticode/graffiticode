@@ -546,6 +546,11 @@
           "milestone": "B6-recording",
           "commit": "d322c227a019abbe10d50108398764aee8e5d2d0",
           "floor": true
+        },
+        {
+          "milestone": "B6-repairs",
+          "commit": "2ce1433542edc995787dede3683a5527a5218171",
+          "floor": true
         }
       ],
       "minInstances": 0,
