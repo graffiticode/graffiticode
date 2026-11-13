@@ -188,7 +188,13 @@ Each has a recommendation; the plan below assumes it.
      - the latest output any repair recorded for it;
      - each naming the repair that recorded it.
 
-     The gates, the resume check and `revision-retired` read the original's stages merged with this snapshot. A resumed stage counts as having run, with that input and output, so a failure in it can be repaired again, and a stage a repair already resumed isn't resumed again.
+     The gates, the resume check and `revision-retired` read the original's stages merged with this snapshot. A failure in a resumed stage can therefore be repaired again.
+
+     A resumed stage counts as having run only once a repair has recorded its output (the owner's review of 8c97a0d9). If a repair stopped after pinning the stage's input, the stage stays resumable, and the next repair pins the same input.
+
+     **Reads.** `records/state` includes `canonical`. On an original, `records/input` and `records/output` resolve to the canonical record, and a new `from` field names the command it is in:
+     - **output:** the latest repair's output for the stage, otherwise the original's own; `{ output: null, tooLarge: true }` when the latest is too large;
+     - **input:** the original's own pinned input, otherwise the first repair's.
    - **The gates in detail** (`repairGate`, applied the same way at allocation and in the claim's transaction, over the merged stages):
      - every intent-bearing stage's admitted manifest says `replay: 1`;
      - the admission says `recording: 1`;

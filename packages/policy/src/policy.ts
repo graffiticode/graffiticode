@@ -489,15 +489,29 @@ export const createPolicy = ({
     // artifact is bound to. Never the request or any payload.
     if (what === "state") {
       const connection = await connections.get(command.connectionId);
-      const { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, admissionRefusal, repairOf, selection } = command;
-      return { commandId: id, kind: command.kind ?? "command", ...(repairOf ? { repairOf, selection } : {}), uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, ...(admissionRefusal ? { admissionRefusal } : {}), generation: command.owner.generation, leaseExpiresAt: command.owner.leaseExpiresAt, ownerUid: connection?.ownerUid ?? null };
+      const { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, admissionRefusal, repairOf, selection, canonical } = command;
+      // An original's canonical snapshot (B6): its repairs' stage inputs and
+      // outputs, each naming the repair that recorded it.
+      return { commandId: id, kind: command.kind ?? "command", ...(repairOf ? { repairOf, selection } : {}), ...(canonical ? { canonical } : {}), uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, ...(admissionRefusal ? { admissionRefusal } : {}), generation: command.owner.generation, leaseExpiresAt: command.owner.leaseExpiresAt, ownerUid: connection?.ownerUid ?? null };
     }
     if (what === "request") return { text: await commands.getRequest(commandId) };
     if (what === "models") return { models: await commandRecords.getModels(commandId) };
     if (what === "input" || what === "output") {
       if (typeof stage !== "string" || !/^s\d{1,3}$/.test(stage)) return deny("bad-request", record);
-      if (what === "output") return { output: await commandRecords.getOutput(commandId, stage) };
-      return { input: await commandRecords.getInput(commandId, stage) };
+      // An original's reads resolve to its canonical records (B6): a stage's
+      // latest output, from the repair that recorded it when one did, and
+      // its pinned input, from the first repair that pinned it when the
+      // original didn't. `from` names the command the record is in.
+      const canonical = command.kind === "repair" ? null : command.canonical?.[stage] ?? null;
+      if (what === "output") {
+        const from = canonical?.output?.commandId ?? commandId;
+        if (canonical?.output?.digest === "too-large") return { output: null, tooLarge: true, from };
+        const output = await commandRecords.getOutput(from, stage);
+        return { output, from: output ? from : null };
+      }
+      const own = await commandRecords.getInput(commandId, stage);
+      if (own || !canonical?.pinnedInput) return { input: own, from: own ? commandId : null };
+      return { input: await commandRecords.getInput(canonical.pinnedInput.commandId, stage), from: canonical.pinnedInput.commandId };
     }
     if (what === "result") return { result: await commandRecords.getResult(commandId) };
     if (what === "occurrences") return { occurrences: await commandRecords.listOccurrences(commandId) };

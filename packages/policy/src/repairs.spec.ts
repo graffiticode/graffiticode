@@ -531,3 +531,60 @@ describe("a repair that only resumes a stage with no effects (7b)", () => {
     await denied(repairOf({ idempotencyKey: "later" }), "nothing-to-repair");
   });
 });
+
+// The owner's review of 8c97a0d9.
+describe("the canonical snapshot", () => {
+  // Both stages are L0176; the original completes s1 and never reaches s0.
+  const unreachedSave = async () => {
+    const command = await policy.allocateCommand({
+      caller: GATEWAY, user: { uid: OWNER }, connectionId: "conn-1", taskId: encodeChainId(TASKS), inputDigest: hex("9"), idempotencyKey: "unreached-save", lang: "0176", request: "{}", worker: "api-1",
+    });
+    const write = writeAs(command.commandId);
+    for (const stage of ["s0", "s1"]) await write("installModel", { stage, text: MODEL_S1 });
+    const m = manifests()[1];
+    await policy.admitCommand({ caller: GATEWAY, commandId: command.commandId, generation: 1, taskIds: TASKS, stages: [{ ...m, stage: "s0" }, m], recording: 1 });
+    await write("installInput", { stage: "s1", text: "{\"data\":{\"items\":[1]}}" });
+    await write("bindOccurrence", { stage: "s1", occurrenceId: "n1.0", intentId: "save", args: ARGS, argd: ARGD });
+    receipts.push({ operationId: `${command.invocationId}/s1/n1.0`, status: "succeeded", recorded: true, steps: [], result: { saved: true, references: ["tail"] } });
+    await settle(command.commandId);
+    await write("closeStage", { stage: "s1", occurrences: { save: ["n1.0"], batch: [] } });
+    await write("installOutput", { stage: "s1", text: "{\"data\":{\"items\":[1]}}" });
+    await write("markNotReached", { stages: ["s0"] });
+    original = await write("finish", { result: null });
+  };
+  const read = (what, stage = null) => policy.commandRead({ caller: GATEWAY, commandId: original.commandId, what, stage });
+
+  it("leaves a stage resumable when a repair only pinned it, and the next repair pins the same input", async () => {
+    await unreachedSave();
+    const first = await repairOf({ idempotencyKey: "pin-only" });
+    await admitRepair(first);
+    await writeAs(first.commandId)("installInput", { stage: "s0", text: "{\"data\":{\"items\":[1]}}" });
+    await connections.put({ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "disabled" });
+    await denied(policy.commandSession({ caller: GATEWAY, commandId: first.commandId, generation: 1, stage: "s0" }), "connection-disabled");
+    expect((await writeAs(first.commandId)("finish", { result: null })).status).toBe("failed");
+    await connections.put({ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "active" });
+    const second = await repairOf({ idempotencyKey: "resume-after-pin" });
+    expect(second.selection).toEqual([]);
+    await admitRepair(second);
+    await expect(writeAs(second.commandId)("installInput", { stage: "s0", text: "{\"data\":{\"items\":[2]}}" })).rejects.toMatchObject({ reason: "input-conflict" });
+    // The original's input read resolves to the first repair's pin.
+    const { input, from } = await read("input", "s0");
+    expect([JSON.parse(input.text), from]).toEqual([{ data: { items: [1] } }, first.commandId]);
+  });
+
+  it("is visible through the original's reads: the state names it, and input and output resolve to it", async () => {
+    await runOriginal({ batch: "succeeded" });
+    const repair = await repairOf();
+    await admitRepair(repair);
+    await writeAs(repair.commandId)("installOutput", { stage: "s0", text: "{\"data\":{\"count\":2},\"errors\":[]}" });
+    await writeAs(repair.commandId)("finish", { result: "{\"count\":2}" });
+    const state = await read("state");
+    expect(state.canonical.s0.output).toMatchObject({ commandId: repair.commandId, digest: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    const { output, from } = await read("output", "s0");
+    expect([JSON.parse(output.text), from]).toEqual([{ data: { count: 2 }, errors: [] }, repair.commandId]);
+    // A stage only the original recorded reads as before, from the original.
+    const own = await read("output", "s1");
+    expect([JSON.parse(own.output.text), own.from]).toEqual([{ data: { saved: true } }, original.commandId]);
+    expect(await read("input", "s0")).toEqual({ input: null, from: null });
+  });
+});

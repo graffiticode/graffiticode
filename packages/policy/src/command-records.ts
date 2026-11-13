@@ -94,9 +94,10 @@ const SETTLED = new Set(["completed", "failed", "partial", "uncertain"]);
 // #386). A stage a repair ran keeps, in the original's `canonical` snapshot,
 // the first pinned input any repair installed for it (every later repair
 // must pin the same) and the latest output, each naming the repair that
-// recorded it. This merges that snapshot over the original's own records:
-// a stage the original never reached and a repair resumed has run, with the
-// repair's input and output.
+// recorded it. This merges that snapshot over the original's own records.
+// A stage the original never reached has run only once a repair recorded its
+// output: a pinned input alone (a repair that stopped before finishing it)
+// leaves it resumable, though every later repair pins that input.
 const isDigest = v => typeof v === "string" && DIGEST_RE.test(v);
 export const canonicalStages = original => {
   const own = original?.stages ?? {};
@@ -108,7 +109,7 @@ export const canonicalStages = original => {
     if (!c) return [name, o];
     return [name, {
       ...o,
-      state: o.state === "not-reached" || !o.state ? "ran" : o.state,
+      state: c.output && (o.state === "not-reached" || !o.state) ? "ran" : o.state,
       pinnedInput: typeof o.pinnedInput === "string" ? o.pinnedInput : (c.pinnedInput?.digest ?? null),
       output: c.output ? c.output.digest : o.output,
     }];
