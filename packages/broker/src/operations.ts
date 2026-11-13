@@ -132,6 +132,28 @@ export const observeRecord = ({ kind, digest }, stored, operationId) => {
   };
 };
 
+// B6 (docs/b6-command-repair-plan.md decision 2): a save's result rebuilt from
+// its claim's evidence alone, exactly as `run` returns it. The evidence is
+// recorded before any provider request and never changes, and it names every
+// record the save writes, under the references B1's mapping fixed, in
+// dispatch order: questions first, then items. So once reconciliation has
+// established that every record landed (`applied`), this is what the save
+// returned, even when its outcome was never recorded. Null for evidence this
+// can't read; reconciliation leaves such a receipt unresolved anyway.
+export const writeResultFromEvidence = evidence => {
+  if (!evidence || evidence.format !== EVIDENCE_FORMAT || !Array.isArray(evidence.records)) return null;
+  const refs = kind => evidence.records.filter(r => r?.kind === kind).map(r => r.reference);
+  if (!evidence.records.every(r => (r?.kind === "question" || r?.kind === "item") && typeof r.reference === "string")) return null;
+  const questionReferences = refs("question");
+  const itemReferences = refs("item");
+  if (!questionReferences.length) return null;
+  return {
+    saved: true,
+    references: itemReferences.length ? itemReferences : questionReferences,
+    questionReferences,
+  };
+};
+
 // The records as Broker sends them: each carries this operation's mark.
 const marked = ({ questionRecords, itemRecords }, operationId) => ({
   questionRecords: questionRecords.map(q => ({ ...q, data: { ...q.data, metadata: { ...withoutMark(q.data.metadata ?? {}), [MARK_KEY]: operationId } } })),
@@ -288,6 +310,8 @@ export const buildOperations = ({ sdk, domain, dataApi, previewExpiresMinutes = 
       // `evidence` and `run`.
       references: providerReferences,
       evidence: writeEvidence,
+      // B6: the result an `applied` reconciliation establishes (decision 2).
+      resultFromEvidence: writeResultFromEvidence,
       // Reconciliation's read (WRITE-02): the stored records for exactly the
       // references the claim's evidence names, never anything else. Reads
       // only; returns { question: Map, item: Map } by reference.

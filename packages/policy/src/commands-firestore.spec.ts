@@ -169,4 +169,27 @@ run("command records in Firestore", () => {
     expect(ids).not.toContain(done.commandId);
     expect((await commands.listDue({ now: T0, limit: 50 })).map(c => c.commandId)).not.toContain(pending.commandId);
   });
+
+  // B6 slice 2: a worker that doesn't record outputs reads on past the
+  // recording commands it can't own, a page at a time, to the ones it can.
+  it("lists, to a worker that doesn't record, the commands it may own past a page of ones it can't", async () => {
+    const paged = createFirestoreCommandStore(db, { duePage: 2 });
+    const now = T0 + COMMAND_LEASE_MS + 1;
+    // Every other due command in the emulator, from earlier tests, is set
+    // recording too, so the one legacy command below is the only ownable one.
+    const ids = [];
+    for (let i = 0; i < 5; i++) ids.push((await allocate({ idempotencyKey: `rec-${i}-${uid}` })).command.commandId);
+    const legacy = (await allocate({ idempotencyKey: `legacy-${uid}` })).command.commandId;
+    for (const d of (await db.collection("commands").where("status", "==", "pending").get()).docs) {
+      if (d.id !== legacy) await d.ref.update({ "admission.recording": 1 });
+    }
+    for (const d of (await db.collection("commands").where("publication.state", "==", "due").get()).docs) {
+      if (d.id !== legacy) await d.ref.update({ "admission.recording": 1 });
+    }
+    // The legacy command expires last, behind every recording one.
+    await db.collection("commands").doc(legacy).update({ "owner.leaseExpiresAt": now - 1 });
+    expect((await paged.listDue({ now, limit: 1 })).map(c => c.commandId)).toEqual([legacy]);
+    const all = (await paged.listDue({ now, limit: 50, recording: 1 })).map(c => c.commandId);
+    expect(all).toEqual(expect.arrayContaining([...ids, legacy]));
+  }, 30_000);
 });

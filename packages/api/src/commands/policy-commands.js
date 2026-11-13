@@ -21,14 +21,18 @@ export const buildPolicyCommands = ({ policyUrl, idToken, fetch: doFetch = fetch
     allocate: ({ authToken, connectionId, taskId, inputDigest, idempotencyKey, lang, request: text, worker, create = true }) =>
       call("POST", "/v1/commands", { authToken, body: { connectionId, taskId, inputDigest, idempotencyKey, lang, request: text, worker, create } }),
     get: ({ commandId, authToken = null }) => call("GET", at(commandId), { authToken }),
-    due: ({ limit = 20 } = {}) => call("GET", `/v1/commands-due?limit=${limit}`),
-    lease: ({ commandId, worker, generation, takeOver = false }) => call("POST", `${at(commandId)}/lease`, { body: { worker, generation, takeOver } }),
+    // This worker records stage outputs (B6, decision 5), and says so on every
+    // lease and sweep: Policy gives a recording command only to a worker that
+    // does, and lists it as due only to one.
+    due: ({ limit = 20 } = {}) => call("GET", `/v1/commands-due?limit=${limit}&recording=1`),
+    lease: ({ commandId, worker, generation, takeOver = false }) => call("POST", `${at(commandId)}/lease`, { body: { worker, generation, takeOver, recording: 1 } }),
     read: ({ commandId, what, stage = null }) => call("GET", `${at(commandId)}/records/${what}${stage ? `?stage=${encodeURIComponent(stage)}` : ""}`),
     installModel: ({ commandId, generation, stage, text, revision = null, tagUrl = null }) =>
       call("PUT", `${at(commandId)}/models/${stage}`, { body: { generation, text, revision, tagUrl } }),
-    admit: ({ commandId, generation, taskIds, stages }) => call("POST", `${at(commandId)}/admit`, { body: { generation, taskIds, stages } }),
+    admit: ({ commandId, generation, taskIds, stages, recording = 0 }) => call("POST", `${at(commandId)}/admit`, { body: { generation, taskIds, stages, recording } }),
     session: ({ commandId, generation, stage }) => call("POST", `${at(commandId)}/session`, { body: { generation, stage } }),
     installInput: ({ commandId, generation, stage, text }) => call("PUT", `${at(commandId)}/inputs/${stage}`, { body: { generation, text } }),
+    installOutput: ({ commandId, generation, stage, text }) => call("PUT", `${at(commandId)}/outputs/${stage}`, { body: { generation, text } }),
     closeStage: ({ commandId, generation, stage, occurrences }) => call("POST", `${at(commandId)}/stages/${stage}/close`, { body: { generation, occurrences } }),
     notReached: ({ commandId, generation, stages }) => call("POST", `${at(commandId)}/not-reached`, { body: { generation, stages } }),
     settle: ({ commandId, generation }) => call("POST", `${at(commandId)}/settle`, { body: { generation } }),

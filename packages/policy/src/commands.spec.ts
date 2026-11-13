@@ -230,6 +230,21 @@ describe("commands due for recovery", () => {
     expect((await policy.dueCommands({ caller: GATEWAY, limit: 1 })).commands.map(d => d.commandId)).toEqual([a.commandId]);
   });
 
+  // B6 slice 2: a command admitted as recording is listed only to a worker
+  // that records outputs, and never counts toward another's limit.
+  it("lists a recording command only to a recording worker, choosing before the limit", async () => {
+    const a = await allocate({ idempotencyKey: "key-a" });
+    clock += 1000;
+    const b = await allocate({ idempotencyKey: "key-b" });
+    const c = commandStore.commands.get(a.commandId);
+    commandStore.commands.set(a.commandId, { ...c, admission: { ...(c.admission ?? {}), recording: 1 } });
+    clock += COMMAND_LEASE_MS + 1000;
+    expect((await policy.dueCommands({ caller: GATEWAY, limit: 1 })).commands.map(d => d.commandId)).toEqual([b.commandId]);
+    expect((await policy.dueCommands({ caller: GATEWAY, limit: 1, recording: 1 })).commands.map(d => d.commandId)).toEqual([a.commandId]);
+    expect((await policy.dueCommands({ caller: GATEWAY, recording: 1 })).commands.map(d => d.commandId)).toEqual([a.commandId, b.commandId]);
+    await denied(policy.dueCommands({ caller: GATEWAY, recording: 2 }), "bad-request");
+  });
+
   it("is the gateway's only, within its limit", async () => {
     await denied(policy.dueCommands({ caller: { role: "compiler", lang: "0176" } }), "caller-not-entry-point");
     await denied(policy.dueCommands({ caller: GATEWAY, limit: 500 }), "bad-request");

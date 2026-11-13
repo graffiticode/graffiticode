@@ -8,7 +8,12 @@
 // as uncertain, with the steps that were persisted.
 //
 //   readReceipts({ invocationId, operationIds? })
-//     -> { invocationId, operations: [{ operationId, binding, status, steps, claimedAt, recorded, reason?, failedStep?, category? }] }
+//     -> { invocationId, operations: [{ operationId, binding, status, steps, claimedAt, recorded, result?, resolution?, reason?, failedStep?, category? }] }
+//
+// B6 (docs/b6-command-repair-plan.md decision 5): a recorded outcome's
+// `result` (what the operation returned; null when it returned nothing), and
+// a final reconciliation's `resolution` ({ verdict, result, resultSource }),
+// so Policy records what each occurrence produced.
 
 export class ReceiptReadRefused extends Error {
   declare reason: string;
@@ -46,6 +51,10 @@ export const createReceiptReader = ({ receipts }) =>
     const operations = [];
     for (const claim of claims) {
       const outcome = await receipts.getOutcome(claim.operationId);
+      const final = await receipts.getResolution(claim.operationId);
+      const resolution = final && "resultSource" in final
+        ? { resolution: { verdict: final.verdict, result: final.result ?? null, resultSource: final.resultSource } }
+        : {};
       operations.push(outcome
         ? {
             operationId: claim.operationId,
@@ -54,7 +63,9 @@ export const createReceiptReader = ({ receipts }) =>
             recorded: true,
             status: outcome.status,
             steps: outcome.steps ?? [],
+            result: outcome.result ?? null,
             ...defined({ reason: outcome.reason, failedStep: outcome.failedStep, category: outcome.category }),
+            ...resolution,
           }
         : {
             operationId: claim.operationId,
@@ -63,6 +74,7 @@ export const createReceiptReader = ({ receipts }) =>
             recorded: false,
             status: "uncertain",
             steps: await receipts.getSteps(claim.operationId),
+            ...resolution,
           });
     }
     operations.sort((a, b) => (a.operationId < b.operationId ? -1 : a.operationId > b.operationId ? 1 : 0));

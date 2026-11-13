@@ -35,9 +35,25 @@ describe("createReceiptReader", () => {
     expect(operations[2]).toMatchObject({ reason: "provider-rejected", category: "conflict", binding: BINDING });
   });
 
-  it("never returns an operation's provider result", async () => {
+  // B6 (docs/b6-command-repair-plan.md decision 5): what each recorded write
+  // returned, so Policy records its output. Only writes have receipts, so this
+  // is never a signed preview request.
+  it("returns a recorded outcome's result, and nothing for a claim without one", async () => {
     const { operations } = await read({ invocationId: INV });
-    expect(operations.every(o => !("result" in o))).toBe(true);
+    expect(operations.map(o => [o.operationId, o.result])).toEqual([
+      [`${INV}/s0/a.0`, { saved: true }],
+      [`${INV}/s0/a.1`, undefined],
+      [`${INV}/s1/b.0`, null],
+    ]);
+  });
+
+  it("returns a final reconciliation's result beside the claim", async () => {
+    await receipts.createResolution(`${INV}/s0/a.1`, { verdict: "applied", attemptId: "a1", decisionId: "d1", result: { saved: true, references: ["r"] }, resultSource: "evidence" });
+    // A resolution made before B6 carries no result, and none is reported.
+    await receipts.createResolution(`${INV}/s1/b.0`, { verdict: "applied", attemptId: "a2", decisionId: "d2" });
+    const { operations } = await read({ invocationId: INV });
+    expect(operations[1]).toMatchObject({ recorded: false, status: "uncertain", resolution: { verdict: "applied", result: { saved: true, references: ["r"] }, resultSource: "evidence" } });
+    expect("resolution" in operations[2]).toBe(false);
   });
 
   it("reads only the named operations, skipping ones never claimed", async () => {

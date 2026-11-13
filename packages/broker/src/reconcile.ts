@@ -21,11 +21,36 @@
 // Every attempt is appended. A final resolution is created only for a
 // definitive verdict (`applied`), only if none exists; a later definitive
 // attempt that disagrees is recorded as a conflict and leaves it unchanged.
+//
+// B6 (docs/b6-command-repair-plan.md decision 2): an `applied` resolution
+// also carries the write's result, so a repair can materialize a write whose
+// outcome was never recorded. It comes from the recorded outcome when there is
+// one (`resultSource: "outcome"`), otherwise from the claim's evidence
+// (`"evidence"`, the operation's `resultFromEvidence`). Where both exist they
+// must agree; if they don't, the resolution records `"conflict"` and no
+// result. An operation that can't rebuild its result records `"unavailable"`.
+// Evidence Broker can't read never reaches here: it stays `unresolved`.
 
 import { randomUUID } from "node:crypto";
 import { observeRecord, EVIDENCE_FORMAT } from "./operations.js";
 
 export const RECONCILE_GRACE_MS = 60_000;
+
+const canonical = value => JSON.stringify(value, (_k, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v));
+
+// The result an `applied` resolution carries (see the header).
+const establishedResult = async ({ operation, evidence, outcome }) => {
+  const fromEvidence = operation?.resultFromEvidence ? operation.resultFromEvidence(evidence) : null;
+  const recorded = outcome && outcome.result !== undefined && outcome.result !== null ? outcome.result : null;
+  if (recorded !== null && fromEvidence !== null && canonical(recorded) !== canonical(fromEvidence)) return { result: null, resultSource: "conflict" };
+  if (recorded !== null) return { result: recorded, resultSource: "outcome" };
+  if (fromEvidence !== null) return { result: fromEvidence, resultSource: "evidence" };
+  return { result: null, resultSource: "unavailable" };
+};
+
+// What a resolution says about the result, for callers. A resolution created
+// before B6 says nothing.
+const resultOf = resolution => (resolution && "resultSource" in resolution ? { result: resolution.result ?? null, resultSource: resolution.resultSource } : {});
 
 export class ReconcileRefused extends Error {
   declare reason: string;
@@ -58,7 +83,7 @@ export const createReconciler = ({ receipts, secrets, operations, limits, audit,
       const opRecord = { ...record, opid: operationId, op: claim.binding.op };
       const final = await receipts.getResolution(operationId);
       if (final) {
-        results.push({ operationId, verdict: final.verdict, final: true });
+        results.push({ operationId, verdict: final.verdict, final: true, ...resultOf(final) });
         continue;
       }
       const evidence = claim.evidence;
@@ -93,16 +118,22 @@ export const createReconciler = ({ receipts, secrets, operations, limits, audit,
       const verdict = records.length > 0 && records.every(r => r.landed) ? "applied" : "unresolved";
       const attemptId = await attempt(verdict, { records, readAt });
       let isFinal = false;
+      let established = {};
       if (verdict === "applied") {
-        if (await receipts.createResolution(operationId, { verdict, attemptId, decisionId })) isFinal = true;
-        else {
+        const output = await establishedResult({ operation: operations[claim.binding.op], evidence, outcome: await receipts.getOutcome(operationId) });
+        if (output.resultSource === "conflict") await audit({ ...opRecord, outcome: "allowed", reason: "result-conflict" });
+        if (await receipts.createResolution(operationId, { verdict, attemptId, decisionId, ...output })) {
+          isFinal = true;
+          established = resultOf(output);
+        } else {
           const existing = await receipts.getResolution(operationId);
           if (existing?.verdict !== verdict) await audit({ ...opRecord, outcome: "allowed", reason: "resolution-conflict" });
           isFinal = existing?.verdict === verdict;
+          if (isFinal) established = resultOf(existing);
         }
       }
       await audit({ ...opRecord, outcome: "allowed", reason: verdict });
-      results.push({ operationId, verdict, final: isFinal, records });
+      results.push({ operationId, verdict, final: isFinal, records, ...established });
     }
     return { invocationId, operations: results };
   };

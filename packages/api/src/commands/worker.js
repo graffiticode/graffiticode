@@ -140,7 +140,8 @@ export const buildCommandWorker = ({
       manifests.push(manifest);
     }
     try {
-      await step(() => policy.admit({ commandId: id, generation: g, taskIds, stages: manifests }));
+      // This worker records every stage's output (B6, decision 5), and says so.
+      await step(() => policy.admit({ commandId: id, generation: g, taskIds, stages: manifests, recording: 1 }));
     } catch (e) {
       if (e instanceof OwnershipLost) throw e;
       // A definite refusal (no longer permitted, a revision retired): nothing
@@ -173,14 +174,51 @@ export const buildCommandWorker = ({
     // Policy, every write is fenced by the generation, and the Broker replays
     // recorded operations from receipts. With nothing pinned (every first
     // run), every stage runs, as before.
-    const resumeAt = stages.findLastIndex(stage => state.stages?.[stage]?.pinnedInput);
-    if (resumeAt >= 0) {
-      const stage = stages[resumeAt];
+    const pinnedAt = stages.findLastIndex(stage => state.stages?.[stage]?.pinnedInput);
+    // B6 (docs/b6-command-repair-plan.md decision 5): a command that records
+    // outputs starts just above the furthest stage, in execution order, whose
+    // output is recorded. Everything below it is in that output, so no stage
+    // at or below it runs again, with or without intents: its output is what
+    // it produced, whatever its source says now or whether it still answers.
+    // An output too large to record is no boundary, but one recorded later is
+    // (an earlier gap never sends recovery back). A later pinned input is a
+    // boundary too, and the furthest of the two wins. The output below is
+    // installed before the next stage pins its input, and Policy refuses a
+    // pin that differs from it, so where both exist they agree.
+    const recording = state.admission?.recording === 1;
+    const outputDigest = stage => {
+      const output = state.stages?.[stage]?.output;
+      return typeof output === "string" && output !== "too-large" ? output : null;
+    };
+    const fromOutputs = recording ? stages.findLastIndex(stage => outputDigest(stage)) + 1 : 0;
+    const resumeAt = Math.max(pinnedAt, fromOutputs);
+    if (resumeAt > 0 && resumeAt === fromOutputs && outputDigest(stages[resumeAt - 1])) {
+      const below = stages[resumeAt - 1];
+      const { output } = await step(() => policy.read({ commandId: id, what: "output", stage: below }));
+      if (!output || sha256(output.text) !== outputDigest(below)) throw new Error(`command ${id}: ${below}'s recorded output can't be read`);
+      const pinned = resumeAt < stages.length ? state.stages?.[stages[resumeAt]]?.pinnedInput : null;
+      if (pinned && pinned !== outputDigest(below)) throw new Error(`command ${id}: ${stages[resumeAt]}'s pinned input isn't ${below}'s output`);
+      input = JSON.parse(output.text);
+      log(`command ${id}: resuming ${resumeAt < stages.length ? `at ${stages[resumeAt]}` : "past the head"}, from ${below}'s recorded output`);
+    } else if (pinnedAt >= 0 && resumeAt === pinnedAt) {
+      const stage = stages[pinnedAt];
       const { input: pinned } = await step(() => policy.read({ commandId: id, what: "input", stage }));
       if (!pinned || sha256(pinned.text) !== state.stages[stage].pinnedInput) throw new Error(`command ${id}: ${stage}'s pinned input can't be read`);
       input = JSON.parse(pinned.text);
       log(`command ${id}: resuming at ${stage}, its pinned input`);
     }
+    // A stage's output, recorded before anything above it runs (decision 5).
+    // The drive's exit-after-output fault stops the process right after one
+    // below the head is recorded.
+    const recordOutput = async (stage, position) => {
+      if (!recording) return;
+      await step(() => policy.installOutput({ commandId: id, generation: g, stage, text: JSON.stringify(input) }));
+      if (faults?.exitAfterOutput && faults.appliesTo(state.uid) && position < stages.length - 1) {
+        log(`WARN command ${id}: fault exit-after-output at ${stage}`);
+        faults.exit();
+        throw new Error(`command ${id}: the worker's process exited (fault)`);
+      }
+    };
     for (const [position, stage] of stages.entries()) {
       if (position < resumeAt) continue;
       const admitted = state.admission.stages[stage];
@@ -197,6 +235,7 @@ export const buildCommandWorker = ({
         if (answer?.responseLost) throw new ResumeLater(`${stage} got no answer`);
         if (failed(answer)) return stop();
         input = envelopeOf(answer);
+        await recordOutput(stage, position);
         continue;
       }
       // The input is pinned before the first effect, once: a resumed run
@@ -243,6 +282,7 @@ export const buildCommandWorker = ({
       await step(() => policy.settle({ commandId: id, generation: g }));
       if (failed(answer)) return stop();
       input = envelopeOf(answer);
+      await recordOutput(stage, position);
     }
     // The head's own answer is the result; receipts are never a substitute.
     return JSON.stringify(input.data);

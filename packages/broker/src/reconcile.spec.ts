@@ -9,6 +9,8 @@ import {
   RECONCILE_GRACE_MS,
   MARK_KEY,
   writeEvidence,
+  writeResultFromEvidence,
+  EVIDENCE_FORMAT,
   REFERENCE_PREFIX,
 } from "./index.js";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
@@ -57,6 +59,7 @@ beforeEach(() => {
   const operations = {
     "learnosity.write-items": {
       kind: "write",
+      resultFromEvidence: writeResultFromEvidence,
       readBack: async evidence => {
         reads++;
         if (readFails) throw new Error("provider down");
@@ -84,11 +87,59 @@ describe("reconciliation (WRITE-02)", () => {
     expect(first.operations).toEqual([expect.objectContaining({ operationId: OP, verdict: "applied", final: true })]);
     expect(first.operations[0].records.map(r => [r.reference, r.landed, r.matches])).toEqual([["q-0", true, true], ["item-0", true, true]]);
     expect(await receipts.getResolution(OP)).toMatchObject({ verdict: "applied" });
+    // B6: with no recorded outcome, the result is rebuilt from the evidence.
+    const result = { saved: true, references: ["item-0"], questionReferences: ["q-0"] };
+    expect(first.operations[0]).toMatchObject({ result, resultSource: "evidence" });
+    expect(await receipts.getResolution(OP)).toMatchObject({ result, resultSource: "evidence" });
     // A final resolution is returned as it is, with no new read.
     const again = await ask();
-    expect(again.operations).toEqual([{ operationId: OP, verdict: "applied", final: true }]);
+    expect(again.operations).toEqual([{ operationId: OP, verdict: "applied", final: true, result, resultSource: "evidence" }]);
     expect(reads).toBe(1);
     expect(records.filter(r => r.event === "reconcile").map(r => r.reason)).toEqual(["applied"]);
+  });
+
+  // B6 (docs/b6-command-repair-plan.md decision 2): the result an applied
+  // resolution carries, and where it came from.
+  describe("the result of an applied write", () => {
+    const fromEvidence = { saved: true, references: ["item-0"], questionReferences: ["q-0"] };
+
+    it("is the recorded outcome's when there is one, checked against the evidence", async () => {
+      await claim();
+      await receipts.putOutcome(OP, { status: "uncertain", steps: ["questions"], result: fromEvidence });
+      expect((await ask()).operations[0]).toMatchObject({ verdict: "applied", result: fromEvidence, resultSource: "outcome" });
+    });
+
+    it("records a conflict, and no result, when the outcome and the evidence disagree", async () => {
+      await claim();
+      await receipts.putOutcome(OP, { status: "uncertain", steps: [], result: { saved: true, references: ["other"] } });
+      expect((await ask()).operations[0]).toMatchObject({ verdict: "applied", final: true, result: null, resultSource: "conflict" });
+      expect(records.map(r => r.reason)).toContain("result-conflict");
+    });
+
+    it("is unavailable for an operation that can't rebuild it, though the write is applied", async () => {
+      const operations = { "learnosity.write-items": { kind: "write", readBack: async () => stored } };
+      reconcile = createReconciler({ receipts, secrets, operations, limits: LIMITS, audit: async r => { records.push(r); }, now: () => clock });
+      await claim();
+      expect((await ask()).operations[0]).toMatchObject({ verdict: "applied", final: true, result: null, resultSource: "unavailable" });
+    });
+
+    it("is never established from evidence Broker can't read: the receipt stays unresolved", async () => {
+      await claim(OP, { evidence: { ...writeEvidence(PAYLOAD), format: EVIDENCE_FORMAT + 1 } });
+      const out = (await ask()).operations[0];
+      expect(out).toMatchObject({ verdict: "unresolved", reason: "evidence-format-unknown" });
+      expect("result" in out).toBe(false);
+      expect(await receipts.getResolution(OP)).toBeNull();
+      expect(reads).toBe(0);
+    });
+
+    it("reads nothing but the evidence it was given", () => {
+      expect(writeResultFromEvidence(null)).toBeNull();
+      expect(writeResultFromEvidence({ ...writeEvidence(PAYLOAD), format: EVIDENCE_FORMAT + 1 })).toBeNull();
+      expect(writeResultFromEvidence({ format: EVIDENCE_FORMAT, records: [{ kind: "item", reference: "i" }] })).toBeNull();
+      // Questions only: the references are the questions'.
+      const questionsOnly = writeEvidence({ questionRecords: PAYLOAD.questionRecords, itemRecords: [] });
+      expect(writeResultFromEvidence(questionsOnly)).toEqual({ saved: true, references: ["q-0"], questionReferences: ["q-0"] });
+    });
   });
 
   it("stays unresolved when any record lacks the mark, records the attempt, and resolves later when the mark appears", async () => {
@@ -273,5 +324,20 @@ describe("reconciliation end to end (WRITE-02)", () => {
     expect(out).toMatchObject({ verdict: "applied", final: true });
     expect(out.records.map(r => r.reference)).toEqual([...store["/itembank/questions"].keys(), ...store["/itembank/items"].keys()]);
     expect(out.records.every(r => r.reference.startsWith(REFERENCE_PREFIX) && r.landed && r.matches)).toBe(true);
+    // B6: the save's result, rebuilt from the evidence: what it would have
+    // returned, with no further write.
+    const [questions, items] = [[...store["/itembank/questions"].keys()], [...store["/itembank/items"].keys()]];
+    expect(out).toMatchObject({ resultSource: "evidence", result: { saved: true, references: items, questionReferences: questions } });
+  });
+
+  // B6 (decision 2): over a real save, the evidence rebuilds exactly what the
+  // save returned. A clean save's outcome and its evidence agree.
+  it("rebuilds from the evidence exactly what a completed save returned", async () => {
+    const { policy, saveWith, later } = await setup();
+    const saved = await saveWith("save:1");
+    expect(saved).toMatchObject({ status: "succeeded" });
+    later();
+    const out = (await policy.reconcile({ caller: { role: "console" }, user: { uid: OWNER }, connectionId: CONN, idempotencyKey: "save:1" })).operations[0];
+    expect(out).toMatchObject({ verdict: "applied", resultSource: "outcome", result: saved.result });
   });
 });

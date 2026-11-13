@@ -56,6 +56,18 @@ const requireStage = stage => {
   if (typeof stage !== "string" || !STAGE_RE.test(stage)) throw new CommandRefused("bad-request");
 };
 const docKey = (stage, occurrenceId) => `${stage}:${occurrenceId}`;
+// The stage below `stage` in the chain: its upstream, which runs before it
+// (`s0` is the head; `s<n+1>` feeds `s<n>`).
+const stageBelow = stage => `s${Number(stage.slice(1)) + 1}`;
+// B6 (decision 5): an operation's result as recorded text, or why there is
+// none. `undefined` is "not reported" (a receipt before B6, or a claim with no
+// outcome); null is a write that returned nothing.
+const outputOf = result => {
+  if (result === undefined) return {};
+  const text = JSON.stringify(result);
+  if (Buffer.byteLength(text, "utf8") > MAX_PAYLOAD_BYTES) return { output: { tooLarge: true } };
+  return { output: { text, digest: sha256(text) } };
+};
 
 export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
   const cmdPath = id => ["commands", id];
@@ -114,16 +126,49 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
     }),
 
     // §5: a stage's pinned input, installed once; a later owner gets the first.
+    // A command that records outputs (B6, decision 5) pins exactly the output
+    // recorded for the stage below: the two can't diverge.
     installInput: ({ commandId, generation, stage, text }) => owned(commandId, generation, async (tx, command) => {
       requireStage(stage);
       requirePayload(text);
       if (command.phase !== "admitted") throw new CommandRefused("not-admitted");
+      if (command.admission?.recording === 1) {
+        const below = stageOf(command, stageBelow(stage)).output;
+        if (typeof below === "string" && below !== sha256(text)) throw new CommandRefused("input-not-output");
+      }
       const { installed, created } = await installOnce(tx, sub(commandId, "inputs", stage), { stage, text, digest: sha256(text) });
       if (created) {
         const stages = { ...command.stages, [stage]: { ...stageOf(command, stage), pinnedInput: installed.digest } };
         touch(tx, command, { stages });
       }
       return { stage, digest: installed.digest, text: installed.text };
+    }),
+
+    // B6 (decision 5): a stage's output envelope, installed once, by digest, and
+    // named on the stage. A second install of the same output is acknowledged;
+    // another is refused. An output over the payload limit is recorded as too
+    // large, never truncated: that stage can't be materialized, and recovery
+    // above it falls back to the pinned input.
+    installOutput: ({ commandId, generation, stage, text }) => owned(commandId, generation, async (tx, command) => {
+      requireStage(stage);
+      if (command.phase !== "admitted") throw new CommandRefused("not-admitted");
+      if (!command.admission?.stages?.[stage]) throw new CommandRefused("bad-request");
+      const problem = payloadProblem(text);
+      if (problem === "input-too-large") {
+        if (stageOf(command, stage).output === undefined) {
+          touch(tx, command, { stages: { ...command.stages, [stage]: { ...stageOf(command, stage), output: "too-large" } } });
+        }
+        return { stage, tooLarge: true };
+      }
+      if (problem) throw new CommandRefused(problem);
+      const digest = sha256(text);
+      const { installed, created } = await installOnce(tx, sub(commandId, "outputs", stage), { stage, text, digest });
+      if (!created) {
+        if (installed.digest !== digest) throw new CommandRefused("output-conflict");
+        return { stage, digest };
+      }
+      touch(tx, command, { stages: { ...command.stages, [stage]: { ...stageOf(command, stage), output: digest } } });
+      return { stage, digest };
     }),
 
     // §5: one observation, installed once. Without `text`, finds it.
@@ -246,7 +291,8 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
         // The receipt's steps go with it: what a compile's envelope reports
         // for a write (the C6 bridge answers in that envelope).
         const steps = Array.isArray(op.steps) ? op.steps.filter(x => typeof x === "string") : [];
-        pending.push({ path, outcome: { stage, occurrenceId, outcome: outcomeFromReceipt(op.status), source: "receipt", receipt: op.operationId, final: op.recorded === true, reason: op.reason ?? null, steps, at: new Date(now()).toISOString(), generation } });
+        // B6 (decision 5): what the operation returned, as Broker recorded it.
+        pending.push({ path, outcome: { stage, occurrenceId, outcome: outcomeFromReceipt(op.status), source: "receipt", receipt: op.operationId, final: op.recorded === true, reason: op.reason ?? null, steps, ...(op.recorded === true ? outputOf(op.result) : {}), at: new Date(now()).toISOString(), generation } });
       }
       for (const { path, outcome } of pending) tx.set(path, outcome);
       return { recorded: pending.map(p => p.outcome) };
@@ -337,6 +383,9 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
     },
     async getInput(commandId, stage) {
       return backend.transaction(tx => tx.get(sub(commandId, "inputs", stage)));
+    },
+    async getOutput(commandId, stage) {
+      return backend.transaction(tx => tx.get(sub(commandId, "outputs", stage)));
     },
     async getOccurrence(commandId, stage, occurrenceId) {
       return backend.transaction(tx => tx.get(sub(commandId, "occurrences", docKey(stage, occurrenceId))));

@@ -7,7 +7,7 @@
 //                                 -> { invocationToken, invocationId, seq, reused, ownerUid, contract, planDigest }
 //   POST /v1/commands  gateway + user  { connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker }
 //                                 -> { protocol: "legacy", invocationId, seq } | { protocol: "command", commandId, …, owned }
-//   POST /v1/commands/:id/lease gateway  { worker, generation, takeOver? }  renew, or take over once expired
+//   POST /v1/commands/:id/lease gateway  { worker, generation, takeOver?, recording? }  renew, or take over once expired
 //   GET  /v1/commands/:id gateway (+ user, who must own it)  the command's summary
 //   Owner writes and bookkeeping, gateway only, each with { generation, … } (fenced):
 //   PUT  /v1/commands/:id/models/:stage   { text, revision?, tagUrl? }   installed once
@@ -26,7 +26,7 @@
 //   POST /v1/command-occurrences  compiler  { sessionToken, occurrenceId, intentId, expansionKey?, args, argd, observations? }
 //                                 a command stage's occurrence, bound under its session before mint
 //   POST /v1/command-observations compiler { sessionToken, key, text? }  find, or record once
-//   GET  /v1/commands-due?limit=  gateway  commands to take over: pending, or publication due, with an expired lease
+//   GET  /v1/commands-due?limit=&recording=  gateway  commands to take over: pending, or publication due, with an expired lease
 //   GET  /v1/commands/:id/records/:what   request | models | input?stage= | result | occurrences | outcomes
 //   POST /v1/invocations/plan gateway { invocationToken }   the invocation's plan, before a retry
 //                                 resolves compiler URLs   -> { contract, plan: null | { planDigest, stages } }
@@ -210,9 +210,9 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   }));
   router.post("/commands/:id/lease", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
-    const { worker, generation, takeOver = false } = req.body ?? {};
+    const { worker, generation, takeOver = false, recording = 0 } = req.body ?? {};
     res.set("Cache-Control", "no-store");
-    await decide(res, () => policy.leaseCommand({ caller, commandId: req.params.id, worker, generation, takeOver }));
+    await decide(res, () => policy.leaseCommand({ caller, commandId: req.params.id, worker, generation, takeOver, recording }));
   }));
   router.get("/commands/:id", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
@@ -229,6 +229,7 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   const body = req => req.body ?? {};
   router.put("/commands/:id/models/:stage", write("installModel", req => ({ stage: req.params.stage, text: body(req).text, revision: body(req).revision ?? null, tagUrl: body(req).tagUrl ?? null })));
   router.put("/commands/:id/inputs/:stage", write("installInput", req => ({ stage: req.params.stage, text: body(req).text })));
+  router.put("/commands/:id/outputs/:stage", write("installOutput", req => ({ stage: req.params.stage, text: body(req).text })));
   router.post("/commands/:id/observations", write("observation", req => ({ stage: body(req).stage, key: body(req).key, text: body(req).text })));
   router.put("/commands/:id/occurrences/:stage/:occ", write("bindOccurrence", req => ({
     stage: req.params.stage, occurrenceId: req.params.occ, intentId: body(req).intentId, expansionKey: body(req).expansionKey ?? null, args: body(req).args, observations: body(req).observations ?? [],
@@ -246,8 +247,8 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   router.post("/commands/:id/admit", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
     res.set("Cache-Control", "no-store");
-    const { generation, taskIds, stages } = body(req);
-    await decide(res, () => policy.admitCommand({ caller, commandId: req.params.id, generation, taskIds, stages }));
+    const { generation, taskIds, stages, recording = 0 } = body(req);
+    await decide(res, () => policy.admitCommand({ caller, commandId: req.params.id, generation, taskIds, stages, recording }));
   }));
   router.post("/commands/:id/session", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
@@ -258,7 +259,8 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const caller = await authorize("commands")(req);
     res.set("Cache-Control", "no-store");
     const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
-    await decide(res, () => policy.dueCommands({ caller, limit }));
+    const recording = req.query.recording === undefined ? 0 : Number(req.query.recording);
+    await decide(res, () => policy.dueCommands({ caller, limit, recording }));
   }));
   router.post("/command-occurrences", buildHttpHandler(async (req, res) => {
     const caller = await authorize("command-compiler")(req);

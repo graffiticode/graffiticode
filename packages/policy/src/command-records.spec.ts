@@ -394,3 +394,70 @@ describe("refused binds", () => {
     expect((await policy.commandRead({ caller: GATEWAY, commandId, what: "refusals" })).refusals).toEqual([]);
   });
 });
+
+// B6 (docs/b6-command-repair-plan.md decision 5): every stage's output, the
+// output of every occurrence, and the pinned input tied to the output below.
+describe("recorded outputs", () => {
+  const recording = () => {
+    const c = commandStore.commands.get(commandId);
+    commandStore.commands.set(commandId, { ...c, phase: "admitted", admission: { ...structuredClone(ADMISSION), recording: 1 } });
+  };
+  const output = (stage, text, generation = 1) => write("installOutput", { stage, text }, generation);
+  const read = (what, stage = null) => policy.commandRead({ caller: GATEWAY, commandId, what, stage });
+
+  it("installs a stage's output once, by digest, names it on the stage, and refuses another", async () => {
+    recording();
+    const text = "{\"data\":{\"items\":[1]},\"errors\":[]}";
+    expect(await output("s1", text)).toEqual({ stage: "s1", digest: digest(text) });
+    // The same output again (a retry) is acknowledged; another is refused.
+    expect(await output("s1", text)).toEqual({ stage: "s1", digest: digest(text) });
+    await denied(output("s1", "{\"data\":{\"items\":[2]},\"errors\":[]}"), "output-conflict");
+    expect((await read("output", "s1")).output).toMatchObject({ stage: "s1", text, digest: digest(text) });
+    expect((await read("state")).stages.s1.output).toBe(digest(text));
+    expect((await read("output", "s0")).output).toBeNull();
+  });
+
+  it("is fenced like every owner write, and only for an admitted stage", async () => {
+    recording();
+    const before = snapshot();
+    await denied(output("s1", "{}", 2), "stale-generation");
+    await denied(output("s9", "{}"), "bad-request");
+    expect(snapshot()).toBe(before);
+  });
+
+  it("records an output over the cap as too large, never truncated", async () => {
+    recording();
+    expect(await output("s1", JSON.stringify({ big: "x".repeat(1_100_000) }))).toEqual({ stage: "s1", tooLarge: true });
+    expect((await read("state")).stages.s1.output).toBe("too-large");
+    expect((await read("output", "s1")).output).toBeNull();
+  });
+
+  it("pins exactly the output recorded below, and refuses any other input", async () => {
+    recording();
+    const below = "{\"data\":{\"items\":[1]},\"errors\":[]}";
+    await output("s1", below);
+    await denied(write("installInput", { stage: "s0", text: "{\"data\":{\"items\":[\"changed\"]},\"errors\":[]}" }), "input-not-output");
+    expect(await write("installInput", { stage: "s0", text: below })).toMatchObject({ stage: "s0", digest: digest(below) });
+  });
+
+  it("leaves a command admitted before recording as it was", async () => {
+    admit();
+    await output("s1", "{\"data\":1,\"errors\":[]}");
+    expect(await write("installInput", { stage: "s0", text: "{\"data\":2,\"errors\":[]}" })).toMatchObject({ stage: "s0" });
+  });
+
+  it("records what each settled occurrence returned, from its receipt", async () => {
+    recording();
+    await bindStatic();
+    await bindBatch(1);
+    receipts.push({ operationId: `${invocationId}/s1/SAVE:1.0`, status: "succeeded", recorded: true, steps: ["questions"], result: { saved: true, references: ["r1"] } });
+    // A claim with no outcome has no result yet.
+    receipts.push({ operationId: `${invocationId}/s0/${runtimeOccurrenceId("batch", "batch 1")}`, status: "uncertain", recorded: false, steps: [] });
+    await settle();
+    const outcomes = (await read("outcomes")).outcomes;
+    const saved = outcomes.find(o => o.stage === "s1");
+    const text = JSON.stringify({ saved: true, references: ["r1"] });
+    expect(saved.output).toEqual({ text, digest: digest(text) });
+    expect("output" in outcomes.find(o => o.stage === "s0")).toBe(false);
+  });
+});

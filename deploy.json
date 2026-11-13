@@ -541,6 +541,11 @@
         {
           "milestone": "v8",
           "commit": "1a8d828f3ab7b8fb1b86fd6e01ee659617f5ce08"
+        },
+        {
+          "milestone": "B6-recording",
+          "commit": "d322c227a019abbe10d50108398764aee8e5d2d0",
+          "floor": true
         }
       ],
       "minInstances": 0,

@@ -70,14 +70,16 @@ const client = () => {
   const write = (fn, argsOf = a => a) => as(({ commandId, generation, ...rest }) => policy.commandWrite({ caller: GATEWAY, commandId, generation, fn, args: argsOf(rest) }));
   return {
     read: as(({ commandId, what, stage = null }) => policy.commandRead({ caller: GATEWAY, commandId, what, stage })),
-    due: as(({ limit = 20 } = {}) => policy.dueCommands({ caller: GATEWAY, limit })),
+    due: as(({ limit = 20 } = {}) => policy.dueCommands({ caller: GATEWAY, limit, recording: 1 })),
     allocate: as(({ connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create = true }) =>
       policy.allocateCommand({ caller: GATEWAY, user: { uid: OWNER }, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create })),
-    lease: as(({ commandId, worker, generation, takeOver = false }) => policy.leaseCommand({ caller: GATEWAY, commandId, worker, generation, takeOver })),
+    // As the HTTP client does: this worker records outputs, and says so.
+    lease: as(({ commandId, worker, generation, takeOver = false }) => policy.leaseCommand({ caller: GATEWAY, commandId, worker, generation, takeOver, recording: 1 })),
     installModel: write("installModel"),
-    admit: as(({ commandId, generation, taskIds, stages }) => policy.admitCommand({ caller: GATEWAY, commandId, generation, taskIds, stages })),
+    admit: as(({ commandId, generation, taskIds, stages, recording }) => policy.admitCommand({ caller: GATEWAY, commandId, generation, taskIds, stages, recording })),
     session: as(({ commandId, generation, stage }) => policy.commandSession({ caller: GATEWAY, commandId, generation, stage })),
     installInput: write("installInput"),
+    installOutput: write("installOutput"),
     closeStage: write("closeStage"),
     notReached: write("markNotReached"),
     settle: as(({ commandId, generation }) => policy.settleCommand({ caller: GATEWAY, commandId, generation })),
@@ -190,9 +192,10 @@ const allocate = (key = "job-1", worker = "w1") => policy.allocateCommand({
 // No timers in tests: the lease is renewed by the tests' own clock moves.
 /** @type {(name: string, lang?: any) => any} */
 const workerAs = (name, lang = language) => buildCommandWorker({ policy: client(), taskStorer, language: lang, artifactStorer: artifacts, worker: name, setInterval: () => null, clearInterval: () => {}, log: () => {} });
-const takeOver = async (commandId, generation, name) => {
+// A takeover by a worker of this version, which records outputs.
+const takeOver = async (commandId, generation, name, recording = 1) => {
   clock += COMMAND_LEASE_MS + 1;
-  return policy.leaseCommand({ caller: GATEWAY, commandId, worker: name, generation, takeOver: true });
+  return policy.leaseCommand({ caller: GATEWAY, commandId, worker: name, generation, takeOver: true, recording });
 };
 const current = query => artifacts.getCurrent({ uid: OWNER, taskId: CHAIN, connectionId: "conn-1", registryVersion: REGISTRY_VERSION, ...query });
 
@@ -408,6 +411,213 @@ describe("recovery from the furthest pinned boundary (C3)", () => {
     expect(provider).toHaveLength(1);
   });
 
+  // B6 (docs/b6-command-repair-plan.md decision 5): every stage's output is
+  // recorded before the stage above pins its input, and recovery consumes it.
+  describe("recorded outputs", () => {
+    const exited = () => { throw new Error("the process exited"); };
+    const exitingAfterOutput = name => buildCommandWorker({
+      policy: client(),
+      taskStorer,
+      language: fetching,
+      artifactStorer: artifacts,
+      worker: name,
+      faults: parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "exit-after-output", API_COMMAND_FAULT_PRINCIPALS: OWNER }, { exit: exited }),
+      setInterval: () => null,
+      clearInterval: () => {},
+      log: () => {},
+    });
+    const read = (commandId, what, stage = null) => policy.commandRead({ caller: GATEWAY, commandId, what, stage });
+    const argsOfSaves = async commandId => (await read(commandId, "occurrences")).occurrences.map(o => JSON.parse(o.args));
+
+    // The owner's review of #384: a worker from before B6 must never own a
+    // command that records outputs. It would fetch again what was recorded
+    // (and fail the command if the source is gone).
+    it("refuses a worker that doesn't record outputs, at takeover and at renewal, and the command waits for one that does", async () => {
+      const taskId = chainOf(saveTask("A"), fetchTask("A"));
+      const { commandId, generation } = await allocateChain(taskId);
+      await expect(exitingAfterOutput("w1")({ commandId, generation })).rejects.toThrow("exited");
+      delete sources.A;
+      fetches.length = 0;
+      // While its lease is live, a renewal without the capability is refused.
+      await expect(policy.leaseCommand({ caller: GATEWAY, commandId, worker: "w1", generation, takeOver: false })).rejects.toMatchObject({ reason: "worker-unsupported" });
+      await expect(takeOver(commandId, generation, "old-worker", 0)).rejects.toMatchObject({ reason: "worker-unsupported" });
+      expect((await read(commandId, "state")).generation).toBe(generation);
+      const taken = await takeOver(commandId, generation, "w2");
+      expect((await workerAs("w2", fetching)({ commandId, generation: taken.generation })).status).toBe("completed");
+      expect(fetches).toEqual([]);
+      expect(provider).toEqual([{ items: ["a1"] }]);
+    });
+
+    // The owner's review of 9c61320f: after an api rollback, recording
+    // commands an older sweeper can't own must not fill its sweeps and hide
+    // the legacy commands it can.
+    it("never lets recording commands it can't own crowd an older sweeper's legacy commands out", async () => {
+      const taskId = chainOf(saveTask("A"), fetchTask("A"));
+      for (let i = 0; i < 20; i++) {
+        const { commandId, generation } = await allocateChain(taskId, `recording-${i}`);
+        await expect(exitingAfterOutput("w1")({ commandId, generation })).rejects.toThrow("exited");
+      }
+      const legacy = await allocateChain(taskId, "legacy-pending");
+      clock += COMMAND_LEASE_MS + 1;
+      // An api from before this slice: it neither records nor says so.
+      const old = client();
+      const oldClient = {
+        ...old,
+        due: ({ limit = 20 } = {}) => policy.dueCommands({ caller: GATEWAY, limit }),
+        lease: async args => {
+          try {
+            return await policy.leaseCommand({ caller: GATEWAY, ...args, recording: 0 });
+          } catch (e) {
+            if (e instanceof PolicyDenied) throw new PolicyRefused(e.reason);
+            throw e;
+          }
+        },
+        admit: args => old.admit({ ...args, recording: 0 }),
+      };
+      const run = buildCommandWorker({ policy: oldClient, taskStorer, language: fetching, artifactStorer: artifacts, worker: "old-worker", setInterval: () => null, clearInterval: () => {}, log: () => {} });
+      const sweep = buildSweep({ policy: oldClient, run, worker: "old-worker", log: () => {} });
+      expect(await sweep()).toMatchObject({ due: 1, taken: 1, skipped: 0 });
+      expect((await read(legacy.commandId, "state")).status).toBe("completed");
+      // The recording commands are listed only to a recording sweeper.
+      expect((await oldClient.due()).commands).toEqual([]);
+      expect((await client().due()).commands).toHaveLength(20);
+    });
+
+    it("lets any worker own a command admitted without recording, as before", async () => {
+      const taskId = chainOf(saveTask("A"), fetchTask("A"));
+      const { commandId, generation } = await allocateChain(taskId);
+      const c = commands.commands.get(commandId);
+      commands.commands.set(commandId, { ...c, owner: { ...c.owner, leaseExpiresAt: 0 } });
+      expect(await takeOver(commandId, generation, "old-worker", 0)).toMatchObject({ commandId });
+    });
+
+    // The owner's review of #384: an output too large to record, below a
+    // save whose output was recorded, must not send recovery back below it.
+    describe("an earlier output too large to record", () => {
+      const special = () => {
+        const counted = { saveStarts: 0 };
+        const language = {
+          ...fetching,
+          interpret: async ({ model, input }) => {
+            const name = model.program.root.slice("fetch-".length);
+            if (name === "large") return { data: { items: ["a1"], big: "x".repeat(600_000) }, errors: [] };
+            if (name === "trim") return { data: { items: input.data.items }, errors: [] };
+            return { data: input.data, errors: [] };
+          },
+          start: async args => {
+            counted.saveStarts++;
+            return fetching.start(args);
+          },
+        };
+        return { counted, language };
+      };
+      // Execution order: fetch large (s3, too large to record), trim (s2),
+      // save A (s1), finish (s0, the head). The worker dies right after save
+      // A's output is recorded.
+      const crashAfterSave = async () => {
+        const taskId = chainOf(fetchTask("finish"), saveTask("A"), fetchTask("trim"), fetchTask("large"));
+        const { counted, language: lang } = special();
+        const { commandId, generation } = await allocateChain(taskId);
+        const dying = client();
+        const install = dying.installOutput;
+        dying.installOutput = async args => {
+          const out = await install(args);
+          if (args.stage === "s1") throw new Error("crash after the save's output");
+          return out;
+        };
+        const first = buildCommandWorker({ policy: dying, taskStorer, language: lang, artifactStorer: artifacts, worker: "w1", setInterval: () => null, clearInterval: () => {}, log: () => {} });
+        await expect(first({ commandId, generation })).rejects.toThrow("crash after the save's output");
+        const stages = (await read(commandId, "state")).stages;
+        expect(stages.s3.output).toBe("too-large");
+        expect(stages.s1.output).toBeTruthy();
+        counted.saveStarts = 0;
+        return { taskId, commandId, generation, counted, lang };
+      };
+
+      it("resumes above the recorded save, never restarting it", async () => {
+        const { commandId, generation, counted, lang } = await crashAfterSave();
+        const taken = await takeOver(commandId, generation, "w2");
+        expect((await workerAs("w2", lang)({ commandId, generation: taken.generation })).status).toBe("completed");
+        expect(counted.saveStarts).toBe(0);
+        expect(provider).toHaveLength(1);
+      });
+
+      it("completes and publishes from the recorded save after the connection is revoked", async () => {
+        const { taskId, commandId, generation, counted, lang } = await crashAfterSave();
+        await connections.put({ connectionId: "conn-1", ownerUid: OWNER, backend: "learnosity", status: "disabled" });
+        const taken = await takeOver(commandId, generation, "w2");
+        const done = await workerAs("w2", lang)({ commandId, generation: taken.generation });
+        expect(done).toMatchObject({ status: "completed", result: { state: "available" }, publication: { state: "published" } });
+        expect(counted.saveStarts).toBe(0);
+        expect((await head(taskId)).artifact.content).toEqual({ saved: { items: ["a1"] } });
+      });
+    });
+
+    it("records each stage's output once, and the head's is the result", async () => {
+      const taskId = chainOf(saveTask("A"), fetchTask("A"));
+      const { commandId, generation } = await allocateChain(taskId);
+      expect((await workerAs("w1", fetching)({ commandId, generation })).status).toBe("completed");
+      const state = await read(commandId, "state");
+      expect(state.admission.recording).toBe(1);
+      const fetched = (await read(commandId, "output", "s1")).output;
+      expect(JSON.parse(fetched.text)).toEqual({ data: { items: ["a1"] }, errors: [] });
+      // The save pinned exactly the fetch's output.
+      expect(state.stages.s0.pinnedInput).toBe(state.stages.s1.output);
+      const head = (await read(commandId, "output", "s0")).output;
+      expect(JSON.parse(head.text).data).toEqual(JSON.parse((await read(commandId, "result")).result.text));
+    });
+
+    /** @type {[string, () => void][]} */
+    const changes = [
+      ["changed", () => { sources.A = { items: ["changed"] }; }],
+      ["unavailable", () => { delete sources.A; }],
+    ];
+    for (const [what, change] of changes) {
+      it(`a crash after the fetch's output is recorded, before the save pins it, then the source ${what}: recovery uses the recorded output and never fetches`, async () => {
+        const taskId = chainOf(saveTask("A"), fetchTask("A"));
+        const { commandId, generation } = await allocateChain(taskId);
+        await expect(exitingAfterOutput("w1")({ commandId, generation })).rejects.toThrow("exited");
+        const crashed = await read(commandId, "state");
+        expect(crashed.stages.s1.output).toBeTruthy();
+        expect(crashed.stages.s0.pinnedInput).toBeNull();
+        expect(provider).toHaveLength(0);
+        change();
+        fetches.length = 0;
+        const taken = await takeOver(commandId, generation, "w2");
+        expect((await workerAs("w2", fetching)({ commandId, generation: taken.generation })).status).toBe("completed");
+        expect(fetches).toEqual([]);
+        // The save ran once, with what the fetch produced before the crash.
+        expect(provider).toEqual([{ items: ["a1"] }]);
+        expect(await argsOfSaves(commandId)).toEqual([{ items: ["a1"] }]);
+        expect((await head(taskId)).artifact.content).toEqual({ saved: { items: ["a1"] } });
+      });
+    }
+
+    it("never starts a save again once its output is recorded", async () => {
+      // Execution order: fetch A, save A, fetch B, save B (the head).
+      const taskId = chainOf(saveTask("B"), fetchTask("B"), saveTask("A"), fetchTask("A"));
+      const { commandId, generation } = await allocateChain(taskId);
+      // The first exit comes after fetch A's output; recover past it, then
+      // exit again after save A's.
+      await expect(exitingAfterOutput("w1")({ commandId, generation })).rejects.toThrow("exited");
+      let taken = await takeOver(commandId, generation, "w2");
+      await expect(exitingAfterOutput("w2")({ commandId, generation: taken.generation })).rejects.toThrow("exited");
+      // Save A is s2: its output is recorded, fetch B's (s1) isn't yet.
+      const crashed = (await read(commandId, "state")).stages;
+      expect([Boolean(crashed.s2.output), crashed.s1.output]).toEqual([true, undefined]);
+      expect(provider).toEqual([{ items: ["a1"] }]);
+      let starts = 0;
+      const counting = { ...fetching, start: async args => { starts++; return fetching.start(args); } };
+      fetches.length = 0;
+      taken = await takeOver(commandId, taken.generation, "w3");
+      expect((await workerAs("w3", counting)({ commandId, generation: taken.generation })).status).toBe("completed");
+      // Only fetch B and save B ran; save A answered from its recorded output.
+      expect(fetches).toEqual(["B"]);
+      expect(starts).toBe(1);
+      expect(provider).toEqual([{ items: ["a1"] }, { items: ["b1"] }]);
+    });
+  });
+
   it("with no pinned input yet, recovery runs every stage, as before", async () => {
     const taskId = chainOf(saveTask("A"), fetchTask("A"));
     const { commandId, generation } = await allocateChain(taskId);
@@ -462,6 +672,7 @@ describe("the drive's worker faults", () => {
     expect(() => parseCommandFaults({ K_SERVICE: "api", API_COMMAND_FAULTS: "exit-after-write", API_COMMAND_FAULT_PRINCIPALS: OWNER })).toThrow("production");
     expect(() => parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "drop-everything", API_COMMAND_FAULT_PRINCIPALS: OWNER })).toThrow("unknown");
     expect(() => parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "exit-after-write" })).toThrow("PRINCIPALS");
+    expect(() => parseCommandFaults({ K_SERVICE: "api", API_COMMAND_FAULTS: "exit-after-output", API_COMMAND_FAULT_PRINCIPALS: OWNER })).toThrow("production");
     expect(parseCommandFaults({ K_SERVICE: "api" })).toBeNull();
   });
 });
