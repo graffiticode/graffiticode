@@ -239,6 +239,36 @@ Each has a recommendation; the plan below assumes it.
    - a newer published command is never overwritten;
    - a newer pending one wins when it publishes;
    - the materialized artifact equals what a clean run of the same program and inputs produced.
+
+   **As built** (api: `commands/worker.js`, `commands/records.js`, `routes/command.js`, `comp.js`; Policy: `command-records.ts`, `client.ts`):
+   - **Routes,** for the command's own user, read with their token. They are on only when `REPAIR_LNNNN` is on for the language of every stage with effects, as the command's admission recorded them, whatever language the head is. So an L0176 save under an L0000 head follows `REPAIR_L0176` (the owner's review of #387). A command with no stage with effects has nothing to repair. When a route is off (the flag is unset in production), it answers `409 repair-unavailable` and runs nothing.
+     - `POST /command/:id/repair { idempotencyKey, occurrences? }` allocates the repair through Policy (`POST /v1/commands/:id/repairs`) and runs it at once, as `/command` runs a command. A pending repair whose worker stopped is taken over. The answer is the command answer plus `repairOf`. A refusal carries its category's status, and Policy's `detail` when it has one, for example the repair holding an occurrence.
+     - `POST /command/:id/materialize` (decision 9) answers `{ ...command, result: "available", published }`. When the command can't be materialized, the refusal names the stage, and the occurrence where there is one.
+   - **The worker's repair path.**
+     - Admission is `/admit` on the repair, which Policy turns into the claim. A refusal there finishes the repair `failed`, with nothing run.
+     - The run reads the original through Policy's gateway reads (`readOriginal`): its state with the canonical snapshot, its models, outcomes, refusals and occurrences, and the ledger. From these it gives each occurrence a current outcome, the argument digest it was bound with, and its recorded output. The ledger now keeps each repair-bound occurrence's Broker digest (`argd`), so a later repair can answer it from its record.
+     - The repair starts at the first stage, in execution order, that holds a selected occurrence or that the original never reached. Its input is that stage's canonical pinned input, otherwise the output below it.
+     - If the stage below has intents and no output (its answer was lost and its writes later reconciled), that stage is materialized from its records, and its output is recorded first. The repair binds and pins nothing in that stage. Its `finish` counts the rebuilt stage as run and closed, with no operation of its own (the owner's review of #387).
+     - From there, `runStages` runs as for any command, with three differences:
+       - it uses the original's models at their pinned `tagUrl`s;
+       - each stage's `start` carries `recorded`: every other occurrence of the stage that completed with a usable output (`{ argd, result }`); everything else the records hold is blocked, and only the repair's own claims execute;
+       - its own records govern recovery above the starting stage.
+   - **Publication (decision 8).** When a repair finishes `completed` with a result, Policy marks its publication due only if the original is now complete: every occurrence of the original completed, across it and its repairs, and every stage reached, counting the canonical snapshot.
+     - The publication names the original's invocation and sequence (`publication.artifact`). The worker stores the result under them, so the artifact store's compare-and-set keeps a newer invocation's artifact current.
+     - A repair that leaves the original incomplete publishes nothing.
+   - **Materialization (decisions 6 and 9; `materializeCommand`).**
+     - It needs both eligibility gates, every occurrence completed with a usable output (`not-complete` or `output-unavailable` otherwise, naming it), and every stage reached.
+     - The chain is rebuilt right to left. A stage with intents is replayed through `/interpret` `operation: "materialize"` at its pinned `tagUrl`, on its canonical pinned input with its recorded occurrences; a stage without intents takes its recorded output. A stage the kernel can't rebuild refuses the request `materialize-failed`.
+     - The head's data is stored as the command's own invocation's artifact. An artifact already stored for that invocation is the answer, and is never rebuilt.
+   - **Capability.** The api's Policy client states `repairs: 1` on every lease and sweep, so this api owns and recovers repairs.
+   - **New failure reasons** (conflict): `repair-unavailable`, `not-complete`, `output-unavailable`, `materialize-failed`.
+   - **Tests.** In `packages/api/src/commands/repair.spec.js`, end to end with an in-process Policy, a receipt-keeping Broker that can reject or drop a write, and a kernel-like L0176 whose `start` answers from `recorded` and whose `materialize` acts on nothing:
+     - every case listed above;
+     - recovery of a repair whose worker died after its write;
+     - the routes with the flag off and on.
+
+     Policy's `repairs.spec.ts` adds the publication rule: due with the original's artifact when the repair completes the original, none otherwise.
+   - **Release:** Policy first (the ledger's `argd` and the repair publication), then the api, staged with the canary, with `REPAIR_L0176` still unset. With the flag off, nothing allocates a repair, so the new paths stay unreached until slice 5's staged activation.
 5. **Drive, gate and activation.** A synthetic drive with injected faults (B5's `faults.js`, never on the production service) on the canary account, meeting the completion gate:
    - failed-only selection;
    - ledger exclusion under concurrent repairs;

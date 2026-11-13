@@ -513,7 +513,8 @@ describe("a repair that only resumes a stage with no effects (7b)", () => {
     await admitRepair(repair);
     await writeAs(repair.commandId)("installOutput", { stage: "s0", text: "{\"data\":{\"count\":2},\"errors\":[]}" });
     const done = await writeAs(repair.commandId)("finish", { result: "{\"count\":2}" });
-    expect(done).toMatchObject({ status: "completed", result: { state: "available" }, publication: { state: "none" } });
+    // It leaves the original complete: its result is the original's artifact (slice 4).
+    expect(done).toMatchObject({ status: "completed", result: { state: "available" }, publication: { state: "due", artifact: { invocationId: original.invocationId } } });
     // Its output is the stage's, in the original's snapshot.
     expect(commandStore.commands.get(original.commandId).canonical.s0.output).toMatchObject({ commandId: repair.commandId });
   });
@@ -586,5 +587,35 @@ describe("the canonical snapshot", () => {
     const own = await read("output", "s1");
     expect([JSON.parse(own.output.text), own.from]).toEqual([{ data: { saved: true } }, original.commandId]);
     expect(await read("input", "s0")).toEqual({ input: null, from: null });
+  });
+});
+
+// Slice 4 (decision 8): a repair publishes the original's artifact, and only
+// when it leaves the original complete.
+describe("a repair's publication", () => {
+  const finishRepair = async () => {
+    const repair = await repairOf();
+    await admitRepair(repair);
+    await repairBind(repair, B(1));
+    receipts.push({ operationId: `${repair.invocationId}/s1/${B(1)}`, status: "succeeded", recorded: true, steps: [], result: { saved: true } });
+    await settle(repair.commandId);
+    await writeAs(repair.commandId)("closeStage", { stage: "s1", occurrences: { batch: [B(1)] } });
+    await writeAs(repair.commandId)("installOutput", { stage: "s0", text: "{\"data\":{\"count\":2},\"errors\":[]}" });
+    return { repair, done: await writeAs(repair.commandId)("finish", { result: "{\"count\":2}" }) };
+  };
+
+  it("is due, as the original invocation's artifact, when it leaves every occurrence completed and every stage reached", async () => {
+    await runOriginal();
+    const { done } = await finishRepair();
+    expect(done).toMatchObject({ status: "completed", publication: { state: "due", artifact: { invocationId: original.invocationId, seq: original.seq } } });
+    // The ledger keeps the occurrence's Broker digest for later repairs.
+    expect((await ledger())[B(1)]).toMatchObject({ status: "completed", argd: ARGD });
+  });
+
+  it("is none while another occurrence of the original isn't completed", async () => {
+    // n1.0's answer was lost: uncertain, and no repair may touch it.
+    await runOriginal({ save: null });
+    const { done } = await finishRepair();
+    expect(done).toMatchObject({ status: "completed", publication: { state: "none" } });
   });
 });

@@ -44,9 +44,24 @@ export const buildInterpreter = ({ langCompile, callerIdentity = async _lang => 
 // "start", the stage and its command session, at the stage's pinned revision.
 // It may act, so it is never sent again: a lost answer comes back as
 // `responseLost` (lang/compile.js), and the worker settles from receipts.
+// A repair's start (B6, decision 7a) also carries the stage's recorded
+// occurrences, `{ completed: { <occurrence>: { argd, result } }, blocked }`,
+// which the kernel answers from their records with no call.
 export const buildCommandStart = ({ langCompile, callerIdentity = async _lang => null }) =>
-  async ({ lang, model, input, commandSession, stage, baseUrl }) => {
+  async ({ lang, model, input, commandSession, stage, baseUrl, recorded = null }) => {
     const headers = await callerIdentity(lang);
-    const req = { model, input, operation: "start", commandSession, stage, mode: "evaluate" };
+    const req = { model, input, operation: "start", commandSession, stage, mode: "evaluate", ...(recorded ? { recorded } : {}) };
     return langCompile(`L${lang}`, req, { path: "/interpret", baseUrl, ...(headers ? { headers } : {}) });
+  };
+
+// A stage rebuilt from its records (B6, decision 6): POST /interpret with
+// operation "materialize", the stage's admitted model, its pinned input and
+// its recorded occurrences, at the stage's pinned revision. The kernel's
+// replay mode acts on nothing (no session, no Policy, no Broker), so a lost
+// answer is retried once like a read.
+export const buildCommandMaterialize = ({ langCompile, callerIdentity = async _lang => null }) =>
+  async ({ lang, model, input, recorded, baseUrl }) => {
+    const headers = await callerIdentity(lang);
+    const req = { model, input, operation: "materialize", recorded, mode: "evaluate" };
+    return langCompile(`L${lang}`, req, { path: "/interpret", baseUrl, retryReset: true, ...(headers ? { headers } : {}) });
   };

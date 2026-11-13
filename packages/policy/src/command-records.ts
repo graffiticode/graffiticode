@@ -392,6 +392,9 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
         tx.set(ledgerPath, {
           ...(entry ?? { stage, occurrenceId, commandId: command.repairOf, status: "pending", repairId: commandId, claim: "bind", claimedAt: at(), attempts: [] }),
           argsDigest,
+          // The Broker's digest of its payload, which a later repair answers
+          // the occurrence from its record with (B6 slice 4, 7a).
+          argd,
           counted: true,
           generation,
         });
@@ -504,6 +507,9 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       // A repair settles the ledger entries it holds (B6 decision 4).
       const repair = command.kind === "repair";
       const held = repair ? (await tx.list(["commands", command.repairOf, "ledger"])).filter(e => e.status === "pending" && e.repairId === commandId) : [];
+      // And whether it leaves the original complete (decision 8, below).
+      const original = repair ? await tx.get(cmdPath(command.repairOf)) : null;
+      const originalStates = repair ? await occurrenceStates(tx, command.repairOf) : null;
       const operations = [
         ...occurrences.map(o => ({ outcome: outcomes.get(docKey(o.stage, o.occurrenceId))?.outcome ?? null })),
         ...refusals.map(() => ({ outcome: "failed" })),
@@ -526,7 +532,11 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
         const own = stageOf(command, name);
         const allStatic = intents.length > 0 && intents.every(i => !i.runtime);
         const settled = allStatic && intents.every(i => (i.occurrences ?? []).every(occ => outcomes.has(docKey(name, occ))));
-        return { ...own, ...(settled ? { state: "ran", expansion: "closed" } : {}), hasIntents: intents.length > 0 };
+        // A stage a repair rebuilt from its records (decision 6; the owner's
+        // review of #387): it bound and pinned nothing there, only recorded the
+        // rebuilt output. That stage is finished, with no operation of its own.
+        const rebuilt = repair && intents.length > 0 && own.state === "pending" && !boundStages.has(name) && typeof own.pinnedInput !== "string" && isDigest(own.output);
+        return { ...own, ...(settled || rebuilt ? { state: "ran", expansion: "closed" } : {}), hasIntents: intents.length > 0 };
       });
       // A repair with no operations of its own (one that only resumed stages
       // with no effects, 7b) completed when every stage it touched finished
@@ -548,15 +558,24 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
         const status = outcome?.outcome ?? "failed";
         const source = outcome ? outcome.source : refusedKeys.has(k) ? "bind-refusal" : "not-reached";
         tx.set(sub(command.repairOf, "ledger", k), { ...entry, status, source, receipt: outcome?.receipt ?? null, output: outcome?.output ?? null, settledAt: at(), generation });
+        originalStates.get(k).current = status;
       }
-      // A repair publishes the original's artifact once the original is
-      // complete (decision 8, slice 4), never its own.
-      const publish = status === "completed" && available && !repair;
+      // A repair publishes only the original's artifact (decision 8), and only
+      // when it leaves the original complete: every occurrence of the original
+      // completed now, across it and its repairs, and every stage reached
+      // (resumed stages through the canonical snapshot, which this repair's
+      // outputs are already in). Its result is the head's answer over those
+      // records, stored as the original invocation's artifact: once, and
+      // never over a newer invocation's (the artifact head's compare-and-set).
+      const originalComplete = repair && [...originalStates.values()].every(st => st.current === "completed") &&
+        Object.keys(original.admission?.stages ?? {}).every(name => canonicalStages(original)[name]?.state !== "not-reached");
+      const publish = status === "completed" && available && (!repair || originalComplete);
+      const artifact = repair ? { invocationId: original.invocationId, seq: original.seq } : null;
       return touch(tx, command, {
         status,
         counts,
         result: { state: available ? "available" : "unavailable", digest },
-        publication: publish ? { state: "due", resultDigest: digest } : { state: "none", resultDigest: null },
+        publication: publish ? { state: "due", resultDigest: digest, ...(artifact ? { artifact } : {}) } : { state: "none", resultDigest: null },
       });
     }),
 
@@ -600,6 +619,7 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
           claimedAt: at(),
           generation,
           argsDigest: prior?.argsDigest ?? null,
+          argd: prior?.argd ?? null,
           counted: prior?.counted ?? false,
           attempts: prior ? [...(prior.attempts ?? []), { repairId: prior.repairId, status: prior.status, source: prior.source ?? null }] : [],
         });

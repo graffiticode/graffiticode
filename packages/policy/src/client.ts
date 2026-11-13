@@ -8,9 +8,13 @@
 // same class as InvocationRefused, so one `instanceof` covers both names.
 export class PolicyRefused extends Error {
   declare reason: string;
-  constructor(reason: string) {
+  // What the refusal is about, when Policy says (B6: the occurrence a repair
+  // can't claim, and the repair holding it).
+  declare detail: Record<string, unknown> | null;
+  constructor(reason: string, detail: Record<string, unknown> | null = null) {
     super(`policy refused: ${reason}`);
     this.reason = reason;
+    this.detail = detail;
   }
 }
 

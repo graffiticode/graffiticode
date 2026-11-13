@@ -10,12 +10,23 @@
 // The run stops early, leaving the command pending, when this worker loses the
 // command: a lease renewal is refused, or any Policy write answers
 // stale-generation or lease-expired. Whoever holds it now continues.
+//
+// A repair (B6, docs/b6-command-repair-plan.md decisions 3, 7, 8) runs the same
+// way, under its own lease and invocation: Policy admits it by claiming what
+// it selected, and it runs the original's admitted models at their pinned
+// revisions, from the first stage that has an occurrence it holds or that the
+// original never reached, on that stage's canonical input. Every occurrence it
+// doesn't hold answers from its record (or, if it can't, stops the stage), so
+// only what it claimed executes. Its result is the head's answer over the
+// original's records; when Policy finds the original complete, it is published
+// as the original invocation's artifact.
 
 import { createHash } from "node:crypto";
 import { decodeChainId } from "@graffiticode/common/chain";
 import { canonicalDigest } from "@graffiticode/common/canonical";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { PolicyRefused } from "./policy-commands.js";
+import { readOriginal, recordedFor, materializeFromRecords } from "./records.js";
 import { ARTIFACT_RESULT_FORM } from "../read.js";
 
 export const LEASE_RENEW_MS = 20_000;
@@ -44,7 +55,7 @@ const envelopeOf = answer => ({ data: answer?.data ?? null, errors: [] });
 const failed = answer => Boolean(answer?.responseLost) || (Array.isArray(answer?.errors) && answer.errors.length > 0);
 
 // `policy`: buildPolicyCommands (or an in-process equivalent in tests).
-// `language`: { model, preflight, interpret, start, baseUrlFor } for the
+// `language`: { model, preflight, interpret, start, materialize, baseUrlFor } for the
 // stages' services. `artifactStorer`: storage/artifacts.js.
 export const buildCommandWorker = ({
   policy, taskStorer, language, artifactStorer, worker, renewEveryMs = LEASE_RENEW_MS, faults = null,
@@ -76,15 +87,16 @@ export const buildCommandWorker = ({
   try {
     let state = await owned(() => policy.read({ commandId, what: "state" }));
     if (state.status === "pending") {
+      const repair = state.kind === "repair";
       if (state.phase !== "admitted") {
-        const admitted = await initialize({ state, ids, owned });
+        const admitted = repair ? await admitRepair({ ids, owned }) : await initialize({ state, ids, owned });
         if (!admitted) {
           state = await owned(() => policy.finish({ ...ids }));
           return state;
         }
         state = await owned(() => policy.read({ commandId, what: "state" }));
       }
-      const result = await runStages({ state, ids, owned });
+      const result = repair ? await runRepair({ state, ids, owned }) : await runStages({ state, ids, owned });
       await owned(() => policy.finish({ ...ids, result }));
       state = await owned(() => policy.read({ commandId, what: "state" }));
     }
@@ -155,14 +167,87 @@ export const buildCommandWorker = ({
     return true;
   }
 
+  // B6 (decision 4): a repair's admission is Policy's claim of its selection,
+  // with the original's admission. A refusal (claimed by another repair, no
+  // longer eligible, a revision retired, no longer permitted) claims nothing:
+  // the repair finishes failed, with its reason recorded.
+  async function admitRepair({ ids: { commandId: id, generation: g }, owned: step }) {
+    try {
+      await step(() => policy.admit({ commandId: id, generation: g }));
+      return true;
+    } catch (e) {
+      if (e instanceof OwnershipLost) throw e;
+      if (e instanceof PolicyRefused) {
+        log(`WARN repair ${id}: not admitted (${e.reason})`);
+        return false;
+      }
+      throw e;
+    }
+  }
+
+  // B6 (decisions 7a, 7b): a repair's run. It starts at the first stage, in
+  // execution order, that has an occurrence it holds or that the original
+  // never reached (the canonical snapshot counts stages earlier repairs
+  // resumed), on that stage's canonical pinned input, or else the output of
+  // the stage below. A stage below with intents and no usable output (its
+  // answer was lost, then its writes reconciled) is materialized from its
+  // records (decision 6), and that output recorded. Returns the head's result
+  // text, or null when it stops.
+  async function runRepair({ state, ids, owned: step }) {
+    const { commandId: id, generation: g } = ids;
+    const view = await readOriginal({ policy, commandId: state.repairOf, step });
+    const stages = Object.keys(state.admission.stages).sort((a, b) => Number(b.slice(1)) - Number(a.slice(1)));
+    const selected = new Set((state.selection ?? []).map(o => o.stage));
+    const held = new Set(view.occurrences.filter(o => o.heldBy === id).map(o => o.stage));
+    const floorAt = stages.findIndex(stage => selected.has(stage) || held.has(stage) || view.stages[stage]?.state === "not-reached");
+    if (floorAt < 0) {
+      log(`WARN repair ${id}: nothing to run`);
+      return null;
+    }
+    const floor = stages[floorAt];
+    const readOriginalRecord = (what, stage) => step(() => policy.read({ commandId: state.repairOf, what, stage }));
+    let floorInput = { data: {}, errors: [] };
+    const { input: pinned } = await readOriginalRecord("input", floor);
+    if (pinned) {
+      floorInput = JSON.parse(pinned.text);
+    } else if (floorAt > 0) {
+      const below = stages[floorAt - 1];
+      const { output } = await readOriginalRecord("output", below);
+      if (output) {
+        floorInput = JSON.parse(output.text);
+      } else if ((state.admission.stages[below].intents ?? []).length > 0) {
+        const answer = await materializeStage({ view, stage: below });
+        if (!answer) return null;
+        floorInput = answer;
+        await step(() => policy.installOutput({ commandId: id, generation: g, stage: below, text: JSON.stringify(floorInput) }));
+      } else {
+        log(`WARN repair ${id}: ${below}'s output isn't recorded; ${floor} can't run`);
+        return null;
+      }
+    }
+    log(`repair ${id}: running from ${floor}`);
+    return runStages({ state, ids, owned: step, models: view.models, floorAt, floorInput, recordedFor: stage => recordedFor(view, stage, id) });
+  }
+
+  // A stage rebuilt from its records alone (decision 6): its admitted model, at
+  // its pinned revision, on its canonical pinned input, every occurrence from
+  // its record. Anything the records can't answer fails it: null.
+  async function materializeStage({ view, stage }) {
+    const answer = await materializeFromRecords({ policy, language, view, stage, log });
+    return answer.ok ? answer.envelope : null;
+  }
+
   // §6 steps 3–4: the stages right to left, each from its admitted model at its
   // pinned revision. A stage with intents is pinned, then started under its
   // session; its occurrences are closed and settled from receipts. The chain
   // stops at a stage that failed or lost its answer; the stages left of it are
   // not reached. Returns the head's result text, or null when there is none.
-  async function runStages({ state, ids: { commandId: id, generation: g }, owned: step }) {
-    const { models } = await step(() => policy.read({ commandId: id, what: "models" }));
-    const modelOf = new Map(models.map(m => [m.stage, JSON.parse(m.text)]));
+  //
+  // A repair (B6) passes the original's models, the stage it starts at
+  // (`floorAt`) with its input, and its stages' recorded occurrences. Its own
+  // records then decide recovery above the floor, as for any command.
+  async function runStages({ state, ids: { commandId: id, generation: g }, owned: step, models = null, floorAt = 0, floorInput = null, recordedFor: recorded = null }) {
+    const modelOf = models ?? new Map((await step(() => policy.read({ commandId: id, what: "models" }))).models.map(m => [m.stage, JSON.parse(m.text)]));
     const stages = Object.keys(state.admission.stages).sort((a, b) => Number(b.slice(1)) - Number(a.slice(1)));
     let input = { data: {}, errors: [] };
     // Recovery starts at the furthest pinned boundary (C3, plan decision 5):
@@ -191,8 +276,11 @@ export const buildCommandWorker = ({
       return typeof output === "string" && output !== "too-large" ? output : null;
     };
     const fromOutputs = recording ? stages.findLastIndex(stage => outputDigest(stage)) + 1 : 0;
-    const resumeAt = Math.max(pinnedAt, fromOutputs);
-    if (resumeAt > 0 && resumeAt === fromOutputs && outputDigest(stages[resumeAt - 1])) {
+    let resumeAt = Math.max(pinnedAt, fromOutputs);
+    if (resumeAt < floorAt) {
+      resumeAt = floorAt;
+      input = floorInput;
+    } else if (resumeAt > 0 && resumeAt === fromOutputs && outputDigest(stages[resumeAt - 1])) {
       const below = stages[resumeAt - 1];
       const { output } = await step(() => policy.read({ commandId: id, what: "output", stage: below }));
       if (!output || sha256(output.text) !== outputDigest(below)) throw new Error(`command ${id}: ${below}'s recorded output can't be read`);
@@ -253,7 +341,7 @@ export const buildCommandWorker = ({
         await step(() => policy.settle({ commandId: id, generation: g }));
         return stop();
       }
-      let answer = await language.start({ lang: admitted.lang, model, input: JSON.parse(pinned.text), commandSession: sessionToken, stage, baseUrl: admitted.tagUrl });
+      let answer = await language.start({ lang: admitted.lang, model, input: JSON.parse(pinned.text), commandSession: sessionToken, stage, baseUrl: admitted.tagUrl, ...(recorded ? { recorded: recorded(stage) } : {}) });
       // The drive's faults (faults.js), never set in production: the writes
       // have run, and the worker dies, or the head's answer is lost.
       if (faults?.appliesTo(state.uid) && !answer?.responseLost) {
@@ -291,16 +379,19 @@ export const buildCommandWorker = ({
   // §6 step 6: the artifact, delivered from the result finish committed. Only
   // that content is delivered (a duplicate is acknowledged by the store), so a
   // late or stale delivery can't put anything else there.
+  // A repair's (B6, decision 8) is the original invocation's artifact, under
+  // the original's sequence: stored once, and never over a newer invocation's.
   async function publish({ state, ids: { commandId: id, generation: g }, owned: step }) {
     const { result } = await step(() => policy.read({ commandId: id, what: "result" }));
     if (!result || sha256(result.text) !== state.publication.resultDigest) throw new Error(`command ${id}: the committed result can't be read`);
+    const of = state.publication.artifact ?? { invocationId: state.invocationId, seq: state.seq };
     await artifactStorer.put({
       uid: state.uid,
       ownerUid: state.ownerUid,
       connectionId: state.connectionId,
       taskId: state.taskId,
-      invocationId: state.invocationId,
-      seq: state.seq,
+      invocationId: of.invocationId,
+      seq: of.seq,
       registryVersion: REGISTRY_VERSION,
       // The head's output, not a compile envelope: the read path serves it
       // as one (read.js storedEnvelope). The mark isn't a binding, so a
