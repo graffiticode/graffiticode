@@ -476,3 +476,75 @@ describe("the routes", () => {
     expect(res.body.data).toMatchObject({ commandId: command.commandId, result: "available", published: "current" });
   });
 });
+
+// The owner's review of #387.
+describe("a lower stage rebuilt from its records", () => {
+  it("resumes the head once the lower write's lost answer is reconciled: both writes once, completed and published", async () => {
+    faults.drop = new Set(["lower-n1.0"]);
+    const { command, done } = await run(STACK);
+    expect(done.status).toBe("uncertain");
+    expect(provider).toHaveLength(1);
+    reconciled = () => [{ operationId: `${command.invocationId}/s1/n1.0`, verdict: "applied", final: true, result: { saved: provider[0], ref: "lower-n1.0" }, resultSource: "evidence" }];
+    await policy.reconcile({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", invocationId: command.invocationId });
+    faults.drop = new Set();
+    const { repair, done: repaired } = await repairOf(command.commandId);
+    expect(repair.selection).toEqual([]);
+    expect(provider.map(p => p.at)).toEqual(["lower:n1.0", "upper:n1.0"]);
+    // The lower stage was rebuilt by replay, never started.
+    expect(calls.filter(c => c.op === "materialize").map(c => c.root)).toEqual(["lower"]);
+    expect(calls.filter(c => c.op === "start").map(c => c.root)).toEqual(["lower", "upper"]);
+    expect(repaired).toMatchObject({ status: "completed", publication: { state: "published" } });
+    expect(await artifactOf(command.invocationId)).toEqual({ items: [1, 2], refs: ["upper-n1.0"] });
+  });
+});
+
+describe("the repair flag for a composed command", () => {
+  const composed = async () => {
+    const chain = encodeChainId(["task-data", "task-one", "task-data"]);
+    chainTasks[chain] = ["task-data", "task-one", "task-data"];
+    faults.reject = new Set(["one-n1.0"]);
+    // As /command allocates it: the command's lang is its head's.
+    const command = await policy.allocateCommand({
+      caller: GATEWAY,
+      user: { uid: OWNER },
+      connectionId: "conn-1",
+      taskId: chain,
+      inputDigest: hex("9"),
+      idempotencyKey: "composed-1",
+      lang: "0000",
+      request: JSON.stringify({ id: chain, connectionId: "conn-1", options: {} }),
+      worker: "w1",
+    });
+    expect((await workerAs("w1")({ commandId: command.commandId, generation: 1 })).status).toBe("failed");
+    faults.reject = new Set();
+    return command;
+  };
+  const repairWith = (command, env) => {
+    const app = express();
+    app.use(express.json());
+    app.use((/** @type {any} */ req, _res, next) => {
+      req.auth = { context: { uid: OWNER } };
+      next();
+    });
+    app.use("/command", buildCommandRouter({ taskStorer: tasksOf, policy: client(), run: workerAs("w-route"), worker: "w-route", env, materialize: ({ commandId }) => materialize(commandId) }));
+    return request(app).post(`/command/${encodeURIComponent(command.commandId)}/repair`).set({ authorization: "Bearer t" }).send({ idempotencyKey: "repair-1" });
+  };
+
+  it("follows the stages with effects, not the head: an L0176 save under an L0000 head repairs with REPAIR_L0176 on", async () => {
+    const command = await composed();
+    const res = await repairWith(command, { REPAIR_L0176: "on" });
+    expect([res.status, res.body.error]).toEqual([200, null]);
+    expect(res.body.data.outcome).toBe("completed");
+    expect(provider.map(p => p.at)).toEqual(["one:n1.0"]);
+  });
+
+  it("stays off unless every language with effects is on: the head's flag alone is not enough", async () => {
+    const command = await composed();
+    for (const env of [{}, { REPAIR_L0000: "on" }]) {
+      const res = await repairWith(command, env);
+      expect([res.status, res.body.error.reason]).toEqual([409, "repair-unavailable"]);
+    }
+    expect(await ledgerOf(command.commandId)).toEqual([]);
+    expect(provider).toHaveLength(0);
+  });
+});

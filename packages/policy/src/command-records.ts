@@ -532,7 +532,11 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
         const own = stageOf(command, name);
         const allStatic = intents.length > 0 && intents.every(i => !i.runtime);
         const settled = allStatic && intents.every(i => (i.occurrences ?? []).every(occ => outcomes.has(docKey(name, occ))));
-        return { ...own, ...(settled ? { state: "ran", expansion: "closed" } : {}), hasIntents: intents.length > 0 };
+        // A stage a repair rebuilt from its records (decision 6; the owner's
+        // review of #387): it bound and pinned nothing there, only recorded the
+        // rebuilt output. That stage is finished, with no operation of its own.
+        const rebuilt = repair && intents.length > 0 && own.state === "pending" && !boundStages.has(name) && typeof own.pinnedInput !== "string" && isDigest(own.output);
+        return { ...own, ...(settled || rebuilt ? { state: "ran", expansion: "closed" } : {}), hasIntents: intents.length > 0 };
       });
       // A repair with no operations of its own (one that only resumed stages
       // with no effects, 7b) completed when every stage it touched finished

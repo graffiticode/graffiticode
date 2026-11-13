@@ -40,6 +40,14 @@ export { commandsEnabled };
 
 // Whether repairs and materialization are on for a language (decision 10).
 export const repairEnabled = (lang, env = process.env) => env[`REPAIR_L${normalizeLang(lang)}`] === "on";
+// For a command: on for the language of every stage with effects, as its
+// admission recorded them, whatever language its head is (an L0176 save under
+// an L0000 head is L0176's to repair; the owner's review of #387). A command
+// with no stage with effects has nothing to repair.
+export const repairEnabledFor = (admission, env = process.env) => {
+  const langs = [...new Set(Object.values(admission?.stages ?? {}).filter(s => (s?.intents ?? []).length > 0).map(s => s.lang))];
+  return langs.length > 0 && langs.every(lang => repairEnabled(lang, env));
+};
 // A refusal's HTTP status, from its category.
 const STATUS_OF = { authentication: 401, permission: 403, malformed: 400, conflict: 409, unavailable: 503 };
 
@@ -140,7 +148,10 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
       if (e instanceof PolicyRefused) return refused(res, 404, e.reason) && null;
       throw e;
     }
-    if (!repairEnabled(command.lang, env)) return refused(res, 409, "repair-unavailable") && null;
+    // The command is the user's (their token read it); its admission, the
+    // gateway's read, says which languages act.
+    const { admission } = await policy.read({ commandId: req.params.id, what: "state" });
+    if (!repairEnabledFor(admission, env)) return refused(res, 409, "repair-unavailable") && null;
     return { command, authToken };
   };
 
