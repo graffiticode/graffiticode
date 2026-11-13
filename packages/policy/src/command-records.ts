@@ -15,6 +15,24 @@
 // Install-once writes return what is installed, so a retry or a later owner
 // always reads the first value.
 //
+// Repairs (B6 slice 3, docs/b6-command-repair-plan.md decisions 1, 3, 4, 7, 11):
+//   - The ledger, `commands/{original}/ledger/{stage}:{occurrence}`, holds
+//     each occurrence a repair has claimed or reconciliation has settled:
+//     `pending` while a repair holds it, then the repair's outcome for it
+//     (`completed`, `failed`, `partial`, `uncertain`), with the repair's
+//     receipt and output. An occurrence's current outcome is its ledger
+//     entry's when that is settled, otherwise the original's own.
+//   - A repair claims every occurrence it selected in one transaction, with
+//     its admission (`claimRepair`); each must be `failed` now and held by no
+//     other repair. An occurrence new to a stage is claimed when it is bound.
+//   - A repair's bind refuses an occurrence the records hold that the repair
+//     doesn't (`not-selected`), and arguments other than the original
+//     binding's (`binding-mismatch`). Bounds count every occurrence of the
+//     stage across the original and its repairs.
+//   - Finishing a repair settles the entries it held.
+//   - Reconciliation records an applied, final verdict for an uncertain
+//     occurrence as `completed`, with its output or `unavailable`.
+//
 // The logic is written once against a small transaction interface, which the
 // memory and Firestore backends implement:
 //   backend.transaction(async tx => …)
@@ -69,6 +87,38 @@ const outputOf = result => {
   return { output: { text, digest: sha256(text) } };
 };
 
+// An occurrence's outcomes, settled or held, in the ledger.
+const SETTLED = new Set(["completed", "failed", "partial", "uncertain"]);
+
+// Why a command can't be repaired, or null (decision 11, before any claim):
+// it must be an original command, finished, admitted on revisions that
+// replay (every intent-bearing stage's own preflight said `replay: 1`), and
+// recorded (`recording: 1`), with what the repair and the assembly need:
+// every stage that ran has its output, or for a stage with intents its
+// pinned input, and every stage with a selected occurrence its pinned input.
+export const repairGate = (original, selection = []) => {
+  if (!original) return "command-not-found";
+  if ((original.kind ?? "command") !== "command") return "not-original";
+  if (original.status === "pending") return "command-pending";
+  const admission = original.admission;
+  if (original.phase !== "admitted" || !admission) return "not-admitted";
+  const stages = Object.entries(admission.stages ?? {}) as [string, { intents?: unknown[], replay?: number }][];
+  if (stages.some(([, a]) => (a.intents ?? []).length > 0 && a.replay !== 1)) return "revision-unsupported";
+  if (admission.recording !== 1) return "not-recorded";
+  for (const [name, a] of stages) {
+    const own = original.stages?.[name] ?? {};
+    if (own.state === "not-reached") continue;
+    const hasIntents = (a.intents ?? []).length > 0;
+    // An output too large to record (`"too-large"`) is no output.
+    const output = typeof own.output === "string" && DIGEST_RE.test(own.output);
+    if (!output && !(hasIntents && typeof own.pinnedInput === "string")) return "not-recorded";
+  }
+  for (const { stage } of selection) {
+    if (typeof original.stages?.[stage]?.pinnedInput !== "string") return "not-recorded";
+  }
+  return null;
+};
+
 export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
   const cmdPath = id => ["commands", id];
   const sub = (id, collection, docId) => ["commands", id, collection, docId];
@@ -92,6 +142,36 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
   };
   const stageOf = (command, stage) => command.stages?.[stage] ?? { state: "pending", expansion: "open", pinnedInput: null };
   const admittedIntents = (command, stage) => command.admission?.stages?.[stage]?.intents ?? null;
+  const at = () => new Date(now()).toISOString();
+
+  // Every occurrence of an original command, with its current outcome (B6
+  // decisions 1 and 4): `current` is the ledger's settled outcome, else the
+  // original's own (a refused bind is `failed`, a bound one with no outcome
+  // null); `heldBy` names the repair holding it, if one does.
+  const occurrenceStates = async (tx, originalId) => {
+    const occurrences = await tx.list(["commands", originalId, "occurrences"]);
+    const outcomes = await tx.list(["commands", originalId, "outcomes"]);
+    const refusals = await tx.list(["commands", originalId, "refusals"]);
+    const ledger = await tx.list(["commands", originalId, "ledger"]);
+    const states = new Map();
+    const state = (stage, occurrenceId) => {
+      const k = docKey(stage, occurrenceId);
+      if (!states.has(k)) states.set(k, { stage, occurrenceId, original: null, entry: null });
+      return states.get(k);
+    };
+    for (const o of occurrences) state(o.stage, o.occurrenceId).bound = true;
+    for (const o of outcomes) state(o.stage, o.occurrenceId).original = o.outcome;
+    for (const r of refusals) {
+      const st = state(r.stage, r.occurrenceId);
+      if (!st.original) st.original = "failed";
+    }
+    for (const e of ledger) state(e.stage, e.occurrenceId).entry = e;
+    for (const st of states.values()) {
+      st.current = st.entry && SETTLED.has(st.entry.status) ? st.entry.status : (st.entry?.prior ?? st.original);
+      st.heldBy = st.entry?.status === "pending" ? st.entry.repairId : null;
+    }
+    return states;
+  };
 
   return {
     // §6 step 2: a stage's model, installed once with its revision.
@@ -198,6 +278,15 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       if (!Array.isArray(observations) || !observations.every(o => typeof o === "string" && OID_RE.test(o))) throw new CommandRefused("bad-request");
       const intents = admittedIntents(command, stage);
       if (!intents) throw new CommandRefused("not-admitted");
+      // A repair's bind (B6 7a, 7b) also reads the original's records of this
+      // occurrence and its ledger entry, before anything is written.
+      const repair = command.kind === "repair";
+      const key = docKey(stage, occurrenceId);
+      const original = repair ? await tx.get(cmdPath(command.repairOf)) : null;
+      const originalBound = repair ? await tx.get(sub(command.repairOf, "occurrences", key)) : null;
+      const originalRecorded = repair && Boolean(originalBound || await tx.get(sub(command.repairOf, "outcomes", key)) || await tx.get(sub(command.repairOf, "refusals", key)));
+      const ledgerPath = repair ? sub(command.repairOf, "ledger", key) : null;
+      const entry = repair ? await tx.get(ledgerPath) : null;
       // A definite refusal of this occurrence is recorded, in this transaction,
       // before it is answered (C6 slice 0): finish counts it failed, so a
       // command with a refused save is never completed. Idempotent: a resumed
@@ -234,6 +323,37 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       const counts = { ...(command.counts ?? {}) };
       const byIntent = { ...(counts.byIntent ?? {}) };
       const max = intent.bounds?.maxOccurrences ?? 1;
+      if (repair) {
+        // An occurrence the records hold is bound only by the repair holding
+        // it; one held by another repair is that repair's.
+        const mine = entry?.status === "pending" && entry.repairId === commandId;
+        if (entry?.status === "pending" && !mine) throw new CommandRefused("occurrence-claimed", { stage, occurrenceId, repairId: entry.repairId });
+        if ((originalRecorded || entry) && !mine) throw new CommandRefused("not-selected", { stage, occurrenceId });
+        // The original binding's arguments, exactly: the model and input are
+        // pinned, so anything else is a bug, and nothing is written.
+        const bindingDigest = originalBound?.argsDigest ?? entry?.argsDigest ?? null;
+        if (bindingDigest !== null && bindingDigest !== argsDigest) throw new CommandRefused("binding-mismatch", { stage, occurrenceId });
+        // Bounds across the original and every repair: an occurrence the
+        // original bound is counted already, and one new to the stage once.
+        const counted = Boolean(originalBound) || entry?.counted === true;
+        if (!counted) {
+          const total = (original.counts?.byIntent?.[countKey] ?? 0) + (original.repairCounts?.byIntent?.[countKey] ?? 0);
+          if (total >= max) return refuse("bounds-exceeded");
+          const repairCounts = { byIntent: { ...(original.repairCounts?.byIntent ?? {}), [countKey]: (original.repairCounts?.byIntent?.[countKey] ?? 0) + 1 } };
+          tx.set(cmdPath(original.commandId), { ...original, repairCounts, updatedAt: at() });
+        }
+        // Claimed at bind when it is new (7b), with its arguments and count.
+        tx.set(ledgerPath, {
+          ...(entry ?? { stage, occurrenceId, commandId: command.repairOf, status: "pending", repairId: commandId, claim: "bind", claimedAt: at(), attempts: [] }),
+          argsDigest,
+          counted: true,
+          generation,
+        });
+        byIntent[countKey] = (byIntent[countKey] ?? 0) + 1;
+        tx.set(path, { stage, occurrenceId, intentId, expansionKey, args, argsDigest, argd, observations, minted: [], boundAt: at(), generation });
+        touch(tx, command, { counts: { ...counts, byIntent, bound: (counts.bound ?? 0) + 1 } });
+        return { stage, occurrenceId, argsDigest, bound: true };
+      }
       if ((byIntent[countKey] ?? 0) >= max) return refuse("bounds-exceeded");
       byIntent[countKey] = (byIntent[countKey] ?? 0) + 1;
       tx.set(path, { stage, occurrenceId, intentId, expansionKey, args, argsDigest, argd, observations, minted: [], boundAt: new Date(now()).toISOString(), generation });
@@ -335,6 +455,9 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       // A refused bind is a failed operation: nothing was written for it, and
       // the command didn't do what its program asked (C6 slice 0).
       const refusals = await tx.list(["commands", commandId, "refusals"]);
+      // A repair settles the ledger entries it holds (B6 decision 4).
+      const repair = command.kind === "repair";
+      const held = repair ? (await tx.list(["commands", command.repairOf, "ledger"])).filter(e => e.status === "pending" && e.repairId === commandId) : [];
       const operations = [
         ...occurrences.map(o => ({ outcome: outcomes.get(docKey(o.stage, o.occurrenceId))?.outcome ?? null })),
         ...refusals.map(() => ({ outcome: "failed" })),
@@ -345,7 +468,9 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       // intents are all static, closed at admission — when every admitted
       // occurrence has an outcome, so a revoked connection can't keep a fully
       // settled stage open (§4, §7).
-      const stages = Object.entries(command.admission?.stages ?? {}).map(([name, s]) => {
+      // A repair runs only some stages: the ones it touched decide.
+      const boundStages = new Set(occurrences.map(o => o.stage));
+      const stages = Object.entries(command.admission?.stages ?? {}).filter(([name]) => !repair || stageOf(command, name).state !== "pending" || boundStages.has(name)).map(([name, s]) => {
         const intents = (s as { intents?: { id: string, runtime?: boolean, occurrences?: string[] }[] }).intents ?? [];
         const own = stageOf(command, name);
         const allStatic = intents.length > 0 && intents.every(i => !i.runtime);
@@ -358,7 +483,18 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       const available = result !== null;
       const digest = available ? sha256(result) : null;
       if (available) tx.set(sub(commandId, "result", "final"), { text: result, digest });
-      const publish = status === "completed" && available;
+      const refusedKeys = new Set(refusals.map(r => docKey(r.stage, r.occurrenceId)));
+      for (const entry of held) {
+        const k = docKey(entry.stage, entry.occurrenceId);
+        const outcome = outcomes.get(k) as { outcome: string, source?: string, receipt?: string, output?: unknown } | undefined;
+        // Not bound, or refused at bind: nothing was written for it.
+        const status = outcome?.outcome ?? "failed";
+        const source = outcome ? outcome.source : refusedKeys.has(k) ? "bind-refusal" : "not-reached";
+        tx.set(sub(command.repairOf, "ledger", k), { ...entry, status, source, receipt: outcome?.receipt ?? null, output: outcome?.output ?? null, settledAt: at(), generation });
+      }
+      // A repair publishes the original's artifact once the original is
+      // complete (decision 8, slice 4), never its own.
+      const publish = status === "completed" && available && !repair;
       return touch(tx, command, {
         status,
         counts,
@@ -373,6 +509,95 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       if (command.publication?.state !== "due") throw new CommandRefused("nothing-to-publish");
       return touch(tx, command, { publication: { ...command.publication, state: "published" } });
     }),
+
+    // B6 (decisions 4 and 11): a repair's admission, with the claim of every
+    // occurrence it selected, in one transaction. Each must be `failed` now
+    // and held by no other repair; otherwise nothing is claimed. A retry by
+    // the same repair is acknowledged. `admission` is the original's,
+    // referenced: the same plan, models, revisions, intents and bounds.
+    claimRepair: ({ commandId, generation, admission }) => owned(commandId, generation, async (tx, command) => {
+      if (command.kind !== "repair") throw new CommandRefused("kind-mismatch");
+      if (command.phase === "admitted") return command;
+      const original = await tx.get(cmdPath(command.repairOf));
+      const gate = repairGate(original, command.selection ?? []);
+      if (gate) throw new CommandRefused(gate);
+      const states = await occurrenceStates(tx, command.repairOf);
+      const claims = [];
+      for (const { stage, occurrenceId } of command.selection ?? []) {
+        const st = states.get(docKey(stage, occurrenceId));
+        if (st?.heldBy === commandId) continue;
+        if (st?.heldBy) throw new CommandRefused("occurrence-claimed", { stage, occurrenceId, repairId: st.heldBy });
+        if (st?.current !== "failed") throw new CommandRefused("not-eligible", { stage, occurrenceId });
+        claims.push(st);
+      }
+      for (const st of claims) {
+        const prior = st.entry;
+        tx.set(sub(command.repairOf, "ledger", docKey(st.stage, st.occurrenceId)), {
+          stage: st.stage,
+          occurrenceId: st.occurrenceId,
+          commandId: command.repairOf,
+          status: "pending",
+          prior: st.current,
+          repairId: commandId,
+          claim: "admission",
+          claimedAt: at(),
+          generation,
+          argsDigest: prior?.argsDigest ?? null,
+          counted: prior?.counted ?? false,
+          attempts: prior ? [...(prior.attempts ?? []), { repairId: prior.repairId, status: prior.status, source: prior.source ?? null }] : [],
+        });
+      }
+      const stages = Object.fromEntries(Object.keys(admission.stages).map(name => [name, { ...stageOf(command, name) }]));
+      return touch(tx, command, { phase: "admitted", admission, stages, revisions: admission.revisions ?? null });
+    }),
+
+    // B6 (decision 2): an applied, final reconciliation verdict for one of a
+    // command's operations (`commandId` is the command whose invocation it
+    // ran under). An uncertain occurrence becomes `completed` in the ledger,
+    // with its output, or `unavailable` when it can't be established (and
+    // `conflict`, a bug, blocks it alike). Bookkeeping, not an owner write:
+    // it records what the provider shows, and never a `failed`.
+    recordReconciliation: ({ commandId, stage, occurrenceId, operationId, result = null, resultSource = null }) => backend.transaction(async tx => {
+      requireStage(stage);
+      const command = await tx.get(cmdPath(commandId));
+      if (!command) throw new CommandRefused("command-not-found");
+      const repair = command.kind === "repair";
+      const originalId = repair ? command.repairOf : commandId;
+      const k = docKey(stage, occurrenceId);
+      const path = sub(originalId, "ledger", k);
+      const entry = await tx.get(path);
+      const outcome = repair ? null : await tx.get(sub(commandId, "outcomes", k));
+      // The original's own uncertain write, or the uncertain one a repair
+      // settled; nothing else is reconciled into the ledger.
+      const applies = repair ? entry?.repairId === commandId && entry.status === "uncertain" : !entry && outcome?.outcome === "uncertain";
+      if (!applies) return { recorded: false, status: entry?.status ?? outcome?.outcome ?? null };
+      const established = (resultSource === "outcome" || resultSource === "evidence") && result !== null && result !== undefined;
+      const output = established ? (outputOf(result).output ?? null) : { unavailable: resultSource ?? "unavailable" };
+      const next = {
+        ...(entry ?? { stage, occurrenceId, commandId: originalId, repairId: null, attempts: [] }),
+        status: "completed",
+        source: "reconciliation",
+        receipt: operationId,
+        output,
+        settledAt: at(),
+      };
+      tx.set(path, next);
+      return { recorded: true, status: "completed", output };
+    }),
+
+    // An original's occurrences and their current outcomes, for a repair's
+    // selection (no fence; the claim re-checks in its transaction).
+    async repairState(originalId) {
+      return backend.transaction(async tx => {
+        const original = await tx.get(cmdPath(originalId));
+        if (!original) return { original: null, occurrences: [] };
+        const states = await occurrenceStates(tx, originalId);
+        return { original, occurrences: [...states.values()].map(({ stage, occurrenceId, current, heldBy }) => ({ stage, occurrenceId, current, heldBy })) };
+      });
+    },
+    async listLedger(originalId) {
+      return backend.transaction(tx => tx.list(["commands", originalId, "ledger"]));
+    },
 
     // Reads, for Policy and the worker's recovery (no fence).
     async getResult(commandId) {

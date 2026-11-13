@@ -8,7 +8,7 @@ export { createCallerIdentity, buildGoogleIdTokenVerifier } from "./caller.js";
 export { createPolicyApp, verifyUserWithRetry, authUnreachable, withTimeout } from "./app.js";
 export { createKmsSigner, derToJose } from "./kms.js";
 export { createFirestoreConnectionStore, createFirestoreInvocationStore, createFirestorePublicationStore, createFirestoreGrantStore, createFirestoreCommandStore, createFirestoreCommandBackend } from "./firestore.js";
-export { createCommandRecords, createMemoryCommandBackend, runtimeOccurrenceId, observationId, RUNTIME_PREFIX } from "./command-records.js";
+export { createCommandRecords, createMemoryCommandBackend, runtimeOccurrenceId, observationId, RUNTIME_PREFIX, repairGate } from "./command-records.js";
 export { aggregateStatus, outcomeFromReceipt, OPERATION_OUTCOMES } from "./command-outcomes.js";
 export { createMemoryCommandStore, CommandRefused, commandIdFor, commandSummary, ownerRefusal, requestProblem, COMMAND_LEASE_MS, MAX_PAYLOAD_BYTES, COMMAND_ID_RE } from "./commands.js";
 export { createMemoryGrantStore, grantIdFor } from "./grants.js";
