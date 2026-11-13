@@ -268,7 +268,7 @@ Each has a recommendation; the plan below assumes it.
      - the routes with the flag off and on.
 
      Policy's `repairs.spec.ts` adds the publication rule: due with the original's artifact when the repair completes the original, none otherwise.
-   - **Release:** Policy first (the ledger's `argd` and the repair publication), then the api, staged with the canary, with `REPAIR_L0176` still unset. With the flag off, nothing allocates a repair, so the new paths stay unreached until slice 5's staged activation.
+   - **Release:** Policy first (the ledger's `argd` and the repair publication), then the api, staged with the canary, with `REPAIR_L0176` still unset. With the flag off, nothing allocates a repair, so the new paths stay unreached until slice 5's staged activation. **Released 2026-11-13: `policy-rmwfh9fjc-7e95a3`, `api-rmwfhnmt8-b8ed83`** (from `2ce14335`; [evidence](evidence/b6-repair/README.md)).
 5. **Drive, gate and activation.** A synthetic drive with injected faults (B5's `faults.js`, never on the production service) on the canary account, meeting the completion gate:
    - failed-only selection;
    - ledger exclusion under concurrent repairs;
