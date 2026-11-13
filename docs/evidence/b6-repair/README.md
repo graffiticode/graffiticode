@@ -46,3 +46,20 @@ From `main` at `d5b0e8ab` (#384), in the plan's order:
 - **Policy** `policy-rmwffa18u-d77293`, from `main` at `0f1483b7` (#386). It is above its `B6-recording` floor, so the floor forbids rolling it back below this release; a fix goes forward.
 - **After release:** `release-check policy` is ok. The production canary passed 33/33 (`canary-fxprk`). Policy's only 4xx since the release are the canary's own refusal probes: the denied final stage's admission, the v1 snapshot without a plan, and the author and revocation checks.
 - **Repair is still unreachable.** No api route allocates a repair, and the live api states no `repairs` capability, so it can't own one. Reconciliation's ledger writes are live, as the owner agreed: they record what Broker established and dispatch nothing.
+
+## The repair run (slice 4), released 2026-11-13
+
+From `main` at `2ce14335` (#387): Policy first, then the api, staged.
+
+| Service | Revision | Rollback |
+|---|---|---|
+| Policy | `policy-rmwfh9fjc-7e95a3` | none below the `B6-recording` floor; fix forward |
+| api | `api-rmwfhnmt8-b8ed83` (image `sha256:7fed48f0…`) | `npm run rollback -- api --env production --release rmwfhnmt8-b8ed83` (restores `api-rmwfbfpg3-a8a20e`) |
+
+- **Policy:** `release-check` ok. Its only 4xx since the release were the canary's own refusal probes.
+- **The api was staged** at 2026-11-13T21:40:04Z. The canary job against its tag passed **36/36** (`canary-djnlr`, `--chain-admission --after-cutover --command --l0185-tail`), including both command saves and their same-key retries.
+- **Repair stays off.** Neither the staged revision nor the live api carries a `REPAIR_` variable. The new `/command/:id/repair` and `/materialize` routes answer 401 without a user. Policy received no `/v1/commands/:id/repairs` request.
+- **Promoted** on the owner's instruction, with [`slice4-promote-evidence.json`](slice4-promote-evidence.json).
+- **After promotion:** `release-check api` ok; the rollback plan restores `api-rmwfbfpg3-a8a20e`; the production canary passed 33/33 (`canary-kbr5d`, its scheduled arguments).
+
+From this release the api states `repairs: 1` on leases and sweeps, so it can own and recover repairs. None exist until `REPAIR_L0176` is turned on (slice 5).

@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmwfhnmt8-b8ed83",
+  "revision": "api-rmwfhnmt8-b8ed83",
+  "networkHash": null,
+  "reviewer": "Claude Code for jeff@artcompiler.com (B6 slice 4 release; agent execution under the owner's authorization, not an independent human review)",
+  "reviewedAt": "2026-11-13T21:45:00.000Z",
+  "corpus": {
+    "ranAt": "2026-11-13T21:40:32.357Z",
+    "tasks": 36,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "stagedAt": "2026-11-13T21:40:04.178Z",
+    "source": "main at 2ce14335 (#387)",
+    "image": "us-central1-docker.pkg.dev/graffiticode/services/api@sha256:7fed48f0a24d7228a70d07f56fcfece74a752c9ebe0d129f788d4f3538f6855e",
+    "releasedBefore": { "policy": "policy-rmwfh9fjc-7e95a3 (release-check ok)" },
+    "canaryJob": {
+      "execution": "canary-djnlr",
+      "apiUrl": "https://rmwfhnmt8-b8ed83---api-sja7fatcta-uc.a.run.app",
+      "args": "--chain-admission --after-cutover --command --l0185-tail",
+      "checks": 36,
+      "failed": 0
+    },
+    "repairOff": "the staged revision carries no REPAIR_ variable (nor does the live api); POST /command/:id/repair and /materialize answer 401 without a user; Policy received no /v1/commands/:id/repairs request",
+    "policyRefusals": "since policy-rmwfh9fjc-7e95a3, only the canary's own refusal probes"
+  }
+}
