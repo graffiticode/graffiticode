@@ -26,9 +26,10 @@ export const buildPolicyCommands = ({ policyUrl, idToken, fetch: doFetch = fetch
     read: ({ commandId, what, stage = null }) => call("GET", `${at(commandId)}/records/${what}${stage ? `?stage=${encodeURIComponent(stage)}` : ""}`),
     installModel: ({ commandId, generation, stage, text, revision = null, tagUrl = null }) =>
       call("PUT", `${at(commandId)}/models/${stage}`, { body: { generation, text, revision, tagUrl } }),
-    admit: ({ commandId, generation, taskIds, stages }) => call("POST", `${at(commandId)}/admit`, { body: { generation, taskIds, stages } }),
+    admit: ({ commandId, generation, taskIds, stages, recording = 0 }) => call("POST", `${at(commandId)}/admit`, { body: { generation, taskIds, stages, recording } }),
     session: ({ commandId, generation, stage }) => call("POST", `${at(commandId)}/session`, { body: { generation, stage } }),
     installInput: ({ commandId, generation, stage, text }) => call("PUT", `${at(commandId)}/inputs/${stage}`, { body: { generation, text } }),
+    installOutput: ({ commandId, generation, stage, text }) => call("PUT", `${at(commandId)}/outputs/${stage}`, { body: { generation, text } }),
     closeStage: ({ commandId, generation, stage, occurrences }) => call("POST", `${at(commandId)}/stages/${stage}/close`, { body: { generation, occurrences } }),
     notReached: ({ commandId, generation, stages }) => call("POST", `${at(commandId)}/not-reached`, { body: { generation, stages } }),
     settle: ({ commandId, generation }) => call("POST", `${at(commandId)}/settle`, { body: { generation } }),

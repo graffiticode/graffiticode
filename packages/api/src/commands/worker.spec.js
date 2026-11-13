@@ -75,9 +75,10 @@ const client = () => {
       policy.allocateCommand({ caller: GATEWAY, user: { uid: OWNER }, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create })),
     lease: as(({ commandId, worker, generation, takeOver = false }) => policy.leaseCommand({ caller: GATEWAY, commandId, worker, generation, takeOver })),
     installModel: write("installModel"),
-    admit: as(({ commandId, generation, taskIds, stages }) => policy.admitCommand({ caller: GATEWAY, commandId, generation, taskIds, stages })),
+    admit: as(({ commandId, generation, taskIds, stages, recording }) => policy.admitCommand({ caller: GATEWAY, commandId, generation, taskIds, stages, recording })),
     session: as(({ commandId, generation, stage }) => policy.commandSession({ caller: GATEWAY, commandId, generation, stage })),
     installInput: write("installInput"),
+    installOutput: write("installOutput"),
     closeStage: write("closeStage"),
     notReached: write("markNotReached"),
     settle: as(({ commandId, generation }) => policy.settleCommand({ caller: GATEWAY, commandId, generation })),
@@ -408,6 +409,89 @@ describe("recovery from the furthest pinned boundary (C3)", () => {
     expect(provider).toHaveLength(1);
   });
 
+  // B6 (docs/b6-command-repair-plan.md decision 5): every stage's output is
+  // recorded before the stage above pins its input, and recovery consumes it.
+  describe("recorded outputs", () => {
+    const exited = () => { throw new Error("the process exited"); };
+    const exitingAfterOutput = name => buildCommandWorker({
+      policy: client(),
+      taskStorer,
+      language: fetching,
+      artifactStorer: artifacts,
+      worker: name,
+      faults: parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "exit-after-output", API_COMMAND_FAULT_PRINCIPALS: OWNER }, { exit: exited }),
+      setInterval: () => null,
+      clearInterval: () => {},
+      log: () => {},
+    });
+    const read = (commandId, what, stage = null) => policy.commandRead({ caller: GATEWAY, commandId, what, stage });
+    const argsOfSaves = async commandId => (await read(commandId, "occurrences")).occurrences.map(o => JSON.parse(o.args));
+
+    it("records each stage's output once, and the head's is the result", async () => {
+      const taskId = chainOf(saveTask("A"), fetchTask("A"));
+      const { commandId, generation } = await allocateChain(taskId);
+      expect((await workerAs("w1", fetching)({ commandId, generation })).status).toBe("completed");
+      const state = await read(commandId, "state");
+      expect(state.admission.recording).toBe(1);
+      const fetched = (await read(commandId, "output", "s1")).output;
+      expect(JSON.parse(fetched.text)).toEqual({ data: { items: ["a1"] }, errors: [] });
+      // The save pinned exactly the fetch's output.
+      expect(state.stages.s0.pinnedInput).toBe(state.stages.s1.output);
+      const head = (await read(commandId, "output", "s0")).output;
+      expect(JSON.parse(head.text).data).toEqual(JSON.parse((await read(commandId, "result")).result.text));
+    });
+
+    /** @type {[string, () => void][]} */
+    const changes = [
+      ["changed", () => { sources.A = { items: ["changed"] }; }],
+      ["unavailable", () => { delete sources.A; }],
+    ];
+    for (const [what, change] of changes) {
+      it(`a crash after the fetch's output is recorded, before the save pins it, then the source ${what}: recovery uses the recorded output and never fetches`, async () => {
+        const taskId = chainOf(saveTask("A"), fetchTask("A"));
+        const { commandId, generation } = await allocateChain(taskId);
+        await expect(exitingAfterOutput("w1")({ commandId, generation })).rejects.toThrow("exited");
+        const crashed = await read(commandId, "state");
+        expect(crashed.stages.s1.output).toBeTruthy();
+        expect(crashed.stages.s0.pinnedInput).toBeNull();
+        expect(provider).toHaveLength(0);
+        change();
+        fetches.length = 0;
+        const taken = await takeOver(commandId, generation, "w2");
+        expect((await workerAs("w2", fetching)({ commandId, generation: taken.generation })).status).toBe("completed");
+        expect(fetches).toEqual([]);
+        // The save ran once, with what the fetch produced before the crash.
+        expect(provider).toEqual([{ items: ["a1"] }]);
+        expect(await argsOfSaves(commandId)).toEqual([{ items: ["a1"] }]);
+        expect((await head(taskId)).artifact.content).toEqual({ saved: { items: ["a1"] } });
+      });
+    }
+
+    it("never starts a save again once its output is recorded", async () => {
+      // Execution order: fetch A, save A, fetch B, save B (the head).
+      const taskId = chainOf(saveTask("B"), fetchTask("B"), saveTask("A"), fetchTask("A"));
+      const { commandId, generation } = await allocateChain(taskId);
+      // The first exit comes after fetch A's output; recover past it, then
+      // exit again after save A's.
+      await expect(exitingAfterOutput("w1")({ commandId, generation })).rejects.toThrow("exited");
+      let taken = await takeOver(commandId, generation, "w2");
+      await expect(exitingAfterOutput("w2")({ commandId, generation: taken.generation })).rejects.toThrow("exited");
+      // Save A is s2: its output is recorded, fetch B's (s1) isn't yet.
+      const crashed = (await read(commandId, "state")).stages;
+      expect([Boolean(crashed.s2.output), crashed.s1.output]).toEqual([true, undefined]);
+      expect(provider).toEqual([{ items: ["a1"] }]);
+      let starts = 0;
+      const counting = { ...fetching, start: async args => { starts++; return fetching.start(args); } };
+      fetches.length = 0;
+      taken = await takeOver(commandId, taken.generation, "w3");
+      expect((await workerAs("w3", counting)({ commandId, generation: taken.generation })).status).toBe("completed");
+      // Only fetch B and save B ran; save A answered from its recorded output.
+      expect(fetches).toEqual(["B"]);
+      expect(starts).toBe(1);
+      expect(provider).toEqual([{ items: ["a1"] }, { items: ["b1"] }]);
+    });
+  });
+
   it("with no pinned input yet, recovery runs every stage, as before", async () => {
     const taskId = chainOf(saveTask("A"), fetchTask("A"));
     const { commandId, generation } = await allocateChain(taskId);
@@ -462,6 +546,7 @@ describe("the drive's worker faults", () => {
     expect(() => parseCommandFaults({ K_SERVICE: "api", API_COMMAND_FAULTS: "exit-after-write", API_COMMAND_FAULT_PRINCIPALS: OWNER })).toThrow("production");
     expect(() => parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "drop-everything", API_COMMAND_FAULT_PRINCIPALS: OWNER })).toThrow("unknown");
     expect(() => parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "exit-after-write" })).toThrow("PRINCIPALS");
+    expect(() => parseCommandFaults({ K_SERVICE: "api", API_COMMAND_FAULTS: "exit-after-output", API_COMMAND_FAULT_PRINCIPALS: OWNER })).toThrow("production");
     expect(parseCommandFaults({ K_SERVICE: "api" })).toBeNull();
   });
 });

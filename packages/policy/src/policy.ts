@@ -325,7 +325,7 @@ export const createPolicy = ({
   // token. Each is fenced in the records (a live lease and exactly the
   // current generation); a refusal changes nothing. `fn` names the records'
   // operation; `args` are its arguments beside commandId and generation.
-  const COMMAND_WRITES = new Set(["installModel", "installInput", "observation", "bindOccurrence", "closeStage", "markNotReached", "recordLost", "finish", "published"]);
+  const COMMAND_WRITES = new Set(["installModel", "installInput", "installOutput", "observation", "bindOccurrence", "closeStage", "markNotReached", "recordLost", "finish", "published"]);
   const commandWrite = async ({ caller, commandId, generation, fn, args = {} }) => {
     const record = { event: "command-write", callerRole: caller?.role };
     if (!commands || !commandRecords) return deny("unavailable", record);
@@ -375,7 +375,7 @@ export const createPolicy = ({
   };
 
   // What recovery reads to continue a command (service only).
-  const COMMAND_READS = { state: "state", request: "request", models: "models", input: "input", result: "result", occurrences: "occurrences", outcomes: "outcomes", refusals: "refusals" };
+  const COMMAND_READS = { state: "state", request: "request", models: "models", input: "input", output: "output", result: "result", occurrences: "occurrences", outcomes: "outcomes", refusals: "refusals" };
   const commandRead = async ({ caller, commandId, what, stage = null }) => {
     const record = { event: "command-read", callerRole: caller?.role };
     if (!commands || !commandRecords) return deny("unavailable", record);
@@ -393,8 +393,9 @@ export const createPolicy = ({
     }
     if (what === "request") return { text: await commands.getRequest(commandId) };
     if (what === "models") return { models: await commandRecords.getModels(commandId) };
-    if (what === "input") {
+    if (what === "input" || what === "output") {
       if (typeof stage !== "string" || !/^s\d{1,3}$/.test(stage)) return deny("bad-request", record);
+      if (what === "output") return { output: await commandRecords.getOutput(commandId, stage) };
       return { input: await commandRecords.getInput(commandId, stage) };
     }
     if (what === "result") return { result: await commandRecords.getResult(commandId) };
@@ -422,7 +423,7 @@ export const createPolicy = ({
   // on the command, never the caller's; their intents come from the models.
   // The plan is written as for any chain (admitChain), then recorded on the
   // command once. A retry of the same admission is acknowledged.
-  const admitCommand = async ({ caller, commandId, generation, taskIds, stages }) => {
+  const admitCommand = async ({ caller, commandId, generation, taskIds, stages, recording = 0 }) => {
     const record = { event: "command-admission", callerRole: caller?.role, registryVersion, commandId };
     if (!commands || !commandRecords) return deny("unavailable", record);
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
@@ -431,7 +432,7 @@ export const createPolicy = ({
     const fenced = ownerRefusal(command, { generation, now: now() });
     if (fenced) throw new PolicyDenied(fenced);
     try {
-      return await admitOwnedCommand({ record, command, commandId, generation, taskIds, stages });
+      return await admitOwnedCommand({ record, command, commandId, generation, taskIds, stages, recording });
     } catch (e) {
       // A refusal of the owner's admission is the command's answer: record its
       // reason on the command, so its callers can say why it failed (C6).
@@ -442,7 +443,7 @@ export const createPolicy = ({
       throw e;
     }
   };
-  const admitOwnedCommand = async ({ record, command, commandId, generation, taskIds, stages }) => {
+  const admitOwnedCommand = async ({ record, command, commandId, generation, taskIds, stages, recording }) => {
     Object.assign(record, { uid: command.uid });
     const invocation = await invocations.get(command.invocationId);
     if (!invocation) return deny("invocation-incompatible", record);
@@ -450,13 +451,22 @@ export const createPolicy = ({
     const models = new Map<string, { text: string, digest: string }>((await commandRecords.getModels(commandId)).map(m => [m.stage, m]));
     if (stages.some((m, i) => !models.has(`s${i}`))) return deny("models-missing", record);
     const admitted = await admitChain({ record, uid: command.uid, invocation, taskIds, stages });
-    type AdmittedStage = { lang: string, modelDigest: string, revision: string, tagUrl: string, intents: unknown[] };
-    const admission: { planDigest: string, stages: Record<string, AdmittedStage> } = { planDigest: admitted.planDigest, stages: {} };
+    type AdmittedStage = { lang: string, modelDigest: string, revision: string, tagUrl: string, intents: unknown[], replay: 0 | 1 };
+    // B6 (docs/b6-command-repair-plan.md decisions 5 and 11): `recording: 1`
+    // says this command records every stage's output. The worker says so in
+    // its admission (a worker from before B6 doesn't), so a command is never
+    // marked recording by a worker that doesn't record. Each stage's
+    // `replay` says whether the revision it pinned can rebuild it from its
+    // records, as that revision's own preflight said. Both are kept here,
+    // beside the plan: the plan's pinned stages (`pinnedStage`) and its digest
+    // and session bindings stay exactly what they were.
+    const admission: { planDigest: string, recording: 0 | 1, stages: Record<string, AdmittedStage> } = { planDigest: admitted.planDigest, recording: recording === 1 ? 1 : 0, stages: {} };
     for (const [i, pinned] of admitted.plan.stages.entries()) {
       const model = models.get(`s${i}`);
       const declared = modelIntents({ modelText: model.text, lang: pinned.lang, requiredFunctions: pinned.requiredFunctions, backend: admitted.backend });
       if (declared.refusal) return deny(declared.refusal, record);
-      admission.stages[pinned.stage] = { lang: pinned.lang, modelDigest: model.digest, revision: pinned.revision, tagUrl: admitted.stages[i].tagUrl, intents: declared.intents };
+      const reported = stages.find(m => m?.stage === pinned.stage);
+      admission.stages[pinned.stage] = { lang: pinned.lang, modelDigest: model.digest, revision: pinned.revision, tagUrl: admitted.stages[i].tagUrl, intents: declared.intents, replay: reported?.replay === 1 ? 1 : 0 };
     }
     try {
       await commandRecords.admit({ commandId, generation, admission });

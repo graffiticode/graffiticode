@@ -229,6 +229,7 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   const body = req => req.body ?? {};
   router.put("/commands/:id/models/:stage", write("installModel", req => ({ stage: req.params.stage, text: body(req).text, revision: body(req).revision ?? null, tagUrl: body(req).tagUrl ?? null })));
   router.put("/commands/:id/inputs/:stage", write("installInput", req => ({ stage: req.params.stage, text: body(req).text })));
+  router.put("/commands/:id/outputs/:stage", write("installOutput", req => ({ stage: req.params.stage, text: body(req).text })));
   router.post("/commands/:id/observations", write("observation", req => ({ stage: body(req).stage, key: body(req).key, text: body(req).text })));
   router.put("/commands/:id/occurrences/:stage/:occ", write("bindOccurrence", req => ({
     stage: req.params.stage, occurrenceId: req.params.occ, intentId: body(req).intentId, expansionKey: body(req).expansionKey ?? null, args: body(req).args, observations: body(req).observations ?? [],
@@ -246,8 +247,8 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   router.post("/commands/:id/admit", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
     res.set("Cache-Control", "no-store");
-    const { generation, taskIds, stages } = body(req);
-    await decide(res, () => policy.admitCommand({ caller, commandId: req.params.id, generation, taskIds, stages }));
+    const { generation, taskIds, stages, recording = 0 } = body(req);
+    await decide(res, () => policy.admitCommand({ caller, commandId: req.params.id, generation, taskIds, stages, recording }));
   }));
   router.post("/commands/:id/session", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);

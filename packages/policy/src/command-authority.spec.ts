@@ -137,6 +137,34 @@ describe("command admission", () => {
     expect((await admit()).planDigest).toBe(out.planDigest);
   });
 
+  // B6 (docs/b6-command-repair-plan.md decisions 5 and 11): the command
+  // records outputs, and each stage keeps what its own preflight said about
+  // replay. The plan, its digest and the sessions' bindings don't change.
+  it("records recording: 1 and each stage's replay beside the plan, which keeps only its pinned fields", async () => {
+    await install();
+    await policy.admitCommand({ caller: GATEWAY, commandId, generation: 1, taskIds: TASKS, stages: manifests().map(m => (m.lang === "0176" ? { ...m, replay: 1 } : m)), recording: 1 });
+    const command = commandStore.commands.get(commandId);
+    expect(command.admission.recording).toBe(1);
+    expect([command.admission.stages.s0.replay, command.admission.stages.s1.replay]).toEqual([0, 1]);
+    const plan = await invocationStore.getPlan(command.admission.planDigest);
+    expect(plan.stages.every(st => !("replay" in st))).toBe(true);
+    const bind = JSON.parse(Buffer.from((await session()).split(".")[1], "base64url").toString()).bind;
+    expect("replay" in bind).toBe(false);
+  });
+
+  it("records recording 0 when the worker doesn't say it records (a worker from before B6)", async () => {
+    await install();
+    await admit();
+    expect(commandStore.commands.get(commandId).admission.recording).toBe(0);
+  });
+
+  it("records replay 0 for a revision whose preflight didn't say 1", async () => {
+    await install();
+    await policy.admitCommand({ caller: GATEWAY, commandId, generation: 1, taskIds: TASKS, stages: manifests().map(m => ({ ...m, replay: "1" })) });
+    const command = commandStore.commands.get(commandId);
+    expect([command.admission.stages.s0.replay, command.admission.stages.s1.replay]).toEqual([0, 0]);
+  });
+
   it("needs every stage's model installed first, and the current owner", async () => {
     await write("installModel", { stage: "s0", text: MODEL_S0 });
     await denied(admit(), "models-missing");

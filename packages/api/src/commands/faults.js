@@ -8,13 +8,16 @@
 //                                 production sweeper takes the command over)
 //     lose-head-answer            the head stage's answer is treated as lost
 //                                 after its writes have run
+//     exit-after-output           the process exits as soon as a stage below
+//                                 the head has its output recorded, before the
+//                                 next stage pins its input (B6, decision 5)
 //   API_COMMAND_FAULT_PRINCIPALS  comma-separated uids the faults apply to (the canary's)
 //
 // The production service (K_SERVICE=api) refuses to start with any fault set:
 // the drive's api is its own service, `api-drive`.
 
 export const PRODUCTION_SERVICE = "api";
-export const KINDS = Object.freeze(["exit-after-write", "lose-head-answer"]);
+export const KINDS = Object.freeze(["exit-after-write", "lose-head-answer", "exit-after-output"]);
 
 export const parseCommandFaults = (env = process.env, { exit = () => process.exit(1) } = {}) => {
   const kinds = (env.API_COMMAND_FAULTS ?? "").split(",").map(s => s.trim()).filter(Boolean);
@@ -27,6 +30,7 @@ export const parseCommandFaults = (env = process.env, { exit = () => process.exi
   return {
     exitAfterWrite: kinds.includes("exit-after-write"),
     loseHeadAnswer: kinds.includes("lose-head-answer"),
+    exitAfterOutput: kinds.includes("exit-after-output"),
     appliesTo: uid => principals.has(uid),
     exit,
   };
