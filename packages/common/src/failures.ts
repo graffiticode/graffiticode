@@ -79,6 +79,19 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // record outputs for a command that does, and a reconciled write whose
   // recorded outcome and evidence disagree about its result.
   ...cat("conflict", ["input-not-output", "output-conflict", "worker-unsupported", "result-conflict"]),
+  // B6 slice 3: repairs. An occurrence another repair holds, one that isn't
+  // failed now, nothing to repair, a command the gates refuse (its revision
+  // can't replay, it wasn't recorded, a revision it needs is retired, it is
+  // still running), a repair's bind of an occurrence it didn't select or
+  // with other arguments, a repair's token without its claim, and a repair
+  // named where an original is needed.
+  ...cat("conflict", [
+    "occurrence-claimed", "not-eligible", "nothing-to-repair", "revision-unsupported", "not-recorded", "revision-retired",
+    "command-pending", "not-selected", "binding-mismatch", "occurrence-not-claimed",
+    // A repair pinning an input other than the stage's canonical one.
+    "input-conflict",
+  ]),
+  ...cat("malformed", ["not-original", "kind-mismatch"]),
   // The C6 bridge: a compile that ran as a command, answered with an outcome
   // other than completed (its status URL names it).
   ...cat("conflict", ["command-not-completed"]),

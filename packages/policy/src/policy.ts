@@ -60,21 +60,29 @@ import { CONTRACT_VERSION, SUPPORTED_CONTRACT_VERSIONS, manifestProblems, pinned
 import { issueToken, verifyToken } from "./tokens.js";
 import { grantIdFor, isExpired } from "./grants.js";
 import { InvocationConflict, AdmissionRefused, ProtocolMismatch } from "./invocations.js";
-import { CommandRefused, COMMAND_ID_RE, WORKER_RE, commandSummary, ownerRefusal, requestProblem } from "./commands.js";
-import { RUNTIME_PREFIX, runtimeOccurrenceId } from "./command-records.js";
+import { CommandRefused, COMMAND_ID_RE, WORKER_RE, commandIdFor, commandSummary, ownerRefusal, requestProblem } from "./commands.js";
+import { RUNTIME_PREFIX, runtimeOccurrenceId, repairGate, canonicalStages } from "./command-records.js";
 import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
 import { SYSTEM_PREVIEW_SUBJECT, sessionProvenance, provenanceRefusal } from "./provenance.js";
 import { DEFAULT_SYSTEM_SIGNING, createTokenBucket } from "./rate-limit.js";
 
+// At most this many occurrences in one repair's selection (B6): its claim is
+// one transaction, within Firestore's write limit.
+const MAX_REPAIR_SELECTION = 100;
+
 export class PolicyDenied extends Error {
   declare reason: string;
   // Seconds after which a retry may succeed (`rate-limited` only).
   declare retryAfter?: number;
-  constructor(reason: string, { retryAfter }: { retryAfter?: number } = {}) {
+  // What the refusal is about (B6: the occurrence a repair can't claim, and
+  // the repair holding it).
+  declare detail?: Record<string, unknown>;
+  constructor(reason: string, { retryAfter, detail }: { retryAfter?: number, detail?: Record<string, unknown> | null } = {}) {
     super(`policy denied: ${reason}`);
     this.reason = reason;
     if (retryAfter !== undefined) this.retryAfter = retryAfter;
+    if (detail) this.detail = detail;
   }
 }
 
@@ -165,9 +173,9 @@ export const createPolicy = ({
   // No default: a policy built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createPolicy needs a protectedSwitch");
   const systemSignings = createTokenBucket({ perMinute: systemSigning?.perMinute, burst: systemSigning?.burst, now });
-  const deny = async (reason, record, { retryAfter }: { retryAfter?: number } = {}) => {
+  const deny = async (reason, record, { retryAfter, detail }: { retryAfter?: number, detail?: Record<string, unknown> | null } = {}) => {
     await audit({ ...record, outcome: "denied", reason });
-    throw new PolicyDenied(reason, { retryAfter });
+    throw new PolicyDenied(reason, { retryAfter, detail });
   };
   // Every protected entry point asks first, before reading or issuing
   // anything. `principal` is verified identity only (the authenticated user,
@@ -297,9 +305,102 @@ export const createPolicy = ({
     return { ...commandSummary(command), reused, owned: !reused, ownerUid: connection.ownerUid };
   };
 
+  // A repair (B6 slice 3, docs/b6-command-repair-plan.md decisions 1, 3, 11):
+  // its own command, of kind `repair`, started by the original's owner
+  // through the original's connection. Its selection is fixed here: the
+  // named occurrences, or every eligible one. Before anything is allocated,
+  // the original must pass both gates, and each selected occurrence must be
+  // `failed` now and held by no repair. The claim itself is the repair's
+  // admission (admitRepair), in one transaction that checks all of it again.
+  const occurrencesProblem = list => !Array.isArray(list) || list.length === 0 || list.length > MAX_REPAIR_SELECTION ||
+    list.some(o => !o || typeof o.stage !== "string" || !/^s\d{1,3}$/.test(o.stage) || typeof o.occurrenceId !== "string" || !/^[A-Za-z0-9_:.-]{1,200}$/.test(o.occurrenceId)) ||
+    new Set(list.map(o => `${o.stage}:${o.occurrenceId}`)).size !== list.length;
+  const allocateRepair = async ({ caller, user, commandId, idempotencyKey, occurrences = null, worker }) => {
+    const record = { event: "command-repair", uid: user?.uid, callerRole: caller?.role, repairOf: commandId };
+    if (!commands || !commandRecords) return deny("unavailable", record);
+    if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
+    if (!user?.uid) return deny("no-user", record);
+    if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || !isId(idempotencyKey) || typeof worker !== "string" || !WORKER_RE.test(worker) ||
+      (occurrences !== null && occurrencesProblem(occurrences))) {
+      return deny("bad-request", record);
+    }
+    const { original, occurrences: states } = await commandRecords.repairState(commandId);
+    // Only the original's own user may repair it; anyone else is told nothing.
+    if (!original || original.uid !== user.uid) return deny("command-not-found", record);
+    Object.assign(record, { connectionId: original.connectionId, invocationId: original.invocationId });
+    const connection = await connections.get(original.connectionId);
+    const access = await accessFor(connection, user.uid);
+    if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+    // A key already used answers from its record, before anything that
+    // changes as repairs run (eligibility, claims): the same repair of this
+    // original, under the original's binding and, when the request names
+    // occurrences, the same selection. Anything else holding the key is
+    // refused.
+    const existing = await commands.get(commandIdFor(user.uid, idempotencyKey));
+    if (existing) {
+      const named = occurrences === null ? null : JSON.stringify(occurrences.map(({ stage, occurrenceId }) => ({ stage, occurrenceId })));
+      const same = existing.kind === "repair" && existing.repairOf === commandId && existing.uid === user.uid &&
+        existing.connectionId === original.connectionId && existing.taskId === original.taskId && existing.binding?.inputDigest === original.binding?.inputDigest &&
+        (named === null || JSON.stringify(existing.selection) === named);
+      if (!same) return deny("idempotency-key-reused", record);
+      await audit({ ...record, ownerUid: connection.ownerUid, commandId: existing.commandId, outcome: "allowed", reason: "reused" });
+      return { ...commandSummary(existing), reused: true, owned: false, ownerUid: connection.ownerUid };
+    }
+    // The gates on the command itself first; the selection's after it.
+    const commandGate = repairGate(original);
+    if (commandGate) return deny(commandGate, record);
+    type OccurrenceState = { stage: string, occurrenceId: string, current: string | null, heldBy: string | null };
+    const byKey = new Map<string, OccurrenceState>(states.map((st: OccurrenceState) => [`${st.stage}:${st.occurrenceId}`, st]));
+    let selection;
+    if (occurrences !== null) {
+      selection = occurrences.map(({ stage, occurrenceId }) => ({ stage, occurrenceId }));
+    } else {
+      selection = states.filter(st => st.current === "failed" && !st.heldBy).map(({ stage, occurrenceId }) => ({ stage, occurrenceId }))
+        .sort((a, b) => (a.stage === b.stage ? (a.occurrenceId < b.occurrenceId ? -1 : 1) : (a.stage < b.stage ? -1 : 1)));
+      // With nothing to retry, a repair still resumes the stages the original
+      // never reached, once every occurrence below them completed (7b).
+      const resumable = Object.values(canonicalStages(original)).some((st: { state?: string }) => st.state === "not-reached") && states.every(st => st.current === "completed");
+      if (selection.length === 0 && !resumable) return deny("nothing-to-repair", record);
+      // One transaction claims them all: within its write limit, or name them.
+      if (selection.length > MAX_REPAIR_SELECTION) return deny("bad-request", record);
+    }
+    const gate = repairGate(original, selection);
+    if (gate) return deny(gate, record);
+    for (const { stage, occurrenceId } of selection) {
+      const st = byKey.get(`${stage}:${occurrenceId}`);
+      if (st?.heldBy) return deny("occurrence-claimed", record, { detail: { stage, occurrenceId, repairId: st.heldBy } });
+      if (st?.current !== "failed") return deny("not-eligible", record, { detail: { stage, occurrenceId } });
+    }
+    let allocated;
+    try {
+      allocated = await commands.allocate({
+        uid: user.uid,
+        connectionId: original.connectionId,
+        taskId: original.taskId,
+        inputDigest: original.binding.inputDigest,
+        idempotencyKey,
+        lang: original.lang,
+        request: JSON.stringify({ repairOf: commandId, occurrences: selection }),
+        worker,
+        now: now(),
+        repair: { repairOf: commandId, selection },
+      });
+    } catch (e) {
+      if (e instanceof InvocationConflict) return deny("idempotency-key-reused", record);
+      throw e;
+    }
+    // The key names one repair, of one original and one selection.
+    const repair = allocated.command;
+    const same = allocated.protocol === "command" && repair?.kind === "repair" && repair.repairOf === commandId &&
+      (occurrences === null || JSON.stringify(repair.selection) === JSON.stringify(selection));
+    if (!same) return deny("idempotency-key-reused", record);
+    await audit({ ...record, ownerUid: connection.ownerUid, commandId: repair.commandId, outcome: "allowed", reason: allocated.reused ? "reused" : "new" });
+    return { ...commandSummary(repair), reused: allocated.reused, owned: !allocated.reused, ownerUid: connection.ownerUid };
+  };
+
   // The lease, renewed by its owner or taken over once expired. Service only:
   // no user token, so recovery never depends on one (decision 3).
-  const leaseCommand = async ({ caller, commandId, worker, generation, takeOver = false, recording = 0 }) => {
+  const leaseCommand = async ({ caller, commandId, worker, generation, takeOver = false, recording = 0, repairs = 0 }) => {
     const record = { event: "command-lease", callerRole: caller?.role };
     if (!commands) return deny("unavailable", record);
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
@@ -309,8 +410,8 @@ export const createPolicy = ({
     }
     try {
       const command = takeOver
-        ? await commands.takeOver({ commandId, worker, expectedGeneration: generation, now: now(), recording })
-        : await commands.renewLease({ commandId, worker, generation, now: now(), recording });
+        ? await commands.takeOver({ commandId, worker, expectedGeneration: generation, now: now(), recording, repairs })
+        : await commands.renewLease({ commandId, worker, generation, now: now(), recording, repairs });
       if (takeOver) await audit({ ...record, commandId, invocationId: command.invocationId, outcome: "allowed", reason: "takeover" });
       return commandSummary(command);
     } catch (e) {
@@ -375,7 +476,7 @@ export const createPolicy = ({
   };
 
   // What recovery reads to continue a command (service only).
-  const COMMAND_READS = { state: "state", request: "request", models: "models", input: "input", output: "output", result: "result", occurrences: "occurrences", outcomes: "outcomes", refusals: "refusals" };
+  const COMMAND_READS = { state: "state", request: "request", models: "models", input: "input", output: "output", result: "result", occurrences: "occurrences", outcomes: "outcomes", refusals: "refusals", ledger: "ledger" };
   const commandRead = async ({ caller, commandId, what, stage = null }) => {
     const record = { event: "command-read", callerRole: caller?.role };
     if (!commands || !commandRecords) return deny("unavailable", record);
@@ -388,19 +489,35 @@ export const createPolicy = ({
     // artifact is bound to. Never the request or any payload.
     if (what === "state") {
       const connection = await connections.get(command.connectionId);
-      const { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, admissionRefusal } = command;
-      return { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, ...(admissionRefusal ? { admissionRefusal } : {}), generation: command.owner.generation, leaseExpiresAt: command.owner.leaseExpiresAt, ownerUid: connection?.ownerUid ?? null };
+      const { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, admissionRefusal, repairOf, selection, canonical } = command;
+      // An original's canonical snapshot (B6): its repairs' stage inputs and
+      // outputs, each naming the repair that recorded it.
+      return { commandId: id, kind: command.kind ?? "command", ...(repairOf ? { repairOf, selection } : {}), ...(canonical ? { canonical } : {}), uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, ...(admissionRefusal ? { admissionRefusal } : {}), generation: command.owner.generation, leaseExpiresAt: command.owner.leaseExpiresAt, ownerUid: connection?.ownerUid ?? null };
     }
     if (what === "request") return { text: await commands.getRequest(commandId) };
     if (what === "models") return { models: await commandRecords.getModels(commandId) };
     if (what === "input" || what === "output") {
       if (typeof stage !== "string" || !/^s\d{1,3}$/.test(stage)) return deny("bad-request", record);
-      if (what === "output") return { output: await commandRecords.getOutput(commandId, stage) };
-      return { input: await commandRecords.getInput(commandId, stage) };
+      // An original's reads resolve to its canonical records (B6): a stage's
+      // latest output, from the repair that recorded it when one did, and
+      // its pinned input, from the first repair that pinned it when the
+      // original didn't. `from` names the command the record is in.
+      const canonical = command.kind === "repair" ? null : command.canonical?.[stage] ?? null;
+      if (what === "output") {
+        const from = canonical?.output?.commandId ?? commandId;
+        if (canonical?.output?.digest === "too-large") return { output: null, tooLarge: true, from };
+        const output = await commandRecords.getOutput(from, stage);
+        return { output, from: output ? from : null };
+      }
+      const own = await commandRecords.getInput(commandId, stage);
+      if (own || !canonical?.pinnedInput) return { input: own, from: own ? commandId : null };
+      return { input: await commandRecords.getInput(canonical.pinnedInput.commandId, stage), from: canonical.pinnedInput.commandId };
     }
     if (what === "result") return { result: await commandRecords.getResult(commandId) };
     if (what === "occurrences") return { occurrences: await commandRecords.listOccurrences(commandId) };
     if (what === "refusals") return { refusals: await commandRecords.listRefusals(commandId) };
+    // The original's ledger (B6), for the command or the repair of it.
+    if (what === "ledger") return { ledger: await commandRecords.listLedger(command.kind === "repair" ? command.repairOf : commandId) };
     return { outcomes: await commandRecords.listOutcomes(commandId) };
   };
 
@@ -432,6 +549,8 @@ export const createPolicy = ({
     const fenced = ownerRefusal(command, { generation, now: now() });
     if (fenced) throw new PolicyDenied(fenced);
     try {
+      // A repair is never admitted afresh: it references its original's.
+      if (command.kind === "repair") return await admitRepair({ record, command, commandId, generation });
       return await admitOwnedCommand({ record, command, commandId, generation, taskIds, stages, recording });
     } catch (e) {
       // A refusal of the owner's admission is the command's answer: record its
@@ -442,6 +561,48 @@ export const createPolicy = ({
       }
       throw e;
     }
+  };
+  // A repair's admission (B6 decisions 4, 7a, 11): the original's, with the
+  // same plan, models, revisions, intents and bounds. Only the authority is
+  // checked again (protected execution, the connection, the user's access,
+  // each pinned function's permission), with the gates and that every
+  // revision the repair or the assembly runs is still available
+  // (`revision-retired`). Then one transaction claims the selection and
+  // records the admission; any refusal claims nothing.
+  const admitRepair = async ({ record, command, commandId, generation }) => {
+    Object.assign(record, { uid: command.uid, repairOf: command.repairOf, connectionId: command.connectionId });
+    const original = await commands.get(command.repairOf);
+    const gate = repairGate(original, command.selection ?? []);
+    if (gate) return deny(gate, record);
+    await requireProtectedExecution(record, { uid: command.uid, connectionId: command.connectionId });
+    const connection = await connections.get(command.connectionId);
+    const access = await accessFor(connection, command.uid);
+    if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+    const plan = await invocations.getPlan(original.admission.planDigest);
+    if (!plan || plan.invocationId !== original.invocationId) return deny("plan-binding-mismatch", record);
+    for (const pinned of plan.stages) {
+      const registered = protectedFunctionsForLang(pinned.lang) || {};
+      if (pinned.requiredFunctions.some(fn => registered[fn]?.backend !== connection.backend || !mayUse(access, pinned.lang, fn))) {
+        return deny("not-granted", { ...record, ownerUid: connection.ownerUid });
+      }
+      const admitted = original.admission.stages[pinned.stage];
+      const runs = (admitted?.intents ?? []).length > 0 || canonicalStages(original)[pinned.stage]?.state === "not-reached";
+      if (runs && !(await revisionAvailable(pinned.lang, pinned.revision))) return deny("revision-retired", record);
+    }
+    let admitted;
+    try {
+      admitted = await commandRecords.claimRepair({ commandId, generation, admission: { ...original.admission, repairOf: original.commandId } });
+    } catch (e) {
+      if (e instanceof CommandRefused) return deny(e.reason, record, { detail: e.detail });
+      throw e;
+    }
+    await audit({ ...record, ownerUid: connection.ownerUid, planDigest: original.admission.planDigest, outcome: "allowed", reason: "repair" });
+    return {
+      planDigest: admitted.admission.planDigest,
+      repairOf: command.repairOf,
+      selection: command.selection,
+      stages: Object.entries(admitted.admission.stages).map(([stage, a]: [string, { lang: string, revision: string, tagUrl: string, modelDigest: string }]) => ({ stage, lang: a.lang, revision: a.revision, tagUrl: a.tagUrl, modelDigest: a.modelDigest })),
+    };
   };
   const admitOwnedCommand = async ({ record, command, commandId, generation, taskIds, stages, recording }) => {
     Object.assign(record, { uid: command.uid });
@@ -547,6 +708,12 @@ export const createPolicy = ({
     if (!intent || !encoded) return { refusal: "occurrence-mismatch", definite: true, command, occurrence };
     if (intent.fn !== fn || intent.op !== op || (intent.scope !== undefined && intent.scope !== claims.conn)) return { refusal: "intent-mismatch", definite: true, command, occurrence };
     if (occurrence.argd !== argsDigest) return { refusal: "args-mismatch", definite: true, command, occurrence };
+    // A repair's token, only while it holds the occurrence's ledger entry
+    // (B6 decision 4): one claim, one repair's mints.
+    if (command.kind === "repair") {
+      const entry = (await commandRecords.listLedger(command.repairOf)).find(e => e.stage === stage && e.occurrenceId === occurrenceId);
+      if (entry?.status !== "pending" || entry.repairId !== command.commandId) return { refusal: "occurrence-not-claimed", command, occurrence };
+    }
     return { command, occurrence };
   };
 
@@ -625,13 +792,14 @@ export const createPolicy = ({
   // `recording` is the sweeping worker's capability (B6 slice 2): without it,
   // a command admitted as recording is neither listed nor counted toward the
   // limit, since its takeover would be refused.
-  const dueCommands = async ({ caller, limit = 20, recording = 0 }) => {
+  const dueCommands = async ({ caller, limit = 20, recording = 0, repairs = 0 }) => {
     const record = { event: "command-sweep", callerRole: caller?.role };
     if (!commands) return deny("unavailable", record);
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
     if (!Number.isInteger(limit) || limit < 1 || limit > MAX_DUE) return deny("bad-request", record);
     if (recording !== 0 && recording !== 1) return deny("bad-request", record);
-    const due = await commands.listDue({ now: now(), limit, recording });
+    if (repairs !== 0 && repairs !== 1) return deny("bad-request", record);
+    const due = await commands.listDue({ now: now(), limit, recording, repairs });
     return { commands: due.map(c => ({ commandId: c.commandId, generation: c.owner.generation, status: c.status, publication: c.publication?.state ?? "none" })) };
   };
 
@@ -1068,6 +1236,15 @@ export const createPolicy = ({
   // user-provenance token is refused when the invocation requires a plan.
   // Stored-artifact reads are confined to view-safe functions. Publication
   // and system tokens are bound by their own authority.
+  // A repair runs under its own invocation, on its original's plan (B6
+  // decision 7a): the token's command must be a repair, of this invocation,
+  // whose original's invocation the plan was admitted for.
+  const repairsUnder = async (claims, invocationId, planInvocationId) => {
+    if (!commands || typeof claims.cmd !== "string" || !COMMAND_ID_RE.test(claims.cmd)) return false;
+    const repair = await commands.get(claims.cmd);
+    if (repair?.kind !== "repair" || repair.invocationId !== invocationId) return false;
+    return (await commands.get(repair.repairOf))?.invocationId === planInvocationId;
+  };
   const contractRefusalFor = async ({ claims, provenance, fn, invocationId, stage, lang }) => {
     const cv = claims.cv ?? 1;
     if (!SUPPORTED_CONTRACT_VERSIONS.includes(cv)) return "contract-version-unsupported";
@@ -1079,7 +1256,7 @@ export const createPolicy = ({
     }
     const plan = await invocations.getPlan(claims.pld);
     const pinned = plan?.stages?.find(s => s.stage === stage);
-    if (!plan || plan.invocationId !== invocationId || !pinned || pinned.lang !== lang || !pinned.requiredFunctions.includes(fn)) {
+    if (!plan || !(plan.invocationId === invocationId || await repairsUnder(claims, invocationId, plan.invocationId)) || !pinned || pinned.lang !== lang || !pinned.requiredFunctions.includes(fn)) {
       return "plan-binding-mismatch";
     }
     if (claims.bind && !(claims.bind.requiredFunctions ?? []).includes(fn)) return "plan-binding-mismatch";
@@ -1386,6 +1563,24 @@ export const createPolicy = ({
   // found; nothing is written to the provider and nothing re-executes.
   const mayWrite = access => Object.entries(PROTECTED_FUNCTIONS).some(([lang, fns]) =>
     Object.entries(fns).some(([fn, spec]) => spec.kind === "write" && mayUse(access, lang, fn)));
+  // B6 (decision 2): a command's applied, final verdicts go to its original's
+  // ledger, an uncertain occurrence becoming `completed` with its output (or
+  // `unavailable`). Never a `failed`. Best effort: the verdict stands at
+  // Broker, and reconciling again records it then.
+  const ledgerFromReconciliation = async ({ invocation, result, record }) => {
+    if (!commandRecords || invocation.protocol !== "command" || typeof invocation.commandId !== "string") return;
+    for (const op of result?.operations ?? []) {
+      if (op?.verdict !== "applied" || op.final !== true) continue;
+      const [inv, stage, occurrenceId] = String(op.operationId).split("/");
+      if (inv !== invocation.invocationId || !stage || !occurrenceId) continue;
+      try {
+        const out = await commandRecords.recordReconciliation({ commandId: invocation.commandId, stage, occurrenceId, operationId: op.operationId, result: op.result ?? null, resultSource: op.resultSource ?? null });
+        if (out.recorded) await audit({ ...record, event: "command-ledger", commandId: invocation.commandId, stage, outcome: "allowed", reason: "reconciled" });
+      } catch {
+        // Recorded on the next reconciliation.
+      }
+    }
+  };
   const reconcile = async ({ caller, user, connectionId, idempotencyKey = null, invocationId = null }) => {
     const record = { event: "reconcile-request", uid: user?.uid, connectionId, callerRole: caller?.role };
     if (caller?.role !== "console") return deny("caller-not-entry-point", record);
@@ -1408,6 +1603,7 @@ export const createPolicy = ({
       return deny(typeof e?.reason === "string" ? e.reason : "unavailable", live);
     }
     await audit({ ...live, outcome: "allowed" });
+    await ledgerFromReconciliation({ invocation, result, record: live });
     return result;
   };
 
@@ -1418,5 +1614,5 @@ export const createPolicy = ({
     return { enabled, source };
   };
 
-  return { allocateInvocation, allocateCommand, leaseCommand, getCommand, commandWrite, settleCommand, commandRead, transitionCommand, admitCommand, commandSession, commandBind, commandObserve, dueCommands, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
+  return { allocateInvocation, allocateCommand, allocateRepair, leaseCommand, getCommand, commandWrite, settleCommand, commandRead, transitionCommand, admitCommand, commandSession, commandBind, commandObserve, dueCommands, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
 };

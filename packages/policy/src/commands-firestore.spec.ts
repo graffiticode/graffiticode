@@ -170,6 +170,58 @@ run("command records in Firestore", () => {
     expect((await commands.listDue({ now: T0, limit: 50 })).map(c => c.commandId)).not.toContain(pending.commandId);
   });
 
+  // B6 slice 3: the ledger's claim under real transactions. An original
+  // with one failed occurrence; repairs of it allocated, then admitted at
+  // once: exactly one claims it. A failed repair's entry may be claimed
+  // again; a completed one may not.
+  describe("the repair ledger", () => {
+    const occ = runtimeOccurrenceId("batch", "b1");
+    const original = async () => {
+      const { command } = await allocate({ idempotencyKey: `orig-${uid}` });
+      const admission = { planDigest: digest("plan"), recording: 1, stages: { s0: { modelDigest: digest("m"), replay: 1, intents: [{ id: "batch", runtime: true, bounds: { maxOccurrences: 2 } }] } } };
+      await db.collection("commands").doc(command.commandId).update({
+        phase: "admitted",
+        status: "failed",
+        admission,
+        stages: { s0: { state: "ran", expansion: "closed", pinnedInput: digest("in") } },
+      });
+      await db.collection("commands").doc(command.commandId).collection("outcomes").doc(`s0:${occ}`)
+        .set({ stage: "s0", occurrenceId: occ, outcome: "failed", source: "receipt", final: true });
+      return { ...command, admission };
+    };
+    const repair = async (orig, key) => (await allocate({ idempotencyKey: `${key}-${uid}`, repair: { repairOf: orig.commandId, selection: [{ stage: "s0", occurrenceId: occ }] } })).command;
+    const claim = (r, orig) => records.claimRepair({ commandId: r.commandId, generation: 1, admission: { ...orig.admission, repairOf: orig.commandId } });
+    const entry = async orig => (await db.collection("commands").doc(orig.commandId).collection("ledger").doc(`s0:${occ}`).get()).data();
+
+    it("lets exactly one of concurrent repairs claim an occurrence", async () => {
+      const orig = await original();
+      const repairs = await Promise.all(["r-a", "r-b", "r-c", "r-d"].map(k => repair(orig, k)));
+      const results = await Promise.allSettled(repairs.map(r => claim(r, orig)));
+      expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
+      const winner = repairs[results.findIndex(r => r.status === "fulfilled")];
+      for (const r of results.filter(x => x.status === "rejected")) {
+        expect((r as PromiseRejectedResult).reason).toMatchObject({ reason: "occurrence-claimed", detail: { repairId: winner.commandId } });
+      }
+      expect(await entry(orig)).toMatchObject({ status: "pending", repairId: winner.commandId, prior: "failed" });
+      // The losers were never admitted.
+      for (const r of repairs.filter(x => x !== winner)) expect((await commands.get(r.commandId)).phase).toBe("allocated");
+    }, 30_000);
+
+    it("claims a failed repair's entry again, never a completed one", async () => {
+      const orig = await original();
+      const first = await repair(orig, "r-1");
+      await claim(first, orig);
+      const ref = db.collection("commands").doc(orig.commandId).collection("ledger").doc(`s0:${occ}`);
+      await ref.update({ status: "failed", source: "receipt" });
+      const second = await repair(orig, "r-2");
+      await claim(second, orig);
+      expect(await entry(orig)).toMatchObject({ status: "pending", repairId: second.commandId, attempts: [{ repairId: first.commandId, status: "failed", source: "receipt" }] });
+      await ref.update({ status: "completed" });
+      const third = await repair(orig, "r-3");
+      await expect(claim(third, orig)).rejects.toMatchObject({ reason: "not-eligible" });
+    }, 30_000);
+  });
+
   // B6 slice 2: a worker that doesn't record outputs reads on past the
   // recording commands it can't own, a page at a time, to the ones it can.
   it("lists, to a worker that doesn't record, the commands it may own past a page of ones it can't", async () => {
