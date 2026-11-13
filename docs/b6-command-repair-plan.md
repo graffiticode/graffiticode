@@ -142,7 +142,7 @@ Each has a recommendation; the plan below assumes it.
    - in a live start with recorded occurrences, a recorded one makes no Policy call, a selected one binds and invokes once, and an unselected failed one stops the stage (`not-selected`);
    - `evaluate` still answers `skipped: "evaluate"`.
 
-   Released as `l0176r` (and the kernel, with every language's next release). Its revision and date are the cutover for decision 11.
+   Released as `l0176r` (and the kernel, with every language's next release). Its revision and date are the cutover for decision 11. **Released 2026-11-13: `l0176r-rmwe83rgw-eae49e`** (from `07944db9`; [evidence](evidence/b6-repair/README.md)).
 2. **Record outputs, and recover from them** (Broker, Policy, api). Admission records `recording: 1` (decision 11). Admission also keeps each stage's `replay` from its preflight manifest: today `pinnedStage` (`packages/common/src/contract.ts`) and the stored admission keep only the pinned fields and drop it. It is stored beside the pinned stage, not inside it, so plan digests and session bindings don't change (owner's note on slice 1, 2026-11-12). No change to a run that doesn't crash. `/v1/receipts` returns `result`. Policy's `settle` stores it on the outcome. The worker installs `outputs/{stage}` for every stage it runs, before pinning the next stage's input, and Policy refuses a pinned input that differs from the output below it. Recovery starts at the first stage without a recorded output (decision 5). Broker's save declares `resultFromEvidence`, and an `applied` final resolution carries the result (decision 2). Tests:
    - settle round-trips `result`;
    - an output is installed once, and a second write with another digest is refused;
