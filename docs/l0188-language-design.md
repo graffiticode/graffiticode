@@ -277,6 +277,12 @@ Normal resumption invokes the pinned interpreter handlers. Oracle consultation a
 
 A proposed run lifecycle includes ready, running, waiting, needs input, needs reconciliation, completed, completed with exceptions, failed, stop requested, and stopped. The final state enum should be driven by supported operations. Completion with exceptions is valid only when the operation’s policy permits that outcome.
 
+Each state belongs to one of the platform's lifecycle classes: active, interrupted or terminal (see "Execution observation contracts" in §9 of the interpreter design).
+- Waiting on a provider job, and reconciliation performed automatically by an admitted recovery policy, are active.
+- Needs input, and reconciliation that needs a choice, are interrupts. So are revoked authority (`authorization`) and a missing pinned revision (`dependency`).
+- Each interrupt names its resolver: the user, an administrator or the operator.
+- Answers are `dispatch` commands bound to the interrupt's id and revision.
+
 Preparation is a separate visible phase before an executable run is ready. The same component can represent preparation, execution, and results without claiming that API effects began during generation.
 
 Human workflow steps can use durable signals correlated to the run and target work item. They require explicit authority, expiration behavior, and a continuation rule. This enables future review or grading workflows without assuming that every vendor API supplies native approval or callback capabilities.
@@ -310,6 +316,12 @@ The shared frame should support domain-specific result bodies: item changes for 
 ## Projection contract
 
 The interpreter supplies a projection containing run and model identity, a monotonically increasing `stateVersion`, current phase and state, known scope, verified progress, confirmed results, exceptions, valid authorized actions, and freshness information. It may also contain temporary presentation credentials or references that the API resolves for display.
+
+Observation follows the platform's execution observation contracts:
+- **Sequence boundary.** A projection carries the event-sequence boundary it reflects.
+- **Updates.** Updates are read as events after a cursor, not inferred from `stateVersion` alone.
+- **Artifacts.** Confirmed results, exceptions and exports are named artifacts with versioned manifests, and the projection holds their counts and references. An open export manifest is marked incomplete and never implies completion.
+- **Agents.** Agents read a credential-free status representation.
 
 Workflow transitions update or invalidate the API's cached projection. Publication checks the execution's current state version so a late response or signature refresh cannot replace a newer projection with older state. That cache is a read model, not the durable execution record. Refreshing a Learnosity signature or an expiring result link leaves run identity and progress unchanged.
 

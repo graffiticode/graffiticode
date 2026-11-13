@@ -534,7 +534,8 @@ Durable execution was deferred until a concrete language needed it. [L0188](l018
 
 **Later:**
 - B6 replay repair;
-- subscriptions and projection caching;
+- subscriptions, event replay streams, webhooks and projection caching, over the E1 event log and delivery records;
+- signed release records for interpreter and registry manifests (design §9, deferred);
 - model-changing semantic repair, which needs its own linked protocol;
 - more operations.
 
@@ -543,6 +544,16 @@ Durable execution was deferred until a concrete language needed it. [L0188](l018
   - They are kept apart from `stage-results` and `compiles/`.
   - No TTL or cache eviction ever deletes them.
   - A `pending` command names its run (B5's extension point).
+  - **Observation records** (design §9, "Execution observation contracts"), defined now even though delivery is only polling at first:
+    - **Event log.** A per-run event log with a monotonic sequence, separate from `stateVersion`. Events are committed atomically with their transition, under the fencing generation. Each consumer gets its own delivery record.
+    - **Interrupts.** Interrupt records carry `interruptId`, revision, kind (`input`, `authorization`, `reconciliation`, `dependency`), resolver, schemas and expiry. A paused run (E3 retention) raises a `dependency` interrupt.
+    - **Artifacts.** Artifact manifests are versioned and sealed with a content digest. They append immutable chunk references by fenced commits:
+      - each chunk has a stable ordinal, and its append commits atomically with its processing checkpoint;
+      - replaying an accepted append returns the existing manifest version.
+    - **Not presentation refreshes.** Presentation refreshes stay outside the run event log (E4's per-audience ordering).
+  - **Error registry and capability declarations**, shipped with E1:
+    - the run's operations and `dispatch` events are declared in the interpreter manifest;
+    - preflight refuses undeclared new work before allocation, and existing keys are served from their record (B5 §6).
 - **E2 Scheduling and recovery.**
   - Persisted timers and scheduling. A transition and its scheduling intent are written atomically, conditional on the owner's fencing generation, or through a recoverable equivalent.
   - Worker leases with takeover.
@@ -555,6 +566,9 @@ Durable execution was deferred until a concrete language needed it. [L0188](l018
   - **Retention.** Every interpreter revision (by tag), provider-operation implementation and execution-schema version a live run requires is retained; otherwise the run is paused. The `retireTags` exclusion and the rollback rule for revisions that commands name extend to runs.
 - **E4 Run reads and form routing.**
   - **Selecting a run.** `/data` and `/form` take an explicit execution selector. A missing or inaccessible run is an explicit error, never a fallback to compiling or to starting a run.
+  - **Run discovery.** An authorized listing by item, status and `updatedAfter`, with a page token. It is never used to pick a run implicitly.
+  - **Polling with cursors.** A snapshot returns its event-sequence boundary, and `after=<sequence>` returns the retained events after it. An expired cursor gets an explicit `cursor-expired` reset.
+  - **Agent status representation.** A credential-free status projection for agents and protocol adapters. It is separate from the form's `present` result and carries no signatures or bearer URLs.
   - **The View's workflow update path** (an addendum to B4):
     - **Assessments are unchanged.** B4's freeze of mounted content stays the default, and assessment content is never replaced.
     - **Opt-in for workflow forms.** A workflow form can take progress updates by authorized, run-specific polling of a private `no-store` projection.

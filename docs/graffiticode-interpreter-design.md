@@ -583,6 +583,126 @@ The form can receive updates through SSE, WebSockets, or polling. Reading a resu
 
 A workflow engine such as Temporal could implement durable orchestration behind a language interpreter; it is an implementation choice, not part of the generic language contract. The compiled model may describe steps, dependencies, approvals, compensation, and allowed effects.
 
+### Execution observation contracts (proposed)
+
+Graffiticode owns the contracts for work, execution, outputs and observation. Protocol adapters (A2A, the MCP Tasks extension) translate these contracts. Frontend service jobs coordinate requested outcomes using them, and own their domain completion criteria. These contracts give generation jobs, durable read-only computation and effectful runs one observable lifecycle. Each job or run keeps its own authoritative record.
+
+The first release defines the event identities, the outbox, interrupts, errors, the minimal artifact identity and the capability declarations. It delivers by polling. Replay streams and webhooks follow without changing the records.
+
+**Lifecycle classes.** Every run state belongs to one of three classes:
+- **Active.** Work is progressing or scheduled. Ordinary waits for a provider job or a timer are active. So is reconciliation that an admitted recovery policy performs automatically.
+- **Interrupted.** Progress is blocked until someone outside the run resolves something.
+- **Terminal.** Nothing further happens to the run. A later reconciliation or repair is its own command, with an explicit reference to the command it acts on (§5).
+
+**Interrupts.** An interrupt is a record, not just a state label:
+- `interruptId` and an interrupt **revision**;
+- **kind** and **resolver**:
+
+  | Kind | Example | Resolver |
+  | --- | --- | --- |
+  | `input` | Choose an overwrite policy for conflicting records | user |
+  | `authorization` | Grant revoked or connection disabled during a wait | user or administrator |
+  | `reconciliation` | An uncertain write needs a choice the recovery policy doesn't authorize | user or administrator |
+  | `dependency` | A pinned interpreter revision, operation version or execution schema is unavailable (E3 retention) | operator |
+
+- the originating `stateVersion`, for context only;
+- a question schema and an answer schema, where applicable;
+- an expiry, and the resolutions the operation contract supports.
+
+Answer validity is tied to the interrupt, not to the state:
+- An answer names `interruptId` and revision.
+- Unrelated progress that moves `stateVersion` doesn't invalidate it.
+- A material change revises the interrupt. Answers to an older revision are then stale and conflict.
+- An answer is a `dispatch` command with its own idempotency key, applied at most once.
+
+Resolution never extends authority:
+- Resuming after an `authorization` interrupt obtains fresh Policy authorization under the original pinned admission (plan E3).
+- A resolution that changes scope, effects or models needs a new admission.
+- Credentials supplied to resolve one interrupt authorize later steps only where the continuation contract explicitly defines that reuse.
+
+**Events and cursors.** Observation uses a per-run event log, separate from `stateVersion`:
+- Each event has a monotonic **sequence** number.
+- One transition can emit several events, for example progress, an artifact becoming available and an interrupt opening. Deduplicating on `stateVersion` alone would therefore drop legitimate updates.
+- Events are committed atomically with their transition, under the owner's fencing generation (plan E2). A stale owner can't emit them.
+- **Presentation refresh is not a run event.** A viewer can refresh while the run is sleeping or terminal, when it has no execution owner. So refresh never needs the run lease:
+  - Refreshes are ordered per authorized audience, by the presentation sequence or credential issue time in plan E4, against the `stateVersion` the viewer holds.
+  - Any durable notification about a refresh carries references or invalidation information only, never the refreshed bearer credentials.
+- A snapshot read returns the projection together with the sequence boundary it reflects.
+- Reading `after=<sequence>` returns the retained events after that cursor. A cursor older than the retention window gets an explicit `cursor-expired` reset with a fresh snapshot, never a silent gap.
+- Delivery records are separate per consumer: View polling now, later subscriptions and webhooks. Delivery is at-least-once with retries, and receivers deduplicate on (run id, sequence). This is a stronger contract than A2A's push requirement of a single delivery attempt, and it holds within the retention window.
+
+Three cursors answer different questions and are never interchanged:
+- `updatedAfter` filters a run listing;
+- a page token continues a listing;
+- an event cursor replays one run's events.
+
+**Errors.** Every API, Policy, Broker and interpreter error comes from one registry. Each has:
+- a stable code;
+- a category:
+  - `authentication`;
+  - `authorization`;
+  - `validation`;
+  - `resource`: a requested run, artifact, item or target is missing or inaccessible;
+  - `state`: an invalid transition;
+  - `dependency`: an execution prerequisite is unavailable;
+  - `system`;
+- typed details;
+- recovery guidance: retry with the same key, needs new admission, resolve an interrupt, reset from the supplied snapshot, or none.
+
+The three cases from §13 are separate codes:
+- `event-not-understood` (validation): the language declares no such operation or event;
+- `policy-refused` (authorization): Policy decided the event is not permitted. It is used only for Policy decisions;
+- `event-not-applicable` (state): the event exists, but the run's current state doesn't accept it.
+
+`cursor-expired` (state) carries a fresh snapshot and its sequence boundary. Its recovery guidance is to reset from that snapshot and resume reading after its boundary.
+
+**Errors never manufacture or overwrite outcomes.**
+- Command outcomes are settled only by B5's authoritative path: Broker receipts and Policy settlement, written under the current fencing generation.
+- A transport failure, a lost response or a lost lease is reported as an error. It records no outcome of its own:
+  - The command keeps whatever its record says. That may still be `pending`, and recoverable by the next retry with the same key or by the recovery owner (B5 §7). It may also already be `completed`, with the receipt the error obscured.
+- A response that carries an error for a command also carries the command's current recorded outcome, including `pending`. It never implies `failed`.
+- `uncertain` is recorded only when settlement establishes it, never because a request failed.
+
+**Artifacts: minimal identity.** A run can produce several named outputs:
+- **Stable identity.** Each logical output has a stable `artifactId` within the run.
+- **Immutable chunks.** Content is stored as immutable chunks, each with its own digest.
+- **Versioned manifest.** The artifact's manifest lists its chunk references. It is versioned and changes only through fenced commits that append chunk references.
+- **Idempotent appends.** A recovery owner must not append the same chunk twice after a crash:
+  - Each chunk has a stable ordinal, derived from the pinned scope and the recorded observations (for example the page's occurrence), never from an attempt.
+  - An append is committed atomically with the processing checkpoint that produced it, so the checkpoint and the manifest can't disagree.
+  - Replaying an accepted append (same ordinal, same digest) returns the existing manifest version and writes nothing.
+  - The same ordinal with a different digest is a conflict.
+- **Open, then sealed.** While open, the manifest is explicitly marked incomplete. Sealing writes the final manifest and its content digest.
+- **Incomplete output stays provisional.** Its availability never implies that the export is complete. It never replaces the item's completed artifact; §5's artifact rule is unchanged.
+- **Exceptions are their own artifact.** The projection keeps counts and references, not the records.
+
+**Capability declarations.** The interpreter manifest (§11) declares, per language, the operations and `dispatch` events it understands:
+- **Preflight for new work.** The API rejects an undeclared new operation or event with `event-not-understood` before allocating a command or invocation, so no idempotency key is consumed.
+- **Existing keys resolve as recorded.** An existing key is served from its recorded bindings and pinned contracts, whatever the current manifest or activation flags say (B5 §6).
+- **Applicability is checked at runtime.** A static declaration only says that an event exists. Whether it applies to the run's current state is checked atomically with the transition.
+- **Versions.** New interfaces carry an explicit contract version. A request for an unsupported version is refused (`validation`), never silently downgraded. Existing callers that send no version have a documented default and compatibility path.
+
+**Representation is not mode.**
+- **Mode** (`evaluate` or `present`, §5) controls pipeline behavior.
+- **Representation** (browser form, agent status, JSON, CSV) is a separate request dimension.
+- **Agent status carries no credentials.** It has no signatures and no bearer URLs. Requesting a representation or media type never confers permission to receive credentials.
+- **Cache keys.** Representation and authorized audience join the cache key wherever results are cached (§7).
+
+**Selection, listing and correlation.**
+- Reads keep the explicit execution selector (plan E4).
+- Authorized run discovery lists runs by item, status and `updatedAfter`, with a page token. A form can offer a run picker, but it never silently picks a run for the user.
+- `create`, `update` and `/command` accept an optional **context id**, scoped to the account. It is correlation metadata only. It grants no access and doesn't deduplicate. Explicit command references still establish what a reconciliation or repair acts on.
+
+**Submission is nonblocking.**
+- `/command` returns a handle and status URL immediately (D1).
+- A protocol adapter whose protocol waits by default can wait for the run's result without holding an execution worker or lease. Otherwise it requires clients to request its nonblocking mode.
+
+**Deferred: signed manifests.**
+- Signing interpreter and registry manifests establishes who published a declaration and that it hasn't been altered. An operator signing its own manifest can't prove that the declared implementation is the one running.
+- A signed release record binds the source revisions, executable image digests, contract versions and the interpreter and protected-registry manifest digests.
+- Verifying the hosted implementation also needs build provenance and deployment evidence under a stated trust model.
+- This is release-verification work, separate from the durable runtime.
+
 ## 10. Security and correctness requirements
 
 - **Explicit effect boundary:** Form GET and `interpret(get)` must not trigger business transactions. Side effects require explicit authorized commands.
@@ -812,17 +932,17 @@ Questions that block Phases 1–3:
 
 Open questions for durable executions (plan Track E; see also the L0188 doc's "Decisions still open"):
 
-- How an interpreter publishes updates to the API (callback endpoint, message bus, or shared execution service).
-- How the current execution of an item is selected.
+- ~~How an interpreter publishes updates to the API.~~ Proposed in §9, "Execution observation contracts": a per-run event log committed with each transition, with per-consumer delivery records. Polling comes first.
+- How the current execution of an item is selected. Proposed in §9: an explicit selector, plus authorized run listing. Still open: the selector's wire name.
 - What consistency `/form` guarantees after a transition.
 - Whether to publish a full projection or only invalidate.
 - Authorization and revocation for queued effects.
 - How long execution state is kept.
-- How errors and partial failures reach forms and agents.
-- How an interpreter answers a message it has no transition for. Proposed: treat every interpreter as a state machine, with a fixed-state interpreter as the one-state case whose only transition is the identity. Then `start`, and `dispatch` with any event, sent to a fixed-state interpreter, and `dispatch` with an event the language never defines, return a **message not understood** error. Still open:
-  - Keeping it distinct from a **refusal** (understood but not permitted, e.g. by policy) and from **not applicable now** (an event the language defines but the run's current state doesn't accept).
-  - Whether the API decides it from the interpreter manifest, before it allocates a command record or an invocation (so no idempotency key is consumed), which needs each language to declare the operations and `dispatch` events it understands.
-  - The error's code and wire shape.
+- How errors and partial failures reach forms and agents. Proposed in §9: one error registry. Errors never replace recorded outcomes, and blocked progress is a typed interrupt.
+- How an interpreter answers a message it has no transition for. Proposed: treat every interpreter as a state machine, with a fixed-state interpreter as the one-state case whose only transition is the identity. Then `start`, and `dispatch` with any event, sent to a fixed-state interpreter, and `dispatch` with an event the language never defines, return a **message not understood** error. Proposed in §9:
+  - `event-not-understood`, `policy-refused` and `event-not-applicable` are separate codes.
+  - The API decides `event-not-understood` from the manifest's declarations before allocating anything. Existing keys still resolve through their recorded bindings.
+  - Still open: the exact wire shape.
 
 ## 14. Design decisions reached so far
 
@@ -876,5 +996,18 @@ Open questions for durable executions (plan Track E; see also the L0188 doc's "D
 - *(Proposed)* **Run `get` as policy stage `read`** with view-safe functions only, and send every `start`/`dispatch` effect through the broker under a policy invocation.
 - **Durable executions are delivered by plan Track E**, driven by [L0188](l0188-language-design.md), instead of being deferred. B5 is their immediate-command foundation, and Track E extends it with run records, timers and overdue-wait recovery. `dispatch` is specified there.
 - **L0013 snapshots become brokered commands.** They use item-scoped authorization within the chain's invocation, a capture sequence, and a dated compatibility exception for public items. Both runtime accounts lose direct write when the bridge is retired (plan C5).
+
+- *(Proposed)* **Graffiticode owns the execution observation contracts** (§9), and protocol adapters translate them:
+  - lifecycle classes: active, interrupted, terminal;
+  - typed interrupts, with a resolver and a revision;
+  - a per-run event sequence, separate from `stateVersion`;
+  - one error registry, in which errors never manufacture or overwrite outcomes settled by Policy and the Broker;
+  - presentation refresh ordered per audience, independent of the run lease;
+  - artifacts made of immutable chunks with stable ordinals, behind a versioned, sealed manifest whose appends are idempotent;
+  - capability preflight that keeps replay of existing keys;
+  - representation as its own dimension, separate from mode;
+  - account-scoped correlation ids.
+
+  Polling comes first. Replay streams, webhooks and signed release records follow.
 
 This document summarizes a proposed architecture, not an assertion that these interfaces or migrations have already been implemented.
