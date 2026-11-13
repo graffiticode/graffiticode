@@ -555,6 +555,15 @@ test("rollback below a floor is refused with no override", async t => {
   assert.ok(second.revision);
 });
 
+// B6 slice 2: Policy's guard is all that keeps a worker that doesn't record
+// outputs from owning a recording command, so Policy is never rolled back
+// below it (docs/b6-command-repair-plan.md, slice 2).
+test("the repository's deploy.json keeps Policy's B6 recording floor", async () => {
+  const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
+  const floor = raw.services.policy.baselines.find(b => b.milestone === "B6-recording");
+  assert.deepEqual(floor, { milestone: "B6-recording", commit: "d322c227a019abbe10d50108398764aee8e5d2d0", floor: true });
+});
+
 test("a service that enforces the switch never rolls back below its first milestone", async t => {
   const h = await harness(t);
   const receipt = await release(context, source, h.deps);
