@@ -92,6 +92,11 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
     "input-conflict",
   ]),
   ...cat("malformed", ["not-original", "kind-mismatch"]),
+  // B6 slice 4, the api's repair and materialize routes: repairs off for the
+  // language (REPAIR_LNNNN), a command with an occurrence not completed or a
+  // stage not reached, a completed one whose output can't be established,
+  // and a stage the kernel couldn't rebuild from its records.
+  ...cat("conflict", ["repair-unavailable", "not-complete", "output-unavailable", "materialize-failed"]),
   // The C6 bridge: a compile that ran as a command, answered with an outcome
   // other than completed (its status URL names it).
   ...cat("conflict", ["command-not-completed"]),

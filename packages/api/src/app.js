@@ -9,7 +9,10 @@ import cors from "cors";
 import { buildValidateToken } from "./auth.js";
 import { buildModelCache, parseModelCacheConfig } from "./model-cache.js";
 import { cacheVerifications } from "@graffiticode/common/verified-tokens";
-import { buildCompile, buildInterpreter, buildCommandStart } from "./comp.js";
+import { buildCompile, buildInterpreter, buildCommandStart, buildCommandMaterialize } from "./comp.js";
+import { materializeCommand } from "./commands/records.js";
+import { ARTIFACT_RESULT_FORM } from "./read.js";
+import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { buildPolicyCommands } from "./commands/policy-commands.js";
 import { buildCommandWorker } from "./commands/worker.js";
 import { parseCommandFaults } from "./commands/faults.js";
@@ -156,6 +159,7 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   const commandWorker = policyCommands
     ? (() => {
         const worker = `${process.env.K_REVISION ?? "api"}:${randomUUID()}`;
+        const commandMaterialize = buildCommandMaterialize({ langCompile, callerIdentity });
         const run = buildCommandWorker({
           policy: policyCommands,
           taskStorer,
@@ -168,11 +172,22 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
             model: interpreter.model,
             interpret: interpreter.interpret,
             start: buildCommandStart({ langCompile, callerIdentity }),
+            materialize: commandMaterialize,
             preflight: chainAdmission.preflight,
           },
         });
         commandRunner = { policy: policyCommands, run, worker };
-        return { policy: policyCommands, run, worker };
+        // B6 (decision 9): a command rebuilt from its records, as its artifact.
+        const materialize = ({ commandId }) => materializeCommand({
+          policy: policyCommands,
+          language: { materialize: commandMaterialize },
+          artifactStorer,
+          commandId,
+          registryVersion: REGISTRY_VERSION,
+          form: ARTIFACT_RESULT_FORM,
+          log: line => console.log(line),
+        });
+        return { policy: policyCommands, run, worker, materialize };
       })()
     : null;
   // Recovery of abandoned commands (B5 §7): Cloud Scheduler, with its own ID
@@ -210,7 +225,7 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
     // D2a: a legacy key on /command is served by the legacy compile path.
     const getData = buildRouteGetData({ taskStorer, compileStorer, dataApi });
     const legacy = ({ auth, authToken, id, connectionId, idempotencyKey }) => getData({ auth, authToken, ids: [id], connectionId, idempotencyKey });
-    app.use("/command", buildCommandRouter({ taskStorer, policy: commandWorker.policy, run: commandWorker.run, worker: commandWorker.worker, legacy, eligible }));
+    app.use("/command", buildCommandRouter({ taskStorer, policy: commandWorker.policy, run: commandWorker.run, worker: commandWorker.worker, legacy, eligible, materialize: commandWorker.materialize }));
   }
   app.use("/config", routes.configHandler);
   app.use("/data", routes.data({ taskStorer, compileStorer, dataApi, signingLimiter }));

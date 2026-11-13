@@ -40,3 +40,9 @@ From `main` at `d5b0e8ab` (#384), in the plan's order:
 - **After promotion:** `release-check api` ok; the rollback plan restores `api-rmwe179az-dc8f27`; the production canary passed 33/33 (`canary-9cvvx`, its scheduled arguments).
 
 **Repair stays off.** Commands admitted from now on carry `recording: 1` and are pinned to replay-capable L0176 revisions, so they will be eligible once slices 3 and 4 ship. No repair or materialize route exists yet.
+
+## Repairs and the ledger in Policy (slice 3), released 2026-11-13
+
+- **Policy** `policy-rmwffa18u-d77293`, from `main` at `0f1483b7` (#386). It is above its `B6-recording` floor, so the floor forbids rolling it back below this release; a fix goes forward.
+- **After release:** `release-check policy` is ok. The production canary passed 33/33 (`canary-fxprk`). Policy's only 4xx since the release are the canary's own refusal probes: the denied final stage's admission, the v1 snapshot without a plan, and the author and revocation checks.
+- **Repair is still unreachable.** No api route allocates a repair, and the live api states no `repairs` capability, so it can't own one. Reconciliation's ledger writes are live, as the owner agreed: they record what Broker established and dispatch nothing.
