@@ -33,8 +33,9 @@
 // worker: one from before B6 would fetch again what was recorded, and could
 // fail a command whose output survives (`worker-unsupported`). Checked in the
 // same update as the lease, so a command admitted meanwhile can't slip by.
-//   listDue({ now, limit }) -> [command]   the commands recovery takes over (§7):
-//     pending with an expired lease, or with a publication due and an expired lease
+//   listDue({ now, limit, recording }) -> [command]   the commands recovery takes over (§7):
+//     pending with an expired lease, or with a publication due and an expired lease,
+//     that a worker with this capability may own (ownableBy), chosen before the limit
 
 import { createHash } from "node:crypto";
 import { InvocationConflict, sameInvocationBinding } from "./invocations.js";
@@ -106,10 +107,15 @@ export const newCommandRecord = ({ commandId, uid, idempotencyKey, invocationId,
   updatedAt: new Date(now).toISOString(),
 });
 
-// The lease renewed by its owner: same generation, a new expiry.
+// Whether a worker may own this command (B6 slice 2): one admitted as
+// recording only by a worker that records outputs (`recording: 1`), since an
+// older one would fetch again what was recorded. Any other, by any worker.
+export const ownableBy = (command, recording) => command?.admission?.recording !== 1 || recording === 1;
 const requireCapableWorker = (command, recording) => {
-  if (command?.admission?.recording === 1 && recording !== 1) throw new CommandRefused("worker-unsupported");
+  if (!ownableBy(command, recording)) throw new CommandRefused("worker-unsupported");
 };
+
+// The lease renewed by its owner: same generation, a new expiry.
 
 export const renewedLease = (command, { worker, generation, now, leaseMs, recording = 0 }) => {
   const refusal = ownerRefusal(command, { generation, now });
@@ -192,9 +198,9 @@ export const createMemoryCommandStore = ({ invocationStore }) => {
     async takeOver({ commandId, worker, expectedGeneration, now, leaseMs = COMMAND_LEASE_MS, recording = 0 }) {
       return update(commandId, c => takenOverLease(c, { worker, expectedGeneration, now, leaseMs, recording }));
     },
-    async listDue({ now, limit }) {
+    async listDue({ now, limit, recording = 0 }) {
       return [...commands.values()]
-        .filter(c => (c.status === "pending" || c.publication?.state === "due") && c.owner.leaseExpiresAt < now)
+        .filter(c => (c.status === "pending" || c.publication?.state === "due") && c.owner.leaseExpiresAt < now && ownableBy(c, recording))
         .sort((a, b) => a.owner.leaseExpiresAt - b.owner.leaseExpiresAt)
         .slice(0, limit)
         .map(c => structuredClone(c));

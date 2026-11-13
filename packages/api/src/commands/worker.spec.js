@@ -70,7 +70,7 @@ const client = () => {
   const write = (fn, argsOf = a => a) => as(({ commandId, generation, ...rest }) => policy.commandWrite({ caller: GATEWAY, commandId, generation, fn, args: argsOf(rest) }));
   return {
     read: as(({ commandId, what, stage = null }) => policy.commandRead({ caller: GATEWAY, commandId, what, stage })),
-    due: as(({ limit = 20 } = {}) => policy.dueCommands({ caller: GATEWAY, limit })),
+    due: as(({ limit = 20 } = {}) => policy.dueCommands({ caller: GATEWAY, limit, recording: 1 })),
     allocate: as(({ connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create = true }) =>
       policy.allocateCommand({ caller: GATEWAY, user: { uid: OWNER }, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create })),
     // As the HTTP client does: this worker records outputs, and says so.
@@ -446,6 +446,41 @@ describe("recovery from the furthest pinned boundary (C3)", () => {
       expect((await workerAs("w2", fetching)({ commandId, generation: taken.generation })).status).toBe("completed");
       expect(fetches).toEqual([]);
       expect(provider).toEqual([{ items: ["a1"] }]);
+    });
+
+    // The owner's review of 9c61320f: after an api rollback, recording
+    // commands an older sweeper can't own must not fill its sweeps and hide
+    // the legacy commands it can.
+    it("never lets recording commands it can't own crowd an older sweeper's legacy commands out", async () => {
+      const taskId = chainOf(saveTask("A"), fetchTask("A"));
+      for (let i = 0; i < 20; i++) {
+        const { commandId, generation } = await allocateChain(taskId, `recording-${i}`);
+        await expect(exitingAfterOutput("w1")({ commandId, generation })).rejects.toThrow("exited");
+      }
+      const legacy = await allocateChain(taskId, "legacy-pending");
+      clock += COMMAND_LEASE_MS + 1;
+      // An api from before this slice: it neither records nor says so.
+      const old = client();
+      const oldClient = {
+        ...old,
+        due: ({ limit = 20 } = {}) => policy.dueCommands({ caller: GATEWAY, limit }),
+        lease: async args => {
+          try {
+            return await policy.leaseCommand({ caller: GATEWAY, ...args, recording: 0 });
+          } catch (e) {
+            if (e instanceof PolicyDenied) throw new PolicyRefused(e.reason);
+            throw e;
+          }
+        },
+        admit: args => old.admit({ ...args, recording: 0 }),
+      };
+      const run = buildCommandWorker({ policy: oldClient, taskStorer, language: fetching, artifactStorer: artifacts, worker: "old-worker", setInterval: () => null, clearInterval: () => {}, log: () => {} });
+      const sweep = buildSweep({ policy: oldClient, run, worker: "old-worker", log: () => {} });
+      expect(await sweep()).toMatchObject({ due: 1, taken: 1, skipped: 0 });
+      expect((await read(legacy.commandId, "state")).status).toBe("completed");
+      // The recording commands are listed only to a recording sweeper.
+      expect((await oldClient.due()).commands).toEqual([]);
+      expect((await client().due()).commands).toHaveLength(20);
     });
 
     it("lets any worker own a command admitted without recording, as before", async () => {

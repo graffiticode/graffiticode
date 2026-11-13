@@ -4,8 +4,11 @@
 
 import { createHash } from "node:crypto";
 import { InvocationConflict, ProtocolMismatch, newInvocationId, sameInvocationBinding, AdmissionRefused } from "./invocations.js";
-import { COMMAND_LEASE_MS, CommandRefused, commandIdFor, newCommandRecord, renewedLease, takenOverLease } from "./commands.js";
+import { COMMAND_LEASE_MS, CommandRefused, commandIdFor, newCommandRecord, ownableBy, renewedLease, takenOverLease } from "./commands.js";
 import { leaseRef, leaseIsActive } from "./revisions.js";
+
+// How many due commands one read takes when some may be skipped (listDue).
+const DUE_PAGE = 100;
 
 const hashId = parts => createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 
@@ -111,7 +114,7 @@ export const createFirestoreInvocationStore = db => ({
 // request, so concurrent first requests with one key get one command, and a
 // key the legacy path allocated first stays legacy (D2a). Every lease change
 // is a transaction that re-reads the command, so a stale owner changes nothing.
-export const createFirestoreCommandStore = db => {
+export const createFirestoreCommandStore = (db, { duePage = DUE_PAGE } = {}) => {
   const commandRef = commandId => db.collection("commands").doc(commandId);
   const requestRef = commandId => commandRef(commandId).collection("request").doc("original");
   const change = (commandId, fn) => db.runTransaction(async tx => {
@@ -167,11 +170,27 @@ export const createFirestoreCommandStore = db => {
     },
     // Two queries, each on its composite index in the policy database
     // (configs/firestore-policy-indexes.json): pending, and publication due,
-    // each with an expired lease.
-    async listDue({ now, limit }) {
-      const query = (field, value) => db.collection("commands").where(field, "==", value).where("owner.leaseExpiresAt", "<", now).orderBy("owner.leaseExpiresAt").limit(limit).get();
-      const [pending, due] = await Promise.all([query("status", "pending"), query("publication.state", "due")]);
-      const byId = new Map([...pending.docs, ...due.docs].map(d => [d.id, d.data()]));
+    // each with an expired lease. A worker that doesn't record outputs may not
+    // own a recording command (B6 slice 2), so for it each query is read on, a
+    // page at a time, until `limit` it may own are found: commands it can't
+    // own never fill its sweep and hide ones it can. Only such a worker (a
+    // staged or rolled-back api) ever skips any.
+    async listDue({ now, limit, recording = 0 }) {
+      const page = recording === 1 ? limit : Math.max(limit, duePage);
+      const scan = async (field, value) => {
+        const found = [];
+        let after = null;
+        for (;;) {
+          let query = db.collection("commands").where(field, "==", value).where("owner.leaseExpiresAt", "<", now).orderBy("owner.leaseExpiresAt");
+          if (after) query = query.startAfter(after);
+          const { docs } = await query.limit(page).get();
+          for (const d of docs) if (ownableBy(d.data(), recording)) found.push(d.data());
+          if (found.length >= limit || docs.length < page) return found.slice(0, limit);
+          after = docs[docs.length - 1];
+        }
+      };
+      const [pending, due] = await Promise.all([scan("status", "pending"), scan("publication.state", "due")]);
+      const byId = new Map([...pending, ...due].map(c => [c.commandId, c]));
       return [...byId.values()].sort((a, b) => a.owner.leaseExpiresAt - b.owner.leaseExpiresAt).slice(0, limit);
     },
   };

@@ -622,12 +622,16 @@ export const createPolicy = ({
   // sweeper to take over. Service only. Each is named with the generation a
   // takeover must name; the takeover itself is the lease's compare-and-set.
   const MAX_DUE = 50;
-  const dueCommands = async ({ caller, limit = 20 }) => {
+  // `recording` is the sweeping worker's capability (B6 slice 2): without it,
+  // a command admitted as recording is neither listed nor counted toward the
+  // limit, since its takeover would be refused.
+  const dueCommands = async ({ caller, limit = 20, recording = 0 }) => {
     const record = { event: "command-sweep", callerRole: caller?.role };
     if (!commands) return deny("unavailable", record);
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
     if (!Number.isInteger(limit) || limit < 1 || limit > MAX_DUE) return deny("bad-request", record);
-    const due = await commands.listDue({ now: now(), limit });
+    if (recording !== 0 && recording !== 1) return deny("bad-request", record);
+    const due = await commands.listDue({ now: now(), limit, recording });
     return { commands: due.map(c => ({ commandId: c.commandId, generation: c.owner.generation, status: c.status, publication: c.publication?.state ?? "none" })) };
   };
 
