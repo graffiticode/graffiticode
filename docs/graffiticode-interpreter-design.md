@@ -378,7 +378,7 @@ The same durable workflow may publish state-change updates and periodically need
 
 ### Identity
 
-`get` returns the model unchanged. There is no independent execution state and no interpreter call is needed in the optimized API path. `start` and `dispatch` are unsupported unless overridden.
+`get` returns the model unchanged. There is no independent execution state and no interpreter call is needed in the optimized API path. `start` and `dispatch` are unsupported unless overridden (proposed: a "message not understood" error; see §13).
 
 ### Immediate projection
 
@@ -819,6 +819,10 @@ Open questions for durable executions (plan Track E; see also the L0188 doc's "D
 - Authorization and revocation for queued effects.
 - How long execution state is kept.
 - How errors and partial failures reach forms and agents.
+- How an interpreter answers a message it has no transition for. Proposed: treat every interpreter as a state machine, with a fixed-state interpreter as the one-state case whose only transition is the identity. Then `start`, and `dispatch` with any event, sent to a fixed-state interpreter, and `dispatch` with an event the language never defines, return a **message not understood** error. Still open:
+  - Keeping it distinct from a **refusal** (understood but not permitted, e.g. by policy) and from **not applicable now** (an event the language defines but the run's current state doesn't accept).
+  - Whether the API decides it from the interpreter manifest, before it allocates a command record or an invocation (so no idempotency key is consumed), which needs each language to declare the operations and `dispatch` events it understands.
+  - The error's code and wire shape.
 
 ## 14. Design decisions reached so far
 
