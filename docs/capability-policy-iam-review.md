@@ -1700,7 +1700,7 @@ B6 slice 5's drive (`docs/b6-command-repair-plan.md`, slice 5, "The drive, in de
    - issue the certificates for `broker-faults-sja7fatcta-uc.a.run.app` and `storage.googleapis.com` into their `egress-proxy-cert-<host>` secrets, readable by `egress-proxy` only (README, "Certificates");
    - build the template from `out/cloud-init.yaml` (`infra.js --plan`), and run the rolling update;
    - verify with `verify-rollout.js --expect d7f974b7…`.
-3. **The source:** `gcloud storage buckets create gs://graffiticode-b6-drive --location=us-central1 --uniform-bucket-level-access`, then `allUsers` `roles/storage.objectViewer` on it, and the first object `source.json` as `{"tag":"init"}` with `Cache-Control: no-store`.
+3. **The source:** `gcloud storage buckets create gs://graffiticode-b6-drive --location=us-central1 --uniform-bucket-level-access`, then `allUsers` `roles/storage.objectViewer` on it, and the first object `source.json` as `{"label":"init"}` with `Cache-Control: no-store`.
 4. **The canary window:** `roles/iam.serviceAccountOpenIdTokenCreator` on `api-run` and on `console-run@graffiticode-app` for the operator, time-limited by an IAM condition, as in C6.
 
 **Then the agent:**
