@@ -29,8 +29,8 @@ test("production stays print-only: --apply refuses it", async () => {
 
 test("each first-wave compiler has its own class, holding only its inventoried hosts", async () => {
   const model = await production();
-  // broker-faults (the C6 drive's fault Broker) was retired on 2026-11-11 and is no longer listed.
-  assert.deepEqual(model.classes["compilers-l0176"].hosts, ["api.graffiticode.org", "auth.graffiticode.org", "broker-sja7fatcta-uc.a.run.app", "policy-sja7fatcta-uc.a.run.app", "www.googleapis.com"]);
+  // broker-faults: the C6 activation drive's fault Broker, for l0176r-drive alone (canary principal only).
+  assert.deepEqual(model.classes["compilers-l0176"].hosts, ["api.graffiticode.org", "auth.graffiticode.org", "broker-faults-sja7fatcta-uc.a.run.app", "broker-sja7fatcta-uc.a.run.app", "policy-sja7fatcta-uc.a.run.app", "www.googleapis.com"]);
   assert.deepEqual(model.classes["compilers-l0000"].hosts, ["api.graffiticode.org", "auth.graffiticode.org", "policy-sja7fatcta-uc.a.run.app", "www.googleapis.com"]);
   // Broker only for L0176, its one caller.
   for (const [name, cls] of Object.entries(model.classes)) {

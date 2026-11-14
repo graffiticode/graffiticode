@@ -1268,9 +1268,44 @@ describe("the drop-outcome fault", () => {
   it("is refused without principals, and on the production service", () => {
     expect(() => faulty([])).toThrow("named principals");
     expect(parseFaults({})).toBeNull();
-    expect(parseFaults({ BROKER_FAULTS: "drop-outcome", BROKER_FAULT_PRINCIPALS: "a, b", K_SERVICE: "broker-faults" })).toEqual({ dropOutcome: true, principals: new Set(["a", "b"]) });
+    expect(parseFaults({ BROKER_FAULTS: "drop-outcome", BROKER_FAULT_PRINCIPALS: "a, b", K_SERVICE: "broker-faults" })).toEqual({ dropOutcome: true, failWrite: false, principals: new Set(["a", "b"]) });
     expect(() => parseFaults({ BROKER_FAULTS: "drop-outcome", BROKER_FAULT_PRINCIPALS: "a", K_SERVICE: "broker" })).toThrow("refused on the production broker");
     expect(() => parseFaults({ BROKER_FAULTS: "drop-outcome", K_SERVICE: "broker-faults" })).toThrow("BROKER_FAULT_PRINCIPALS");
-    expect(() => parseFaults({ BROKER_FAULTS: "lose-everything", BROKER_FAULT_PRINCIPALS: "a" })).toThrow("must be drop-outcome");
+    expect(() => parseFaults({ BROKER_FAULTS: "lose-everything", BROKER_FAULT_PRINCIPALS: "a" })).toThrow("must be drop-outcome or fail-write");
+  });
+});
+
+// B6's drive (docs/b6-command-repair-plan.md slice 5): a write refused before
+// any provider request, for named principals only.
+describe("the fail-write fault", () => {
+  const faulty = principals => createBroker({ ...brokerDeps, faults: { dropOutcome: false, failWrite: true, principals: new Set(principals) } });
+
+  it("claims the write, makes no provider request, and records it failed, for a named principal", async () => {
+    const token = await saveToken({ idempotencyKey: "job-fail" });
+    const out = await faulty([OWNER]).execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE });
+    expect(out).toMatchObject({ status: "failed", reason: "provider-rejected", steps: [] });
+    expect(providerCalls).toHaveLength(0);
+    const { opid } = decodeJwt(token);
+    expect(await receipts.getClaim(opid)).not.toBeNull();
+    expect(await receipts.getOutcome(opid)).toMatchObject({ status: "failed", reason: "provider-rejected", steps: [] });
+    // A retry (a fresh token for the same operation) replays the recorded
+    // failure: still nothing written.
+    const retry = await saveToken({ idempotencyKey: "job-fail" });
+    expect(decodeJwt(retry).opid).toBe(opid);
+    const again = await faulty([OWNER]).execute({ caller: L0176, token: retry, op: "learnosity.write-items", payload: WRITE });
+    expect(again).toMatchObject({ status: "failed", replayed: true });
+    expect(providerCalls).toHaveLength(0);
+  });
+
+  it("leaves everyone else's writes alone", async () => {
+    const token = await saveToken({ idempotencyKey: "job-fail-other" });
+    const out = await faulty(["0xsomeoneelse"]).execute({ caller: L0176, token, op: "learnosity.write-items", payload: WRITE });
+    expect(out.status).toBe("succeeded");
+    expect(providerCalls.length).toBeGreaterThan(0);
+  });
+
+  it("parses, and is refused on the production service", () => {
+    expect(parseFaults({ BROKER_FAULTS: "fail-write", BROKER_FAULT_PRINCIPALS: "a", K_SERVICE: "broker-faults" })).toEqual({ dropOutcome: false, failWrite: true, principals: new Set(["a"]) });
+    expect(() => parseFaults({ BROKER_FAULTS: "fail-write", BROKER_FAULT_PRINCIPALS: "a", K_SERVICE: "broker" })).toThrow("refused on the production broker");
   });
 });

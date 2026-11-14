@@ -1670,6 +1670,47 @@ An L0185 stage can be admitted in a chain (the L0185 → L0176 save as a command
 - **Applied 2026-11-12.** #366 (`7d6a74cf`). The proxy was rolled out at about 03:30Z: template `egress-proxy-6cfd69d74ba1`, config `56007b0e…`, `verify-rollout` ok on both VMs; the previous template `egress-proxy-226124a1cda1` is kept. `l0185r-rmwczv08x-e43ac0` was approved before promotion, the `rmwcjrz90-673abb` tag was retired, and `release-check l0185r` is ok. An anonymous `/preflight` answers 401. The canary's `--l0185-tail` (#367, execution `canary-nq62q`) completed an L0185 → L0176 save as a command, and the same key wrote nothing again. During that run the proxy logged one `GET /oauth2/v3/certs` from `compilers-l0185` (200, allowed), and `compilers-l0185` logged no refusals between the rollout and the run.
 - **Check:** `release-check l0185r` ok; a staged `/preflight` from the api answers a manifest for `0185`, and from anyone else 401/403; a probe in `compilers-l0185` gets the certificates and a 403 `request` for any other `www.googleapis.com` path.
 
+### Step 24: the B6 repair drive's services, the fault Broker's proxy host, and the drive's source [PROPOSED]
+
+B6 slice 5's drive (`docs/b6-command-repair-plan.md`, slice 5, "The drive, in detail"). It reuses Step 21's shape, at `main`, with repair on. Each service runs on its production twin's runtime account, so no new identity or role exists. Production never routes to any of them; the production api's sweeper recovers the drive's orphaned commands and repairs, through their admitted revisions.
+
+- **`broker-faults`:** the Broker at `main`, as `broker-run`, private.
+  - `BROKER_FAULT_PRINCIPALS` is the canary uid only.
+  - `BROKER_FAULTS` is unset in `deploy.json`, and set per phase: `fail-write` (a claimed write is recorded `failed` before any provider request) or `drop-outcome`.
+  - It refuses to start as the production service, with either fault set.
+  - `run.invoker`: `l0176r-run` and `deploy-smoke` only.
+- **`l0176r-drive`:** l0176r at `main` (replay-capable), as `l0176r-run`, with `BROKER_URL` = broker-faults, on `compilers-l0176` behind the proxy. Its C6 revision `rmw9qbqjr` stays approved.
+- **`api-drive`:** the api at `main`, as `api-run`, public. Its environment is the production api's with these changes:
+  - no sweeper settings (`SWEEP_*`);
+  - `BASE_URL_L0176` = l0176r-drive;
+  - `COMPILE_GENERATION_L0176=b6-drive-1`;
+  - `REPAIR_L0176=on`;
+  - `API_COMMAND_FAULT_PRINCIPALS` = the canary uid, with `API_COMMAND_FAULTS` set only for the boundary phase (`exit-after-output`).
+- **The proxy:** `compilers-l0176` gains exactly `broker-faults-sja7fatcta-uc.a.run.app` again, through l0176r-drive's `network.allow`. The generated config is `config_sha256` `9beb6361683e7638c57ecfcbaeecb38f8a4bd410bc5e7bee18494138efc00456`.
+- **The drive's source:** one object in a bucket the drive owns, readable by `allUsers` (the bucket holds nothing else), fetched by `l0185r` as `https://www.googleapis.com/storage/v1/b/<bucket>/o/<object>?alt=media`. `www.googleapis.com` is already in its allow list. The operator writes the object.
+
+**The owner's actions, in order:**
+1. **Provision the two services,** so the CLI can release to them; its first release replaces the placeholder image:
+   - `gcloud run deploy broker-faults --region=us-central1 --image=<the live broker image digest> --service-account=broker-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated`, then grant `roles/run.invoker` on it to `l0176r-run` and `deploy-smoke` only;
+   - `gcloud run deploy api-drive --region=us-central1 --image=<the live api image digest> --service-account=api-run@graffiticode.iam.gserviceaccount.com --allow-unauthenticated`.
+2. **The proxy:**
+   - issue the host's certificate into `egress-proxy-cert-broker-faults-sja7fatcta-uc-a-run-app`, readable by `egress-proxy` only (README, "Certificates");
+   - build the template from `out/cloud-init.yaml` (`infra.js --plan`), and run the rolling update;
+   - verify with `verify-rollout.js --expect 9beb6361…`.
+3. **The source:** `gcloud storage buckets create gs://<bucket> --location=us-central1 --uniform-bucket-level-access`, then `allUsers` `roles/storage.objectViewer` on it, and the first object `{"tag":"init"}`.
+4. **The canary window:** `roles/iam.serviceAccountOpenIdTokenCreator` on `api-run` and on `console-run@graffiticode-app` for the operator, time-limited by an IAM condition, as in C6.
+
+**Then the agent:**
+- releases `broker-faults`, `l0176r-drive` (its approval comes with its release) and `api-drive` with the CLI;
+- sets each phase's fault with `gcloud run services update … --update-env-vars` or `--remove-env-vars`, moving the drive's traffic to the latest revision;
+- runs `scripts/b6-drive.js`. The phases that time a narrowing, and the checks that read approvals, read Broker's and the revisions database with the operator's credentials, as C6's did, so the owner runs those.
+
+**Retirement,** after the drive: delete `broker-faults` and `api-drive`; remove their entries and the proxy host; roll out the proxy; delete the bucket. The canary window expires.
+
+**Check:**
+- `gcloud run services get-iam-policy broker-faults` lists only `l0176r-run` and `deploy-smoke`.
+- The production Broker's and api's environments have no fault variables.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
