@@ -54,6 +54,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { createHash, randomBytes } from "node:crypto";
 import { createCanaryEnv, loadDeployServices, http, serviceEnv } from "./lib/canary-env.js";
+import { phaseProblems, artifactPresent, sourceProblems, lowerRebuildProblems, dispatchProblems, auditByOperation } from "./lib/b6-drive-checks.js";
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -174,29 +175,21 @@ const logs = async (filter, limit = 1000) => {
   return out ? JSON.parse(out) : [];
 };
 const since = iso => `timestamp>="${iso}"`;
-// Broker's audit for a set of operation ids: claims (execute, not a replay or
-// a denial) and provider dispatches (execute-step, purpose dispatch).
+// Broker's audit for a set of operation ids, counted per operation
+// (b6-drive-checks.js auditByOperation): claims and dispatches by step.
 const brokerAudit = async (opids, from) => {
-  const found = new Map(opids.map(o => [o, { claims: 0, dispatches: 0, replays: 0 }]));
+  const entries = [];
   for (let i = 0; i < opids.length; i += 20) {
     const chunk = opids.slice(i, i + 20);
-    const filter = [
+    entries.push(...await logs([
       "resource.type=\"cloud_run_revision\"",
       "(resource.labels.service_name=\"broker-faults\" OR resource.labels.service_name=\"broker\")",
       "jsonPayload.logName=\"security_audit\"",
       `(${chunk.map(o => `jsonPayload.opid="${o}"`).join(" OR ")})`,
       since(from),
-    ].join(" AND ");
-    for (const entry of await logs(filter)) {
-      const p = entry.jsonPayload ?? {};
-      const at = found.get(p.opid);
-      if (!at) continue;
-      if (p.event === "execute-step" && p.purpose === "dispatch") at.dispatches++;
-      else if (p.event === "execute" && p.outcome === "replayed") at.replays++;
-      else if (p.event === "execute" && p.outcome !== "denied") at.claims++;
-    }
+    ].join(" AND ")));
   }
-  return found;
+  return auditByOperation(entries, opids);
 };
 // The api's call lines for one command (api-drive's and the production api's).
 const callLines = async (commandId, from) => {
@@ -230,10 +223,13 @@ const SHAPES = {
 // `fetch "<url>" {}..`, as L0185's parser writes it.
 const fetchTask = url => ({ lang: "0185", code: { 1: { tag: "STR", elts: [url] }, 2: { tag: "RECORD", elts: [] }, 3: { tag: "FETCH", elts: [1, 2] }, 4: { tag: "EXPRS", elts: [3] }, 5: { tag: "PROG", elts: [4] }, root: 5 } });
 
-const source = flag("--source", null);
+// The drive's source: one public object, fetched by l0185r through the
+// proxy's reviewed exception for exactly this path on storage.googleapis.com
+// (deploy/egress-proxy/classes.json, open.exceptions).
+const source = flag("--source", "gs://graffiticode-b6-drive/source.json");
 const sourceParts = source ? /^gs:\/\/([^/]+)\/(.+)$/.exec(source) : null;
-const sourceUrl = sourceParts ? `https://www.googleapis.com/storage/v1/b/${sourceParts[1]}/o/${encodeURIComponent(sourceParts[2])}?alt=media` : null;
-const sourcePath = sourceParts ? `/storage/v1/b/${sourceParts[1]}/o/${encodeURIComponent(sourceParts[2])}` : null;
+const sourcePath = sourceParts ? `/${sourceParts[1]}/${sourceParts[2]}` : null;
+const sourceUrl = sourcePath ? `https://storage.googleapis.com${sourcePath}` : null;
 const needSource = () => {
   if (!sourceUrl) throw new Error("this phase needs --source gs://<bucket>/<object>");
 };
@@ -626,11 +622,15 @@ if (phase === "reconcile") {
   }
 }
 
-// What the read path serves for an original's chain: an artifact, or not.
+// What the read path serves for an original's chain: an artifact, or not
+// (b6-drive-checks.js artifactPresent), and the artifact's content.
 const artifactOf = async original => {
   const res = await http({ method: "GET", url: `${apiUrl}/data?id=${encodeURIComponent(original.chain)}&connection=${encodeURIComponent(connectionId)}`, headers: await asUser() });
-  return { status: res.status, has: res.status === 200 && (res.json?.errors ?? []).length === 0 && res.json?.data != null, body: res.json };
+  const has = artifactPresent(res);
+  return { status: res.status, has, content: has ? res.json.data.data : null };
 };
+// An original's recorded L0185 output (its s1), as text, or null.
+const recordedSourceOutput = async commandId => (await policyRead(commandId, "output", "s1").catch(() => null))?.output?.text ?? null;
 
 if (phase === "dropped") {
   needFaults({});
@@ -644,19 +644,23 @@ if (phase === "dropped") {
     state.materialized.push({ commandId: original.commandId, purpose: "head-lost", before: before.has, httpStatus: res.status, published: res.data?.published ?? null, reason: res.error?.reason ?? null, lines, after: after.has });
     await save();
     record(`${original.key}: no artifact before, an actual materialization, an artifact after`,
-      !before.has && res.status === 200 && res.data?.published === "current" && after.has && lines.some(l => l.includes("call materialize s0")) && !lines.some(l => l.includes("call start")),
+      !before.has && res.status === 200 && res.data?.published === "current" && after.has && lines.some(l => l.includes(": call materialize s0 ")) && !lines.some(l => l.includes(": call start ")),
       `${before.has} → ${res.status} ${res.data?.published ?? res.error?.reason} → ${after.has}; ${lines.length} call line(s)`);
   }
   for (const original of originalsFor("lower-lost")) {
     const from = new Date().toISOString();
     const repair = await runRepair(original, { purpose: "lower-lost" });
     await sleep(20_000);
-    const lines = await callLines(repair.repairId, from);
-    repair.lines = lines;
+    // The api logs the lower stage's rebuild under the original (it reads the
+    // original's records), and the repair's own run under the repair.
+    const originalLines = await callLines(original.commandId, from);
+    const repairLines = await callLines(repair.repairId, from);
+    const problems = lowerRebuildProblems({ originalLines, repairLines });
+    Object.assign(repair, { originalLines, repairLines, problems });
     await save();
     record(`${original.key}: the repair rebuilt the lower stage by replay, resumed the head, and published`,
-      repair.counted && sameSet(repair.selection ?? [], []) && lines.some(l => l.includes("call materialize s1")) && !lines.some(l => l.includes("call start s1")) && lines.some(l => l.includes("call start s0")),
-      `${repair.status}; ${lines.filter(l => l.includes(": call ")).join(" | ")}`);
+      repair.counted && sameSet(repair.selection ?? [], []) && problems.length === 0,
+      `${repair.status}; ${problems.join("; ") || [...originalLines, ...repairLines].filter(l => l.includes(": call ")).join(" | ")}`);
   }
 }
 
@@ -664,38 +668,46 @@ if (phase === "boundary") {
   needFaults({ api: ["exit-after-output"] });
   needSource();
   for (let n = 0; n < 2; n++) {
-    const oldTag = `b6drive-${runId}-b${n}-old`;
+    const oldTag = `b6drive-${runId}-boundary-${n}`;
     await setSource(oldTag);
     const { chain } = await chainOf("overSource");
     const key = `b6-drive:${runId}:b${n}`;
     const commandId = commandIdFor(key);
     const from = new Date().toISOString();
     const answer = await postCommand(chain, key).catch(e => ({ status: null, error: String(e?.message ?? e) }));
-    // The worker exited after L0185's output was recorded: change the source.
+    // The worker exited after L0185's output was recorded: change the source
+    // to an unrelated tag.
     const crashedAt = new Date().toISOString();
-    await setSource(`b6drive-${runId}-b${n}-new`);
+    await setSource(`b6drive-${runId}-replacement-${n}`);
     const st = await settled(commandId, 72);
     const until = new Date().toISOString();
-    const [input, output] = await Promise.all([policyRead(commandId, "input", "s0"), policyRead(commandId, "output", "s1")]);
+    const [input, recorded] = await Promise.all([policyRead(commandId, "input", "s0").catch(() => null), recordedSourceOutput(commandId)]);
+    const after = await artifactOf({ chain });
     const lines = await callLines(commandId, from);
-    const takeover = lines.slice(lines.findIndex(l => l.includes("resuming")));
+    const takeover = lines.slice(Math.max(0, lines.findIndex(l => l.includes("resuming"))));
     const requests = await l0185Requests(crashedAt, until);
     const fetches = sourcePath ? await proxyFetches(sourcePath, from) : null;
-    const entry = { key, commandId, httpStatus: answer.status, status: st?.status, finishedBy: null, oldTag, inputHasOld: input.input?.text?.includes(oldTag) ?? false, outputDigestMatches: Boolean(input.input && output.output && input.input.digest === output.output.digest), lines, takeoverCalls: takeover.filter(l => l.includes(": call ")), l0185Requests: requests, proxyFetches: fetches };
-    state.boundary.push(entry);
+    const problems = [
+      ...(st?.status === "completed" ? [] : [`status ${st?.status}`]),
+      ...(input?.input && recorded && input.input.text === recorded ? [] : ["the save's pinned input isn't the recorded L0185 output"]),
+      ...sourceProblems({ recordedOutputText: recorded, artifact: after.content, oldTag }),
+      ...(lines.some(l => l.includes("resuming")) ? [] : ["no takeover resumed from the recorded output"]),
+      ...(takeover.some(l => l.includes(": call interpret s1 ")) ? ["the takeover ran the L0185 stage"] : []),
+      ...(requests === 0 ? [] : [`${requests} l0185r request(s) after the exit`]),
+    ];
+    state.boundary.push({ key, commandId, chain, httpStatus: answer.status, status: st?.status, oldTag, lines, takeoverCalls: takeover.filter(l => l.includes(": call ")), l0185Requests: requests, proxyFetches: fetches, problems });
     await save();
-    record(`boundary ${n}: finished from the recorded output, with the old content and no L0185 call after the exit`,
-      st?.status === "completed" && entry.inputHasOld && entry.outputDigestMatches && !takeover.some(l => l.includes("call interpret s1")) && requests === 0,
-      `${st?.status}; pinned input carries ${entry.inputHasOld ? "the old" : "NOT the old"} tag; takeover calls ${entry.takeoverCalls.join(" | ") || "none"}; l0185r requests ${requests}; proxy fetches ${fetches}`);
+    record(`boundary ${n}: finished from the recorded output, with the old content and no L0185 call after the exit`, problems.length === 0,
+      problems.join("; ") || `takeover calls ${takeover.filter(l => l.includes(": call ")).join(" | ")}; proxy fetches ${fetches}`);
   }
 }
 
 if (phase === "source-change") {
   needFaults({});
   needSource();
-  for (const original of originalsFor("source-change")) {
+  for (const [n, original] of originalsFor("source-change").entries()) {
     if (!original.reconciled) throw new Error(`${original.key} isn't reconciled: run --phase reconcile first`);
-    await setSource(`${original.sourceTag}-changed`);
+    await setSource(`b6drive-${runId}-replacement-${n}`);
     const before = await artifactOf(original);
     const from = new Date().toISOString();
     const res = await postMaterialize(original.commandId);
@@ -704,12 +716,20 @@ if (phase === "source-change") {
     const lines = await callLines(original.commandId, from);
     const after = await artifactOf(original);
     const requests = await l0185Requests(from, until);
-    const carriesOld = JSON.stringify(after.body ?? {}).includes(original.sourceTag);
-    state.materialized.push({ commandId: original.commandId, purpose: "source-change", before: before.has, httpStatus: res.status, published: res.data?.published ?? null, lines, after: after.has, l0185Requests: requests, carriesOld });
+    const recorded = await recordedSourceOutput(original.commandId);
+    const problems = [
+      ...(before.has ? ["an artifact existed before"] : []),
+      ...(res.data?.published === "current" ? [] : [`materialize answered ${res.status} ${res.data?.published ?? res.error?.reason}`]),
+      ...(after.has ? [] : ["no artifact after"]),
+      ...(lines.some(l => l.includes(": s1 from its recorded output, not run")) ? [] : ["no `s1 from its recorded output` line"]),
+      ...(lines.some(l => l.includes(": call materialize s0 ")) ? [] : ["no `call materialize s0` line"]),
+      ...(lines.some(l => l.includes(": call interpret ")) ? ["a stage was interpreted"] : []),
+      ...(requests === 0 ? [] : [`${requests} l0185r request(s)`]),
+      ...sourceProblems({ recordedOutputText: recorded, artifact: after.content, oldTag: original.sourceTag }),
+    ];
+    state.materialized.push({ commandId: original.commandId, purpose: "source-change", before: before.has, httpStatus: res.status, published: res.data?.published ?? null, lines, after: after.has, l0185Requests: requests, problems });
     await save();
-    record(`${original.key}: materialized after the source changed, from the recorded L0185 output`,
-      !before.has && res.data?.published === "current" && after.has && lines.some(l => l.includes("s1 from its recorded output, not run")) && lines.some(l => l.includes("call materialize s0")) && !lines.some(l => l.includes("call interpret")) && requests === 0,
-      `${before.has} → ${res.data?.published ?? res.error?.reason} → ${after.has}; ${lines.join(" | ")}; l0185r requests ${requests}; artifact carries the old tag: ${carriesOld}`);
+    record(`${original.key}: materialized after the source changed, from the recorded L0185 output`, problems.length === 0, problems.join("; ") || lines.join(" | "));
   }
 }
 
@@ -726,37 +746,45 @@ if (phase === "retries") {
 }
 
 if (phase === "report") {
+  // Every mandatory phase's latest run passed: a count alone proves nothing.
+  const phases = phaseProblems(state.runs.filter(r => r.phase !== "report"));
+  record("every mandatory phase's latest run passed", phases.length === 0, phases.join("; ") || "all passed");
   const counted = [...new Map(state.repairs.filter(r => r.counted).map(r => [r.repairId, r])).values()];
   record("at least 10 distinct completed repairs, each published as its original's artifact", counted.length >= 10, `${counted.length}: ${counted.map(r => r.repairId.slice(0, 12)).join(" ")}`);
-  // Dispatch evidence: per original occurrence, one claim per operation, and
-  // dispatches under at most one operation id.
+  // Dispatch evidence for every original and repair (b6-drive-checks.js
+  // dispatchProblems): each operation's expected claims and dispatches, by
+  // its recorded outcome, and none for an occurrence answered from its record.
   const from = state.runs[0]?.startedAt ?? startedAt;
   const operations = [];
+  const outcomeOf = list => new Map(list.map(o => [`${o.stage}:${o.occurrenceId}`, o]));
   for (const o of state.originals.filter(x => x.invocationId)) {
-    const { occurrences } = await policyRead(o.commandId, "occurrences");
-    for (const occ of occurrences) operations.push({ original: o.commandId, stage: occ.stage, occurrenceId: occ.occurrenceId, opid: `${o.invocationId}/${occ.stage}/${occ.occurrenceId}` });
+    const [{ occurrences = [] }, { outcomes = [] }] = await Promise.all([policyRead(o.commandId, "occurrences"), policyRead(o.commandId, "outcomes")]);
+    const recorded = outcomeOf(outcomes);
+    for (const occ of occurrences) {
+      const out = recorded.get(`${occ.stage}:${occ.occurrenceId}`);
+      operations.push({ occurrence: `${o.commandId} ${occ.stage} ${occ.occurrenceId}`, opid: `${o.invocationId}/${occ.stage}/${occ.occurrenceId}`, kind: "original", outcome: out?.outcome ?? null, source: out?.source ?? null });
+    }
     for (const r of state.repairs.filter(x => x.originalId === o.commandId && x.invocationId)) {
-      // Every occurrence of the stage under the repair's invocation, bound or
-      // not: an occurrence answered from its record must have no operation there.
-      for (const occ of occurrences) operations.push({ original: o.commandId, stage: occ.stage, occurrenceId: occ.occurrenceId, opid: `${r.invocationId}/${occ.stage}/${occ.occurrenceId}`, repair: r.repairId });
-      for (const occ of r.occurrences ?? []) operations.push({ original: o.commandId, stage: occ.stage, occurrenceId: occ.occurrenceId, opid: `${r.invocationId}/${occ.stage}/${occ.occurrenceId}`, repair: r.repairId });
+      const [{ occurrences: bound = [] }, { outcomes: repairOutcomes = [] }] = await Promise.all([policyRead(r.repairId, "occurrences"), policyRead(r.repairId, "outcomes")]);
+      const mine = outcomeOf(repairOutcomes);
+      const boundKeys = new Set(bound.map(b => `${b.stage}:${b.occurrenceId}`));
+      for (const b of bound) {
+        const out = mine.get(`${b.stage}:${b.occurrenceId}`);
+        operations.push({ occurrence: `${o.commandId} ${b.stage} ${b.occurrenceId}`, opid: `${r.invocationId}/${b.stage}/${b.occurrenceId}`, kind: "repair", repair: r.repairId, outcome: out?.outcome ?? null, source: out?.source ?? null });
+      }
+      // Every occurrence of the original the repair didn't bind was answered
+      // from its record, or not reached: no operation under the repair.
+      for (const occ of occurrences.filter(x => !boundKeys.has(`${x.stage}:${x.occurrenceId}`))) {
+        operations.push({ occurrence: `${o.commandId} ${occ.stage} ${occ.occurrenceId}`, opid: `${r.invocationId}/${occ.stage}/${occ.occurrenceId}`, kind: "answered", repair: r.repairId });
+      }
     }
   }
-  const unique = [...new Map(operations.map(o => [o.opid, o])).values()];
-  const audit = await brokerAudit(unique.map(o => o.opid), from);
-  const byOccurrence = new Map();
-  for (const op of unique) {
-    const k = `${op.original} ${op.stage} ${op.occurrenceId}`;
-    if (!byOccurrence.has(k)) byOccurrence.set(k, []);
-    byOccurrence.get(k).push({ ...op, ...audit.get(op.opid) });
-  }
-  const problems = [];
-  for (const [k, ops] of byOccurrence) {
-    if (ops.some(o => o.claims > 1)) problems.push(`${k}: an operation claimed twice`);
-    if (ops.filter(o => o.dispatches > 0).length > 1) problems.push(`${k}: dispatched under ${ops.filter(o => o.dispatches > 0).length} operation ids`);
-  }
-  state.evidence = { at: startedAt, operations: [...byOccurrence].map(([k, ops]) => ({ occurrence: k, ops: ops.map(o => ({ opid: o.opid, repair: o.repair ?? null, claims: o.claims, dispatches: o.dispatches, replays: o.replays })) })), problems };
-  record("no write repeated: one claim per operation, and each occurrence dispatched under at most one operation id", problems.length === 0, problems.join("; ") || `${byOccurrence.size} occurrence(s), ${unique.length} operation id(s)`);
+  const audit = await brokerAudit(operations.map(o => o.opid), from);
+  for (const op of operations) op.audit = audit.get(op.opid);
+  const problems = dispatchProblems(operations);
+  state.evidence = { at: startedAt, operations, problems };
+  record("no write repeated, with complete dispatch evidence for every operation", operations.length > 0 && problems.length === 0,
+    problems.slice(0, 10).join("; ") || `${operations.length} operation id(s) checked`);
 }
 
 state.runs.at(-1).results = results;

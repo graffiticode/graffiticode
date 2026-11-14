@@ -474,6 +474,7 @@
         "allow": [
           "api.graffiticode.org",
           "auth.graffiticode.org",
+          "storage.googleapis.com",
           "www.googleapis.com"
         ]
       }

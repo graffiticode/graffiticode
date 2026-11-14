@@ -1686,18 +1686,21 @@ B6 slice 5's drive (`docs/b6-command-repair-plan.md`, slice 5, "The drive, in de
   - `COMPILE_GENERATION_L0176=b6-drive-1`;
   - `REPAIR_L0176=on`;
   - `API_COMMAND_FAULT_PRINCIPALS` = the canary uid, with `API_COMMAND_FAULTS` set only for the boundary phase (`exit-after-output`).
-- **The proxy:** `compilers-l0176` gains exactly `broker-faults-sja7fatcta-uc.a.run.app` again, through l0176r-drive's `network.allow`. The generated config is `config_sha256` `9beb6361683e7638c57ecfcbaeecb38f8a4bd410bc5e7bee18494138efc00456`.
-- **The drive's source:** one object in a bucket the drive owns, readable by `allUsers` (the bucket holds nothing else), fetched by `l0185r` as `https://www.googleapis.com/storage/v1/b/<bucket>/o/<object>?alt=media`. `www.googleapis.com` is already in its allow list. The operator writes the object.
+- **The proxy:**
+  - `compilers-l0176` gains exactly `broker-faults-sja7fatcta-uc.a.run.app` again, through l0176r-drive's `network.allow`.
+  - L0185's open class gains one reviewed exception: `storage.googleapis.com`, `GET` at exactly `/graffiticode-b6-drive/source.json`, and nothing else on that host, listed in `l0185r`'s `network.allow`.
+  - The generated config is `config_sha256` `d7f974b70ed23afaade5926462c6796aa563edf7885ac9466a56581fddd8781d`.
+- **The drive's source:** the object `gs://graffiticode-b6-drive/source.json`, readable by `allUsers` (the bucket holds nothing else), fetched by `l0185r` as `https://storage.googleapis.com/graffiticode-b6-drive/source.json`. The operator writes it with `Cache-Control: no-store`.
 
 **The owner's actions, in order:**
 1. **Provision the two services,** so the CLI can release to them; its first release replaces the placeholder image:
    - `gcloud run deploy broker-faults --region=us-central1 --image=<the live broker image digest> --service-account=broker-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated`, then grant `roles/run.invoker` on it to `l0176r-run` and `deploy-smoke` only;
    - `gcloud run deploy api-drive --region=us-central1 --image=<the live api image digest> --service-account=api-run@graffiticode.iam.gserviceaccount.com --allow-unauthenticated`.
 2. **The proxy:**
-   - issue the host's certificate into `egress-proxy-cert-broker-faults-sja7fatcta-uc-a-run-app`, readable by `egress-proxy` only (README, "Certificates");
+   - issue the certificates for `broker-faults-sja7fatcta-uc.a.run.app` and `storage.googleapis.com` into their `egress-proxy-cert-<host>` secrets, readable by `egress-proxy` only (README, "Certificates");
    - build the template from `out/cloud-init.yaml` (`infra.js --plan`), and run the rolling update;
-   - verify with `verify-rollout.js --expect 9beb6361…`.
-3. **The source:** `gcloud storage buckets create gs://<bucket> --location=us-central1 --uniform-bucket-level-access`, then `allUsers` `roles/storage.objectViewer` on it, and the first object `{"tag":"init"}`.
+   - verify with `verify-rollout.js --expect d7f974b7…`.
+3. **The source:** `gcloud storage buckets create gs://graffiticode-b6-drive --location=us-central1 --uniform-bucket-level-access`, then `allUsers` `roles/storage.objectViewer` on it, and the first object `source.json` as `{"tag":"init"}` with `Cache-Control: no-store`.
 4. **The canary window:** `roles/iam.serviceAccountOpenIdTokenCreator` on `api-run` and on `console-run@graffiticode-app` for the operator, time-limited by an IAM condition, as in C6.
 
 **Then the agent:**
@@ -1705,7 +1708,7 @@ B6 slice 5's drive (`docs/b6-command-repair-plan.md`, slice 5, "The drive, in de
 - sets each phase's fault with `gcloud run services update … --update-env-vars` or `--remove-env-vars`, moving the drive's traffic to the latest revision;
 - runs `scripts/b6-drive.js`. The phases that time a narrowing, and the checks that read approvals, read Broker's and the revisions database with the operator's credentials, as C6's did, so the owner runs those.
 
-**Retirement,** after the drive: delete `broker-faults` and `api-drive`; remove their entries and the proxy host; roll out the proxy; delete the bucket. The canary window expires.
+**Retirement,** after the drive: delete `broker-faults` and `api-drive`; remove their entries, the `broker-faults` host and the `storage.googleapis.com` exception; roll out the proxy; delete the bucket. The canary window expires.
 
 **Check:**
 - `gcloud run services get-iam-policy broker-faults` lists only `l0176r-run` and `deploy-smoke`.
