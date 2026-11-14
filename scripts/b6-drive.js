@@ -54,7 +54,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { createHash, randomBytes } from "node:crypto";
 import { createCanaryEnv, loadDeployServices, http, serviceEnv } from "./lib/canary-env.js";
-import { phaseProblems, artifactPresent, sourceProblems, lowerRebuildProblems, dispatchProblems, auditByOperation, caseProblems, scenarioProblems } from "./lib/b6-drive-checks.js";
+import { phaseProblems, artifactPresent, sourceProblems, lowerRebuildProblems, dispatchProblems, auditByOperation, caseProblems, scenarioProblems, caseNonce, sourceCaseUrl } from "./lib/b6-drive-checks.js";
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -282,10 +282,13 @@ const postTask = async task => {
   return id;
 };
 const l0176Task = async src => ({ lang: "0176", code: await parse(src) });
+// Every call builds a chain of its own, from a fresh nonce: no two cases share
+// a task chain or an artifact head, whatever the state says.
 const chainOf = async kind => {
-  const tag = `b6drive-${runId}-${state.originals.length}`;
+  const nonce = caseNonce();
+  const tag = `b6drive-${runId}-${nonce}`;
   if (kind === "stack") return { chain: `${await postTask(await l0176Task(SHAPES.one.src(`${tag}-head`)))}+${await postTask(await l0176Task(SHAPES.one.src(`${tag}-lower`)))}`, writes: 2 };
-  if (kind === "overSource") return { chain: `${await postTask(await l0176Task(SHAPES.fromSource.src(tag)))}+${await postTask(fetchTask(sourceUrl))}`, writes: 1 };
+  if (kind === "overSource") return { chain: `${await postTask(await l0176Task(SHAPES.fromSource.src(tag)))}+${await postTask(fetchTask(sourceCaseUrl(sourceUrl, nonce)))}`, writes: 1 };
   return { chain: await postTask(await l0176Task(SHAPES[kind].src(tag))), writes: SHAPES[kind].writes };
 };
 const postCommand = async (chain, key) => {

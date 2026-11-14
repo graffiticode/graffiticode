@@ -87,6 +87,9 @@ test("L0185 reaches the drive's source object, GET at its exact path only", asyn
   const storage = hcmFor("storage.googleapis.com");
   const ask = (hcm, authority, method, path) => outcome(routeRequest(hcm, { method, authority, path, headers: { ":method": method } }));
   assert.equal(ask(storage, "storage.googleapis.com", "GET", "/graffiticode-b6-drive/source.json").refused, undefined);
+  // The drive's per-case nonce rides in the query, which the exact path ignores.
+  assert.equal(ask(storage, "storage.googleapis.com", "GET", "/graffiticode-b6-drive/source.json?case=0123abcd").refused, undefined);
+  assert.equal(ask(storage, "storage.googleapis.com", "GET", "/graffiticode-b6-drive/other.json?case=0123abcd").refused, "request");
   for (const [method, path] of [["GET", "/graffiticode-b6-drive/other.json"], ["GET", "/other-bucket/source.json"], ["PUT", "/graffiticode-b6-drive/source.json"], ["GET", "/storage/v1/b/graffiticode-b6-drive/o/source.json"]]) {
     assert.equal(ask(storage, "storage.googleapis.com", method, path).refused, "request", `${method} ${path}`);
   }

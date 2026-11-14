@@ -383,7 +383,11 @@ Each has a recommendation; the plan below assumes it.
    - **An artifact** is present only when `GET /data`'s nested envelope has a result and no errors.
    - **The lower stage's rebuild** is read under the original command's id, where the api logs it, and the head's run under the repair's.
    - **The source cases** require the recorded L0185 output's tag to be the old one, and every saved reference's `lrn-id` to equal it exactly.
-   - **Every case has its own chain** (the owner's review of 08fc309b). The L0185 → L0176 head carries a per-case nonce, and tasks are content-addressed, so no two cases share an artifact head.
+   - **Every case has its own chain** (the owner's reviews of 08fc309b and fdab0c26). Each `chainOf` call draws a fresh random nonce, whatever the drive's state says, and puts it in two places:
+     - every program's `lrn-id` tag;
+     - for the L0185 → L0176 cases, the head program and the fetch URL, as `?case=<nonce>`. The proxy's exception matches the exact path with the query removed, as Envoy's `path` does.
+
+     Tasks are content-addressed, so no two cases share an artifact head.
    - **A materialization's precondition** is Policy's answer, `published: "current"`. It would be `"already"` if the original's invocation had an artifact, and `"superseded"` if another invocation were newer.
    - **Coverage is required.**
      - Each phase checks its prerequisites, the originals it works on with their minimum counts, and fails without them.

@@ -2,6 +2,16 @@
 // read, so each can be tested offline before the live drive (the owner's
 // review of #390). Nothing here reads a service.
 
+import { randomBytes } from "node:crypto";
+
+// A fresh nonce for every case the drive builds (the owner's review of
+// fdab0c26): tasks are content-addressed, so a case's chain is its own only if
+// something in it is. It goes into the L0176 head program and into the L0185
+// stage's fetch URL as `?case=<nonce>` (the proxy's exact-path exception
+// matches the path with the query removed; the object ignores it).
+export const caseNonce = () => randomBytes(6).toString("hex");
+export const sourceCaseUrl = (url, nonce) => `${url}?case=${encodeURIComponent(nonce)}`;
+
 // The phases whose latest run must have passed before the report can pass.
 export const MANDATORY_PHASES = Object.freeze([
   "checks", "originals-fail", "originals-drop", "originals-narrow", "probes", "repairs",

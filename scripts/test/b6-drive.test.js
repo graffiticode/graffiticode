@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   MANDATORY_PHASES, phaseProblems, artifactPresent, savedReferences, lrnIdOf, sourceProblems, lowerRebuildProblems, dispatchProblems, auditByOperation,
-  caseProblems, scenarioProblems, MINIMUM_ORIGINALS, MINIMUM_COUNTED_REPAIRS, REQUIRED_PROBES,
+  caseProblems, scenarioProblems, MINIMUM_ORIGINALS, MINIMUM_COUNTED_REPAIRS, REQUIRED_PROBES, caseNonce, sourceCaseUrl,
 } from "../lib/b6-drive-checks.js";
 
 test("GET /data's real envelope: a missing artifact is absent, a saved one present", () => {
@@ -148,4 +148,15 @@ test("the report needs every scenario's evidence, at its minimum count", () => {
 test("a phase's cases: enough originals for the scenario, or a failure", () => {
   assert.deepEqual(caseProblems([], "head-lost"), ["head-lost: 0 original(s), at least 2 needed"]);
   assert.deepEqual(caseProblems([{ purpose: "head-lost" }, { purpose: "head-lost" }], "head-lost"), []);
+});
+
+// The owner's review of fdab0c26: two cases built in a row, with nothing in
+// the drive's state changing between them, get different chains.
+test("every case gets a fresh nonce, so a chain of its own", () => {
+  const nonces = Array.from({ length: 50 }, caseNonce);
+  assert.equal(new Set(nonces).size, nonces.length);
+  const url = "https://storage.googleapis.com/graffiticode-b6-drive/source.json";
+  const [a, b] = [caseNonce(), caseNonce()];
+  assert.notEqual(sourceCaseUrl(url, a), sourceCaseUrl(url, b));
+  assert.equal(sourceCaseUrl(url, a).split("?")[0], url);
 });
