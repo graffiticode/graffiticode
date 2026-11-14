@@ -63,3 +63,13 @@ From `main` at `2ce14335` (#387): Policy first, then the api, staged.
 - **After promotion:** `release-check api` ok; the rollback plan restores `api-rmwfbfpg3-a8a20e`; the production canary passed 33/33 (`canary-kbr5d`, its scheduled arguments).
 
 From this release the api states `repairs: 1` on leases and sweeps, so it can own and recover repairs. None exist until `REPAIR_L0176` is turned on (slice 5).
+
+## Before the drive: the api with call evidence (slice 5), released 2026-11-13
+
+- **Release:** `api-rmwfmheue-b24633`, from `main` at `7d0f65b7` (#389), image `sha256:363e1587…`.
+- **What it adds:** the api's call lines (`command <id>: call interpret|start|materialize …`, and `… from its recorded output, not run`), which the drive's evidence rules read.
+- **Staged:** at 2026-11-13T23:54:52Z. The canary job against its tag passed **36/36** (`canary-tv796`), and the tagged revision logged the call lines for the canary's commands.
+- **Promoted** with [`slice5-api-promote-evidence.json`](slice5-api-promote-evidence.json).
+- **After promotion:** `release-check api` ok; rollback restores `api-rmwfhnmt8-b8ed83`; the production canary passed 33/33 (`canary-d9s96`).
+- **Repair stays off:** no `REPAIR_` variable is set.
+- **Policy** was unchanged. Its live revision `policy-rmwfh9fjc-7e95a3`, built from `2ce14335`, meets the new `B6-repairs` floor.

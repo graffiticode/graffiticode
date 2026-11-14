@@ -165,7 +165,10 @@ export const createBroker = ({
   // outcome and fails as if its response were lost, leaving an uncertain
   // receipt reconciliation can resolve. main.js refuses to start the
   // production service with it (parseFaults).
-  faults = null as null | { dropOutcome: boolean, principals: Set<string> },
+  // B6's drive (docs/b6-command-repair-plan.md slice 5): with `fail-write`, a
+  // claimed write for one of `principals` fails before any provider request,
+  // recorded `failed` as a provider rejection, so nothing is written.
+  faults = null as null | { dropOutcome: boolean, failWrite?: boolean, principals: Set<string> },
 }) => {
   // No default: a broker built without the switch would run ungated.
   if (!protectedSwitch || typeof protectedSwitch.state !== "function") throw new Error("createBroker needs a protectedSwitch");
@@ -514,6 +517,8 @@ export const createBroker = ({
     let reason;
     let stopped;
     try {
+      // B6's drive's injected fault: refused before any provider request.
+      if (faults?.failWrite && faults.principals.has(claims.sub)) throw new ProviderRejected("fault injected: the write was refused before any provider request");
       result = await operation.run(written, credential, { onStep, providerCall, operationId: claims.opid });
       status = "succeeded";
     } catch (e) {
