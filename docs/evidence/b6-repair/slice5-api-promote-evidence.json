@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmwfmheue-b24633",
+  "revision": "api-rmwfmheue-b24633",
+  "networkHash": null,
+  "reviewer": "Claude Code for jeff@artcompiler.com (B6 slice 5 pre-drive api release; agent execution under the owner's authorization, not an independent human review)",
+  "reviewedAt": "2026-11-14T00:00:00.000Z",
+  "corpus": {
+    "ranAt": "2026-11-13T23:55:11.403Z",
+    "tasks": 36,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "stagedAt": "2026-11-13T23:54:52.258Z",
+    "source": "main at 7d0f65b7 (#389): the call-evidence log lines, the REPAIR_ flag guard and Policy's B6-repairs floor",
+    "image": "us-central1-docker.pkg.dev/graffiticode/services/api@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+    "canaryJob": {
+      "execution": "canary-tv796",
+      "apiUrl": "https://rmwfmheue-b24633---api-sja7fatcta-uc.a.run.app",
+      "args": "--chain-admission --after-cutover --command --l0185-tail",
+      "checks": 36,
+      "failed": 0
+    },
+    "callEvidence": "the staged revision logged `command <id>: call start s0 L0176 at <l0176r tag>` and `call interpret s1 L0185 at <l0185r tag>` for the canary's commands",
+    "repairOff": "the staged revision carries no REPAIR_ variable"
+  }
+}

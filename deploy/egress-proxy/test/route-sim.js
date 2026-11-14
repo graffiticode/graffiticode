@@ -65,7 +65,9 @@ export function routeRequest(hcmConfig, request) {
     if (!connect) {
       const path = request.path ?? "/";
       if ("prefix" in m && !path.startsWith(m.prefix)) return false;
-      if ("path" in m && path !== m.path) return false;
+      // Envoy's `path` is exact once the query string is removed; `prefix`
+      // matches the whole :path, query included.
+      if ("path" in m && path.split("?")[0] !== m.path) return false;
     }
     return (m.headers ?? []).every(hm => stringMatch(hm.string_match, headers[hm.name]));
   }) ?? null;

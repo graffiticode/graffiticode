@@ -65,6 +65,15 @@
         "/",
         "/storage/v1/b"
       ]
+    },
+    {
+      "host": "storage.googleapis.com",
+      "method": "GET",
+      "path": "/graffiticode-b6-drive/source.json",
+      "other": [
+        "/",
+        "/storage/v1/b"
+      ]
     }
   ],
   "canary": "l0186.graffiticode.org",

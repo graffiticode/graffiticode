@@ -40,6 +40,11 @@
       "www.googleapis.com": {
         "methods": ["GET"],
         "paths": ["/oauth2/v3/certs"]
+      },
+      "storage.googleapis.com": {
+        "$comment": "B6 slice 5's drive (proposed, for the owner's review of #390): l0185r fetches the drive's one public source object, GET at that exact path, and nothing else on storage.googleapis.com (403 request). Removed when the drive retires (IAM review Step 24).",
+        "methods": ["GET"],
+        "paths": ["/graffiticode-b6-drive/source.json"]
       }
     }
   },

@@ -297,7 +297,14 @@ Each has a recommendation; the plan below assumes it.
 
    *One new fault.* Broker's `BROKER_FAULTS` gains `fail-write`: for the fault's principals, a write's receipt is claimed and its outcome recorded `failed` (`provider-rejected`) before any provider request, so nothing is written. It is refused on the production Broker, like `drop-outcome`. It gives a deterministic recorded `failed` that is eligible (decision 1). The other source, Policy's refusal after a mid-command narrowing, is used too, as C6's revoke phase did.
 
-   *A drive-owned source* for the L0185 cases: one public-read object in a bucket the drive owns, fetched as `https://www.googleapis.com/storage/v1/b/<bucket>/o/<object>?alt=media`. `www.googleapis.com` is already in `l0185r`'s egress allow list, so no proxy change is needed for it. The drive overwrites the object between a command and its recovery or materialization, using the operator's credentials, and checks that the source changed before going on.
+   *A drive-owned source* for the L0185 cases: the object `gs://graffiticode-b6-drive/source.json`, public-read, in a bucket the drive owns. `l0185r` fetches it as `https://storage.googleapis.com/graffiticode-b6-drive/source.json`. The drive overwrites it between a command and its recovery or materialization, using the operator's credentials with `Cache-Control: no-store`, and checks that the source changed before going on. Each change is to an unrelated tag (`…-replacement-<n>`), never one that begins with the old tag.
+   - **The proxy needs a narrow exception for it** (the owner's review of #390). The plan first proposed `www.googleapis.com`'s storage API, but L0185's open class refuses every `googleapis.com` name, except `www.googleapis.com` at exactly `/oauth2/v3/certs`.
+   - **The exception, for review:** `classes.json` `open.exceptions` gains `storage.googleapis.com`, `GET` at exactly `/graffiticode-b6-drive/source.json`, and nothing else on that host (403 `request`). `l0185r`'s `network.allow` lists the host.
+   - **Tests.** `deploy/egress-proxy/test/production.test.js` routes:
+     - that one request allowed;
+     - another object, another bucket, a `PUT`, and the storage API path on either host, refused;
+     - Google's certificates still reachable.
+   - **Removal.** The exception is removed when the drive retires.
 
    *Owner actions,* run with `!` (the classifier refuses them to the agent):
    1. **The canary window:** `roles/iam.serviceAccountOpenIdTokenCreator` on `api-run` and `console-run@graffiticode-app`, time-limited, as in C6.
@@ -363,6 +370,36 @@ Each has a recommendation; the plan below assumes it.
    11. **Same-key retries.** Every counted repair is requested again with its key. Each answers its own record, with no new claim or dispatch, and none is counted again.
 
    **The count.** Phases 2, 4, 5, 6 and 7 give 6 + 2 + 1 + 2 + 2 = **13 counted repairs**. The drive passes only with **at least 10 distinct completed repair ids**, listed with their originals in the evidence. Throughout, every artifact is the original invocation's, under the original's sequence.
+
+   *The verdicts are tested offline* (`scripts/lib/b6-drive-checks.js`, `scripts/test/b6-drive.test.js`; the owner's review of #390).
+   - **The report** fails unless every mandatory phase's latest run passed.
+   - **Dispatch evidence is complete and exact for each operation:**
+     - an operation recorded from a receipt has exactly one claim, and one refused by Policy or at bind has none;
+     - a completed, partial or uncertain write has at least one dispatch, and a failed one has none;
+     - no provider step is dispatched twice under one operation id;
+     - an occurrence a repair answered from its record has no operation under the repair;
+     - each occurrence is dispatched under at most one operation id;
+     - missing audit fails.
+   - **An artifact** is present only when `GET /data`'s nested envelope has a result and no errors.
+   - **The lower stage's rebuild** is read under the original command's id, where the api logs it, and the head's run under the repair's.
+   - **The source cases** require the recorded L0185 output's tag to be the old one, and every saved reference's `lrn-id` to equal it exactly.
+   - **Every case has its own chain** (the owner's reviews of 08fc309b and fdab0c26). Each `chainOf` call draws a fresh random nonce, whatever the drive's state says, and puts it in two places:
+     - every program's `lrn-id` tag;
+     - for the L0185 → L0176 cases, the head program and the fetch URL, as `?case=<nonce>`. The proxy's exception matches the exact path with the query removed, as Envoy's `path` does.
+
+     Tasks are content-addressed, so no two cases share an artifact head.
+   - **A materialization's precondition** is Policy's answer, `published: "current"`. It would be `"already"` if the original's invocation had an artifact, and `"superseded"` if another invocation were newer.
+   - **Coverage is required.**
+     - Each phase checks its prerequisites, the originals it works on with their minimum counts, and fails without them.
+     - A run with no checks fails.
+     - The report reads every scenario's evidence from the drive's records:
+       - originals per purpose;
+       - counted repairs per purpose: 6 failed-only, 2 partly, 2 resume, 2 lower-lost (each with its rebuild evidence), and 1 exclusion;
+       - the four probes, each refused with nothing claimed;
+       - two distinct materializations each of head-lost and source-change, with complete evidence;
+       - two boundary cases;
+       - every dropped outcome reconciled applied;
+       - every counted repair retried by its key.
 
    *Evidence:* `docs/evidence/b6-repair-drive/`, with a README, the state file, and per-run outputs with the call-line, receipt, audit and proxy extracts each check used, as C6's.
 
