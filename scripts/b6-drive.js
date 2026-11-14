@@ -220,7 +220,9 @@ const SHAPES = {
   // Over the source: the item id comes from what L0185 fetched. Each case's
   // own nonce makes its chain its own (tasks are content-addressed), so no
   // two cases share an artifact head.
-  fromSource: { writes: 1, src: nonce => `set-var "case" "${nonce}" set-var "lrn-id" get "tag" data {} save-to-itembank items [${ITEM}] {}..` },
+  // The source is `{"label": <tag>}`: an object whose only key is `tag` would
+  // read as an L0000 tag value, not a record, and `data` would ignore it.
+  fromSource: { writes: 1, src: nonce => `set-var "case" "${nonce}" set-var "lrn-id" get "label" data {} save-to-itembank items [${ITEM}] {}..` },
 };
 // `fetch "<url>" {}..`, as L0185's parser writes it.
 const fetchTask = url => ({ lang: "0185", code: { 1: { tag: "STR", elts: [url] }, 2: { tag: "RECORD", elts: [] }, 3: { tag: "FETCH", elts: [1, 2] }, 4: { tag: "EXPRS", elts: [3] }, 5: { tag: "PROG", elts: [4] }, root: 5 } });
@@ -237,11 +239,11 @@ const needSource = () => {
 };
 const setSource = async tag => {
   const file = path.join(tmpdir(), `b6-drive-source-${randomBytes(4).toString("hex")}.json`);
-  await writeFile(file, JSON.stringify({ tag }));
+  await writeFile(file, JSON.stringify({ label: tag }));
   await gcloud(["storage", "cp", file, source, "--content-type=application/json", "--cache-control=no-store"]);
   for (let i = 0; i < 20; i++) {
     const read = await http({ method: "GET", url: sourceUrl });
-    if (read.json?.tag === tag) return;
+    if (read.json?.label === tag) return;
     await sleep(1000);
   }
   throw new Error(`the source didn't come to read ${tag}`);
@@ -389,7 +391,7 @@ if (phase === "checks") {
   record("the production api and Policy", true, `api ${servingOf(api)}, policy ${servingOf(prodPolicy)}`);
   if (sourceUrl) {
     const read = await http({ method: "GET", url: sourceUrl });
-    record("the source is readable, unauthenticated", read.status === 200 && typeof read.json?.tag === "string", `${read.status} ${JSON.stringify(read.json)}`);
+    record("the source is readable, unauthenticated", read.status === 200 && typeof read.json?.label === "string", `${read.status} ${JSON.stringify(read.json)}`);
   }
   // Every drive program compiles with no connection: nothing is written.
   for (const kind of ["one", "two", "map2", "map3", "long", ...(sourceUrl ? ["overSource"] : []), "stack"]) {

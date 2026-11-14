@@ -69,7 +69,7 @@ test("dispatch evidence: a failed write dispatched nothing, an answered occurren
 test("source evidence: every saved reference was sent under exactly the recorded tag", () => {
   const ref = (lrn, n = 0) => `gc-0123456789abcdef-graffiticode-${lrn}-${n}`;
   assert.equal(lrnIdOf(ref("b6drive-x-old")), "b6drive-x-old");
-  const recorded = JSON.stringify({ data: { tag: "b6drive-x-old" }, errors: [] });
+  const recorded = JSON.stringify({ data: { label: "b6drive-x-old" }, errors: [] });
   const artifact = tag => ({ saved: true, references: [ref(tag)] });
   assert.deepEqual(sourceProblems({ recordedOutputText: recorded, artifact: artifact("b6drive-x-old"), oldTag: "b6drive-x-old" }), []);
   // The successor's tag starts with the old one: still a failure.
@@ -77,7 +77,7 @@ test("source evidence: every saved reference was sent under exactly the recorded
   // Unrelated content, or nothing saved.
   assert.ok(sourceProblems({ recordedOutputText: recorded, artifact: { tag: "WRONG-SOURCE" }, oldTag: "b6drive-x-old" }).some(p => p.includes("no saved reference")));
   // The recorded output must itself be the old content.
-  assert.ok(sourceProblems({ recordedOutputText: JSON.stringify({ data: { tag: "new" } }), artifact: artifact("b6drive-x-old"), oldTag: "b6drive-x-old" })[0].includes("recorded L0185 output"));
+  assert.ok(sourceProblems({ recordedOutputText: JSON.stringify({ data: { label: "new" } }), artifact: artifact("b6drive-x-old"), oldTag: "b6drive-x-old" })[0].includes("recorded L0185 output"));
   assert.deepEqual(savedReferences({ a: [{ saved: true, references: ["r1"] }], b: { saved: false, references: ["r2"] } }), ["r1"]);
 });
 

@@ -59,7 +59,8 @@ export const sourceProblems = ({ recordedOutputText, artifact, oldTag }) => {
   const problems = [];
   let recordedTag = null;
   try {
-    recordedTag = JSON.parse(recordedOutputText ?? "null")?.data?.tag ?? null;
+    // The source is `{"label": <tag>}` (scripts/b6-drive.js, fromSource).
+    recordedTag = JSON.parse(recordedOutputText ?? "null")?.data?.label ?? null;
   } catch {
     recordedTag = null;
   }
