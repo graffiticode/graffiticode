@@ -54,7 +54,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { createHash, randomBytes } from "node:crypto";
 import { createCanaryEnv, loadDeployServices, http, serviceEnv } from "./lib/canary-env.js";
-import { phaseProblems, artifactPresent, sourceProblems, lowerRebuildProblems, dispatchProblems, auditByOperation } from "./lib/b6-drive-checks.js";
+import { phaseProblems, artifactPresent, sourceProblems, lowerRebuildProblems, dispatchProblems, auditByOperation, caseProblems, scenarioProblems } from "./lib/b6-drive-checks.js";
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -217,8 +217,10 @@ const SHAPES = {
   map2: { writes: 2, src: tag => `set-var "lrn-id" "${tag}" map (<x: save-to-itembank items [${ITEM}] {}>) [1 2]..` },
   map3: { writes: 3, src: tag => `set-var "lrn-id" "${tag}" map (<x: save-to-itembank items [${ITEM}] {}>) [1 2 3]..` },
   long: { writes: 10, src: tag => `set-var "lrn-id" "${tag}" map (<x: save-to-itembank items [${ITEM}] {}>) [1 2 3 4 5 6 7 8 9 10]..` },
-  // Over the source: the item id comes from what L0185 fetched.
-  fromSource: { writes: 1, src: () => `set-var "lrn-id" get "tag" data {} save-to-itembank items [${ITEM}] {}..` },
+  // Over the source: the item id comes from what L0185 fetched. Each case's
+  // own nonce makes its chain its own (tasks are content-addressed), so no
+  // two cases share an artifact head.
+  fromSource: { writes: 1, src: nonce => `set-var "case" "${nonce}" set-var "lrn-id" get "tag" data {} save-to-itembank items [${ITEM}] {}..` },
 };
 // `fetch "<url>" {}..`, as L0185's parser writes it.
 const fetchTask = url => ({ lang: "0185", code: { 1: { tag: "STR", elts: [url] }, 2: { tag: "RECORD", elts: [] }, 3: { tag: "FETCH", elts: [1, 2] }, 4: { tag: "EXPRS", elts: [3] }, 5: { tag: "PROG", elts: [4] }, root: 5 } });
@@ -283,7 +285,7 @@ const l0176Task = async src => ({ lang: "0176", code: await parse(src) });
 const chainOf = async kind => {
   const tag = `b6drive-${runId}-${state.originals.length}`;
   if (kind === "stack") return { chain: `${await postTask(await l0176Task(SHAPES.one.src(`${tag}-head`)))}+${await postTask(await l0176Task(SHAPES.one.src(`${tag}-lower`)))}`, writes: 2 };
-  if (kind === "overSource") return { chain: `${await postTask(await l0176Task(SHAPES.fromSource.src()))}+${await postTask(fetchTask(sourceUrl))}`, writes: 1 };
+  if (kind === "overSource") return { chain: `${await postTask(await l0176Task(SHAPES.fromSource.src(tag)))}+${await postTask(fetchTask(sourceUrl))}`, writes: 1 };
   return { chain: await postTask(await l0176Task(SHAPES[kind].src(tag))), writes: SHAPES[kind].writes };
 };
 const postCommand = async (chain, key) => {
@@ -351,6 +353,13 @@ const makeOriginal = async ({ kind, purpose }) => {
   return entry;
 };
 const originalsFor = purpose => state.originals.filter(o => o.purpose === purpose);
+// A phase's prerequisites: the originals it works on, enough of them. A
+// missing case is a failed check, never a quiet pass.
+const requireCases = purposes => {
+  const problems = purposes.flatMap(p => caseProblems(state.originals, p));
+  record(`${phase} has its cases (${purposes.join(", ")})`, problems.length === 0, problems.join("; ") || "present");
+  return problems.length === 0;
+};
 
 // ---------------------------------------------------------------- phases
 
@@ -492,6 +501,7 @@ const footprint = async original => {
 
 if (phase === "probes") {
   needFaults({});
+  requireCases(["partly", "partial-probe", "head-lost"]);
   const one = (purpose, outcome) => {
     for (const o of originalsFor(purpose)) {
       const hit = o.outcomes.find(x => x.outcome === outcome);
@@ -563,6 +573,7 @@ const sameSet = (a, b) => JSON.stringify([...a].map(o => `${o.stage}:${o.occurre
 
 if (phase === "repairs") {
   needFaults({});
+  requireCases(["failed-only", "partly", "resume"]);
   for (const original of [...originalsFor("failed-only"), ...originalsFor("partly"), ...originalsFor("resume")]) {
     if (state.repairs.some(r => r.originalId === original.commandId && r.counted)) continue;
     const repair = await runRepair(original, { purpose: original.purpose });
@@ -610,6 +621,7 @@ if (phase === "exclusion") {
 
 if (phase === "reconcile") {
   needFaults({});
+  requireCases(["head-lost", "lower-lost", "source-change"]);
   for (const original of state.originals.filter(o => o.fault === "drop-outcome" && !o.reconciled)) {
     const res = await consoleCall("POST", "/v1/receipts/reconcile", { connectionId, idempotencyKey: original.key });
     const ops = res.json?.data?.operations ?? [];
@@ -632,22 +644,36 @@ const artifactOf = async original => {
 // An original's recorded L0185 output (its s1), as text, or null.
 const recordedSourceOutput = async commandId => (await policyRead(commandId, "output", "s1").catch(() => null))?.output?.text ?? null;
 
+// A materialization's own evidence. Its precondition is Policy's answer:
+// `published: "current"` means no artifact existed for the original's
+// invocation (it would answer "already") and the one it stored is the
+// chain's head. `before` (the chain's head, read first) is recorded.
+const materializationProblems = ({ res, after, lines }) => [
+  ...(res.status === 200 && res.data?.published === "current" ? [] : [`materialize answered ${res.status} ${res.data?.published ?? res.error?.reason}`]),
+  ...(after.has ? [] : ["no artifact after"]),
+  ...(lines.some(l => l.includes(": call materialize s0 ")) ? [] : ["no `call materialize s0` line"]),
+  ...(lines.some(l => l.includes(": call start ") || l.includes(": call interpret ")) ? ["a stage was run, not replayed"] : []),
+];
+
 if (phase === "dropped") {
   needFaults({});
+  requireCases(["head-lost", "lower-lost"]);
   for (const original of originalsFor("head-lost")) {
+    if (!original.reconciled) throw new Error(`${original.key} isn't reconciled: run --phase reconcile first`);
     const before = await artifactOf(original);
     const from = new Date().toISOString();
     const res = await postMaterialize(original.commandId);
     await sleep(20_000);
     const lines = await callLines(original.commandId, from);
     const after = await artifactOf(original);
-    state.materialized.push({ commandId: original.commandId, purpose: "head-lost", before: before.has, httpStatus: res.status, published: res.data?.published ?? null, reason: res.error?.reason ?? null, lines, after: after.has });
+    const problems = materializationProblems({ res, after, lines });
+    state.materialized.push({ commandId: original.commandId, purpose: "head-lost", before: before.has, httpStatus: res.status, published: res.data?.published ?? null, reason: res.error?.reason ?? null, lines, after: after.has, problems });
     await save();
-    record(`${original.key}: no artifact before, an actual materialization, an artifact after`,
-      !before.has && res.status === 200 && res.data?.published === "current" && after.has && lines.some(l => l.includes(": call materialize s0 ")) && !lines.some(l => l.includes(": call start ")),
-      `${before.has} → ${res.status} ${res.data?.published ?? res.error?.reason} → ${after.has}; ${lines.length} call line(s)`);
+    record(`${original.key}: an actual materialization of the original's invocation, replayed with no write`, problems.length === 0,
+      problems.join("; ") || `${res.data?.published}; chain head before: ${before.has}`);
   }
   for (const original of originalsFor("lower-lost")) {
+    if (!original.reconciled) throw new Error(`${original.key} isn't reconciled: run --phase reconcile first`);
     const from = new Date().toISOString();
     const repair = await runRepair(original, { purpose: "lower-lost" });
     await sleep(20_000);
@@ -705,6 +731,7 @@ if (phase === "boundary") {
 if (phase === "source-change") {
   needFaults({});
   needSource();
+  requireCases(["source-change"]);
   for (const [n, original] of originalsFor("source-change").entries()) {
     if (!original.reconciled) throw new Error(`${original.key} isn't reconciled: run --phase reconcile first`);
     await setSource(`b6drive-${runId}-replacement-${n}`);
@@ -718,12 +745,8 @@ if (phase === "source-change") {
     const requests = await l0185Requests(from, until);
     const recorded = await recordedSourceOutput(original.commandId);
     const problems = [
-      ...(before.has ? ["an artifact existed before"] : []),
-      ...(res.data?.published === "current" ? [] : [`materialize answered ${res.status} ${res.data?.published ?? res.error?.reason}`]),
-      ...(after.has ? [] : ["no artifact after"]),
+      ...materializationProblems({ res, after, lines }),
       ...(lines.some(l => l.includes(": s1 from its recorded output, not run")) ? [] : ["no `s1 from its recorded output` line"]),
-      ...(lines.some(l => l.includes(": call materialize s0 ")) ? [] : ["no `call materialize s0` line"]),
-      ...(lines.some(l => l.includes(": call interpret ")) ? ["a stage was interpreted"] : []),
       ...(requests === 0 ? [] : [`${requests} l0185r request(s)`]),
       ...sourceProblems({ recordedOutputText: recorded, artifact: after.content, oldTag: original.sourceTag }),
     ];
@@ -735,6 +758,7 @@ if (phase === "source-change") {
 
 if (phase === "retries") {
   needFaults({});
+  record("there are counted repairs to retry", state.repairs.some(r => r.counted), `${state.repairs.filter(r => r.counted).length}`);
   for (const repair of state.repairs.filter(r => r.counted && !state.retries.some(x => x.repairId === r.repairId))) {
     const original = state.originals.find(o => o.commandId === repair.originalId);
     const res = await postRepair(original.commandId, repair.key);
@@ -749,6 +773,10 @@ if (phase === "report") {
   // Every mandatory phase's latest run passed: a count alone proves nothing.
   const phases = phaseProblems(state.runs.filter(r => r.phase !== "report"));
   record("every mandatory phase's latest run passed", phases.length === 0, phases.join("; ") || "all passed");
+  // And each scenario was exercised, with its evidence, enough times: a phase
+  // that passed with nothing to do proves nothing.
+  const scenarios = scenarioProblems(state);
+  record("every scenario was exercised, with its evidence and minimum cases", scenarios.length === 0, scenarios.slice(0, 12).join("; ") || "all present");
   const counted = [...new Map(state.repairs.filter(r => r.counted).map(r => [r.repairId, r])).values()];
   record("at least 10 distinct completed repairs, each published as its original's artifact", counted.length >= 10, `${counted.length}: ${counted.map(r => r.repairId.slice(0, 12)).join(" ")}`);
   // Dispatch evidence for every original and repair (b6-drive-checks.js
@@ -787,6 +815,8 @@ if (phase === "report") {
     problems.slice(0, 10).join("; ") || `${operations.length} operation id(s) checked`);
 }
 
+// A run with no checks exercised nothing.
+if (results.length === 0) record(`${phase} ran at least one check`, false, "no checks ran");
 state.runs.at(-1).results = results;
 state.runs.at(-1).ok = results.every(r => r.ok);
 await save();

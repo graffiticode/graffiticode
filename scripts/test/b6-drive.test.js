@@ -4,6 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   MANDATORY_PHASES, phaseProblems, artifactPresent, savedReferences, lrnIdOf, sourceProblems, lowerRebuildProblems, dispatchProblems, auditByOperation,
+  caseProblems, scenarioProblems, MINIMUM_ORIGINALS, MINIMUM_COUNTED_REPAIRS, REQUIRED_PROBES,
 } from "../lib/b6-drive-checks.js";
 
 test("GET /data's real envelope: a missing artifact is absent, a saved one present", () => {
@@ -86,4 +87,65 @@ test("the lower stage's rebuild is logged under the original, the head's run und
   assert.deepEqual(lowerRebuildProblems({ originalLines, repairLines }), []);
   assert.deepEqual(lowerRebuildProblems({ originalLines: [], repairLines }), ["no `call materialize s1` under the original"]);
   assert.ok(lowerRebuildProblems({ originalLines, repairLines: [...repairLines, "command repair: call start s1 L0176 at https://compiler"] }).includes("the lower stage was started"));
+});
+
+// The owner's review of 08fc309b: a phase that passed with nothing to do
+// proves nothing, so the report reads each scenario's evidence itself.
+const completeState = () => {
+  const originals = [];
+  for (const [purpose, n] of Object.entries(MINIMUM_ORIGINALS)) {
+    for (let i = 0; i < n; i++) {
+      const drop = ["head-lost", "lower-lost", "source-change"].includes(purpose);
+      originals.push({ key: `${purpose}-${i}`, commandId: `o-${purpose}-${i}`, purpose, ...(drop ? { fault: "drop-outcome", reconciled: { verdicts: [{ verdict: "applied", final: true }] } } : {}) });
+    }
+  }
+  const repairs = [];
+  for (const [purpose, n] of Object.entries(MINIMUM_COUNTED_REPAIRS)) {
+    for (let i = 0; i < n; i++) repairs.push({ repairId: `r-${purpose}-${i}`, purpose, counted: true, ...(purpose === "lower-lost" ? { problems: [] } : {}) });
+  }
+  return {
+    originals,
+    repairs,
+    probes: REQUIRED_PROBES.map(what => ({ what, httpStatus: 409, reason: what === "uncertain, no selection" ? "nothing-to-repair" : "not-eligible", before: { ledger: 0, claims: 1 }, after: { ledger: 0, claims: 1 } })),
+    materialized: ["head-lost", "source-change"].flatMap(purpose => [0, 1].map(i => ({ commandId: `o-${purpose}-${i}`, purpose, published: "current", problems: [] }))),
+    boundary: [{ problems: [] }, { problems: [] }],
+    retries: repairs.map(r => ({ repairId: r.repairId, same: true, outcome: "completed" })),
+  };
+};
+
+test("the report needs every scenario's evidence, at its minimum count", () => {
+  assert.deepEqual(scenarioProblems(completeState()), []);
+  // A dropped phase that had nothing to materialize.
+  const none = { ...completeState(), materialized: [] };
+  assert.ok(scenarioProblems(none).some(p => p.startsWith("head-lost: 0 materialization")));
+  // One case materialized twice is still one case.
+  const once = completeState();
+  once.materialized = once.materialized.filter(m => m.purpose !== "head-lost").concat([0, 1].map(() => ({ commandId: "o-head-lost-0", purpose: "head-lost", published: "current", problems: [] })));
+  assert.ok(scenarioProblems(once).some(p => p.startsWith("head-lost: 1 materialization")));
+  // A materialization that answered "already", or had problems.
+  const already = completeState();
+  already.materialized[0].published = "already";
+  assert.ok(scenarioProblems(already).length > 0);
+  // A probe never run, or one that claimed something.
+  const probe = completeState();
+  probe.probes = probe.probes.filter(p => p.what !== "partial");
+  assert.ok(scenarioProblems(probe).includes("probe partial: never run"));
+  const claimed = completeState();
+  claimed.probes[0].after = { ledger: 1, claims: 1 };
+  assert.ok(scenarioProblems(claimed).some(p => p.includes("with nothing claimed")));
+  // Too few originals, repairs, boundary cases or retries; a drop not reconciled.
+  assert.ok(scenarioProblems({ ...completeState(), originals: [] }).some(p => p.startsWith("failed-only: 0 original")));
+  assert.ok(scenarioProblems({ ...completeState(), boundary: [{ problems: [] }] }).some(p => p.startsWith("boundary: 1")));
+  const unreconciled = completeState();
+  unreconciled.originals.find(o => o.fault).reconciled = undefined;
+  assert.ok(scenarioProblems(unreconciled).some(p => p.endsWith("not reconciled applied")));
+  assert.ok(scenarioProblems({ ...completeState(), retries: [] }).some(p => p.endsWith("never retried by its key")));
+  const thin = completeState();
+  thin.repairs = thin.repairs.filter(r => r.purpose !== "resume");
+  assert.ok(scenarioProblems(thin).some(p => p.startsWith("resume: 0 counted repair")));
+});
+
+test("a phase's cases: enough originals for the scenario, or a failure", () => {
+  assert.deepEqual(caseProblems([], "head-lost"), ["head-lost: 0 original(s), at least 2 needed"]);
+  assert.deepEqual(caseProblems([{ purpose: "head-lost" }, { purpose: "head-lost" }], "head-lost"), []);
 });

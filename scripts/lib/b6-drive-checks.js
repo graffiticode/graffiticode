@@ -134,3 +134,53 @@ export const auditByOperation = (entries, opids) => {
   }
   return found;
 };
+
+// What the drive must have exercised (the owner's review of 08fc309b): a
+// phase passing proves nothing if it had nothing to do. Minimum cases per
+// scenario, read from the drive's own records.
+export const MINIMUM_ORIGINALS = Object.freeze({
+  "failed-only": 6, exclusion: 1, resume: 2, "head-lost": 2, "lower-lost": 2, "source-change": 2, partly: 2, "partial-probe": 1,
+});
+export const MINIMUM_COUNTED_REPAIRS = Object.freeze({ "failed-only": 6, partly: 2, resume: 2, "lower-lost": 2, exclusion: 1 });
+export const REQUIRED_PROBES = Object.freeze(["completed", "partial", "uncertain", "uncertain, no selection"]);
+
+// The originals a phase works on, at least `minimum` of them, or why not.
+export const caseProblems = (originals, purpose, minimum = MINIMUM_ORIGINALS[purpose]) => {
+  const n = originals.filter(o => o.purpose === purpose).length;
+  return n >= minimum ? [] : [`${purpose}: ${n} original(s), at least ${minimum} needed`];
+};
+
+// Every scenario the gate requires, with its evidence, from the state.
+export const scenarioProblems = state => {
+  const problems = [];
+  const originals = state.originals ?? [];
+  for (const purpose of Object.keys(MINIMUM_ORIGINALS)) problems.push(...caseProblems(originals, purpose));
+  const counted = [...new Map((state.repairs ?? []).filter(r => r.counted).map(r => [r.repairId, r])).values()];
+  for (const [purpose, minimum] of Object.entries(MINIMUM_COUNTED_REPAIRS)) {
+    const n = counted.filter(r => r.purpose === purpose).length;
+    if (n < minimum) problems.push(`${purpose}: ${n} counted repair(s), at least ${minimum} needed`);
+  }
+  const lowerLost = counted.filter(r => r.purpose === "lower-lost");
+  if (lowerLost.some(r => !Array.isArray(r.problems) || r.problems.length > 0)) problems.push("lower-lost: a repair without its rebuild evidence");
+  for (const what of REQUIRED_PROBES) {
+    const probe = (state.probes ?? []).filter(p => p.what === what).at(-1);
+    const expected = what === "uncertain, no selection" ? "nothing-to-repair" : "not-eligible";
+    if (!probe) problems.push(`probe ${what}: never run`);
+    else if (probe.httpStatus !== 409 || probe.reason !== expected || JSON.stringify(probe.before) !== JSON.stringify(probe.after)) problems.push(`probe ${what}: not refused ${expected} with nothing claimed`);
+  }
+  const materialized = state.materialized ?? [];
+  for (const purpose of ["head-lost", "source-change"]) {
+    const ok = materialized.filter(m => m.purpose === purpose && m.published === "current" && Array.isArray(m.problems) && m.problems.length === 0);
+    const distinct = new Set(ok.map(m => m.commandId)).size;
+    if (distinct < 2) problems.push(`${purpose}: ${distinct} materialization(s) with complete evidence, at least 2 needed`);
+  }
+  const boundary = (state.boundary ?? []).filter(b => Array.isArray(b.problems) && b.problems.length === 0);
+  if (boundary.length < 2) problems.push(`boundary: ${boundary.length} case(s) with complete evidence, at least 2 needed`);
+  for (const o of originals.filter(x => x.fault === "drop-outcome")) {
+    const verdicts = o.reconciled?.verdicts ?? [];
+    if (!verdicts.length || !verdicts.every(v => v.verdict === "applied" && v.final === true)) problems.push(`${o.key}: not reconciled applied`);
+  }
+  const retried = new Set((state.retries ?? []).filter(r => r.same && r.outcome === "completed").map(r => r.repairId));
+  for (const r of counted) if (!retried.has(r.repairId)) problems.push(`${r.repairId}: never retried by its key`);
+  return problems;
+};

@@ -383,6 +383,19 @@ Each has a recommendation; the plan below assumes it.
    - **An artifact** is present only when `GET /data`'s nested envelope has a result and no errors.
    - **The lower stage's rebuild** is read under the original command's id, where the api logs it, and the head's run under the repair's.
    - **The source cases** require the recorded L0185 output's tag to be the old one, and every saved reference's `lrn-id` to equal it exactly.
+   - **Every case has its own chain** (the owner's review of 08fc309b). The L0185 → L0176 head carries a per-case nonce, and tasks are content-addressed, so no two cases share an artifact head.
+   - **A materialization's precondition** is Policy's answer, `published: "current"`. It would be `"already"` if the original's invocation had an artifact, and `"superseded"` if another invocation were newer.
+   - **Coverage is required.**
+     - Each phase checks its prerequisites, the originals it works on with their minimum counts, and fails without them.
+     - A run with no checks fails.
+     - The report reads every scenario's evidence from the drive's records:
+       - originals per purpose;
+       - counted repairs per purpose: 6 failed-only, 2 partly, 2 resume, 2 lower-lost (each with its rebuild evidence), and 1 exclusion;
+       - the four probes, each refused with nothing claimed;
+       - two distinct materializations each of head-lost and source-change, with complete evidence;
+       - two boundary cases;
+       - every dropped outcome reconciled applied;
+       - every counted repair retried by its key.
 
    *Evidence:* `docs/evidence/b6-repair-drive/`, with a README, the state file, and per-run outputs with the call-line, receipt, audit and proxy extracts each check used, as C6's.
 
