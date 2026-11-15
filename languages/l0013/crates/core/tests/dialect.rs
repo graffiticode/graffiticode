@@ -146,3 +146,29 @@ async fn a_failed_photograph_is_a_compile_error_at_the_snap() {
     assert_eq!(errors[0].message, "snap failed: could not resolve item abc123: HTTP 404");
     assert_eq!((errors[0].from, errors[0].to), (0, 4));
 }
+
+/// `snap item "abc123" {<name>: "other"}..`
+fn program_naming(name: &str) -> Json {
+    json!({
+        "1": { "tag": "TAG", "elts": [name] }, "2": { "tag": "STR", "elts": ["other"] },
+        "3": { "tag": "BINDING", "elts": [1, 2] }, "4": { "tag": "RECORD", "elts": [3] },
+        "5": { "tag": "STR", "elts": ["abc123"] }, "6": { "tag": "ITEM", "elts": [5, 4] },
+        "7": { "tag": "SNAP", "elts": [6], "coord": { "from": 0, "to": 4 } },
+        "8": { "tag": "EXPRS", "elts": [7] }, "9": { "tag": "PROG", "elts": [8] }, "root": 9,
+    })
+}
+
+#[tokio::test]
+async fn a_program_cannot_name_the_task_or_language_rendered_under_an_item() {
+    // The item's own task is always resolved and access-checked; naming another one would
+    // write its render to the item's thumbnail without that check.
+    for name in ["task", "lang"] {
+        let camera = FakeCamera::default();
+        let compiled = Compiler::new(L0013::new(camera.clone()))
+            .compile(&program_naming(name), &json!({}), &json!({}), Identity::default())
+            .await;
+        let errors = compiled.result.unwrap_err();
+        assert!(format!("{errors:?}").contains("`task` and `lang` are not accepted"), "{name}: {errors:?}");
+        assert!(camera.asked.lock().unwrap().is_empty(), "{name}: the camera was asked");
+    }
+}

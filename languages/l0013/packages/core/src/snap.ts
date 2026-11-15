@@ -59,8 +59,6 @@ export interface SnapViewport {
 
 export interface SnapArgs {
   item: string; // the item id — its form view is rendered (task + lang resolved from it)
-  task?: string; // optional explicit override (with `lang`) → render via the api form route
-  lang?: string;
   viewport?: SnapViewport; // browser window the form lays out into (default 1024×768)
   slice?: string; // "W:H" → crop the densest band at that aspect (e.g. "4:1" wide, "1:4" tall)
   zoom?: number; // 0..1 zoom within a `slice`: 0 = frame all ink, 1 = densest region (max ink²/area)
@@ -361,15 +359,15 @@ async function waitForRender(page: any, sharp: any, deadline: number): Promise<b
 }
 
 export async function snap(args: SnapArgs): Promise<SnapResult> {
-  const { item, task, lang, viewport, slice, zoom, crop, width, height, token } = args;
+  const { item, viewport, slice, zoom, crop, width, height, token } = args;
   if (!item) throw new Error("snap: `item` is required");
   const itemId = item;
   const t0 = Date.now();
   // The owner's access token: from the compile request (config.authToken), or a local-dev
   // fallback env var so the language server can be exercised standalone.
   const tok = token || process.env.GC_SNAP_ACCESS_TOKEN || "";
-  // Use an explicit task override if given; otherwise resolve the task id from the item id.
-  const resolved = task ? { taskId: task, lang } : await resolveItem(item, tok);
+  // Always the item's own task, resolved (and access-checked) from the item id.
+  const resolved = await resolveItem(item, tok);
   const tResolve = Date.now();
   const url = buildFormUrl({ taskId: resolved.taskId, lang: resolved.lang, token: tok });
 

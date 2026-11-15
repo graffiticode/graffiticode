@@ -191,8 +191,7 @@ async fn an_explicit_crop_is_taken_as_given() {
         crop: Clip { x: Some(100.0), y: Some(80.0), width: Some(300.0), height: Some(150.0) },
         width: Some(300.0),
         viewport: Size { width: Some(800.0), height: Some(600.0) },
-        task: Some("explicit-task".into()),
-        ..item("whatever")
+        ..item("item1")
     };
     studio.camera.snap(request).await.unwrap();
     let png = pixels::decode(&studio.storage.0.lock().unwrap()[0].1).unwrap().to_rgba8();
@@ -200,9 +199,8 @@ async fn an_explicit_crop_is_taken_as_given() {
     for (x, y) in [(2, 2), (150, 75), (297, 147)] {
         assert_eq!(png.get_pixel(x, y), &BLUE, "({x}, {y})");
     }
-    // An explicit task is rendered directly; nothing is resolved.
-    assert!(studio.seen.resolver_tokens.lock().unwrap().is_empty());
-    assert_eq!(studio.seen.forms.lock().unwrap()[0].get("id").map(String::as_str), Some("explicit-task"));
+    // The item's own task is resolved and rendered: a request can't name another.
+    assert_eq!(studio.seen.forms.lock().unwrap()[0].get("id").map(String::as_str), Some("task1"));
 }
 
 #[tokio::test(flavor = "multi_thread")]

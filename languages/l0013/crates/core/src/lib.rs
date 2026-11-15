@@ -61,9 +61,6 @@ impl Clip {
 pub struct SnapRequest {
     /// The item whose form view is photographed. Its task and language are resolved from it.
     pub item: String,
-    /// An explicit task to render instead of resolving one from the item.
-    pub task: Option<String>,
-    pub lang: Option<String>,
     /// The browser window the form lays out into.
     pub viewport: Size,
     /// `"W:H"`: crop the densest band of that aspect.
@@ -152,11 +149,14 @@ impl L0013 {
             cx.report(id, "snap: missing required `item` — use `snap item \"<id>\" {}..`.");
             return Value::Null;
         };
-        let text = |name: &str| get(name).map(Value::display);
+        // A snapshot is always of the item's own task, resolved (and access-checked) from the
+        // item. A program can't name another task or language to render under the item's path.
+        if ["task", "lang"].into_iter().any(|name| options.get(&Key::tag(name)).is_some()) {
+            cx.report(id, "snap: `task` and `lang` are not accepted — snap renders the item's own task.");
+            return Value::Null;
+        }
         let request = SnapRequest {
             item: item.display(),
-            task: text("task"),
-            lang: text("lang"),
             viewport: size(options.get(&Key::tag("viewport"))),
             slice: match options.get(&Key::tag("slice")) {
                 Some(Value::Str(slice)) => Some(slice.clone()),
