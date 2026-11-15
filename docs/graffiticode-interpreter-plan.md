@@ -461,23 +461,19 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
          - The registry marks the exception explicitly (`publicCapture: true`) and dates it.
        - **Whether the exception stays is a separate, announced decision.** D3 inventories who captures public items without owning them. If the exception is to end, those callers move to owner tokens or to an owner-run job first, and it ends only with a dated compatibility notice, never at activation.
      - Registering `snap`, and adding scopes to tokens, is a `REGISTRY_VERSION` bump rolled out under P1b. Scopes are part of the admitted plan, so they keep the plan's own version.
-   - **C5b Upload and publish, ordered by a capture sequence.**
-     - **The item's thumbnail record has two separate fields:**
-       - `nextCaptureSequence`, allocated by an atomic increment;
-       - `publishedCaptureSequence`, the sequence of the capture the pointer shows. It starts at 0.
-     - **When the command starts**, before rendering, the API increments `nextCaptureSequence` and pins the value in the command record. That value is the capture's sequence.
-     - **The broker operation** (for example `gcs.put-thumbnail`) takes `(item id, PNG digest, capture sequence)` as its arguments, so retries bind the same way. It:
-       1. writes the PNG to an immutable, content-addressed path, `thumbnails/{item}/{sha}.png`;
-       2. publishes, with a compare-and-set that sets the pointer and `publishedCaptureSequence` to this capture **only if its sequence is greater than `publishedCaptureSequence`**.
-     - **The first capture** (sequence 1, published 0) always publishes.
-     - **An older capture that finishes after a newer one has published** still uploads its immutable object, but doesn't publish. Its outcome is `completed` with `superseded: true`.
-     - **Allocating never publishes**, so an abandoned capture leaves `publishedCaptureSequence` alone.
+   - **C5b Upload and publish, ordered by a capture sequence** (as amended by the C5 plan, decisions 8 and 9, 2026-11-15).
+     - **The capture sequence.** Policy allocates it per item (`nextCaptureSequence`, atomic increment) when the capture is **reserved**, before rendering, and records it on the occurrence. A retry or recovery reuses it.
+     - **The rendered PNG is staged once** (create-only) before the operation is bound, and a retry never renders again.
+     - **The broker operation** `gcs.put-thumbnail` takes `(item id, PNG digest, capture sequence)` and publishes in **one atomic write**: the item's fixed object in a dedicated uniform bucket (`graffiticode-thumbnails/{item}.png`) carries its `captureSequence` in metadata, and is replaced, with `ifGenerationMatch` on the generation it read, **only if this capture's sequence is greater**. The object is its own pointer, so no crash can leave a pointer and an image disagreeing.
+     - **The first capture** always publishes.
+     - **An older capture that finishes after a newer one has published** writes nothing. Its outcome is `completed` with `superseded: true`.
+     - **Reserving never publishes**, so an abandoned capture blocks nothing.
    - **C5c IAM handoff, covering both runtime accounts.**
-     - Grant the broker runtime account write access on the thumbnails bucket.
+     - Grant the broker runtime account `objectUser` on the dedicated thumbnails bucket (C5 plan, decision 8).
      - Two accounts can upload directly today or during migration:
        - `l0013-run` (TypeScript; its service is retired, but the account keeps its bucket grant);
        - `l0013r-run` (Rust, `deploy.json:837`), which already held production upload access when A1b switched to it.
-     - Both keep direct write *only* until D4 retires legacy snapshots for L0013. Then **both** lose it, in the same release, and a check confirms that neither can write the bucket.
+     - Both keep direct write *only* until D4 retires legacy snapshots for L0013. Then **both** lose it, on both buckets, in the same release, and a check confirms that neither can write either bucket.
      - Record each grant and removal in `docs/capability-policy-iam-review.md`.
      - Give `l0013r` egress to Policy and Broker.
    - **C5d The snapshot as a command.**
@@ -491,13 +487,13 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
    C5 needs B5, D2b's floor, P1b and the IAM review.
    - **Tests:**
      - The first capture of an item publishes.
-     - An older capture that finishes after a newer one publishes leaves the pointer and `publishedCaptureSequence` on the newer one.
+     - An older capture that finishes after a newer one publishes leaves the newer one published (the object and its `captureSequence`).
      - An abandoned capture, allocated and never uploaded, doesn't block the next capture from publishing.
      - A snapshot of a **private** item by a user who can't edit it is refused at allocation, and again at execution after access is revoked.
      - A snapshot of a **public** item without an owner token succeeds as it does today, rate-limited and recorded as `anonymous` or as the caller.
      - A chain capturing two different items, and one mixing a snapshot with an L0176 save through a connection, is admitted with one invocation and a scope per intent. Each operation runs only under its own scope, and a mismatched credential and scope is refused.
      - A `credential: service` operation carrying a connection is refused.
-     - After D4, neither `l0013-run` nor `l0013r-run` can write the bucket.
+     - After D4, neither `l0013-run` nor `l0013r-run` can write either thumbnails bucket.
 6. **C6 L0176:** saves as commands are planned in [c6-l0176-commands-plan.md](c6-l0176-commands-plan.md) (part 1); interpretation of reads is part 2.
    - Signing only in `present` mode, unsigned in `evaluate`.
    - Read-stage signing and `/preview/sign` become `get`.
