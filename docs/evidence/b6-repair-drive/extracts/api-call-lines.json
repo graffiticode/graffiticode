@@ -1,0 +1,320 @@
+[
+ {
+  "at": "2026-11-15T00:09:23.982744Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:3b1a2684b50e4306f7bbdfdbde65539006b9af62f38adc372c19344efd2844af: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:09:31.162638Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:0022054dc21d9cee41388632d62e7492eec95cd9a81026c2d00f1728bff7745f: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:09:36.610584Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:2a2e8370a5d6ff902fd57f51450bb44131937cab17a3f6c9ff69691911a111b1: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:09:42.496818Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:a8d18059d90354449fad23da958d07b12f7ac9b9e50ea33c2b07672050efcacd: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:09:45.982493Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:d363b6dfd147c99af4e76f17bf24e55d37d9beeb207268fa862012914d2c44af: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:09:50.546062Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:10dc0e94e5930d2fbae7f5160122e6cfedcd3d3f88c13b5def9ca721d12221de: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:09:55.415676Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:dcf0a02d0da421a7d8a0d1acc6025faa29035b7dcb69121073ed7653e58f8d9f: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:09:58.819825Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:a812e6e45e07685f112e9cb296a7a94285e48ce5bb7095f9ffb65f669f594d94: call start s1 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:10:02.520792Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:f9e56670ad16970c440b89e412113f46184eb902f81faeac3bd2f980718ad10c: call start s1 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:15:51.162822Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:aef9d1296bb02de8d013d9ef289506cbeae8cdc35e88d7a9ee5bc6f69de86aa8: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:15:59.565987Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:a90f9a81b9ae6b5b79ea94325ff264d304bc4b34c1355eaeeb83346a7875cba0: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:16:06.829357Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:b983f274eb8d5e999e221f9273e1274e1efe49df4f2e5ba0c9081c2f556bf185: call start s1 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:16:13.317260Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:83ee5af0a26c2347873022b19aac75d28b8804ffd677a9985794858d9a196b6b: call start s1 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:16:19.040537Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:73ac95511dda07be90538476c31cbce1539f174433f967b9471a653f4d23c2a9: call interpret s1 L0185 at https://rmwczv08x-e43ac0---l0185r-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:16:19.471172Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:73ac95511dda07be90538476c31cbce1539f174433f967b9471a653f4d23c2a9: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:16:24.922740Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:2551da66841a092ef2988f8abebb8c24c61139d8e617b6703139ec8ab046c3df: call interpret s1 L0185 at https://rmwczv08x-e43ac0---l0185r-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:16:25.304044Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:2551da66841a092ef2988f8abebb8c24c61139d8e617b6703139ec8ab046c3df: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:24:13.821782Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:04def5eff70149fdec9e4ca24ecc8b2b0413ebcce570ee0870453411cc832838: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:24:25.282190Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:fc1f6120ccdaa956366c3c797682992e8ba3af87aebeeba6832faf1f10e2e02a: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:24:32.362489Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:b55fed8068504be0ba3e7ef2d02acc7e250e8818879b07996206aad4dba821c9: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T00:50:04.239561Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:06c0bacf727c7754a23c0bef92ce4ffecde2771f25c1b1cc7e202e634b0b9057: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:50:20.908163Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:73e24b9e2ff382f244c47ac9c0e71e1bb43c327374cb87c11858248aa92192ef: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:50:30.613800Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:6d44da99df79b7b43fe88f2bbbe414cbf1b6915bf85a6d7c6f641ae5405d2a79: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:50:42.085683Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:3e36ddd616b759f60c4e153bef2221d781e696e35b8f2dab8d99c08367f2d0c3: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:50:47.758421Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:f90d294b52819cb29b4a66bfd5989c1e2d207c5c29ab089357a99f0e071cfa22: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:50:55.722321Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:fdef180186d512b5acc7db3b2721d2e8641b98bc32385484ecd8afef759b6b99: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:51:07.516346Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:4db4ec676681697cc0868d4c094ae5b0007ca8915b925231b659e0f3b8ebab3d: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:51:12.887552Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:e66d78bb6ff9a237cde7cdacd6bbb3fc335e90b24a1bb480549e6869d4518a76: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:51:17.781202Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:0ecf13ca09144260a553e2d4bbd65e9b85a842675325a1d1154a27558c8c1be8: call start s1 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:51:20.943706Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:0ecf13ca09144260a553e2d4bbd65e9b85a842675325a1d1154a27558c8c1be8: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:51:26.174382Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:9b36875abbca65a06fee1ec79f9c70bf30a44560009f5d9ec62ad10762ae2c54: call start s1 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:51:29.536946Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:9b36875abbca65a06fee1ec79f9c70bf30a44560009f5d9ec62ad10762ae2c54: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T00:52:33.762744Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:3a8109e899c7e72ce7ba1d2fc2a6e460136ec566ae3c34d1af6c190128409955: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T01:12:54.736271Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:aef9d1296bb02de8d013d9ef289506cbeae8cdc35e88d7a9ee5bc6f69de86aa8: call materialize s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T01:13:21.907059Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:a90f9a81b9ae6b5b79ea94325ff264d304bc4b34c1355eaeeb83346a7875cba0: call materialize s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T01:13:45.190953Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:b983f274eb8d5e999e221f9273e1274e1efe49df4f2e5ba0c9081c2f556bf185: call materialize s1 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T01:13:45.703256Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:6a93324b5e68c93ea196f8d5ac2b7fa613be3c6e1b35ccd2822f6eeecb1e3102: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T01:14:15.334128Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:83ee5af0a26c2347873022b19aac75d28b8804ffd677a9985794858d9a196b6b: call materialize s1 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T01:14:15.728122Z",
+  "service": "api-drive",
+  "revision": "api-drive-rmwgzyoy6-72e9c0",
+  "line": "command c:322fbb1eb668e00e91e5df20e66d78d9303e202e5f22be2d2cfd2fcc5d640bb3: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app (repair, with its recorded occurrences)"
+ },
+ {
+  "at": "2026-11-15T01:18:56.133003Z",
+  "service": "api-drive",
+  "revision": "api-drive-00003-sbw",
+  "line": "command c:b91745345809cc10164fb0984be82033963771430f6152cbe4375cfddb8bc0a9: call interpret s1 L0185 at https://rmwczv08x-e43ac0---l0185r-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T01:18:56.323582Z",
+  "service": "api-drive",
+  "revision": "api-drive-00003-sbw",
+  "line": "WARN command c:b91745345809cc10164fb0984be82033963771430f6152cbe4375cfddb8bc0a9: fault exit-after-output at s1"
+ },
+ {
+  "at": "2026-11-15T01:20:18.660200Z",
+  "service": "api",
+  "revision": "api-rmwfmheue-b24633",
+  "line": "command c:b91745345809cc10164fb0984be82033963771430f6152cbe4375cfddb8bc0a9: resuming at s0, from s1's recorded output"
+ },
+ {
+  "at": "2026-11-15T01:20:19.076326Z",
+  "service": "api",
+  "revision": "api-rmwfmheue-b24633",
+  "line": "command c:b91745345809cc10164fb0984be82033963771430f6152cbe4375cfddb8bc0a9: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T01:20:23.951819Z",
+  "service": "api",
+  "revision": "api-rmwfmheue-b24633",
+  "line": "command c:b91745345809cc10164fb0984be82033963771430f6152cbe4375cfddb8bc0a9: recovered at generation 2, completed"
+ },
+ {
+  "at": "2026-11-15T01:20:38.679766Z",
+  "service": "api-drive",
+  "revision": "api-drive-00003-sbw",
+  "line": "command c:363fb09b3d9eb3203ae987d8392a453f8de8cd83ddfb9a8c0fbfe78d7a7bec15: call interpret s1 L0185 at https://rmwczv08x-e43ac0---l0185r-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T01:20:38.849129Z",
+  "service": "api-drive",
+  "revision": "api-drive-00003-sbw",
+  "line": "WARN command c:363fb09b3d9eb3203ae987d8392a453f8de8cd83ddfb9a8c0fbfe78d7a7bec15: fault exit-after-output at s1"
+ },
+ {
+  "at": "2026-11-15T01:22:14.023720Z",
+  "service": "api",
+  "revision": "api-rmwfmheue-b24633",
+  "line": "command c:363fb09b3d9eb3203ae987d8392a453f8de8cd83ddfb9a8c0fbfe78d7a7bec15: resuming at s0, from s1's recorded output"
+ },
+ {
+  "at": "2026-11-15T01:22:14.378492Z",
+  "service": "api",
+  "revision": "api-rmwfmheue-b24633",
+  "line": "command c:363fb09b3d9eb3203ae987d8392a453f8de8cd83ddfb9a8c0fbfe78d7a7bec15: call start s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T01:22:18.660888Z",
+  "service": "api",
+  "revision": "api-rmwfmheue-b24633",
+  "line": "command c:363fb09b3d9eb3203ae987d8392a453f8de8cd83ddfb9a8c0fbfe78d7a7bec15: recovered at generation 2, completed"
+ },
+ {
+  "at": "2026-11-15T01:23:57.254287Z",
+  "service": "api-drive",
+  "revision": "api-drive-00004-5wd",
+  "line": "command c:73ac95511dda07be90538476c31cbce1539f174433f967b9471a653f4d23c2a9: s1 from its recorded output, not run"
+ },
+ {
+  "at": "2026-11-15T01:23:57.342685Z",
+  "service": "api-drive",
+  "revision": "api-drive-00004-5wd",
+  "line": "command c:73ac95511dda07be90538476c31cbce1539f174433f967b9471a653f4d23c2a9: call materialize s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ },
+ {
+  "at": "2026-11-15T01:24:24.033056Z",
+  "service": "api-drive",
+  "revision": "api-drive-00004-5wd",
+  "line": "command c:2551da66841a092ef2988f8abebb8c24c61139d8e617b6703139ec8ab046c3df: s1 from its recorded output, not run"
+ },
+ {
+  "at": "2026-11-15T01:24:24.115281Z",
+  "service": "api-drive",
+  "revision": "api-drive-00004-5wd",
+  "line": "command c:2551da66841a092ef2988f8abebb8c24c61139d8e617b6703139ec8ab046c3df: call materialize s0 L0176 at https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+ }
+]

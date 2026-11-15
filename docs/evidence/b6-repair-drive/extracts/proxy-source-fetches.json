@@ -1,0 +1,38 @@
+[
+ {
+  "at": "2026-11-15T00:16:25.106702996Z",
+  "method": "GET",
+  "path": "/graffiticode-b6-drive/source.json",
+  "decision": "allow",
+  "code": 200,
+  "cls": "compilers-l0185",
+  "details": "via_upstream"
+ },
+ {
+  "at": "2026-11-15T00:16:25.106765996Z",
+  "method": "GET",
+  "path": "/graffiticode-b6-drive/source.json",
+  "decision": "allow",
+  "code": 200,
+  "cls": "compilers-l0185",
+  "details": "via_upstream"
+ },
+ {
+  "at": "2026-11-15T01:18:56.224029449Z",
+  "method": "GET",
+  "path": "/graffiticode-b6-drive/source.json",
+  "decision": "allow",
+  "code": 200,
+  "cls": "compilers-l0185",
+  "details": "via_upstream"
+ },
+ {
+  "at": "2026-11-15T01:20:45.587604048Z",
+  "method": "GET",
+  "path": "/graffiticode-b6-drive/source.json",
+  "decision": "allow",
+  "code": 200,
+  "cls": "compilers-l0185",
+  "details": "via_upstream"
+ }
+]

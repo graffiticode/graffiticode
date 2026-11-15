@@ -209,8 +209,12 @@ const callLines = async (commandId, from) => {
 const l0185Requests = async (from, to) => (await logs([
   "resource.type=\"cloud_run_revision\"", "resource.labels.service_name=\"l0185r\"", "httpRequest.requestUrl:\"/interpret\"", since(from), `timestamp<="${to}"`,
 ].join(" AND "))).length;
-// The egress proxy's lines for the source object's path.
-const proxyFetches = async (objectPath, from) => (await logs([`textPayload:"${objectPath}"`, since(from)].join(" AND "))).length;
+// The egress proxy's requests for the source object's path. The proxy logs
+// structured entries (cos_containers, jsonPayload.host and .path), not text:
+// a textPayload match found nothing, so every boundary run recorded 0.
+const proxyFetches = async (objectPath, from) => (await logs([
+  `logName="projects/${project}/logs/cos_containers"`, "jsonPayload.host=\"storage.googleapis.com\"", `jsonPayload.path="${objectPath}"`, since(from),
+].join(" AND "))).length;
 
 // -------------------------------------------------------------- programs
 
