@@ -40,12 +40,7 @@ test("each class gets its own kind, Broker relationship and run.app target", asy
   // host's other paths and methods, each its own row; never the `external` row.
   assert.equal(by["compilers-l0185"].external, undefined);
   assert.ok(!by["compilers-l0185"].listed.includes("www.googleapis.com"));
-  // B6 slice 5's drive adds the one source object on storage.googleapis.com.
-  assert.deepEqual(by["compilers-l0185"].exceptions, [
-    { host: "www.googleapis.com", method: "GET", path: "/oauth2/v3/certs", other: ["/", "/storage/v1/b"] },
-    { host: "storage.googleapis.com", method: "GET", path: "/graffiticode-b6-drive/source.json", other: ["/", "/storage/v1/b"] },
-  ]);
-  assert.ok(!by["compilers-l0185"].listed.includes("storage.googleapis.com"));
+  assert.deepEqual(by["compilers-l0185"].exceptions, [{ host: "www.googleapis.com", method: "GET", path: "/oauth2/v3/certs", other: ["/", "/storage/v1/b"] }]);
   for (const c of ["compilers-l0000", "compilers-l0176"]) assert.deepEqual(by[c].external, ["www.googleapis.com"], c);
   for (const c of ["compilers-default", "compilers-l0000", "compilers-l0013", "compilers-l0176"]) assert.equal(by[c].exceptions, undefined, c);
   // The open class's canary goes through the open route, so it isn't listed there.
