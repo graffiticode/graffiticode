@@ -1,0 +1,6 @@
+b6-drive:0b6634:o9 head-lost status=uncertain result=unavailable counts={"bound":1,"completed":0,"failed":0,"partial":0,"uncertain":1,"byIntent":{"s0/save:47":1}} outcomes=s0:uncertain ledger=none
+b6-drive:0b6634:o10 head-lost status=uncertain result=unavailable counts={"bound":1,"completed":0,"failed":0,"partial":0,"uncertain":1,"byIntent":{"s0/save:47":1}} outcomes=s0:uncertain ledger=none
+b6-drive:0b6634:o11 lower-lost status=uncertain result=unavailable counts={"bound":1,"completed":0,"failed":0,"partial":0,"uncertain":1,"byIntent":{"s1/save:53":1}} outcomes=s1:uncertain ledger=none
+b6-drive:0b6634:o12 lower-lost status=uncertain result=unavailable counts={"bound":1,"completed":0,"failed":0,"partial":0,"uncertain":1,"byIntent":{"s1/save:53":1}} outcomes=s1:uncertain ledger=none
+b6-drive:0b6634:o13 source-change status=uncertain result=unavailable counts={"bound":1,"completed":0,"failed":0,"partial":0,"uncertain":1,"byIntent":{"s0/save:82":1}} outcomes=s0:uncertain ledger=none
+b6-drive:0b6634:o14 source-change status=uncertain result=unavailable counts={"bound":1,"completed":0,"failed":0,"partial":0,"uncertain":1,"byIntent":{"s0/save:82":1}} outcomes=s0:uncertain ledger=none
