@@ -11,6 +11,15 @@ import { canonicalDigest } from "./canonical.js";
 export const CONTRACT_VERSION = 2;
 export const SUPPORTED_CONTRACT_VERSIONS = Object.freeze([1, 2]);
 
+// Version 3 (docs/c5-l0013-commands-plan.md decision 6): a plan with any
+// item-scoped intent, mixed L0013/L0176 chains included. The plan names its
+// static scopes and holds a connection only if some intent needs one; an
+// execution token selects exactly one scope. A connection-only plan stays
+// version 2, byte for byte. Nothing issues version 3 yet, and it joins
+// SUPPORTED_CONTRACT_VERSIONS only with the Broker and Policy releases that
+// implement it (C5a slices 2 and 3).
+export const CONTRACT_VERSION_SCOPED = 3;
+
 // One stage of a chain as its compiler's preflight reports it (and as the
 // plan pins it). `stage` is the gateway's name for its position (`s0` is the
 // leftmost task).
@@ -26,6 +35,11 @@ export type StageManifest = {
   requiredFunctions: string[],
 };
 
+// What one intent, or one execution, is authorized against.
+export type Scope =
+  | { kind: "connection", id: string }
+  | { kind: "item", id: string };
+
 export type Plan = {
   contractVersion: 2,
   invocationId: string,
@@ -34,6 +48,53 @@ export type Plan = {
   inputDigest: string,
   registryVersion: number,
   stages: StageManifest[],
+};
+
+// A v3 plan: `connectionId` only when some intent has a connection scope, and
+// `scopes`, the static scopes (literal in the models), sorted and without
+// duplicates, inside the digest. Scopes bound from data are recorded on their
+// occurrences, never here.
+export type ScopedPlan = {
+  contractVersion: 3,
+  invocationId: string,
+  taskIds: string[],
+  connectionId?: string,
+  inputDigest: string,
+  registryVersion: number,
+  scopes: Scope[],
+  stages: StageManifest[],
+};
+
+const SCOPE_ID = /^[A-Za-z0-9_:.-]{1,200}$/;
+
+// What's wrong with a scope's shape (not its authority).
+export const scopeProblems = (scope: unknown): string[] => {
+  const s = scope as Record<string, unknown>;
+  if (!s || typeof s !== "object" || Array.isArray(s)) return ["scope is not an object"];
+  const problems: string[] = [];
+  if (s.kind !== "connection" && s.kind !== "item") problems.push("kind");
+  if (typeof s.id !== "string" || !SCOPE_ID.test(s.id)) problems.push("id");
+  const extra = Object.keys(s).filter(k => k !== "kind" && k !== "id");
+  if (extra.length) problems.push(`unknown fields: ${extra.sort().join(", ")}`);
+  return problems;
+};
+
+// A scope's one string form, for keys and comparison.
+export const scopeKey = (scope: Scope): string => `${scope.kind}:${scope.id}`;
+
+// Code-unit order, the same on every machine and in every locale
+// (localeCompare is neither: it would let a locale change a plan's digest).
+const lexical = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+// Scopes as a plan pins them: only `kind` and `id`, sorted by kind then id in
+// code-unit order, each once.
+export const canonicalScopes = (scopes: Scope[]): Scope[] => {
+  const seen = new Map<string, Scope>();
+  for (const s of scopes) {
+    if (scopeProblems(s).length) throw new Error(`malformed scope: ${scopeProblems(s).join(", ")}`);
+    seen.set(scopeKey(s), { kind: s.kind, id: s.id } as Scope);
+  }
+  return [...seen.values()].sort((a, b) => lexical(a.kind, b.kind) || lexical(a.id, b.id));
 };
 
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -75,7 +136,7 @@ export const pinnedStage = (m: StageManifest): StageManifest => ({
 
 // The plan's identity: SHA-256 over its canonical JSON (the same
 // canonicalization as argsDigest).
-export const planDigest = (plan: Plan): string => canonicalDigest(plan);
+export const planDigest = (plan: Plan | ScopedPlan): string => canonicalDigest(plan);
 
 // The stage binding a v2 session carries (`bind`), and that the compiler
 // checks before it executes: everything the plan pins for its stage.

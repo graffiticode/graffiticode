@@ -32,12 +32,14 @@
 //   claim        a recipient turns pending grants for their emails into grants
 
 import { randomUUID } from "node:crypto";
-import { OPERATIONS, PROTECTED_FUNCTIONS } from "@graffiticode/common/protected-registry";
+import { PROTECTED_FUNCTIONS, connectionBackends, credentialOf } from "@graffiticode/common/protected-registry";
 import { PolicyDenied } from "./policy.js";
 import { grantIdFor, isExpired } from "./grants.js";
 import { BrokerConflict } from "./broker-admin.js";
 
-const BACKENDS = new Set(Object.values(OPERATIONS).map(op => op.backend));
+// Only backends a connection acts through: a service backend (gcs, C5) can
+// never be created, granted or listed as a connection.
+const BACKENDS = new Set(connectionBackends());
 const LABEL_MAX = 100;
 
 const ID_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
@@ -51,7 +53,7 @@ const HASH_RE = /^[a-f0-9]{64}$/;
 // list can allow previews and nothing else; they also come with any other
 // permission in that language (policy.js mayUse).
 const registered = backend => Object.entries(PROTECTED_FUNCTIONS).flatMap(([lang, fns]) => Object.entries(fns)
-  .filter(([, spec]) => spec.backend === backend)
+  .filter(([, spec]) => spec.backend === backend && credentialOf(spec) === "connection")
   .map(([fn, spec]) => ({ lang, fn, kind: spec.kind, implicit: spec.implicit === true, delegable: spec.delegable === true })))
   .sort((a, b) => a.lang.localeCompare(b.lang) || a.fn.localeCompare(b.fn));
 // A permission list names only functions from `allowed`; null when it names

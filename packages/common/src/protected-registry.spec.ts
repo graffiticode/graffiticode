@@ -12,7 +12,10 @@ import {
   taskRequiresProtected,
   viewSafeFunctionsForLang,
   isStepRegistered,
-  operationSteps
+  operationSteps,
+  connectionBackends,
+  credentialOf,
+  MAX_CONDITIONAL_ATTEMPTS
 } from "./protected-registry.js";
 
 describe("protected-registry", () => {
@@ -233,5 +236,147 @@ describe("registered execution steps", () => {
     expect(isStepRegistered({ op: "learnosity.sign-items-preview", step: "receipt", purpose: "replay" })).toBe(false);
     expect(isStepRegistered({ op: "learnosity.sign-author", step: "sign", purpose: "sign" })).toBe(false);
     expect(isStepRegistered({ op: "nope", step: "sign", purpose: "sign" })).toBe(false);
+  });
+});
+
+// v9 (C5a, docs/c5-l0013-commands-plan.md): a service-credential, item-scoped
+// function, conditional steps, and v8 kept for artifacts and execution.
+describe("registry: snap and its operation (C5a; version 9 lands in its rollout)", () => {
+  it("registers L0013's snap: write, service credential, item scope, never delegable", () => {
+    expect(Object.keys(PROTECTED_FUNCTIONS["0013"])).toEqual(["snap"]);
+    expect(PROTECTED_FUNCTIONS["0013"].snap).toEqual({
+      backend: "gcs",
+      kind: "write",
+      ops: ["gcs.put-thumbnail"],
+      tags: ["SNAP"],
+      implicit: false,
+      delegable: false,
+      viewSafe: false,
+      credential: "service",
+      scope: "item",
+      // Dated at C5d's activation; nothing executes under it before then.
+      publicCapture: { since: null },
+    });
+    expect(OPERATIONS["gcs.put-thumbnail"]).toMatchObject({ backend: "gcs", kind: "write", credential: "service" });
+    expect(Object.isFrozen(PROTECTED_FUNCTIONS["0013"].snap.publicCapture)).toBe(true);
+  });
+
+  it("leaves every v8 function and operation as it was", () => {
+    expect(Object.keys(PROTECTED_FUNCTIONS["0176"]).sort()).toEqual(["init", "save-to-itembank"]);
+    for (const spec of Object.values(PROTECTED_FUNCTIONS["0176"])) {
+      expect(credentialOf(spec)).toBe("connection");
+      expect((spec as Record<string, unknown>).scope).toBeUndefined();
+      expect((spec as Record<string, unknown>).publicCapture).toBeUndefined();
+    }
+    for (const op of ["learnosity.sign-items-preview", "learnosity.sign-questions-preview", "learnosity.write-items"]) {
+      expect(credentialOf(OPERATIONS[op])).toBe("connection");
+      for (const step of operationSteps(op) ?? []) {
+        expect(step.conditional).toBeUndefined();
+        expect(step.attempts).toBeUndefined();
+      }
+    }
+  });
+
+  it("matches a function's credential to its operation's", () => {
+    for (const fns of Object.values(PROTECTED_FUNCTIONS)) {
+      for (const spec of Object.values(fns)) {
+        for (const op of spec.ops) expect(credentialOf(OPERATIONS[op])).toBe(credentialOf(spec));
+        // Only a service function has an item scope, and only an item-scoped one
+        // a public-capture exception; a service function is never delegable.
+        if (credentialOf(spec) === "service") {
+          expect((spec as Record<string, unknown>).scope).toBe("item");
+          expect(spec.delegable).toBe(false);
+        } else {
+          expect((spec as Record<string, unknown>).publicCapture).toBeUndefined();
+        }
+      }
+    }
+  });
+
+  it("lets snap name its operation only against its own backend", () => {
+    const snap = { lang: "0013", fn: "snap", op: "gcs.put-thumbnail" };
+    expect(isOperationAllowed({ ...snap, backend: "gcs" })).toBe(true);
+    expect(isOperationAllowed({ ...snap, lang: "L0013", backend: "gcs" })).toBe(true);
+    // Never through a connection's backend, never another operation.
+    expect(isOperationAllowed({ ...snap, backend: "learnosity" })).toBe(false);
+    expect(isOperationAllowed({ ...snap, op: "learnosity.write-items", backend: "learnosity" })).toBe(false);
+    // And no connection function reaches it.
+    expect(isOperationAllowed({ lang: "0176", fn: "save-to-itembank", op: "gcs.put-thumbnail", backend: "gcs" })).toBe(false);
+    expect(isOperationAllowed({ lang: "0176", fn: "save-to-itembank", op: "gcs.put-thumbnail", backend: "learnosity" })).toBe(false);
+  });
+
+  it("offers only connection backends for connections", () => {
+    expect(connectionBackends()).toEqual(["learnosity"]);
+    expect(connectionBackends()).not.toContain("gcs");
+  });
+
+  it("keeps snap out of previews, views and implicit compiles, and in the compiler's config", () => {
+    expect(systemPreviewFunctionsForLang("0013")).toEqual([]);
+    expect(viewSafeFunctionsForLang("0013")).toEqual([]);
+    expect(compilerConfigForLang("0013")).toEqual({ protectedFunctions: { SNAP: { fn: "snap", kind: "write" } }, implicitProtectedFunctions: [] });
+  });
+
+  it("requires protection, and so no shared cache, exactly for an L0013 task that snaps", () => {
+    expect(taskRequiresProtected({ lang: "0013", code: { 1: { tag: "SNAP", elts: [] }, root: 1 } })).toBe(true);
+    expect(taskRequiresProtected({ lang: "0013", code: { 1: { tag: "NUM", elts: ["1"] }, root: 1 } })).toBe(false);
+    expect(taskRequiresProtected({ lang: "0000", code: { 1: { tag: "SNAP", elts: [] }, root: 1 } })).toBe(false);
+  });
+});
+
+// C5 plan decision 5: a conditional step may be authorized again after a
+// failed precondition, as numbered attempts; no other step may.
+describe("conditional steps", () => {
+  const op = "gcs.put-thumbnail";
+
+  it("declares every conditional step as a dispatch with 2..MAX attempts", () => {
+    for (const name of Object.keys(OPERATIONS)) {
+      for (const s of operationSteps(name) ?? []) {
+        if (s.conditional === undefined) {
+          expect(s.attempts).toBeUndefined();
+          continue;
+        }
+        expect(s.conditional).toBe(true);
+        expect(s.purpose).toBe("dispatch");
+        expect(Number.isInteger(s.attempts)).toBe(true);
+        expect(s.attempts).toBeGreaterThanOrEqual(2);
+        expect(s.attempts).toBeLessThanOrEqual(MAX_CONDITIONAL_ATTEMPTS);
+      }
+    }
+    expect(operationSteps(op)?.map(s => `${s.id}:${s.purpose}`)).toEqual(["publish:dispatch", "receipt:replay"]);
+    expect(operationSteps(op)?.[0]).toMatchObject({ conditional: true, attempts: 4 });
+  });
+
+  it("authorizes attempts 1..4 of publish, each after the one before", () => {
+    expect(isStepRegistered({ op, step: "publish", purpose: "dispatch" })).toBe(true);
+    expect(isStepRegistered({ op, step: "publish", purpose: "dispatch", after: null, attempt: 1 })).toBe(true);
+    for (const attempt of [2, 3, 4]) {
+      expect(isStepRegistered({ op, step: "publish", purpose: "dispatch", after: "publish", attempt })).toBe(true);
+    }
+    expect(isStepRegistered({ op, step: "receipt", purpose: "replay" })).toBe(true);
+  });
+
+  it("refuses a fifth attempt, a later attempt out of order, and a malformed attempt", () => {
+    expect(isStepRegistered({ op, step: "publish", purpose: "dispatch", after: "publish", attempt: 5 })).toBe(false);
+    expect(isStepRegistered({ op, step: "publish", purpose: "dispatch", after: null, attempt: 2 })).toBe(false);
+    expect(isStepRegistered({ op, step: "publish", purpose: "dispatch", after: "receipt", attempt: 2 })).toBe(false);
+    // Attempt 1 is the first: it follows nothing.
+    expect(isStepRegistered({ op, step: "publish", purpose: "dispatch", after: "publish", attempt: 1 })).toBe(false);
+    for (const attempt of [0, -1, 1.5, "2", null]) {
+      expect(isStepRegistered({ op, step: "publish", purpose: "dispatch", after: "publish", attempt })).toBe(false);
+    }
+    expect(isStepRegistered({ op, step: "receipt", purpose: "replay", attempt: 2 })).toBe(false);
+  });
+
+  it("never lets an unconditional step be attempted twice (L0176 unchanged)", () => {
+    const write = "learnosity.write-items";
+    for (const attempt of [2, 3, 4]) {
+      expect(isStepRegistered({ op: write, step: "questions", purpose: "dispatch", after: "questions", attempt })).toBe(false);
+      expect(isStepRegistered({ op: write, step: "items", purpose: "dispatch", after: "items", attempt })).toBe(false);
+      expect(isStepRegistered({ op: write, step: "items", purpose: "dispatch", after: "questions", attempt })).toBe(false);
+      expect(isStepRegistered({ op: "learnosity.sign-items-preview", step: "sign", purpose: "sign", attempt })).toBe(false);
+    }
+    // Attempt 1, given or not, is the rule as before.
+    expect(isStepRegistered({ op: write, step: "questions", purpose: "dispatch", attempt: 1 })).toBe(true);
+    expect(isStepRegistered({ op: write, step: "items", purpose: "dispatch", after: "questions", attempt: 1 })).toBe(true);
   });
 });

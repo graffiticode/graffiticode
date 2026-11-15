@@ -47,14 +47,52 @@ const CHECKS = {
 };
 const isType = (value, type) => CHECKS[type](value);
 
-const profile = ({ typ, audience, ttlSeconds, required, optional = {} }) => Object.freeze({
+const profile = ({ typ, audience, ttlSeconds, required, optional = {}, rule = null }) => Object.freeze({
   typ,
   audience,
   ttlSeconds,
   maxTtlSeconds: ttlSeconds,
   required: Object.freeze(required),
   optional: Object.freeze(optional),
+  rule,
 });
+
+// Contract v3 (docs/c5-l0013-commands-plan.md decision 6). A connection is
+// optional only in a v3 token; a v2 or v1 token keeps every connection claim
+// it always had. The connection claims travel together.
+const SCOPED = 3;
+const CONNECTION_CLAIMS = ["own", "conn", "backend"];
+const presentCount = (claims, names) => names.filter(n => claims[n] !== undefined).length;
+const scopedOnly = claims => {
+  if (claims.cv !== SCOPED) throw new Error("token claim conn is missing or not a string");
+};
+// A plan's authority (invocation, admission): its connection, unless v3.
+const connectionUnlessScoped = claims => {
+  if (claims.conn === undefined) scopedOnly(claims);
+};
+// A session: its connection's claims, all or none, and none only under v3.
+// A v3 session is always bound to its admitted plan (`pld`), with or without a
+// connection; v1/v2 sessions keep `pld` optional as before.
+const sessionConnection = claims => {
+  const n = presentCount(claims, CONNECTION_CLAIMS);
+  if (n !== 0 && n !== CONNECTION_CLAIMS.length) throw new Error("token connection claims own, conn and backend go together");
+  if (n === 0) scopedOnly(claims);
+  if (claims.cv === SCOPED && claims.pld === undefined) throw new Error("token claim pld is required for a contract v3 session");
+};
+// An execution or replay token selects exactly one scope: a connection (own,
+// conn, backend) or an item (`scp`, v3 only).
+const oneScope = claims => {
+  const n = presentCount(claims, CONNECTION_CLAIMS);
+  if (n !== 0 && n !== CONNECTION_CLAIMS.length) throw new Error("token connection claims own, conn and backend go together");
+  const item = claims.scp !== undefined;
+  if (item === (n !== 0)) throw new Error("token must select exactly one scope");
+  if (item) {
+    scopedOnly(claims);
+    const { scp } = claims;
+    const keys = Object.keys(scp).sort().join(",");
+    if (keys !== "id,kind" || scp.kind !== "item" || typeof scp.id !== "string" || scp.id === "") throw new Error("token claim scp is not an item scope");
+  }
+};
 
 export const PROFILES = Object.freeze({
   // A retry past expiry sends its idempotency key again and gets the same
@@ -63,14 +101,15 @@ export const PROFILES = Object.freeze({
     typ: "gc-invocation+jwt",
     audience: "urn:graffiticode:policy",
     ttlSeconds: 30 * 60,
-    required: { sub: STRING, conn: STRING, inv: STRING, seq: NUMBER },
-    optional: { pub: STRING, cv: NUMBER },
+    required: { sub: STRING, inv: STRING, seq: NUMBER },
+    optional: { conn: STRING, pub: STRING, cv: NUMBER },
+    rule: connectionUnlessScoped,
   }),
   session: profile({
     typ: "gc-session+jwt",
     audience: "urn:graffiticode:policy",
     ttlSeconds: 15 * 60,
-    required: { sub: STRING, own: STRING, conn: STRING, backend: STRING, lang: STRING, inv: STRING, stg: STRING, rv: NUMBER, fns: STRINGS },
+    required: { sub: STRING, lang: STRING, inv: STRING, stg: STRING, rv: NUMBER, fns: STRINGS },
     // Contract v2 (W4): `cv` on every session; a user session bound to an
     // admitted plan adds `pld` (its digest) and `bind` (its stage).
     // `rpl`: a replay-only session (P1b), for a plan whose registry version
@@ -78,7 +117,8 @@ export const PROFILES = Object.freeze({
     // B5: a command's session names the command (`cmd`) and the owner's
     // fencing generation (`fg`). Optional for every legacy session; Policy
     // requires them for a command's (decision 6).
-    optional: { pub: STRING, sys: BOOLEAN, cv: NUMBER, pld: STRING, bind: OBJECT, rpl: BOOLEAN, cmd: STRING, fg: NUMBER },
+    optional: { own: STRING, conn: STRING, backend: STRING, pub: STRING, sys: BOOLEAN, cv: NUMBER, pld: STRING, bind: OBJECT, rpl: BOOLEAN, cmd: STRING, fg: NUMBER },
+    rule: sessionConnection,
   }),
   execution: profile({
     typ: "gc-exec+jwt",
@@ -87,13 +127,16 @@ export const PROFILES = Object.freeze({
     // `prv` (provenance.js) is required with Broker relying on it (W2): a token
     // from a Policy that predates it is refused, and the caller mints a fresh
     // one for the same operation. `pub` names a publication's.
-    required: { sub: STRING, own: STRING, conn: STRING, backend: STRING, lang: STRING, fn: STRING, op: STRING, sid: STRING, opid: STRING, argd: STRING, rv: NUMBER, prv: STRING },
+    required: { sub: STRING, lang: STRING, fn: STRING, op: STRING, sid: STRING, opid: STRING, argd: STRING, rv: NUMBER, prv: STRING },
     // Contract v2 (W4): `cv`, and for user provenance the plan (`pld`) and
     // stage (`stg`) its session was bound to. `sexp`: a system preview
     // session's expiry (epoch seconds), on every token minted under one, so
     // Broker's per-session signature slots outlive every token the session
     // can produce.
-    optional: { pub: STRING, cv: NUMBER, pld: STRING, stg: STRING, sexp: NUMBER, cmd: STRING, fg: NUMBER },
+    // The scope it selects: a connection (`own`, `conn`, `backend`), or under
+    // contract v3 an item (`scp`), exactly one.
+    optional: { own: STRING, conn: STRING, backend: STRING, scp: OBJECT, pub: STRING, cv: NUMBER, pld: STRING, stg: STRING, sexp: NUMBER, cmd: STRING, fg: NUMBER },
+    rule: oneScope,
   }),
   // A retry's way back to a write's recorded outcome once the plan's registry
   // version has left the window (docs/graffiticode-interpreter-plan.md, P1b).
@@ -104,8 +147,9 @@ export const PROFILES = Object.freeze({
     typ: "gc-replay+jwt",
     audience: "urn:graffiticode:broker",
     ttlSeconds: 60,
-    required: { sub: STRING, own: STRING, conn: STRING, backend: STRING, lang: STRING, fn: STRING, op: STRING, sid: STRING, opid: STRING, argd: STRING, rv: NUMBER, prv: STRING },
-    optional: { cv: NUMBER, pld: STRING, stg: STRING, cmd: STRING, fg: NUMBER },
+    required: { sub: STRING, lang: STRING, fn: STRING, op: STRING, sid: STRING, opid: STRING, argd: STRING, rv: NUMBER, prv: STRING },
+    optional: { own: STRING, conn: STRING, backend: STRING, scp: OBJECT, cv: NUMBER, pld: STRING, stg: STRING, cmd: STRING, fg: NUMBER },
+    rule: oneScope,
   }),
   // One admitted plan for one invocation (W4): issued to the gateway by
   // admission, and presented with each stage's snapshot. Policy's audience.
@@ -113,7 +157,9 @@ export const PROFILES = Object.freeze({
     typ: "gc-admission+jwt",
     audience: "urn:graffiticode:policy",
     ttlSeconds: 15 * 60,
-    required: { sub: STRING, conn: STRING, inv: STRING, pld: STRING, cv: NUMBER },
+    required: { sub: STRING, inv: STRING, pld: STRING, cv: NUMBER },
+    optional: { conn: STRING },
+    rule: connectionUnlessScoped,
   }),
 });
 
@@ -132,6 +178,7 @@ const checkProfileClaims = (prof, claims) => {
   for (const [name, type] of Object.entries(prof.optional)) {
     if (claims[name] !== undefined && !isType(claims[name], type)) throw new Error(`token claim ${name} is not a ${type}`);
   }
+  if (prof.rule) prof.rule(claims);
 };
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);

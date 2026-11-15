@@ -3,7 +3,7 @@
 // provenance whatever the token schema tolerates, and the registered step.
 // Its live-state checks are mint's, compared row by row in live.spec.ts.
 import { generateKeyPair, exportJWK, importJWK, SignJWT } from "jose";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { REGISTRY_VERSION, REGISTRY_WINDOW } from "@graffiticode/common/protected-registry";
 import {
   createPolicy,
   PolicyDenied,
@@ -161,7 +161,9 @@ describe("authorize-execution", () => {
   it("binds the request to the token: operation, arguments, registry and the function's operation", async () => {
     await denied(ask({ op: WRITE }), "operation-mismatch");
     await denied(ask({ argsDigest: "b".repeat(64) }), "args-mismatch");
-    await denied(ask({ executionToken: await token({ rv: REGISTRY_VERSION - 1 }) }), "registry-version-changed");
+    // A version outside the window (v8 is in it from v9, C5 plan decision 2).
+    const outside = Math.min(REGISTRY_VERSION, ...REGISTRY_WINDOW) - 1;
+    await denied(ask({ executionToken: await token({ rv: outside }) }), "registry-version-changed");
     await denied(ask({ executionToken: await token({ op: WRITE }), op: WRITE, step: "questions", purpose: "dispatch" }), "operation-not-allowed");
   });
 
