@@ -27,6 +27,24 @@ This plan details **C5a**, authorization without a provider connection. It also 
    - Workers declare a `scopes` capability. Policy never lists, leases or hands over a v3 command to a worker without it, so an older api sweeper can't take one (§3).
 6. **Bucket roles follow the final protocol** and are checked against the live bucket (decision 8, §3 IAM).
 
+**Owner's second review (2026-11-15, at `111f25d3`).** Six findings, each resolved below:
+1. **Staged objects are named by stage too.** The path is `{commandId}/{stage}/{occurrenceId}.png`, the same identity Broker looks up. A test runs identical snap programs in two stages (decision 9).
+2. **Policy can read what it staged.** `policy-run` gets `objectViewer` beside `objectCreator`, on the staging bucket only. That is what adopting a lost acknowledgment needs, and it adds no overwrite (decision 8).
+3. **No legacy writer ever touches the new bucket.**
+   - Direct uploads keep writing only the old bucket, so no direct writer ever gets access to the new one.
+   - At activation they are disabled and drained. Then a one-time migration copy, under the same generation fence, brings over what they wrote.
+   - Only then does the console switch (decision 8, §4).
+4. **Staging expiry never fails a possibly-applied write.**
+   - Policy no longer refuses on staging age.
+   - Broker checks the staged bytes **before** its receipt claim. With no claim, nothing was written, so a missing object is a definite refusal.
+   - Once a claim exists, receipt replay and reconciliation answer, and staging is never read again (decision 9).
+5. **The result is stable.**
+   - The operation's effect is "the item's published sequence is at least this capture's".
+   - Its result `{ item, captureSequence, sha256, url }` comes from its own arguments, so reconciliation rebuilds exactly the original result.
+   - Whether a newer capture had already published is an observation recorded on the receipt's step, not part of the result.
+   - A test covers a dropped outcome followed by a newer capture (decisions 5 and 8).
+6. **Connectionless eligibility follows the chain's effect stages, not its head.** The gate includes an L0013 capture under an L0000 head (decision 1, §3).
+
 ## 1. Where we start (survey, 2026-11-15, at `90a60a03`)
 
 ### The snapshot today
@@ -138,7 +156,10 @@ An intent's `scope` becomes `{ kind: "connection", id }` or `{ kind: "item", id 
 **The invocation.** It is allocated before any model is known, so its key can't depend on scopes.
 - Its sequence key and binding keep `connectionId`, which is `null` when the request names no connection.
 - An existing invocation is unchanged.
-- A `null` connection is allowed only when the chain's head language declares item-scoped functions. Admission then refuses any connection-scoped intent (`connection-required`).
+- **Connectionless eligibility follows the chain's effect stages, not its head.**
+  - A request with no connection may run as a command when **some stage** of the chain is in a language whose commands are on and which declares an item-scoped write. That is decided by the api from the chain's tasks and their languages' registry entries, as `buildEligibility` does for flagged stages.
+  - The head may be any language, such as an L0000 program over an L0013 capture.
+  - Admission then refuses any connection-scoped intent in such a chain (`connection-required`). Any stage's item-scoped intents are authorized as in this decision.
 
 ### 2. The registry: credential and scope, version 9, and version 8 kept
 
@@ -198,9 +219,16 @@ A mismatch in either direction is refused `credential-scope-mismatch`, before th
 
 **The receipt binding** records the selected scope (`scope: { kind, id }`) in place of `connectionId` for v3 tokens. v2 receipts are unchanged.
 
-**Reconcile for `gcs.put-thumbnail`** reads the item's object metadata (decision 8):
-- a `captureSequence` at or above the operation's own is `applied`, with `superseded: false` when equal (the object is this capture's own) and `superseded: true` when greater;
-- a lower one is `unresolved`, as W5 requires: an upload in flight could still land.
+**The operation's effect, result and reconciliation** (`gcs.put-thumbnail`, decision 8):
+- **Its effect** is defined as "the item's published `captureSequence` is at least this capture's". Writing establishes it, and so does finding a newer capture already published. A retry in either case writes nothing.
+- **Its result** is `{ item, captureSequence, sha256, url }`.
+  - It is a pure function of the operation's own arguments, and `resultFromEvidence` returns exactly it from the claim's evidence.
+  - It never depends on what was published later.
+  - Whether this execution wrote, or found a newer capture, is recorded on the receipt's step as `observed: "published" | "newer-present"`. That is an execution-time observation, not part of the result, and reconciliation never reconstructs it.
+- **Reconciliation** reads the item's object metadata:
+  - a `captureSequence` at or above the operation's own establishes the effect, `applied`, with the result from evidence;
+  - a lower one is `unresolved`, as W5 requires, since an upload in flight could still land.
+- **Test** (slice 2 and the C5d drive): capture A's outcome is dropped after its write, then a newer capture B publishes. Reconciling A gives `applied` with a result equal, field for field, to the result A's own execution returned in the undropped control run.
 
 ### 6. Tokens and the plan contract: the plan binds authority, an execution token selects one scope
 
@@ -235,16 +263,21 @@ A mismatch in either direction is refused `credential-scope-mismatch`, before th
 
 **Publishing is one atomic write:**
 1. Read the object's metadata: its `generation` and `captureSequence`, or "absent".
-2. If this capture's sequence isn't greater, stop. The capture is `completed`, `superseded: true`, and nothing is written.
+2. If this capture's sequence isn't greater, stop. The effect is already established, so the capture is `completed` with its stable result, nothing is written, and the step records `observed: "newer-present"`.
 3. Otherwise upload with `ifGenerationMatch` set to that generation, or to `0` when the object was absent.
 4. On `412`, go back to step 1.
 
 **What this guarantees.**
 - The bytes and the sequence change together or not at all, so no crash can leave the pointer moved and the image not.
-- A capture's sequence is unique per item, so retrying the operation is safe. The retry either writes once, or finds the capture already there or superseded.
+- A capture's sequence is unique per item, so retrying the operation is safe. The retry either writes once, or finds its own or a newer capture already published, and writes nothing.
 - *Recommended:* this is the design's second option (`graffiticode-interpreter-design.md:806`, "make the overwrite conditional on a generation … precondition"), and it needs no mirror. The master plan's immutable `thumbnails/{item}/{sha}.png` objects and Firestore pointer are dropped, and C5b's text is amended to match.
 
-**The console** changes one constant, its thumbnail base URL. That change ships before activation, together with the copy of existing thumbnails (§4, C5b). The returned `url` keeps its `?v=<sha>` cache-buster.
+**Every writer of the new bucket follows the protocol.**
+- **Broker** writes it, under the sequence fence.
+- **The one-time migration copy** writes it with `ifGenerationMatch=0` only, which creates a name and never replaces one. Its objects carry no `captureSequence`, which reads as 0, so any capture replaces them.
+- **No direct writer ever gets access.** `l0013r`'s legacy upload keeps writing only the old bucket until it is disabled (§4, C5b), so an unfenced writer can never remove a newer capture or its sequence.
+
+**The console** changes one constant, its thumbnail base URL. It switches only after direct uploads are disabled and drained and the migration copy has run (§4). The returned `url` keeps its `?v=<sha>` cache-buster.
 
 **Permissions follow from the protocol.** See Google's [IAM roles for Cloud Storage](https://docs.cloud.google.com/storage/docs/access-control/iam-roles).
 - `broker-run` needs `objects.get` for the metadata, plus `objects.create` and `objects.delete`, since overwriting a live object requires delete. That is `roles/storage.objectUser` on `graffiticode-thumbnails` only.
@@ -253,12 +286,15 @@ A mismatch in either direction is refused `credential-scope-mismatch`, before th
 - These are checked live before activation: a test write, a precondition failure and an overwrite, all by `broker-run`.
 
 **Staging** (decision 9) lives in a new **`gs://graffiticode-command-staging`**: uniform, private, deleted by a 30-day lifecycle rule.
-- `policy-run` has `roles/storage.objectCreator`, which can create but not overwrite, matching stage-once.
+- `policy-run` has `roles/storage.objectCreator` and `roles/storage.objectViewer`, on this bucket only.
+  - Create without delete can't overwrite, which matches stage-once.
+  - The viewer role gives `objects.get`, which adoption needs: reading the object a lost acknowledgment left behind.
+  - Neither grants delete, so staged bytes are immutable to Policy.
 - `broker-run` has `roles/storage.objectViewer`.
 
 **The old bucket.**
 - Once the console reads the new bucket, nothing reads `graffiticode.appspot.com/thumbnails/`.
-- Both L0013 accounts' `objectAdmin` there is removed at D4 (C5c).
+- Direct uploads there are disabled and drained at activation (§4). Both L0013 accounts' `objectAdmin` there is removed at D4 (C5c).
 - Old objects are left in place.
 
 **The command's own artifact** keys on `[uid, taskId, connectionId-or-null]`, with `ownerUid` set to the caller. Under commands, `snap` isn't cacheable.
@@ -270,7 +306,7 @@ Each capture occurrence moves through these states in Policy's command record (`
 | State | Written by | When | Holds |
 | --- | --- | --- | --- |
 | `reserved` | Policy `reserve`, in one transaction with `item-captures/{item}.nextCaptureSequence += 1` | before rendering | `item`, `captureSequence`, the item scope's authorization (and its rate-limit entry) |
-| `staged` | Policy `stage`: a create-only write of `{commandId}/{occurrenceId}.png` (`ifGenerationMatch=0`), then a transaction `reserved` → `staged` | after rendering | `sha256`, `size`, `stagedAt` |
+| `staged` | Policy `stage`: a create-only write of `{commandId}/{stage}/{occurrenceId}.png` (`ifGenerationMatch=0`), then a transaction `reserved` → `staged` | after rendering | `sha256`, `size`, `stagedAt`, the object's path |
 | `bound` | Policy's command bind (B5) | after staging | args `(item, sha256, captureSequence)`, exactly as reserved and staged; otherwise `binding-mismatch` |
 
 **What the compiler does (C5d).**
@@ -281,23 +317,32 @@ Each capture occurrence moves through these states in Policy's command record (`
 
 The occurrence id comes from `expand` and is stable across attempts, so every call is idempotent.
 
+**Identity includes the stage.** Occurrence ids repeat across stages: identical snap programs in two stages expand to the same id. So a staged object, its record and Broker's lookup are all keyed by `(commandId, stage, occurrenceId)`, the same triple as the operation id. Test (slice 3, and the C5d drive): one chain with the same snap program in two stages stages, binds and publishes two captures, each from its own render, and neither stage reads the other's bytes.
+
 **Recovery, and crashes at each boundary.** C5d tests these end to end; C5a tests them at store level.
 - **After `reserve`, before staging:** the retry gets the same sequence, renders, and stages.
 - **After the staging object is written, before the record moves to `staged`:**
   - the retry's create-only write fails `412`;
-  - Policy reads the existing object, records its digest, and answers with it;
+  - Policy reads the existing object (`objects.get`, decision 8), records its digest, and answers with it;
   - the retry discards its own render, so the bytes staged first always win.
 - **After `staged`, before bind:** the retry doesn't render. It binds with the staged digest.
-- **After bind:** B5 as today. Broker reads the staged bytes by `(commandId, occurrenceId)`, checks the digest, and publishes.
+- **After bind:** B5 as today. Broker reads the staged bytes by `(commandId, stage, occurrenceId)`, checks the digest, and only then claims and publishes.
 
 **An expired worker generation.**
 - `reserve`, `stage` and bind are fenced. A stale worker is refused `fenced` at each one, and the new owner continues from the recorded state.
 - A stale worker can still win the race to create the staging object. Its bytes are then adopted. That is safe: they are a render of the same reserved item, by the same pinned revision.
 
-**Staging expiry.**
-- Policy refuses to mint an execution token for a capture staged more than 25 days ago (`staging-expired`). The refusal is definite and nothing was written, so the occurrence is `failed` and a new capture is needed.
-- Broker refuses with the same reason if the staged object is gone.
-- Once published, the staged bytes are no longer needed: reconcile reads the published object.
+**Staging expiry never fails a write that may have happened.**
+- **Broker checks the staged bytes before claiming.** It reads and checks the staged object **before** its receipt claim, and a write needs a claim first.
+- **No claim, missing bytes.** A missing or mismatched object with no claim for the operation id is refused `staging-unavailable`. That is definite: nothing was written. Only then is the occurrence `failed`.
+- **A claim exists.** Broker never reads staging again:
+  - a recorded outcome is replayed from the receipt;
+  - an uncertain claim goes to reconciliation, which reads the published object.
+
+  So expiry can't turn a possibly applied write into a failure.
+- **Policy makes no age-based refusal.** The 30-day lifecycle only bounds storage.
+- Test (slice 2): the staged object is deleted after a claim whose outcome was dropped. The retry reconciles `applied`, with the stable result, and nothing is refused.
+- Test (slice 2): the staged object is deleted with no claim. The refusal is `staging-unavailable`, definite, and no claim is made.
 
 **Abandoned reservations** never publish, so the next capture's higher sequence publishes normally.
 
@@ -338,11 +383,14 @@ It is **proven live** by a gate that creates the first v3 records. The rollback 
      - an `args.item` other than `scp.id` is refused before the claim;
      - a v2 L0176 token from the current Policy is accepted unchanged;
      - the first capture publishes;
-     - an older sequence arriving after a newer one completes `superseded: true` and leaves the object;
+     - an older sequence arriving after a newer one completes with its stable result, `observed: "newer-present"`, and leaves the object;
+     - a dropped outcome followed by a newer capture reconciles `applied` with the original result (decision 5);
+     - a staged object deleted after a claim still reconciles; deleted with no claim, it is refused `staging-unavailable` before claiming (decision 9);
      - a `412` race between two captures ends on the newer;
      - a retry of a written operation answers from its receipt;
      - a retry after a crash between the upload and `putOutcome` reconciles `applied` and writes nothing;
-     - a staged digest mismatch, or a missing staged object, is refused.
+     - a staged digest mismatch is refused before the claim;
+     - two stages with the same occurrence id read their own staged objects.
 3. **Policy** (`packages/policy`).
    - **Authorization:**
      - scopes (decision 1);
@@ -370,7 +418,8 @@ It is **proven live** by a gate that creates the first v3 records. The rollback 
      - an owner's capture is refused at authorize-execution after the item changes owner;
      - public captures by a signed-in non-owner and by `anonymous` are rate-limited at the 13th;
      - `item-authority-unavailable` never allows;
-     - decision 9's boundaries, fencing and staging expiry, at store level;
+     - decision 9's boundaries and fencing, at store level, including adoption after a lost staging acknowledgment, and two stages with the same occurrence id staging separately;
+     - a chain whose head is L0000 over an L0013 capture is eligible without a connection, and a connectionless chain with a connection-scoped intent is refused `connection-required`;
      - a worker without `scopes` sees no v3 command in `listDue` and can't lease or take one over;
      - every existing L0176 command, repair and reconcile test passes unchanged.
 4. **Console route** (graffiticode-app): `POST /api/internal/item-authority`. Tests:
@@ -401,7 +450,7 @@ Each is recorded in `docs/capability-policy-iam-review.md` as a new step and app
   - their hosts added to `compilers-l0013`'s `network.allow`, with one proxy rollout verified by `verify-rollout.js`.
 - **`policy-run`** may call the console route. The route checks the token's email itself. Read the app's ingress before granting anything there.
 - **The gate bucket `gs://graffiticode-c5a-gate`:** uniform and private, with `broker-run` as `objectUser`. It is deleted after the gate, as `gs://graffiticode-b6-drive` was.
-- **The staging bucket `gs://graffiticode-command-staging`** (decision 8): `policy-run` as `objectCreator`, `broker-run` as `objectViewer`. It is created in C5a because `stage` is part of C5a's tested model.
+- **The staging bucket `gs://graffiticode-command-staging`** (decision 8): `policy-run` as `objectCreator` and `objectViewer`, `broker-run` as `objectViewer`, on that bucket only. It is created in C5a because `stage` is part of C5a's tested model.
 - **A canary window, `canary-window-c5a`,** for the gate only: a time-limited `iam.serviceAccountOpenIdTokenCreator` for the operator on `api-run` (as the gateway) and on `l0013r-run` (as the compiler). It expires on its own, as B6's did.
 - **Nothing else:**
   - nothing changes on `graffiticode.appspot.com`;
@@ -435,6 +484,7 @@ All five slices are merged and released in the order above, and:
 - **Public item:** captured anonymously, rate-limited, and recorded as `anonymous` with `publicCapture: true`.
 - **Mixed chain:** an item capture plus an L0176 save through the canary's sandbox connection is one v3 invocation, and each execution token carries only its own scope.
 - **Mismatches:** `credential-scope-mismatch` holds both ways.
+- **Composition:** an L0000 head over an L0013 capture of the private item runs as a connectionless v3 command, with its item scope authorized.
 - **Reserve, stage and bind:**
   - they run in order;
   - a repeated `reserve` or `stage` returns the recorded state;
@@ -454,34 +504,38 @@ All five slices are merged and released in the order above, and:
 
 Each gets its own detailed slices after C5a.
 
-- **C5b Publish to the thumbnails bucket.**
-  1. Create `graffiticode-thumbnails` (decision 8). Copy every existing `graffiticode.appspot.com/thumbnails/*.png` into it, keeping the names.
-  2. Grant `broker-run` `objectUser` there and verify it live: a write, a `412`, an overwrite.
-  3. Release the console's new base URL. Thumbnails made after step 1 are still only in the old bucket, so they look stale until step 5.
-  4. Release `l0013r` with `THUMBNAIL_BUCKET=graffiticode-thumbnails` and no `predefinedAcl` (a uniform bucket refuses it). `l0013r-run` gets `objectUser` there until D4.
-  5. **Catch up without overwriting newer work.**
-     - Copy each old object updated after step 1 to the new bucket, with `ifGenerationMatch` set to the generation step 1 recorded for that name, or `0` if step 1 found none.
-     - So a capture already written to the new bucket since step 4 is never replaced by an older one.
-     - The copy reports every name it skipped.
-  6. Switch Broker's `THUMBNAIL_BUCKET` from the gate bucket to the thumbnails bucket.
+- **C5b The thumbnails bucket.** Before activation, with nothing yet reading it:
+  1. Create `graffiticode-thumbnails` (decision 8).
+  2. Grant `broker-run` `objectUser` there and verify it live: a write, a `412`, and an overwrite.
+  3. Run the migration copy of every `graffiticode.appspot.com/thumbnails/*.png` with `ifGenerationMatch=0`, keeping names and recording each source generation. Direct uploads still go only to the old bucket, and the console still reads it.
+  4. Switch Broker's `THUMBNAIL_BUCKET` from the gate bucket.
 - **C5c IAM handoff, at D4.**
-  - `l0013r-run` loses `graffiticode-thumbnails`.
   - Both `l0013-run` and `l0013r-run` lose `objectAdmin` on `graffiticode.appspot.com`, in one change.
-  - A check confirms that neither can write either bucket (`get-iam-policy`, plus a denied test write).
-- **C5d The snapshot as a command.**
-  - An L0013 interpreter declaration and model (Track C).
-  - `reserve` and `stage` in the kernel's `ExecContext`, and snap through `invoke` in a command session. With no session, the legacy upload is unchanged until D4.
-  - The api declares the `scopes` capability.
-  - `INTERPRETER_L0013`, `COMMANDS_L0013` and a new `COMPILE_GENERATION_L0013`, released together.
-  - A staged drive covering decision 9's crash points, on gate fixtures in a drive bucket, plus canary snapshot checks.
+  - A check confirms that neither can write either bucket: `get-iam-policy` on both buckets, plus a denied test write.
+  - Neither ever held a grant on `graffiticode-thumbnails`.
+- **C5d The snapshot as a command, and the switch.**
+  - **What ships:**
+    - an L0013 interpreter declaration and model (Track C);
+    - `reserve` and `stage` in the kernel's `ExecContext`;
+    - snap through `invoke` in a command session;
+    - the api's `scopes` capability.
+  - **A staged drive first:** decision 9's crash points and the two-stage case, on gate fixtures in a drive bucket, plus canary snapshot checks.
+  - **Activation, in order:**
+    1. The api turns on `INTERPRETER_L0013`, `COMMANDS_L0013` and a new `COMPILE_GENERATION_L0013` together, with the bridge for connectionless item-scoped chains (C5e's first bullet), so every snap the api serves is a command into the new bucket.
+    2. **Disable direct uploads.** `l0013r` is released with snap refused outside a command session (`snap runs only as a command`), so no request, direct to `l0013r` or through an older api, can upload.
+    3. **Drain.** Wait out `l0013r`'s request timeout after step 2's revision serves all traffic. Then confirm from its logs and the old bucket's object generations that no upload has happened since.
+    4. **Catch up.** Copy each old object updated after C5b's copy into the new bucket, with `ifGenerationMatch` set to the generation C5b's copy recorded for that name, or `0` if it found none. A capture Broker has written since is never replaced, and every skipped name is reported.
+    5. **The console's new base URL** is released.
+  - **Between steps 1 and 5** the console shows the old bucket, which is stale for captures made in that window but never wrong. That window is minutes long.
+  - **Rollback after step 2** turns off only `INTERPRETER_L0013`; commands keep running. Rolling back `l0013r` below step 2's revision would re-enable direct uploads to the old bucket only, never the new one.
   - Repair and `materializes()` for L0013 stay out of scope. A failed snap is captured again.
 - **C5e Bridge.**
-  - With `COMMANDS_L0013` on, a legacy compile that reaches `snap` becomes a command with a fresh key, anonymous callers included, and the answer comes back in today's envelope.
-  - The bridge runs for a connection, or for an item-scoped write in a language whose commands are on.
+  - The bridge is on from activation: a legacy compile reaching `snap` becomes a command with a fresh key, anonymous included, and answers in today's envelope.
+  - It runs for a connection, or for a chain with an item-scoped write stage in a language whose commands are on (decision 1).
   - D3 moves the console to `POST /command` with a stable key.
-  - D4 (bridge off, both accounts lose write) waits for the public-exception decision.
+  - D4 (bridge off, plus C5c) waits for the public-exception decision.
 
-**Order:** decision 0 → C5a → C5b → C5d staged drive → C5d activation → C5e/D3 → the exception decision → D4 with C5c.
+**Order:** decision 0 → C5a → C5b → the C5d staged drive → C5d activation steps 1–5 (with the bridge) → D3 → the exception decision → D4 with C5c.
 
 ## 5. Completion gate for C5
 
@@ -493,7 +547,7 @@ The master plan's C5 tests, amended for decision 8, all passing, the last one af
 5. A public item without an owner token succeeds, rate-limited and recorded.
 6. Chains capturing two items, and chains mixing a snapshot with an L0176 save, are one invocation with a scope per intent. A mismatched credential or scope is refused.
 7. A service operation carrying a connection is refused.
-8. After D4, neither `l0013-run` nor `l0013r-run` can write either bucket.
+8. After D4, neither `l0013-run` nor `l0013r-run` can write either bucket. From C5d step 2 on, `l0013r` uploads nothing.
 
 Also:
 - decision 9's crash, fencing and expiry tests;
@@ -515,5 +569,5 @@ Also:
 - **The console becomes a dependency of Policy for item scopes.** If the console is down, item captures are refused temporarily. L0176 is unaffected.
 - **Registry 9 needs an `l0176r` release.** The change is only the constant, it follows P1b with 8 kept, and it is gated by the staged canary and the repair round-trip.
 - **Narrowing capture to owners** could break a caller not yet seen. The bridge's audit shows it after activation, before D4.
-- **Thumbnails made during C5b's switch** look stale only between C5b steps 3 and 5. The catch-up copy can't overwrite a newer capture (its generation precondition), and the copy log lists what it skipped.
+- **Thumbnails made during activation** look stale only between C5d steps 1 and 5. The catch-up copy can't overwrite a newer capture, because of its generation precondition, and its log lists what it skipped.
 - **The gate's canary window** gives an operator token creation on two runtime accounts. It is time-limited and approved separately, as B6's was.

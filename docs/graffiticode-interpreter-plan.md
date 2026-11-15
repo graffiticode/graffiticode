@@ -466,14 +466,15 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
      - **The rendered PNG is staged once** (create-only) before the operation is bound, and a retry never renders again.
      - **The broker operation** `gcs.put-thumbnail` takes `(item id, PNG digest, capture sequence)` and publishes in **one atomic write**: the item's fixed object in a dedicated uniform bucket (`graffiticode-thumbnails/{item}.png`) carries its `captureSequence` in metadata, and is replaced, with `ifGenerationMatch` on the generation it read, **only if this capture's sequence is greater**. The object is its own pointer, so no crash can leave a pointer and an image disagreeing.
      - **The first capture** always publishes.
-     - **An older capture that finishes after a newer one has published** writes nothing. Its outcome is `completed` with `superseded: true`.
+     - **An older capture that finishes after a newer one has published** writes nothing. Its effect (the published sequence is at least its own) is already established, so it is `completed` with its own stable result `{ item, captureSequence, sha256, url }`. Whether it wrote is an observation on the receipt's step, never part of the result, so reconciliation reproduces the result exactly.
+     - **Only Broker and a one-time create-only migration copy write the new bucket.** Direct uploads go only to the old bucket, and are disabled and drained at activation, before the console switches (C5 plan, §4).
      - **Reserving never publishes**, so an abandoned capture blocks nothing.
    - **C5c IAM handoff, covering both runtime accounts.**
      - Grant the broker runtime account `objectUser` on the dedicated thumbnails bucket (C5 plan, decision 8).
      - Two accounts can upload directly today or during migration:
        - `l0013-run` (TypeScript; its service is retired, but the account keeps its bucket grant);
        - `l0013r-run` (Rust, `deploy.json:837`), which already held production upload access when A1b switched to it.
-     - Both keep direct write *only* until D4 retires legacy snapshots for L0013. Then **both** lose it, on both buckets, in the same release, and a check confirms that neither can write either bucket.
+     - Neither ever gets access to the new bucket. Both keep `objectAdmin` on the old one until D4 retires legacy snapshots for L0013, although `l0013r` uploads nothing from C5d's disable step on. At D4 **both** lose it, in the same release, and a check confirms that neither can write either bucket.
      - Record each grant and removal in `docs/capability-policy-iam-review.md`.
      - Give `l0013r` egress to Policy and Broker.
    - **C5d The snapshot as a command.**
