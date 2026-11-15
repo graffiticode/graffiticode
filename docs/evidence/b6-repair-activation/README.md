@@ -2,7 +2,7 @@
 
 The staged activation of `docs/b6-command-repair-plan.md` slice 5 ("Activation, after the drive passes"), after the drive passed ([evidence](../b6-repair-drive/README.md), report `bed54b`, 13 counted repairs).
 
-**Status: staged, not promoted.** Production's api still serves `api-rmwfmheue-b24633` at 100%. Promotion waits for the owner's review of this evidence.
+**Status: promoted 2026-11-15T18:45Z,** with the owner's approval (`promote-evidence.json`, `reviewedAt` 2026-11-15T18:43:45Z). Production's api serves `api-rmwh6ru3u-cd1743` at 100%. After promotion the production canary passed 33 of 33 (`canary-zm52x`, 18:46:30–18:50:12Z; the production canary's default checks, without the staged run's L0185 tail) and `npm run deploy -- release-check api` answered `api: ok; serving api-rmwh6ru3u-cd1743`.
 
 ## The candidate
 

@@ -410,6 +410,8 @@ Each has a recommendation; the plan below assumes it.
    - the canary job against the tag, plus one repair round-trip on the canary account against the tag (production's Broker has no faults, so a narrowing-made `failed` occurrence is repaired);
    - then promotion with evidence.
 
+   **Released 2026-11-15: `api-rmwh6ru3u-cd1743`** (from `18467f95`, `REPAIR_L0176=on`; [evidence](evidence/b6-repair-activation/README.md)). Staged, the canary passed 36 of 36 and the repair round-trip 11 of 11 against the tag. Promoted with the owner's approval; the production canary then passed 33 of 33 (`canary-zm52x`) and `release-check api` passed. The drive's setup is retired (IAM review, Step 24).
+
    **Rollback:** a forward release with `REPAIR_L0176=off`. Deleting the flag's line is refused by the guard above. Repairs already pending still finish under any repairs-capable api, since the worker doesn't consult the flag, and Policy's `B6-repairs` floor keeps the Policy they need.
 
 ## 4. Completion gate (as amended by decision 2)

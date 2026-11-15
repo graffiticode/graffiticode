@@ -4,8 +4,8 @@
   "release": "rmwh6ru3u-cd1743",
   "revision": "api-rmwh6ru3u-cd1743",
   "networkHash": null,
-  "reviewer": "Claude Code for the owner (B6 activation, REPAIR_L0176=on; agent execution under the owner's authorization, not an independent human review)",
-  "reviewedAt": "2026-11-15T02:20:00.000Z",
+  "reviewer": "jeff@artcompiler.com's approval (owner review of #394; promotion run by Claude Code)",
+  "reviewedAt": "2026-11-15T18:43:45.000Z",
   "corpus": {
     "ranAt": "2026-11-15T02:15:30.447Z",
     "tasks": 36,
@@ -30,6 +30,6 @@
       "failed": 0,
       "record": "docs/evidence/b6-repair-activation/roundtrip-record.json"
     },
-    "reviewedAt": "set when the owner approves promotion"
+    "reviewedAt": "the owner's approval of promotion, after #394 merged as 3f970c10"
   }
 }
