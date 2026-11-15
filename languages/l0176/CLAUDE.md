@@ -366,7 +366,7 @@ npm run rust:fixtures # build packages/core, then regenerate tests/conformance/*
 
 The same model as the TypeScript (see "Learnosity credentials" above); what carries it in Rust:
 
-- `protected_functions` declares `INIT` (`init`, sign) and `SAVE_TO_ITEMBANK` (`save-to-itembank`, write); `implicit_protected_functions` declares `init`, since every render is signed; `registry_version` is 9 (the registry's `REGISTRY_VERSION`, checked by `scripts/check-registry-version.js`).
+- `protected_functions` declares `INIT` (`init`, sign) and `SAVE_TO_ITEMBANK` (`save-to-itembank`, write); `implicit_protected_functions` declares `init`, since every render is signed; `registry_version` is 8 (the registry's `REGISTRY_VERSION`, checked by `scripts/check-registry-version.js`).
 - **A compile with a connection** is admitted by the kernel before it runs (one policy snapshot), and signs and saves through `ExecContext::invoke`.
 - **A compile without one** is not admitted at all (`Dialect::degrades_without_connection`): a save is reported as `itemBank: { skipped: "no-connection" }`, and a preview signs through `ExecContext::open_system_session`, which asks policy for a system session (`PolicyClient::preview_session`, `POST /v1/preview-session`) once per compile and grants it `init` alone, whatever policy's answer lists. A write can never run on it. Only a compile the server permitted opens one (`Dialect::system_sessions_gateway_only`, below).
 - **Save plans** live in the compile's `ExecContext::state`. `save-to-itembank` saves only an activity this compile built, matched by value; an activity arriving as data, or built by another compile, is refused.

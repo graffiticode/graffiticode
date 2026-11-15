@@ -120,13 +120,6 @@ describe("the read path", () => {
     expect(allocateInvocation).not.toHaveBeenCalled();
   });
 
-  it("serves an artifact made under v8 by default, since v9 declares it compatible", async () => {
-    expect(ARTIFACT_COMPATIBLE_VERSIONS).toContain(8);
-    await store({ registryVersion: 8 });
-    await expect(read(L0000_TASK)).resolves.toEqual(STORED);
-    expect(compile).not.toHaveBeenCalled();
-  });
-
   it("asks for a save or recompile when there is no result, or an incompatible one", async () => {
     expect((await read()).errors[0].message).toMatch(/no result through this connection yet\. Save or recompile/);
     await store({ registryVersion: INCOMPATIBLE });

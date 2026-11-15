@@ -48,13 +48,16 @@
 // function with a service credential and an item scope, and its operation
 // `gcs.put-thumbnail`, whose one dispatch step is conditional with bounded
 // attempts. No v8 function or operation changes meaning, so v8 stays in the
-// window and its artifacts stay compatible (decision 2).
+// window and its artifacts stay compatible (decision 2). These entries land
+// first, under version 8, unreachable: nothing supports a v3 token or an item
+// scope yet. The version itself moves to 9 in its own rollout change, merged
+// just before Broker's release (P1b), so main stays releasable meanwhile.
 // v8: `learnosity.write-items` only creates records (AT-10 B1). Broker writes
 // every question and item under a reference derived from the operation id,
 // never the one a program sent, and an item may link only to questions the
 // same save writes. A save never changes a record already in the bank;
 // re-saving a program makes new records.
-export const REGISTRY_VERSION = 9;
+export const REGISTRY_VERSION = 8;
 
 // Earlier registry versions whose stored artifacts this version still serves
 // (docs/graffiticode-interpreter-plan.md, P1). An artifact records the version
@@ -63,9 +66,7 @@ export const REGISTRY_VERSION = 9;
 // bump that changes no protected function's meaning may list its predecessors
 // here so their artifacts stay readable; that listing is part of the bump's
 // security review. The default is none: a version not listed is incompatible.
-// v8: v9 adds functions and changes none of v8's (C5 plan decision 2). There
-// is no retirement step for this listing.
-export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([8]);
+export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([]);
 
 // A registry bump is rolled out across services, not swapped at once
 // (docs/graffiticode-interpreter-plan.md, P1b). Policy and Broker deploy
@@ -77,11 +78,7 @@ export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([8]
 // it covers are interpreted under the current tables. Each plan keeps the
 // version it was admitted under, and a receipt binds that version, so the
 // two are never interchangeable. The default is none.
-// v8: kept until its own retirement gate (C5 plan decision 2): every v8
-// command terminal or given up, and no repair or materialize pending on one.
-// Removing it earlier would leave v8 plans' unreached stages and B6 repairs
-// with replay-only sessions.
-export const REGISTRY_WINDOW: readonly number[] = Object.freeze([8]);
+export const REGISTRY_WINDOW: readonly number[] = Object.freeze([]);
 
 // Whether `version` may still execute: the current version, or one in the
 // window.
