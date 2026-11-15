@@ -57,6 +57,9 @@ describe("contract v2", () => {
   });
 });
 
+// Computed with en_US.UTF-8 and da_DK.UTF-8: identical.
+const GOLDEN_MIXED_CASE = "a24e22bdf4ad1e06cfd9893e82bf302eecd2cf01662970a0188c7a7be667b713";
+
 // C5 plan decision 6: v3 plans name their scopes; nothing issues v3 yet.
 describe("contract v3 types", () => {
   it("defines v3 without supporting it yet (Broker and Policy add it when they implement it)", () => {
@@ -92,8 +95,20 @@ describe("contract v3 types", () => {
     expect(scopes).toEqual([{ kind: "connection", id: "conn-1" }, { kind: "item", id: "a" }, { kind: "item", id: "b" }]);
     expect(scopes.map(scopeKey)).toEqual(["connection:conn-1", "item:a", "item:b"]);
     expect(() => canonicalScopes([{ kind: "item", id: "" }])).toThrow(/malformed scope/);
+    // Code-unit order, not locale order: upper case sorts before lower case.
+    expect(canonicalScopes([{ kind: "item", id: "a" }, { kind: "item", id: "A" }, { kind: "item", id: "b" }, { kind: "item", id: "B" }, { kind: "item", id: "_" }, { kind: "item", id: "0" }]).map(scopeKey))
+      .toEqual(["item:0", "item:A", "item:B", "item:_", "item:a", "item:b"]);
+    expect(canonicalScopes([{ kind: "item", id: "A" }, { kind: "item", id: "a" }])).toEqual(canonicalScopes([{ kind: "item", id: "a" }, { kind: "item", id: "A" }]));
     const plan = (s) => ({ contractVersion: 3 as const, invocationId: "inv-1", taskIds: ["t0"], inputDigest: hex("9"), registryVersion: 9, scopes: canonicalScopes(s), stages: [] });
     expect(planDigest(plan([{ kind: "item", id: "b" }, { kind: "item", id: "a" }]))).toBe(planDigest(plan([{ kind: "item", id: "a" }, { kind: "item", id: "b" }])));
     expect(planDigest(plan([{ kind: "item", id: "a" }]))).not.toBe(planDigest(plan([{ kind: "item", id: "b" }])));
+  });
+
+  // The same scopes give the same digest on every machine, whatever its locale
+  // (en-US and da-DK order "A" and "a" differently under localeCompare).
+  it("digests mixed-case scopes to a fixed value", () => {
+    const plan = { contractVersion: 3 as const, invocationId: "inv-1", taskIds: ["t0"], inputDigest: hex("a"), registryVersion: 9, stages: [], scopes: canonicalScopes([{ kind: "item", id: "a" }, { kind: "item", id: "A" }]) };
+    expect(plan.scopes).toEqual([{ kind: "item", id: "A" }, { kind: "item", id: "a" }]);
+    expect(planDigest(plan)).toBe(GOLDEN_MIXED_CASE);
   });
 });

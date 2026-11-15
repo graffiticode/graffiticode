@@ -82,15 +82,19 @@ export const scopeProblems = (scope: unknown): string[] => {
 // A scope's one string form, for keys and comparison.
 export const scopeKey = (scope: Scope): string => `${scope.kind}:${scope.id}`;
 
-// Scopes as a plan pins them: only `kind` and `id`, sorted by kind then id,
-// each once.
+// Code-unit order, the same on every machine and in every locale
+// (localeCompare is neither: it would let a locale change a plan's digest).
+const lexical = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+// Scopes as a plan pins them: only `kind` and `id`, sorted by kind then id in
+// code-unit order, each once.
 export const canonicalScopes = (scopes: Scope[]): Scope[] => {
   const seen = new Map<string, Scope>();
   for (const s of scopes) {
     if (scopeProblems(s).length) throw new Error(`malformed scope: ${scopeProblems(s).join(", ")}`);
     seen.set(scopeKey(s), { kind: s.kind, id: s.id } as Scope);
   }
-  return [...seen.values()].sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id));
+  return [...seen.values()].sort((a, b) => lexical(a.kind, b.kind) || lexical(a.id, b.id));
 };
 
 const DIGEST = /^[a-f0-9]{64}$/;

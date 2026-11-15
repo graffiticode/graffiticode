@@ -68,10 +68,20 @@ describe("contract v3 tokens", () => {
   it("let a plan's invocation, admission and session have no connection", async () => {
     await expect(roundTrip("invocation", { sub: "u1", inv: "inv-1", seq: 1, cv: 3 })).resolves.not.toHaveProperty("conn");
     await expect(roundTrip("admission", { sub: "u1", inv: "inv-1", pld: "p", cv: 3 })).resolves.not.toHaveProperty("conn");
-    await expect(roundTrip("session", { ...SESSION, cv: 3 })).resolves.not.toHaveProperty("conn");
+    await expect(roundTrip("session", { ...SESSION, pld: "p", cv: 3 })).resolves.not.toHaveProperty("conn");
     // A v3 plan with a connection scope still carries it (mixed chains).
     await expect(roundTrip("admission", { sub: "u1", conn: "conn-1", inv: "inv-1", pld: "p", cv: 3 })).resolves.toMatchObject({ conn: "conn-1" });
-    await expect(roundTrip("session", { ...SESSION, ...CONN, cv: 3 })).resolves.toMatchObject(CONN);
+    await expect(roundTrip("session", { ...SESSION, ...CONN, pld: "p", cv: 3 })).resolves.toMatchObject(CONN);
+  });
+
+  it("bind every v3 session to its admitted plan, with or without a connection", async () => {
+    await expect(issued("session", { ...SESSION, cv: 3 })).rejects.toThrow(/pld/);
+    await expect(issued("session", { ...SESSION, ...CONN, cv: 3 })).rejects.toThrow(/pld/);
+    await refusedAtVerify("session", { ...SESSION, cv: 3 }, /pld/);
+    await refusedAtVerify("session", { ...SESSION, ...CONN, cv: 3 }, /pld/);
+    // v1/v2 sessions keep pld optional, as before.
+    await expect(roundTrip("session", { ...SESSION, ...CONN, cv: 2 })).resolves.not.toHaveProperty("pld");
+    await expect(roundTrip("session", { ...SESSION, ...CONN })).resolves.not.toHaveProperty("pld");
   });
 
   it("select exactly one scope in an execution or replay token", async () => {

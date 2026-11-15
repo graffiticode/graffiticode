@@ -71,10 +71,13 @@ const connectionUnlessScoped = claims => {
   if (claims.conn === undefined) scopedOnly(claims);
 };
 // A session: its connection's claims, all or none, and none only under v3.
+// A v3 session is always bound to its admitted plan (`pld`), with or without a
+// connection; v1/v2 sessions keep `pld` optional as before.
 const sessionConnection = claims => {
   const n = presentCount(claims, CONNECTION_CLAIMS);
   if (n !== 0 && n !== CONNECTION_CLAIMS.length) throw new Error("token connection claims own, conn and backend go together");
   if (n === 0) scopedOnly(claims);
+  if (claims.cv === SCOPED && claims.pld === undefined) throw new Error("token claim pld is required for a contract v3 session");
 };
 // An execution or replay token selects exactly one scope: a connection (own,
 // conn, backend) or an item (`scp`, v3 only).
