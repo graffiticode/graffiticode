@@ -57,6 +57,10 @@ This plan details **C5a**, authorization without a provider connection. It also 
    - Admission applies an explicit, tested per-stage rule: a stage needs contract 3 only if it has an item-scoped intent. Existing pinned revisions and their records are untouched.
    - The gate runs end to end through approved revisions (decision 10, §3).
 
+**Owner's fourth review (2026-11-15, at `7f479cfd`).** One rollout correction:
+- L0185 and L0000 have no protected functions, so they keep reporting registry version **0**, and only `l0176r` and `l0013r` report 9. The owner reproduced that L0185 reporting 9 beside L0176 reporting 9 is refused `registry-version-mismatch`.
+- The release instructions are corrected (decision 10, §3), and the mixed-version admission check is added to Policy's tests and the gate.
+
 ## 1. Where we start (survey, 2026-11-15, at `90a60a03`)
 
 ### The snapshot today
@@ -403,7 +407,12 @@ The occurrence id comes from `expand` and is stable across attempts, so every ca
 - **Policy (slice 3):**
   - each row is admitted with the listed versions and refused without them;
   - a v2 plan pinning a `[1, 2]` revision is admitted as before;
-  - a v3 plan whose L0013 stage pins a revision without 3 is refused.
+  - a v3 plan whose L0013 stage pins a revision without 3 is refused;
+  - **mixed registry versions,** with Policy at registry 9:
+    - L0185 reporting 0 with L0176 reporting 9 is admitted;
+    - L0185 reporting 9 with L0176 reporting 9 is refused `registry-version-mismatch`;
+    - L0000 reporting 0 over L0013 reporting 9 is admitted;
+    - L0013 reporting 8 with L0176 reporting 9 is refused.
 - **Kernel (slice 6):** a connection-scoped stage under a v3 plan sends Policy byte-identical snapshot and command-session requests to v2, and never decodes a token.
 
 **The compiler work (C5a slice 6).** It is released inert, because the api allocates no L0013 command until C5d. Its parts:
@@ -416,7 +425,10 @@ The occurrence id comes from `expand` and is stable across attempts, so every ca
   - `l0013r` gains `pinnable: { lang: "0013", contractVersions: [3] }`. Its releases are recorded `approved` in the revisions database like L0176's.
   - The contract-floor report (`packages/deploy/src/revisions.js:126`) counts a revision as meeting the floor when it lists the floor or a later version. A v3-only revision then isn't reported as unsupported. This is tested in `test:deploy`.
 - **Other pinnable services:**
-  - `l0176r` and `l0185r` are released with registry 9, and `l0000r` too if it reports a registry version. Their `contractVersions` stay `[1, 2]` (per the rule), so their declarations don't change.
+  - **Only protected languages report the registry version.** Admission requires every stage with protected functions to report the plan's version, and every stage without any to report 0 (`policy.ts:1479-1493`).
+    - The bump therefore needs exactly two compiler changes: `l0176r` and `l0013r` report 9.
+    - `l0185r` and `l0000r` have no protected functions. They keep reporting **0** and are **not** released for the bump. A non-zero version from them is refused `registry-version-mismatch`.
+  - `l0176r`'s registry-9 release keeps `contractVersions` at `[1, 2]` (per the rule), so its declaration doesn't change.
   - Existing revisions and their approval records are never edited. Plans already pinned to them keep them.
 
 ## 3. C5a, in detail
@@ -522,7 +534,8 @@ It is **proven live** by a gate that creates the first v3 records. The rollback 
 4. **Policy, at the floor commit.** It accepts both versions, no api asks it for v3, and it lists and leases v3 commands only to `scopes` workers.
 5. **Compilers (slice 6).**
    - `l0013r` is released pinnable with `[3]`, inert: no api gives it a session.
-   - `l0176r` and `l0185r` are released at registry 9, with their declarations unchanged at `[1, 2]`.
+   - `l0176r` is released reporting registry 9, with its declaration unchanged at `[1, 2]`.
+   - `l0185r` and `l0000r` are not released: they have no protected functions and keep reporting 0.
    - Each release's approval record is checked in the revisions database. The window keeps 8, so v8 plans keep executing on their pinned revisions.
 6. **The api's `REGISTRY_VERSION` 9,** with `COMMANDS_L0013` absent. It doesn't declare `scopes`; that comes with C5d.
 7. **The live gate** (below), only after steps 3–5 are released with the floor in `deploy.json`, and `l0013r`'s release is approved with `[3]`.
@@ -588,6 +601,7 @@ All six slices are merged and released in the order above, and:
   - the mixed and composed plans pin `[1, 2]` revisions for their L0176 and L0000 stages and are admitted;
   - a plan pinning a pre-slice-6 `l0013r` revision is refused `contract-version-unsupported` (it isn't pinnable);
   - the approval records of revisions released before C5a are byte-identical before and after.
+- **Registry versions:** the admitted plans' manifests show `l0000r` reporting 0 and `l0176r` and `l0013r` reporting 9. The staged canary's L0185 → L0176 checks (`--l0185-tail`) show L0185 at 0 beside L0176 at 9, admitted.
 - **A conditional retry:** two captures of the public item are started so that the older one publishes first. The newer one's audit shows two `execute-step` attempts with distinct decision ids, and the object ends on the newer capture.
 - **Reserve, stage and bind:**
   - they run in order;
