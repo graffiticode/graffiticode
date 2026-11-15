@@ -4,7 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   MANDATORY_PHASES, phaseProblems, artifactPresent, savedReferences, lrnIdOf, sourceProblems, lowerRebuildProblems, dispatchProblems, auditByOperation,
-  caseProblems, scenarioProblems, MINIMUM_ORIGINALS, MINIMUM_COUNTED_REPAIRS, REQUIRED_PROBES, caseNonce, sourceCaseUrl,
+  caseProblems, scenarioProblems, MINIMUM_ORIGINALS, MINIMUM_COUNTED_REPAIRS, REQUIRED_PROBES, caseNonce, sourceCaseUrl, exclusionProblems,
 } from "../lib/b6-drive-checks.js";
 
 test("GET /data's real envelope: a missing artifact is absent, a saved one present", () => {
@@ -159,4 +159,72 @@ test("every case gets a fresh nonce, so a chain of its own", () => {
   const [a, b] = [caseNonce(), caseNonce()];
   assert.notEqual(sourceCaseUrl(url, a), sourceCaseUrl(url, b));
   assert.equal(sourceCaseUrl(url, a).split("?")[0], url);
+});
+
+// The shapes of drive run 68c1e1: the api answered all 8 with 200, one was
+// admitted, and the other 7 were refused at admission (Policy's
+// admissionRefusal), so the HTTP status alone said "8 ran".
+const exclusionRace = () => {
+  const occ = "x:59ef";
+  const ledger = [{ stage: "s0", occurrenceId: occ, status: "completed", repairId: "c:win", claim: "admission" }];
+  const audit = (opid, claims, dispatches) => new Map([[opid, { claims, replays: 0, dispatches }]]);
+  const loser = i => ({
+    key: `k:x${i}`,
+    answer: { status: 200, data: { commandId: `c:lose${i}`, outcome: "failed", reason: "occurrence-claimed" }, error: null },
+    state: { commandId: `c:lose${i}`, status: "failed", phase: "allocated", admission: null, stages: {}, admissionRefusal: { reason: "occurrence-claimed" }, invocationId: `inv-${i}` },
+    claims: [],
+    audit: audit(`inv-${i}/s0/${occ}`, 0, {}),
+  });
+  const winner = {
+    key: "k:x6",
+    answer: { status: 200, data: { commandId: "c:win", outcome: "completed" }, error: null },
+    state: { commandId: "c:win", status: "completed", phase: "admitted", admission: { recording: 1 }, stages: { s0: {} }, publication: { state: "published" }, invocationId: "inv-w" },
+    claims: ["inv-w/s0/x:59ef"],
+    audit: audit(`inv-w/s0/${occ}`, 1, { items: 1, questions: 1 }),
+  };
+  return { requests: [0, 1, 2, 3, 4, 5].map(loser).concat(winner, loser(7)), ledger };
+};
+
+test("exclusion: one admitted, the rest refused at admission though answered 200, one ledger winner, one write", () => {
+  assert.deepEqual(exclusionProblems(exclusionRace()), []);
+  // Re-judged from records: no answers.
+  const rejudged = exclusionRace();
+  rejudged.requests.forEach(r => { r.answer = null; });
+  assert.deepEqual(exclusionProblems(rejudged), []);
+  // A refused before allocation is a 409 with no state.
+  const early = exclusionRace();
+  early.requests[0] = { key: "k:x0", answer: { status: 409, data: null, error: { reason: "nothing-to-repair" } }, state: null, claims: [], audit: new Map() };
+  assert.deepEqual(exclusionProblems(early), []);
+});
+
+test("exclusion: two admitted, a loser that wrote, a second ledger entry or a repeated step each fail", () => {
+  const two = exclusionRace();
+  two.requests[0].state = { ...two.requests[0].state, admissionRefusal: undefined, admission: { recording: 1 } };
+  assert.match(exclusionProblems(two).join("; "), /2 of 8 repairs admitted/);
+
+  const wrote = exclusionRace();
+  wrote.requests[1].claims = ["inv-1/s0/x:59ef"];
+  wrote.requests[1].audit = new Map([["inv-1/s0/x:59ef", { claims: 1, replays: 0, dispatches: { items: 1 } }]]);
+  assert.match(exclusionProblems(wrote).join("; "), /k:x1: refused, yet 1 Broker claim/);
+
+  const reason = exclusionRace();
+  reason.requests[2].state.admissionRefusal = { reason: "binding-mismatch" };
+  reason.requests[2].answer.data.reason = "binding-mismatch";
+  assert.match(exclusionProblems(reason).join("; "), /k:x2: refused "binding-mismatch"/);
+
+  const ledger = exclusionRace();
+  ledger.ledger.push({ ...ledger.ledger[0], repairId: "c:lose0" });
+  assert.match(exclusionProblems(ledger).join("; "), /the ledger has 2 entries/);
+
+  const held = exclusionRace();
+  held.ledger[0].repairId = "c:lose3";
+  assert.match(exclusionProblems(held).join("; "), /held by c:lose3, not the admitted repair c:win/);
+
+  const twice = exclusionRace();
+  twice.requests[6].audit = new Map([["inv-w/s0/x:59ef", { claims: 1, replays: 0, dispatches: { items: 2, questions: 1 } }]]);
+  assert.match(exclusionProblems(twice).join("; "), /dispatched items 2 times/);
+
+  const noAudit = exclusionRace();
+  noAudit.requests[6].audit = new Map([["inv-w/s0/x:59ef", { claims: 0, replays: 0, dispatches: {} }]]);
+  assert.match(exclusionProblems(noAudit).join("; "), /made 0 write\(s\), expected 1/);
 });

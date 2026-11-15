@@ -195,3 +195,47 @@ export const scenarioProblems = state => {
   for (const r of counted) if (!retried.has(r.repairId)) problems.push(`${r.repairId}: never retried by its key`);
   return problems;
 };
+
+// Ledger exclusion (plan slice 5, case 5), judged from the records, not from
+// the HTTP status: the api answers 200 once it has allocated a repair, and
+// Policy's admission runs after that, so a repair that lost the race is a 200
+// whose answer is `outcome: "failed"` with `reason: "occurrence-claimed"` (or
+// `nothing-to-repair` once the winner finished), or a 409 refused before
+// allocation. Each request is { key, answer, state, claims, audit }:
+//   answer  what POST /command/:id/repair answered ({ status, data, error }),
+//           or null when the run is re-judged from its records;
+//   state   Policy's state record of the repair it allocated, or null;
+//   claims  Broker's receipts under that repair's invocation;
+//   audit   Broker's audit for that repair's operation ids (auditByOperation).
+// `ledger` is the original's ledger for the occurrence the race was over.
+export const EXCLUSION_LOSER_REASONS = Object.freeze(["occurrence-claimed", "nothing-to-repair"]);
+export const exclusionProblems = ({ requests = [], ledger = [] }) => {
+  const problems = [];
+  const reasonOf = r => r.state?.admissionRefusal?.reason ?? r.answer?.data?.reason ?? r.answer?.error?.reason ?? null;
+  const admitted = requests.filter(r => r.state && !r.state.admissionRefusal && r.state.admission);
+  if (admitted.length !== 1) problems.push(`${admitted.length} of ${requests.length} repairs admitted, expected exactly 1`);
+  const winner = admitted.length === 1 ? admitted[0] : null;
+  for (const r of requests) {
+    if (r === winner) continue;
+    const reason = reasonOf(r);
+    if (!EXCLUSION_LOSER_REASONS.includes(reason)) problems.push(`${r.key}: refused ${JSON.stringify(reason)}, not ${EXCLUSION_LOSER_REASONS.join(" or ")}`);
+    if (r.answer && r.answer.status === 200 && r.answer.data?.outcome !== "failed") problems.push(`${r.key}: answered 200 with outcome ${JSON.stringify(r.answer.data?.outcome)}, not failed`);
+    if (r.answer && r.answer.status !== 200 && r.answer.status !== 409) problems.push(`${r.key}: answered ${r.answer.status}`);
+    if (r.state && Object.keys(r.state.stages ?? {}).length > 0) problems.push(`${r.key}: refused, yet it has stages`);
+    if ((r.claims ?? []).length !== 0) problems.push(`${r.key}: refused, yet ${r.claims.length} Broker claim(s)`);
+    const dispatched = [...(r.audit?.values?.() ?? [])].reduce((n, a) => n + a.claims + Object.values(a.dispatches).reduce((m, c) => m + c, 0), 0);
+    if (dispatched !== 0) problems.push(`${r.key}: refused, yet ${dispatched} Broker audit claim(s) or dispatch(es)`);
+  }
+  if (ledger.length !== 1) problems.push(`the ledger has ${ledger.length} entries, expected 1`);
+  else if (winner && ledger[0].repairId !== winner.state.commandId) problems.push(`the ledger's entry is held by ${ledger[0].repairId}, not the admitted repair ${winner.state.commandId}`);
+  else if (ledger[0].status !== "completed") problems.push(`the ledger's entry is ${ledger[0].status}, not completed`);
+  if (winner) {
+    if (winner.state.status !== "completed" || winner.state.publication?.state !== "published") problems.push(`the admitted repair is ${winner.state.status}, publication ${winner.state.publication?.state}`);
+    if ((winner.claims ?? []).length !== 1) problems.push(`the admitted repair has ${(winner.claims ?? []).length} Broker claim(s), expected 1`);
+    const audits = [...(winner.audit?.values?.() ?? [])];
+    const writes = audits.filter(a => Object.keys(a.dispatches).length > 0).length;
+    if (writes !== 1) problems.push(`the admitted repair made ${writes} write(s), expected 1`);
+    for (const a of audits) for (const [step, c] of Object.entries(a.dispatches)) if (c > 1) problems.push(`the admitted repair dispatched ${step} ${c} times`);
+  }
+  return problems;
+};

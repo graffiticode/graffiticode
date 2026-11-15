@@ -27,7 +27,11 @@
 //                    claim or dispatch.
 //   repairs          no faults: a repair of each failed-only, partly
 //                    completed and L0176 -> L0176 original.
-//   exclusion        no faults: 8 concurrent repairs of the exclusion original.
+//   exclusion        no faults: 8 concurrent repairs of the exclusion original,
+//                    judged from Policy's and Broker's records (a lost race is a
+//                    200 whose outcome is failed); --rejudge <runId> judges an
+//                    earlier race from its records (it posts only the
+//                    winner's key again).
 //   reconcile        each drop-outcome original's writes through Policy's
 //                    /v1/receipts/reconcile, as the console.
 //   dropped          no faults: /materialize the head-lost originals, and
@@ -54,7 +58,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { createHash, randomBytes } from "node:crypto";
 import { createCanaryEnv, loadDeployServices, http, serviceEnv } from "./lib/canary-env.js";
-import { phaseProblems, artifactPresent, sourceProblems, lowerRebuildProblems, dispatchProblems, auditByOperation, caseProblems, scenarioProblems, caseNonce, sourceCaseUrl } from "./lib/b6-drive-checks.js";
+import { phaseProblems, artifactPresent, sourceProblems, lowerRebuildProblems, dispatchProblems, auditByOperation, caseProblems, scenarioProblems, caseNonce, sourceCaseUrl, exclusionProblems } from "./lib/b6-drive-checks.js";
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -593,34 +597,62 @@ if (phase === "exclusion") {
   needFaults({});
   const original = originalsFor("exclusion")[0];
   if (!original) throw new Error("no exclusion original: run originals-fail first");
-  const keys = Array.from({ length: 8 }, (_, i) => `b6-drive:${runId}:x${i}`);
-  const answers = await Promise.all(keys.map(key => postRepair(original.commandId, key)));
-  const winners = answers.filter(a => a.status === 200);
-  const refused = answers.filter(a => a.status !== 200).map(a => a.error?.reason);
-  record("exactly one of 8 concurrent repairs claims", winners.length === 1 && refused.every(r => r === "occurrence-claimed" || r === "nothing-to-repair"),
-    `${winners.length} ran; refused ${refused.join(", ")}`);
-  if (winners.length === 1) {
-    const repairId = winners[0].data.commandId;
-    const st = await settled(repairId);
+  // `--rejudge <runId>` judges an earlier run's race from its records (no
+  // repair is raced again; only the winner's key is re-sent); otherwise this run races 8 keys of its own, recorded
+  // before they are sent.
+  const rejudge = flag("--rejudge");
+  const raceId = rejudge ?? runId;
+  const keys = Array.from({ length: 8 }, (_, i) => `b6-drive:${raceId}:x${i}`);
+  state.exclusionRuns ??= {};
+  let answers = keys.map(() => null);
+  if (rejudge) {
+    answers = state.exclusionRuns[rejudge]?.answers ?? answers;
+  } else {
+    state.exclusionRuns[runId] = { originalId: original.commandId, keys, at: new Date().toISOString() };
+    await save();
+    answers = await Promise.all(keys.map(key => postRepair(original.commandId, key)));
+    state.exclusionRuns[runId].answers = answers;
+    await save();
+  }
+  const [occurrence] = failedOf(original);
+  const requests = [];
+  for (const [i, key] of keys.entries()) {
+    const commandId = answers[i]?.data?.commandId ?? commandIdFor(key);
+    const st = await settled(commandId, 24).catch(() => null);
+    const claims = st?.invocationId ? await claimsOf(st.invocationId) : [];
+    const opid = st?.invocationId ? `${st.invocationId}/${occurrence.stage}/${occurrence.occurrenceId}` : null;
+    const audit = opid ? await brokerAudit([opid], original.at) : new Map();
+    requests.push({ key, answer: answers[i], state: st, claims, audit });
+  }
+  const { ledger } = await policyRead(original.commandId, "ledger");
+  const forOccurrence = ledger.filter(e => e.stage === occurrence.stage && e.occurrenceId === occurrence.occurrenceId);
+  const problems = exclusionProblems({ requests, ledger: forOccurrence });
+  record(`one of 8 concurrent repairs admitted, one ledger winner, one write${rejudge ? ` (run ${rejudge}, from its records)` : ""}`, problems.length === 0,
+    problems.join("; ") || requests.map(r => `${r.key.split(":").at(-1)}:${r.state?.admissionRefusal?.reason ?? r.state?.status}`).join(" "));
+  const winner = requests.find(r => r.state && !r.state.admissionRefusal && r.state.admission);
+  if (winner) {
+    const repairId = winner.state.commandId;
     const entry = {
-      key: keys[answers.indexOf(winners[0])],
+      key: winner.key,
       repairId,
       originalId: original.commandId,
       originalInvocation: original.invocationId,
       purpose: "exclusion",
       phase,
-      status: st?.status,
-      publication: st?.publication,
-      selection: st?.selection,
-      invocationId: st?.invocationId,
-      counted: st?.status === "completed" && st?.publication?.state === "published" && st?.publication?.artifact?.invocationId === original.invocationId,
-      concurrent: answers.map(a => ({ status: a.status, reason: a.error?.reason ?? null, repairId: a.data?.commandId ?? null })),
-      at: new Date().toISOString()
+      status: winner.state.status,
+      publication: winner.state.publication,
+      selection: winner.state.selection,
+      invocationId: winner.state.invocationId,
+      counted: problems.length === 0 && winner.state.status === "completed" && winner.state.publication?.state === "published" && winner.state.publication?.artifact?.invocationId === original.invocationId,
+      concurrent: requests.map(r => ({ key: r.key, httpStatus: r.answer?.status ?? null, outcome: r.answer?.data?.outcome ?? null, reason: r.state?.admissionRefusal?.reason ?? r.answer?.data?.reason ?? r.answer?.error?.reason ?? null, repairId: r.state?.commandId ?? null })),
+      race: raceId,
+      at: new Date().toISOString(),
     };
-    state.repairs.push(entry);
+    state.repairs = state.repairs.filter(r => !(r.purpose === "exclusion" && r.repairId === repairId)).concat(entry);
+    await save();
     const again = await postRepair(original.commandId, entry.key);
     record("the winner's key answers the same repair", again.data?.commandId === repairId, `${again.status} ${again.data?.commandId}`);
-    record("the winner completed and published", entry.counted, `${entry.status} ${JSON.stringify(entry.publication)}`);
+    record("the winner completed and published as the original's artifact", entry.counted, `${entry.status} ${JSON.stringify(entry.publication)}`);
   }
 }
 
