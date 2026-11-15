@@ -12,11 +12,11 @@ import {
 import { buildDataApi } from "./data.js";
 import { signProgram, buildReadArtifact, buildReadPublished } from "./read.js";
 import { InvocationRefused } from "./invocations.js";
+import { buildMemoryArtifactStorer } from "./storage/artifacts.js";
 
 // A registry version below every compatible one: an artifact made under it is
 // incompatible by default. (v8 is compatible from v9, C5 plan decision 2.)
 const INCOMPATIBLE = Math.min(REGISTRY_VERSION, ...ARTIFACT_COMPATIBLE_VERSIONS) - 1;
-import { buildMemoryArtifactStorer } from "./storage/artifacts.js";
 
 // Stand-ins for the task and compile storers, so the read path runs without
 // Firestore.
