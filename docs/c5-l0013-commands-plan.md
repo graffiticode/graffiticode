@@ -45,6 +45,18 @@ This plan details **C5a**, authorization without a provider connection. It also 
    - A test covers a dropped outcome followed by a newer capture (decisions 5 and 8).
 6. **Connectionless eligibility follows the chain's effect stages, not its head.** The gate includes an L0013 capture under an L0000 head (decision 1, §3).
 
+**Owner's third review (2026-11-15, at `23bec2d7`).** Two integration gaps, each resolved below:
+1. **Publishing retries are registered, bounded attempts.** A `412` made publishing dispatch its one step again, which Broker's step rules refuse.
+   - The operation's step now declares `attempts: 4` and `conditional: true`.
+   - Each attempt is authorized fresh by Policy and audited, and recorded on the receipt.
+   - Only a `conditional` step may have more than one attempt. L0176's steps declare neither, so their rules are unchanged, and a test proves it.
+   - A test covers the older capture winning first and the newer retrying (decisions 2, 5 and 8).
+2. **Compiler support comes before the gate, by approval, per stage.**
+   - The kernel today only asks for a session through a connection (`languages/l0000/crates/core/src/protected.rs:263-266`), so a connectionless L0013 stage needs real compiler work, not a constant.
+   - That work moves into C5a (slice 6). `l0013r` becomes pinnable, advertising contract 3 only from that release.
+   - Admission applies an explicit, tested per-stage rule: a stage needs contract 3 only if it has an item-scoped intent. Existing pinned revisions and their records are untouched.
+   - The gate runs end to end through approved revisions (decision 10, §3).
+
 ## 1. Where we start (survey, 2026-11-15, at `90a60a03`)
 
 ### The snapshot today
@@ -166,7 +178,11 @@ An intent's `scope` becomes `{ kind: "connection", id }` or `{ kind: "item", id 
 **New fields.**
 - `FunctionSpec` gains `credential` (`"connection"`, the default, or `"service"`), `scope` (`"connection"`, the default, or `"item"`) and `publicCapture` (`{ since: "<date>" }`, or absent).
 - L0013 registers `snap`: kind `write`, `credential: "service"`, `scope: "item"`, not delegable, `publicCapture: { since: <activation date> }`.
-  - Its operation is `gcs.put-thumbnail`: backend `gcs`, kind `write`, `credential: "service"`, one `dispatch` step.
+  - Its operation is `gcs.put-thumbnail`: backend `gcs`, kind `write`, `credential: "service"`, with one `dispatch` step `publish` (`conditional: true`, `attempts: 4`) and a `receipt` replay step.
+- **A step may declare `conditional: true` with `attempts: n`** (2 ≤ n ≤ 4).
+  - Such a step is a precondition-guarded write: a failed precondition means nothing was written.
+  - Only a `conditional` step may be authorized more than once, as attempts 1..n of that same step, in order.
+  - Every other step keeps today's rule: once, in registered order, never repeated. L0176's steps are unchanged.
 - `isOperationAllowed` takes the backend from the credential: the connection's for a connection function, the operation's own for a service function.
 - `manage.ts` builds `BACKENDS` only from connection-credential operations, so `gcs` can never be created, granted or listed as a connection.
 
@@ -217,6 +233,28 @@ An intent's `scope` becomes `{ kind: "connection", id }` or `{ kind: "item", id 
 
 A mismatch in either direction is refused `credential-scope-mismatch`, before the receipt claim.
 
+**Conditional attempts** (`gcs.put-thumbnail`'s `publish` step, decision 8):
+- **Authorization.** Each attempt is authorized by Policy before it is sent, as `authorize-execution { step: "publish", purpose: "dispatch", after, attempt }`.
+  - Attempt 1 has `after: null`. Attempt k > 1 has `after: "publish"` and `attempt: k`.
+  - Policy allows attempt k only if the step is `conditional`, k ≤ its `attempts`, and the execution token is live. Each attempt gets its own decision id.
+  - `isStepRegistered` gains `attempt`. For a step that isn't `conditional`, any `attempt` > 1 is `step-not-registered`, so L0176's validation is byte for byte the same.
+- **Audit.** Each attempt is audited as an `execute-step` with its `attempt` and decision id.
+- **Receipt record.**
+  - Each attempt is persisted before the next one is authorized, at `receipts/{opid}/attempts/{k}`, as `{ step, attempt, decisionId, observed }`. `observed` is `precondition-failed`, `published` or `newer-present`.
+  - A `precondition-failed` attempt wrote nothing, so it isn't a completed step and never makes an outcome `partial`.
+  - Only the attempt that wrote, or found a newer capture, completes the step.
+- **Exhaustion.** After `attempts` failed preconditions, the operation is `failed`, `precondition-contention`. That is definite, because no attempt wrote.
+  - A new capture is needed, but in practice each `412` means another capture published. A newer one ends the loop at the next read as `newer-present`, so only older captures that kept winning first can exhaust it.
+  - The operation deadline still bounds the whole loop.
+- **Tests (slice 2):**
+  - **Older wins first.** Captures A (sequence 5) and B (sequence 6) both read the object at sequence 4, and A writes first.
+    - B's attempt 1 fails `412`. Its attempt 2 is authorized fresh, with a new decision id, reads sequence 5, and writes.
+    - Each of B's two attempts has its own audit entry and receipt record. The object ends at sequence 6.
+    - A is `completed` with `observed: published`.
+  - **Four `412`s in a row** make B `failed` with `precondition-contention`. The object is never written by B.
+  - **Retry rules.** A fifth attempt, an attempt on a step that isn't `conditional` (L0176's `questions`, `items`), and attempt k with `after` other than `publish` are each refused by Policy.
+  - **L0176 unchanged.** Every existing L0176 step-order test passes unchanged.
+
 **The receipt binding** records the selected scope (`scope: { kind, id }`) in place of `connectionId` for v3 tokens. v2 receipts are unchanged.
 
 **The operation's effect, result and reconciliation** (`gcs.put-thumbnail`, decision 8):
@@ -265,7 +303,7 @@ A mismatch in either direction is refused `credential-scope-mismatch`, before th
 1. Read the object's metadata: its `generation` and `captureSequence`, or "absent".
 2. If this capture's sequence isn't greater, stop. The effect is already established, so the capture is `completed` with its stable result, nothing is written, and the step records `observed: "newer-present"`.
 3. Otherwise upload with `ifGenerationMatch` set to that generation, or to `0` when the object was absent.
-4. On `412`, go back to step 1.
+4. On `412`, the attempt is recorded `precondition-failed`, and the next attempt (decision 5) is authorized fresh and goes back to step 1, up to 4 attempts.
 
 **What this guarantees.**
 - The bytes and the sequence change together or not at all, so no crash can leave the pointer moved and the image not.
@@ -345,6 +383,41 @@ The occurrence id comes from `expand` and is stable across attempts, so every ca
 - Test (slice 2): the staged object is deleted with no claim. The refusal is `staging-unavailable`, definite, and no claim is made.
 
 **Abandoned reservations** never publish, so the next capture's higher sequence publishes normally.
+
+### 10. Compiler support, approval and the per-stage contract rule
+
+**What a stage needs from its compiler under v3.** It depends only on the stage's own intents:
+
+| Stage | What its compiler sees under a v3 plan | Contract it must advertise |
+| --- | --- | --- |
+| no protected functions (an L0000 head, L0185) | no session or token, the same preflight and model as v2 | 2 or 3 |
+| only connection-scoped intents (L0176 in a mixed chain) | a session through the plan's connection, as today; tokens are opaque bearer strings that the kernel only passes back to Policy | 2 or 3 |
+| any item-scoped intent (L0013's `snap`) | a command session without a connection, plus `reserve` and `stage` | 3 |
+
+**The rule.**
+- Admission computes each stage's required contract from its admitted intents. It refuses `contract-version-unsupported` unless the pinned revision's approval record lists it, and lists 2 or 3 for the first two rows.
+- A v2 plan is checked exactly as today, against `CONTRACT_VERSION` 2.
+- *Recommended:* it is explicit, and it means a mixed or composed v3 plan can pin today's approved L0000 and L0176 revisions. Their records aren't rewritten.
+
+**Tests.**
+- **Policy (slice 3):**
+  - each row is admitted with the listed versions and refused without them;
+  - a v2 plan pinning a `[1, 2]` revision is admitted as before;
+  - a v3 plan whose L0013 stage pins a revision without 3 is refused.
+- **Kernel (slice 6):** a connection-scoped stage under a v3 plan sends Policy byte-identical snapshot and command-session requests to v2, and never decodes a token.
+
+**The compiler work (C5a slice 6).** It is released inert, because the api allocates no L0013 command until C5d. Its parts:
+- **The kernel** (`languages/l0000/crates/core`):
+  - A **command session no longer needs a connection.** `command_session` is used whenever the exec context carries a command session, and the legacy snapshot path still requires a connection (`protected.rs:263-266`).
+  - **`reserve` and `stage`** are added to `ExecContext` and the Policy client (decision 9).
+  - The preflight manifest's `requiredFunctions` and the model's intents carry item scopes (`{ kind: "item", id }`) when the item is a literal.
+- **L0013** (`languages/l0013/crates/core`): inside a command session, snap runs `reserve`, renders only if nothing is staged, then runs `stage` and `invoke` with `(item, sha256, captureSequence)`. Outside one it uploads directly to the old bucket, unchanged until C5d's disable step.
+- **Approval** (`deploy.json`):
+  - `l0013r` gains `pinnable: { lang: "0013", contractVersions: [3] }`. Its releases are recorded `approved` in the revisions database like L0176's.
+  - The contract-floor report (`packages/deploy/src/revisions.js:126`) counts a revision as meeting the floor when it lists the floor or a later version. A v3-only revision then isn't reported as unsupported. This is tested in `test:deploy`.
+- **Other pinnable services:**
+  - `l0176r` and `l0185r` are released with registry 9, and `l0000r` too if it reports a registry version. Their `contractVersions` stay `[1, 2]` (per the rule), so their declarations don't change.
+  - Existing revisions and their approval records are never edited. Plans already pinned to them keep them.
 
 ## 3. C5a, in detail
 
@@ -430,6 +503,16 @@ It is **proven live** by a gate that creates the first v3 records. The rollback 
    - `deploy.json` gains a `baselines` entry `{ milestone: "C5a-scopes", commit: <the slice 3 merge>, floor: true }` for `policy` and `broker`.
    - From then on, `rollback --release` and releases from an older commit are refused below it.
    - Test: `npm run test:deploy` covers the new entry.
+6. **Compilers** (decision 10): kernel command sessions without a connection, `reserve` and `stage`, item scopes in manifests and models, L0013's command branch, `l0013r` pinnable at `[3]`, and the floor report's rule.
+   - **Kernel tests:**
+     - a connection-scoped stage under a v3 plan sends byte-identical Policy requests;
+     - a connectionless command session is used for an item-scoped intent, and the legacy snapshot path still needs a connection.
+   - **L0013 tests, against a fake Policy:**
+     - a command snap reserves, renders, stages, binds and invokes;
+     - a retry after staging doesn't render;
+     - two stages with the same snap program each reserve and stage their own capture;
+     - outside a command session, snap is unchanged.
+   - **Deploy test:** `test:deploy` covers `l0013r`'s pinnable entry and the floor report's rule.
 
 ### Release order (C5a)
 
@@ -437,9 +520,12 @@ It is **proven live** by a gate that creates the first v3 records. The rollback 
 2. **The console route.** Nothing calls it yet.
 3. **Broker, at the floor commit.** It accepts v3 tokens and registry versions 8 and 9, and is configured with the gate bucket.
 4. **Policy, at the floor commit.** It accepts both versions, no api asks it for v3, and it lists and leases v3 commands only to `scopes` workers.
-5. **Compilers report 9:** `l0176r` and `l0013r` releases that change only the constant. The window keeps 8, so v8 plans keep executing.
+5. **Compilers (slice 6).**
+   - `l0013r` is released pinnable with `[3]`, inert: no api gives it a session.
+   - `l0176r` and `l0185r` are released at registry 9, with their declarations unchanged at `[1, 2]`.
+   - Each release's approval record is checked in the revisions database. The window keeps 8, so v8 plans keep executing on their pinned revisions.
 6. **The api's `REGISTRY_VERSION` 9,** with `COMMANDS_L0013` absent. It doesn't declare `scopes`; that comes with C5d.
-7. **The live gate** (below), only after steps 3–5 are released with the floor in `deploy.json`.
+7. **The live gate** (below), only after steps 3–5 are released with the floor in `deploy.json`, and `l0013r`'s release is approved with `[3]`.
 
 ### IAM changes (C5a)
 
@@ -451,7 +537,13 @@ Each is recorded in `docs/capability-policy-iam-review.md` as a new step and app
 - **`policy-run`** may call the console route. The route checks the token's email itself. Read the app's ingress before granting anything there.
 - **The gate bucket `gs://graffiticode-c5a-gate`:** uniform and private, with `broker-run` as `objectUser`. It is deleted after the gate, as `gs://graffiticode-b6-drive` was.
 - **The staging bucket `gs://graffiticode-command-staging`** (decision 8): `policy-run` as `objectCreator` and `objectViewer`, `broker-run` as `objectViewer`, on that bucket only. It is created in C5a because `stage` is part of C5a's tested model.
-- **A canary window, `canary-window-c5a`,** for the gate only: a time-limited `iam.serviceAccountOpenIdTokenCreator` for the operator on `api-run` (as the gateway) and on `l0013r-run` (as the compiler). It expires on its own, as B6's did.
+- **The gate api, `api-c5a-gate`,** for the gate only, as B6's `api-drive` was:
+  - the api at the C5a commit, as `api-run`, private;
+  - `COMMANDS_L0013=on`, generation `c5a-gate-1`, and the `scopes` capability, with **no sweeper**, so recovery is left to C5d's drive;
+  - `BASE_URL_L0013` is production `l0013r`, whose approved revision the plans pin;
+  - it is deleted after the gate.
+- **A canary window, `canary-window-c5a`:** a time-limited `iam.serviceAccountOpenIdTokenCreator` for the operator on `console-run@graffiticode-app`, to call the gate api as the canary account does through the console. It expires on its own, as B6's did.
+- **Nobody impersonates a compiler.** Every compiler call comes from the approved `l0013r`, `l0176r` and `l0000r` revisions themselves.
 - **Nothing else:**
   - nothing changes on `graffiticode.appspot.com`;
   - `graffiticode-thumbnails` isn't created yet (C5b).
@@ -467,11 +559,12 @@ Each is recorded in `docs/capability-policy-iam-review.md` as a new step and app
 - **The gate itself needs no rollback:**
   - its records stay as evidence;
   - the canary items are left as they are;
-  - the gate bucket is deleted after the evidence is extracted.
+  - the gate bucket and `api-c5a-gate` are deleted after the evidence is extracted, and the window expires;
+  - `l0013r`'s pinnable revision stays approved, which is harmless while no production api allocates L0013 commands.
 
 ### C5a completion gate
 
-All five slices are merged and released in the order above, and:
+All six slices are merged and released in the order above, and:
 
 **L0176 is unchanged.**
 - The staged production canary passes 36 of 36 against Policy and Broker at their C5a releases.
@@ -479,12 +572,23 @@ All five slices are merged and released in the order above, and:
 - A v2 plan digest computed before and after is identical.
 - A stored v8 artifact is still served.
 
-**The live gate passes.** `scripts/c5a-gate.js` runs in `canary-window-c5a`, as the canary account. It uses the two owner-approved fixture items, one canary-owned private and one canary-owned public, both listed in the evidence. Through the released Policy and Broker, it shows:
+**The live gate passes.**
+- `scripts/c5a-gate.js` runs in `canary-window-c5a`, as the canary account, through `api-c5a-gate`.
+- It uses the two owner-approved fixture items, one canary-owned private and one canary-owned public, both listed in the evidence.
+- Every plan pins approved revisions:
+  - the `[3]` `l0013r` release;
+  - the current production `l0000r` and the registry-9 `l0176r`, at `[1, 2]`, under the per-stage rule.
+- Through the released Policy, Broker and compilers, it shows the following.
 - **Private item:** captured by its owner. Refused for a non-owner, at allocation and again at authorize-execution after access is narrowed.
 - **Public item:** captured anonymously, rate-limited, and recorded as `anonymous` with `publicCapture: true`.
 - **Mixed chain:** an item capture plus an L0176 save through the canary's sandbox connection is one v3 invocation, and each execution token carries only its own scope.
 - **Mismatches:** `credential-scope-mismatch` holds both ways.
 - **Composition:** an L0000 head over an L0013 capture of the private item runs as a connectionless v3 command, with its item scope authorized.
+- **Per-stage contracts:**
+  - the mixed and composed plans pin `[1, 2]` revisions for their L0176 and L0000 stages and are admitted;
+  - a plan pinning a pre-slice-6 `l0013r` revision is refused `contract-version-unsupported` (it isn't pinnable);
+  - the approval records of revisions released before C5a are byte-identical before and after.
+- **A conditional retry:** two captures of the public item are started so that the older one publishes first. The newer one's audit shows two `execute-step` attempts with distinct decision ids, and the object ends on the newer capture.
 - **Reserve, stage and bind:**
   - they run in order;
   - a repeated `reserve` or `stage` returns the recorded state;
@@ -514,11 +618,9 @@ Each gets its own detailed slices after C5a.
   - A check confirms that neither can write either bucket: `get-iam-policy` on both buckets, plus a denied test write.
   - Neither ever held a grant on `graffiticode-thumbnails`.
 - **C5d The snapshot as a command, and the switch.**
-  - **What ships:**
-    - an L0013 interpreter declaration and model (Track C);
-    - `reserve` and `stage` in the kernel's `ExecContext`;
-    - snap through `invoke` in a command session;
-    - the api's `scopes` capability.
+  - **What ships** (the compiler side shipped in C5a slice 6):
+    - an L0013 interpreter declaration (Track C);
+    - the api's `scopes` capability in production.
   - **A staged drive first:** decision 9's crash points and the two-stage case, on gate fixtures in a drive bucket, plus canary snapshot checks.
   - **Activation, in order:**
     1. The api turns on `INTERPRETER_L0013`, `COMMANDS_L0013` and a new `COMPILE_GENERATION_L0013` together, with the bridge for connectionless item-scoped chains (C5e's first bullet), so every snap the api serves is a command into the new bucket.
