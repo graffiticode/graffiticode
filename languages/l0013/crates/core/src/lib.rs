@@ -16,10 +16,10 @@
 pub mod crop;
 
 /// The protected registry's version (`packages/common/src/protected-registry.ts`), kept equal to
-/// it by `scripts/check-registry-version.js`. L0013 registers `snap` (C5,
+/// it by `scripts/check-registry-version.js`. L0013 registers `snap` from version 9 (C5,
 /// `docs/c5-l0013-commands-plan.md`), and reports this version in its preflight manifests
 /// (C5a slice 6).
-pub const REGISTRY_VERSION: u32 = 8;
+pub const REGISTRY_VERSION: u32 = 9;
 
 /// `snap`'s registered names (the registry's `PROTECTED_FUNCTIONS["0013"].snap`).
 pub const SNAP: &str = "snap";

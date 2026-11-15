@@ -241,7 +241,17 @@ describe("registered execution steps", () => {
 
 // v9 (C5a, docs/c5-l0013-commands-plan.md): a service-credential, item-scoped
 // function, conditional steps, and v8 kept for artifacts and execution.
-describe("registry: snap and its operation (C5a; version 9 lands in its rollout)", () => {
+describe("registry v9", () => {
+  it("is version 9, with v8 in the window and its artifacts compatible (decision 2)", () => {
+    expect(REGISTRY_VERSION).toBe(9);
+    expect(REGISTRY_WINDOW).toEqual([8]);
+    expect(ARTIFACT_COMPATIBLE_VERSIONS).toEqual([8]);
+    expect(isAcceptedRegistryVersion(8)).toBe(true);
+    expect(isArtifactCompatible(8)).toBe(true);
+    expect(isAcceptedRegistryVersion(7)).toBe(false);
+    expect(isArtifactCompatible(7)).toBe(false);
+  });
+
   it("registers L0013's snap: write, service credential, item scope, never delegable", () => {
     expect(Object.keys(PROTECTED_FUNCTIONS["0013"])).toEqual(["snap"]);
     expect(PROTECTED_FUNCTIONS["0013"].snap).toEqual({
