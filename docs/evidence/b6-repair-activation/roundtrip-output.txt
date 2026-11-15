@@ -1,0 +1,13 @@
+b6 activation round-trip 97c038 against https://rmwh6ru3u-cd1743---api-sja7fatcta-uc.a.run.app (api-rmwh6ru3u-cd1743); original c:2864612af8de8e5432defbc783cb39ca0b8359ae9682db1a72e3a0208d867ca5
+ok     POST /command to the tag answered: 200 partial
+ok     the connection's owner permissions restored exactly: null
+ok     the original: A completed, B failed: partial; x:6e7405cf:failed x:8ba63972:completed
+ok     POST /command/:id/repair to the tag answered: 200 completed
+ok     the repair selected exactly B: [{"stage":"s0","occurrenceId":"x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5"}]
+ok     the repair completed and published as the original invocation's artifact: completed, {"state":"published","resultDigest":"b79132440b02938214e6e6a17b59715fcf9c21abac30ace60396e010349c7627","artifact":{"invocationId":"inv-01fbb06e-14ec-45c2-ab46-61d5c25b4459","seq":1}}
+ok     the staged revision ran both commands: api-rmwh6ru3u-cd1743: command c:2864612af8de8e5432defbc783cb39…at https://rmwe83rgw-eae49e---l0176r-sja7fatcta-uc.a.run.app | api-rmwh6ru3u-cd1743: command c:241b2037aaff27d657ccebb1c34835…7fatcta-uc.a.run.app (repair, with its recorded occurrences)
+ok     Broker: A written once by the original, B once by the repair, nothing else: {"A, original":{"claims":1,"replays":0,"dispatches":{"items":1,"questions":1}},"B, original":{"claims":0,"replays":0,"dispatches":{}},"A, repair":{"claims":0,"replays":0,"dispatches":{}},"B, repair":{"claims":1,"replays":0,"dispatches":{"items":1,"questions":1}}}
+ok     Broker's receipts: one under each invocation: {"original":["inv-01fbb06e-14ec-45c2-ab46-61d5c25b4459/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2"],"repair":["inv-e232a4b3-34ec-4cd8-b0cb-2f7333aa2b84/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5"]}
+ok     the artifact holds A's reference under the original and B's under the repair: 200; gc-3796521393f6260d-graffiticode-b6act-97c038-0 gc-cfd3ad74c913a00e-graffiticode-b6act-97c038-0; expected gc-3796521393f6260d-… gc-cfd3ad74c913a00e-…
+ok     the repair's key answers the same repair: 200 c:241b2037aaff27d657ccebb1c34835d4eb90f09bd9b23462ec521f85ef4f7977
+b6 activation round-trip 97c038: passed (11/11)

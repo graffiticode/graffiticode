@@ -1,0 +1,40 @@
+canary 995cc0bc98105563168b7fbee7b1e59a4256331c on conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd via https://rmwh6ru3u-cd1743---api-sja7fatcta-uc.a.run.app (api api-rmwh6ru3u-cd1743; L0176 on l0176r)
+  PASS gateway preview: signed preview returned
+  PASS gateway write: bridge retired: 200 ["bridge-retired"], 0 effects
+  PASS gateway write: command c:86f33c3804e7a422da196ab7ed2dcb251f0461bebd0caaa24b5a6e1fa2bf41e6 completed
+  PASS gateway write effects: 1 outcome(s): completed steps=["questions","items"]
+  PASS gateway write retry: command c:86f33c3804e7a422da196ab7ed2dcb251f0461bebd0caaa24b5a6e1fa2bf41e6 completed for the same idempotency key
+  PASS gateway write retry effects: 1 outcome(s) after the retry, 1 before: nothing written again
+  PASS chain admission: pinned: contract 2, plan 148e129a2db5 s0=l0176r-rmwe83rgw-eae49e, L0176 serving l0176r-rmwe83rgw-eae49e
+  PASS command write: command c:591fb8de2964686d474ef26369bed20d510bbfce58664ae652e65b388561ca37 completed
+  PASS command write: saved: the view shows ["gc-1439d563d854e6d3-graffiticode-canary-command-0"]
+  PASS command write retry: the same command and outcome for the same key; the view's references are unchanged
+  PASS command status: /command/c%3A591fb8de2964686d474ef26369bed20d510bbfce58664ae652e65b388561ca37: completed
+  PASS command over L0185: command c:a310b5c3e3238e16d59c55b3fea160cc8bcd1d9e1cea07249acceee6d8fc0349 completed over https://l0185.graffiticode.org/data/orders.json
+  PASS command over L0185: saved: the view shows ["gc-ba4efa29e916c8e9-graffiticode-canary-c3-0"]
+  PASS command over L0185 retry: the same command and outcome for the same key; the view's references are unchanged
+  PASS command preview refused: 409 {"code":409,"message":"command refused","reason":"no-effects"}
+  PASS saved read: signed: each view freshly signed
+  PASS saved read: references: both views keep ["gc-204a4b68be86f657-graffiticode-canary-0"]
+  PASS saved read: no save effects: no save effect in either view
+  PASS saved read: audit: bounded evidence: no write was logged for this connection between 2026-11-15T02:13:04.184Z and 2026-11-15T02:13:09.557Z within a 120 s observation; read signings observed: 2
+  PASS chain admission: L0000 stage: compiled: signed preview returned
+  PASS chain admission: L0000 stage: plan cd43193354f2 s0=l0176r-rmwe83rgw-eae49e s1=l0000r-rmw8gtkc2-830693, serving L0176 l0176r-rmwe83rgw-eae49e, L0000 l0000r-rmw8gtkc2-830693
+  PASS denied final stage: command failed (not-granted), never admitted
+  PASS denied final stage: permissions restored: owner permissions null, expected null
+  PASS v1 refused: invocation marked: contract 2, Policy's minimum 2
+  PASS v1 refused: a snapshot without a plan answered 403 plan-required
+  PASS direct path: admitted: s0 pinned to l0176r-rmwe83rgw-eae49e
+  PASS author removed: policy: snapshot allowed ["init","save-to-itembank"]
+  PASS author removed: broker answered 403 operation-mismatch
+  PASS token replay: first use: 200 succeeded
+  PASS token replay: reuse answered 409 token-replayed
+  PASS receipt replay: first write: 200 succeeded
+  PASS receipt replay: fresh token for the same operation answered 200 succeeded replayed=true
+  PASS revocation probe: first write: 200 succeeded
+  PASS revocation probe: replay after narrowing: answered 403 authorization-denied:not-granted
+  PASS revocation probe: minted, then narrowed: answered 200 failed steps=[] authorization-denied:not-granted
+  PASS revocation probe: permissions restored: owner permissions null, expected null
+  drafts saved this run: 5; archived 0, not archived 0 (skipped: no Data API credential (LRN_SANDBOX_KEY, LRN_SANDBOX_SECRET)): gc-204a4b68be86f657-graffiticode-canary-0 gc-1439d563d854e6d3-graffiticode-canary-command-0 gc-ba4efa29e916c8e9-graffiticode-canary-c3-0 gc-b0c7e9bbd5b23549-graffiticode-canary gc-0cfe1836b9c1464b-graffiticode-canary
+canary passed (36 checks)
+Container called exit(0).
