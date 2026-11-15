@@ -19,6 +19,18 @@
 //   tags       compiler node tags whose presence in a program requires the fn
 //   implicit   required by every compile of the language (no source node)
 //   delegable  whether an owner may grant it to another account
+//   credential "connection" (the default): the function acts through an
+//              owner's connection, with that connection's credentials.
+//              "service": Broker acts with its own runtime identity; no
+//              connection is ever presented, granted or delegated for it.
+//   scope      what one execution of it is authorized against: "connection"
+//              (the default) or "item" (one item id, checked against the item
+//              store; docs/c5-l0013-commands-plan.md decisions 1 and 3)
+//   publicCapture  for an item-scoped function only: the dated compatibility
+//              exception under which a public item may be captured by a
+//              caller who doesn't own it (C5 plan decision 4). `since` is set
+//              when the exception takes effect (C5d's activation); until then
+//              it is null and nothing executes under it.
 //   viewSafe   whether a view of a published item may use it (the viewer holds
 //              no grant; the publication's authority reaches only these)
 
@@ -32,12 +44,17 @@
 // activities for the item bank, and an Author integration is signed by the
 // customer's own application (L0177 only plans one). Signing Author sessions
 // again would be a new protected function, reviewed from scratch.
+// v9 (C5a, docs/c5-l0013-commands-plan.md): L0013's `snap`, the first
+// function with a service credential and an item scope, and its operation
+// `gcs.put-thumbnail`, whose one dispatch step is conditional with bounded
+// attempts. No v8 function or operation changes meaning, so v8 stays in the
+// window and its artifacts stay compatible (decision 2).
 // v8: `learnosity.write-items` only creates records (AT-10 B1). Broker writes
 // every question and item under a reference derived from the operation id,
 // never the one a program sent, and an item may link only to questions the
 // same save writes. A save never changes a record already in the bank;
 // re-saving a program makes new records.
-export const REGISTRY_VERSION = 8;
+export const REGISTRY_VERSION = 9;
 
 // Earlier registry versions whose stored artifacts this version still serves
 // (docs/graffiticode-interpreter-plan.md, P1). An artifact records the version
@@ -46,7 +63,9 @@ export const REGISTRY_VERSION = 8;
 // bump that changes no protected function's meaning may list its predecessors
 // here so their artifacts stay readable; that listing is part of the bump's
 // security review. The default is none: a version not listed is incompatible.
-export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([]);
+// v8: v9 adds functions and changes none of v8's (C5 plan decision 2). There
+// is no retirement step for this listing.
+export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([8]);
 
 // A registry bump is rolled out across services, not swapped at once
 // (docs/graffiticode-interpreter-plan.md, P1b). Policy and Broker deploy
@@ -58,7 +77,11 @@ export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([])
 // it covers are interpreted under the current tables. Each plan keeps the
 // version it was admitted under, and a receipt binds that version, so the
 // two are never interchangeable. The default is none.
-export const REGISTRY_WINDOW: readonly number[] = Object.freeze([]);
+// v8: kept until its own retirement gate (C5 plan decision 2): every v8
+// command terminal or given up, and no repair or materialize pending on one.
+// Removing it earlier would leave v8 plans' unreached stages and B6 repairs
+// with replay-only sessions.
+export const REGISTRY_WINDOW: readonly number[] = Object.freeze([8]);
 
 // Whether `version` may still execute: the current version, or one in the
 // window.
@@ -81,7 +104,13 @@ export const isArtifactCompatible = (
 //   sign      one local signature issuance (no provider request)
 //   replay    returning an operation's recorded receipt instead of executing
 export type StepPurpose = "dispatch" | "sign" | "replay";
-export type OperationStep = Readonly<{ id: string; purpose: StepPurpose }>;
+// A `conditional` dispatch step is a precondition-guarded write: a failed
+// precondition means nothing was written, and the step may be authorized again,
+// as attempts 2..`attempts` of the same step, each with its own decision
+// (C5 plan decision 5). Every other step is authorized once.
+export type OperationStep = Readonly<{ id: string; purpose: StepPurpose; conditional?: true; attempts?: number }>;
+export type Credential = "connection" | "service";
+export type ScopeKind = "connection" | "item";
 
 // One protected function's entry (see the field notes above).
 export type FunctionSpec = Readonly<{
@@ -92,6 +121,9 @@ export type FunctionSpec = Readonly<{
   implicit: boolean;
   delegable: boolean;
   viewSafe: boolean;
+  credential?: Credential;
+  scope?: ScopeKind;
+  publicCapture?: Readonly<{ since: string | null }>;
 }>;
 
 // Broker operations. The broker builds each request itself from a constrained
@@ -103,6 +135,9 @@ export type FunctionSpec = Readonly<{
 //          `items` when there are none); it may never take a step not listed
 //          here, or take them out of order.
 const step = (id: string, purpose: StepPurpose): OperationStep => Object.freeze({ id, purpose });
+// The most attempts a conditional step may declare.
+export const MAX_CONDITIONAL_ATTEMPTS = 4;
+const conditionalStep = (id: string, attempts: number): OperationStep => Object.freeze({ id, purpose: "dispatch", conditional: true, attempts });
 const SIGN_STEPS = Object.freeze([step("sign", "sign")]);
 
 export const OPERATIONS = Object.freeze({
@@ -119,7 +154,27 @@ export const OPERATIONS = Object.freeze({
     kind: "write",
     steps: Object.freeze([step("questions", "dispatch"), step("items", "dispatch"), step("receipt", "replay")]),
   }),
+  // L0013's thumbnail publish (C5 plan decision 8): Broker, as itself, reads
+  // the staged PNG and replaces the item's object only if this capture's
+  // sequence is newer, by one generation-precondition write. A failed
+  // precondition wrote nothing and is retried as the next attempt.
+  "gcs.put-thumbnail": Object.freeze({
+    backend: "gcs",
+    kind: "write",
+    credential: "service" as const,
+    steps: Object.freeze([conditionalStep("publish", MAX_CONDITIONAL_ATTEMPTS), step("receipt", "replay")]),
+  }),
 });
+
+// The credential an operation or function acts with ("connection" unless it
+// declares otherwise).
+export const credentialOf = (entry: object | null | undefined): Credential =>
+  (entry as { credential?: unknown } | null | undefined)?.credential === "service" ? "service" : "connection";
+
+// The backends an owner may create a connection for: those of operations that
+// act through a connection. A service backend (gcs) is never one.
+export const connectionBackends = (): string[] =>
+  [...new Set(Object.values(OPERATIONS).filter(op => credentialOf(op) === "connection").map(op => op.backend))].sort();
 
 // The registered steps of an operation, or null for an unknown operation.
 export const operationSteps = (op: unknown): readonly OperationStep[] | null =>
@@ -129,11 +184,22 @@ export const operationSteps = (op: unknown): readonly OperationStep[] | null =>
 // given, is the step that completed just before: a dispatch step must come
 // after the one listed before it (the first needs none), so steps cannot be
 // skipped forward or repeated. Replay needs no predecessor.
-export const isStepRegistered = ({ op, step: id, purpose, after = null }: { op: unknown; step: unknown; purpose: unknown; after?: unknown }): boolean => {
+//
+// `attempt` (default 1) is which attempt of the step this is. Only a
+// conditional step has more than one: attempt k (2 <= k <= its `attempts`)
+// follows attempt k-1 of the same step, so `after` is the step itself. For
+// any other step an attempt other than 1 is not registered, which leaves every
+// unconditional step's rule exactly as before.
+export const isStepRegistered = ({ op, step: id, purpose, after = null, attempt = 1 }: { op: unknown; step: unknown; purpose: unknown; after?: unknown; attempt?: unknown }): boolean => {
   const steps = operationSteps(op);
   if (!steps) return false;
   const index = steps.findIndex(s => s.id === id);
   if (index < 0 || steps[index].purpose !== purpose) return false;
+  if (!Number.isInteger(attempt) || (attempt as number) < 1) return false;
+  if (attempt !== 1) {
+    const s = steps[index];
+    return purpose === "dispatch" && s.conditional === true && (attempt as number) <= (s.attempts ?? 1) && after === s.id;
+  }
   if (purpose !== "dispatch") return true;
   const dispatch = steps.filter(s => s.purpose === "dispatch");
   const position = dispatch.findIndex(s => s.id === id);
@@ -167,6 +233,23 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       implicit: false,
       delegable: true,
       viewSafe: false,
+    }),
+  }),
+  "0013": Object.freeze({
+    // `snap item "<id>" {…}..`: a capture of the item's own form view,
+    // published as its thumbnail (C5 plan). It acts with Broker's identity on
+    // one item, never through a connection, so it is never delegable.
+    snap: Object.freeze({
+      backend: "gcs",
+      kind: "write",
+      ops: Object.freeze(["gcs.put-thumbnail"]),
+      tags: Object.freeze(["SNAP"]),
+      implicit: false,
+      delegable: false,
+      viewSafe: false,
+      credential: "service" as const,
+      scope: "item" as const,
+      publicCapture: Object.freeze({ since: null }),
     }),
   }),
 });
@@ -209,8 +292,12 @@ export const compilerConfigForLang = (lang: unknown) => {
 };
 
 // Minting check: may a token for (lang, fn) name this op against this
-// connection backend? The full relationship must hold, so a preview grant can
-// never write items, and a write grant can never sign.
+// backend? The full relationship must hold, so a preview grant can never write
+// items, and a write grant can never sign. `backend` comes from the
+// credential: a connection function's is its connection's, a service
+// function's is its operation's own. Function and operation must agree on the
+// credential, so a connection can never reach a service operation, nor the
+// reverse.
 export const isOperationAllowed = ({ lang, fn, op, backend }: { lang: unknown; fn: unknown; op: unknown; backend: unknown }): boolean => {
   const spec = protectedFunctionsForLang(lang)?.[fn as string];
   const operation = Object.prototype.hasOwnProperty.call(OPERATIONS, op) ? OPERATIONS[op as keyof typeof OPERATIONS] : null;
@@ -220,7 +307,8 @@ export const isOperationAllowed = ({ lang, fn, op, backend }: { lang: unknown; f
     spec.ops.includes(op as string) &&
     spec.backend === backend &&
     operation.backend === backend &&
-    operation.kind === spec.kind
+    operation.kind === spec.kind &&
+    credentialOf(spec) === credentialOf(operation)
   );
 };
 

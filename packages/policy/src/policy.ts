@@ -51,7 +51,8 @@ import {
   systemPreviewFunctionsForLang,
   viewSafeFunctionsForLang,
   isStepRegistered,
-  PROTECTED_FUNCTIONS
+  PROTECTED_FUNCTIONS,
+  credentialOf
 } from "@graffiticode/common/protected-registry";
 import { createHash, randomUUID } from "node:crypto";
 import { decodeJwt } from "jose";
@@ -221,6 +222,9 @@ export const createPolicy = ({
   const mayUse = (access, lang, fn) => {
     const spec = protectedFunctionsForLang(lang)?.[fn];
     if (!spec) return false;
+    // A service-credential function (C5's `snap`) is never reached through a
+    // connection, whoever holds it: it is authorized by its item scope.
+    if (credentialOf(spec) !== "connection") return false;
     if (access.owner && access.permissions === null) return true;
     const key = String(lang ?? "").replace(/^L/i, "").padStart(4, "0");
     const list = access.owner ? access.permissions : access.grant?.permissions;

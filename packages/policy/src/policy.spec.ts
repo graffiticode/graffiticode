@@ -897,3 +897,13 @@ describe("maintenance switch", () => {
     expect(() => createPolicy({ signer, jwks, connections, invocations: createMemoryInvocationStore(), audit: async () => {} })).toThrow(/protectedSwitch/);
   });
 });
+
+// C5 plan decision 2: a service-credential function is authorized by its item
+// scope (C5a slice 3), never through a connection, even its owner's with no
+// narrowing.
+describe("service-credential functions", () => {
+  it("never reaches snap through a connection", async () => {
+    const out = await snap({ caller: { role: "compiler", lang: "0013" }, lang: "0013", fns: ["snap"] });
+    expect(out.allowed).toEqual([]);
+  });
+});

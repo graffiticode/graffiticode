@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // P1b (docs/graffiticode-interpreter-plan.md): the protected registry's
-// version is written in three places, and they must agree in the source:
+// version is written in four places, and they must agree in the source:
 //
 //   packages/common/src/protected-registry.ts   REGISTRY_VERSION (Policy, Broker, API)
 //   languages/l0176/packages/core/src/compiler.ts   REGISTRY_VERSION (L0176, TypeScript)
 //   languages/l0176/crates/core/src/protection.rs   REGISTRY_VERSION (L0176, Rust)
+//   languages/l0013/crates/core/src/lib.rs          REGISTRY_VERSION (L0013, Rust; from v9)
 //
 // A compiler reports its version in every preflight manifest, and Policy
 // admits a plan only under a version it accepts, so a compiler left behind
@@ -23,6 +24,7 @@ export const SOURCES = [
   { file: "packages/common/src/protected-registry.ts", pattern: /^export const REGISTRY_VERSION = (\d+);$/m },
   { file: "languages/l0176/packages/core/src/compiler.ts", pattern: /^export const REGISTRY_VERSION = (\d+);$/m },
   { file: "languages/l0176/crates/core/src/protection.rs", pattern: /^pub const REGISTRY_VERSION: u32 = (\d+);$/m },
+  { file: "languages/l0013/crates/core/src/lib.rs", pattern: /^pub const REGISTRY_VERSION: u32 = (\d+);$/m },
 ];
 
 // The version each source declares, or null when the declaration is missing.

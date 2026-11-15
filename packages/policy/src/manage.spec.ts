@@ -108,6 +108,19 @@ describe("connection lifecycle", () => {
     expect(stored.get(connectionId)).toEqual({ ownerUid: OWNER, backend: "learnosity", ...CRED });
   });
 
+  // C5 plan decision 2: a service backend acts with Broker's own identity and
+  // is never a connection's.
+  it("never makes a service backend a connection, or a service function a permission", async () => {
+    await denied(create({ backend: "gcs" }), "unknown-backend");
+    const { connectionId } = await create();
+    const functions = await manager.functions({ caller: CONSOLE, user: { uid: OWNER }, connectionId });
+    const shareable = await manager.shareable({ caller: CONSOLE, user: { uid: OWNER }, connectionId });
+    for (const list of [functions, shareable]) {
+      expect(list.some(f => f.lang === "0013" || f.fn === "snap")).toBe(false);
+    }
+    await denied(manager.setOwnerPermissions({ caller: CONSOLE, user: { uid: OWNER }, connectionId, permissions: [{ lang: "0013", fn: "snap" }] }), "bad-permissions");
+  });
+
   it("refuses unknown backends and bad credentials without storing anything", async () => {
     await denied(create({ backend: "nope" }), "unknown-backend");
     await denied(create({ credential: { key: "k" } }), "bad-credential");

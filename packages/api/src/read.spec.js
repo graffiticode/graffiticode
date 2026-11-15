@@ -1,6 +1,6 @@
 import { jest } from "@jest/globals";
 import { generateKeyPair, exportJWK } from "jose";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { REGISTRY_VERSION, ARTIFACT_COMPATIBLE_VERSIONS } from "@graffiticode/common/protected-registry";
 import {
   createPolicy, createLocalSigner, createMemoryConnectionStore, createMemoryInvocationStore,
   createMemoryPublicationStore, createProtectedSwitch
@@ -12,6 +12,10 @@ import {
 import { buildDataApi } from "./data.js";
 import { signProgram, buildReadArtifact, buildReadPublished } from "./read.js";
 import { InvocationRefused } from "./invocations.js";
+
+// A registry version below every compatible one: an artifact made under it is
+// incompatible by default. (v8 is compatible from v9, C5 plan decision 2.)
+const INCOMPATIBLE = Math.min(REGISTRY_VERSION, ...ARTIFACT_COMPATIBLE_VERSIONS) - 1;
 import { buildMemoryArtifactStorer } from "./storage/artifacts.js";
 
 // Stand-ins for the task and compile storers, so the read path runs without
@@ -116,9 +120,16 @@ describe("the read path", () => {
     expect(allocateInvocation).not.toHaveBeenCalled();
   });
 
+  it("serves an artifact made under v8 by default, since v9 declares it compatible", async () => {
+    expect(ARTIFACT_COMPATIBLE_VERSIONS).toContain(8);
+    await store({ registryVersion: 8 });
+    await expect(read(L0000_TASK)).resolves.toEqual(STORED);
+    expect(compile).not.toHaveBeenCalled();
+  });
+
   it("asks for a save or recompile when there is no result, or an incompatible one", async () => {
     expect((await read()).errors[0].message).toMatch(/no result through this connection yet\. Save or recompile/);
-    await store({ registryVersion: REGISTRY_VERSION - 1 });
+    await store({ registryVersion: INCOMPATIBLE });
     expect((await read()).errors[0].message).toMatch(/older version\. Recompile/);
     expect(compile).not.toHaveBeenCalled();
   });
@@ -209,7 +220,7 @@ it("renders a stored composed item through real v2 Policy and Broker without run
 // version compatible. With none declared, it is "artifact-incompatible", as
 // before.
 describe("artifacts from an earlier registry version", () => {
-  const EARLIER = REGISTRY_VERSION - 1;
+  const EARLIER = INCOMPATIBLE;
   const VIEW = { taskId: "task-1", lang: "0000", artifactInvocationId: "inv-run", publisherUid: "u1", connectionId: "conn-1", invocationToken: "view.tok" };
   let artifactStorer;
   beforeEach(async () => {

@@ -76,7 +76,10 @@ describe("KMS signer", () => {
 
   it("refuses, like the local signer, claims its profile does not allow", async () => {
     const signer = createKmsSigner({ kms: fakeKms(p256.utils.randomPrivateKey()), keyVersionName: "v", kid: "kms-1" });
-    await expect(issueToken(signer, "session", { sub: "u" })).rejects.toThrow(/own/);
+    await expect(issueToken(signer, "session", { sub: "u" })).rejects.toThrow(/lang/);
+    // A v2 session's connection claims travel together (C5 plan decision 6).
+    const { own: _own, ...withoutOwn } = SESSION_CLAIMS;
+    await expect(issueToken(signer, "session", withoutOwn)).rejects.toThrow(/go together/);
     await expect(issueToken(signer, "session", { ...SESSION_CLAIMS, iat: 1 })).rejects.toThrow(/iat/);
   });
 });

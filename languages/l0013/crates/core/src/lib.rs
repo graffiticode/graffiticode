@@ -15,6 +15,12 @@
 
 pub mod crop;
 
+/// The protected registry's version (`packages/common/src/protected-registry.ts`), kept equal to
+/// it by `scripts/check-registry-version.js`. L0013 registers `snap` from version 9 (C5,
+/// `docs/c5-l0013-commands-plan.md`). It is reported in preflight manifests only once snap runs
+/// as a command (C5a slice 6); until then the dialect declares no protected functions.
+pub const REGISTRY_VERSION: u32 = 9;
+
 use std::sync::{Arc, LazyLock};
 
 use async_trait::async_trait;
