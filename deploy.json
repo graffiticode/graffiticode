@@ -113,6 +113,7 @@
         "COMPILE_GENERATION_L0176": "interp-1",
         "INTERPRETER_L0176": "on",
         "COMMANDS_L0176": "on",
+        "REPAIR_L0176": "on",
         "BRIDGE_L0176": "off",
         "BASE_URL_L0184": "https://l0184-sja7fatcta-uc.a.run.app",
         "PUBLIC_URL_L0184": "https://l0184.graffiticode.org",

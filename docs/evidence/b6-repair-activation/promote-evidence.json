@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmwh6ru3u-cd1743",
+  "revision": "api-rmwh6ru3u-cd1743",
+  "networkHash": null,
+  "reviewer": "Claude Code for the owner (B6 activation, REPAIR_L0176=on; agent execution under the owner's authorization, not an independent human review)",
+  "reviewedAt": "2026-11-15T02:20:00.000Z",
+  "corpus": {
+    "ranAt": "2026-11-15T02:15:30.447Z",
+    "tasks": 36,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "stagedAt": "2026-11-15T02:10:12.843Z",
+    "source": "18467f95 on main at 9f95b1a5: deploy.json REPAIR_L0176=on for the api, no compile generation change",
+    "image": "us-central1-docker.pkg.dev/graffiticode/services/api@sha256:5cd6458d1790291a0e5a5e43574923f0c810638d84ae5196b0cd4b4a02ae1508",
+    "gate": "docs/evidence/b6-repair-drive (report bed54b: 13 counted repairs, 60 operation ids with complete dispatch evidence)",
+    "canaryJob": {
+      "execution": "canary-nm5m7",
+      "apiUrl": "https://rmwh6ru3u-cd1743---api-sja7fatcta-uc.a.run.app",
+      "args": "--chain-admission --after-cutover --command --l0185-tail",
+      "checks": 36,
+      "failed": 0
+    },
+    "repairRoundTrip": {
+      "run": "97c038",
+      "checks": 11,
+      "failed": 0,
+      "record": "docs/evidence/b6-repair-activation/roundtrip-record.json"
+    },
+    "reviewedAt": "set when the owner approves promotion"
+  }
+}
