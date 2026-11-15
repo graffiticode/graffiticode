@@ -250,10 +250,7 @@ impl<S: Storage> Camera for ChromeCamera<S> {
         // Refused before any rendering when there is nowhere to store the capture.
         self.storage.ready()?;
         let token = request.token.as_deref().or(self.config.fallback_token.as_deref());
-        let (task, lang) = match &request.task {
-            Some(task) => (task.clone(), request.lang.clone()),
-            None => self.resolve(&request.item, token).await?,
-        };
+        let (task, lang) = self.resolve(&request.item, token).await?;
         let url = form_url(&self.config.api_url, &task, lang.as_deref(), token)?;
 
         let session = Session::launch(self.config.chrome.as_deref()).await?;
@@ -304,7 +301,7 @@ mod tests {
         let camera =
             ChromeCamera::new(config, reqwest::Client::new(), GoogleStorage::new(reqwest::Client::new(), None));
         assert_eq!(camera.status(), Some(serde_json::json!({ "thumbnailBucket": null })));
-        let request = SnapRequest { item: "item-1".to_owned(), task: Some("task-1".to_owned()), ..Default::default() };
+        let request = SnapRequest { item: "item-1".to_owned(), ..Default::default() };
         let refused = camera.snap(request).await.unwrap_err();
         assert!(refused.to_string().contains("THUMBNAIL_BUCKET is not set"), "{refused}");
     }

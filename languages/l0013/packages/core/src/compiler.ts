@@ -161,13 +161,17 @@ export class Transformer extends BaseTransformer {
         resume(err, null);
         return;
       }
+      // A snapshot is always of the item's own task, resolved (and access-checked) from the item.
+      if ("task" in args || "lang" in args) {
+        err.push({ message: "snap: `task` and `lang` are not accepted — snap renders the item's own task.", ...coord });
+        resume(err, null);
+        return;
+      }
       try {
         // The api server forwards the request's access token via config (see api/compile.ts).
         const token = options?.config?.authToken || options?.config?.auth || "";
         const out = await snap({
           item: args.item,
-          lang: args.lang,
-          task: args.task,
           viewport: args.viewport,
           slice: args.slice,
           zoom: args.zoom,
