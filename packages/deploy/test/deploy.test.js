@@ -645,6 +645,31 @@ test("Policy's and Broker's floor is C5a slice 3's merge: rolling back, or relea
   }
 });
 
+// The owner's review of #405: a floor governs promotion of a candidate staged
+// before it was added, by the candidate's own provenance; and a floored
+// service is never released dirty.
+test("a candidate staged below a floor installed since is never promoted", async t => {
+  const h = await harness(t);
+  const staged = await release(context, { ...source, commit: SLICE3B }, { ...h.deps, stage: true });
+  const floored = withBaselines([{ milestone: "C5a-scopes", commit: C5A, floor: true }]);
+  await assert.rejects(promote(floored, staged, stagedEvidence(staged), { ...h.deps, ...c5History }), /api-[^ ]+ is below the C5a-scopes floor; refusing, with no override. Not promoted/);
+  assert.equal(h.calls.filter(c => c.includes("update-traffic")).length, 0);
+  // A candidate at the floor promotes as before.
+  const ok = await harness(t);
+  const atFloor = await release(floored, { ...source, commit: C5A }, { ...ok.deps, ...c5History, stage: true });
+  assert.equal((await promote(floored, atFloor, stagedEvidence(atFloor), { ...ok.deps, ...c5History })).status, "released");
+});
+
+test("a floored service is released only from a clean commit, --allow-dirty or not", async t => {
+  const h = await harness(t);
+  const floored = withBaselines([{ milestone: "C5a-scopes", commit: C5A, floor: true }]);
+  await assert.rejects(release(floored, { ...source, commit: C5A, dirty: true }, { ...h.deps, ...c5History }), /released only from a clean commit.*Nothing built/);
+  assert.deepEqual(h.calls, []);
+  // A service without a floor may still release dirty, as before.
+  const free = await harness(t);
+  assert.ok((await release(context, { ...source, dirty: true }, free.deps)).revision);
+});
+
 test("a release of a floored service needs the Git history to check the floor", async t => {
   const h = await harness(t);
   await assert.rejects(release(withBaselines([{ milestone: "B5", commit: B, floor: true }]), source, h.deps), /needs the local Git history/);
