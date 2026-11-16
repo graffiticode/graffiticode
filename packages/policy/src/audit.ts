@@ -93,6 +93,8 @@ const VALIDATORS = {
   // conditional step a decision is for (decision 5).
   itemId: v => notAnAddress(match(/^[A-Za-z0-9_:.-]{1,200}$/)(v)),
   attempt: v => (Number.isInteger(v) && v >= 1 && v <= MAX_CONDITIONAL_ATTEMPTS ? v : INVALID),
+  // C5 (decision 4): a capture under the public-capture exception.
+  publicCapture: v => (typeof v === "boolean" ? v : INVALID),
 };
 // `fn` and `step` need the record's lang and op to be checked.
 const fnFor = (fn, lang) => (typeof fn === "string" && Object.prototype.hasOwnProperty.call(protectedFunctionsForLang(lang) || {}, fn) ? fn : INVALID);
@@ -105,6 +107,8 @@ export const AUDIT_FIELDS = Object.freeze([...Object.keys(VALIDATORS), "fn", "st
 export const validateAuditRecord = record => {
   const out: Record<string, unknown> = {};
   for (const [field, check] of Object.entries(VALIDATORS)) {
+    // A command with no connection (C5) records none, rather than `invalid`.
+    if (field === "connectionId" && record[field] === null) continue;
     if (record[field] !== undefined) out[field] = check(record[field]);
   }
   const recordOp = record.op;

@@ -1,4 +1,5 @@
-export { createPolicy, PolicyDenied, PolicyMaintenance, opidParts, ADMISSION_MAX_AGE_MS, COMMAND_SETTLE_GRACE_MS, MAX_INTENT_OCCURRENCES, modelIntents } from "./policy.js";
+export { createPolicy, PolicyDenied, PolicyMaintenance, PolicyUnavailable, opidParts, ADMISSION_MAX_AGE_MS, COMMAND_SETTLE_GRACE_MS, MAX_INTENT_OCCURRENCES, modelIntents, intentScope, admittedScope } from "./policy.js";
+export { buildItemAuthority, createMemoryItemAuthority, itemAccess, ItemAuthorityUnavailable, ITEM_ID_RE, ITEM_AUTHORITY_TIMEOUT_MS } from "./item-authority.js";
 export { SYSTEM_PREVIEW_SUBJECT, ANONYMOUS_SUBJECT, PROVENANCES, sessionProvenance, provenanceRefusal } from "./provenance.js";
 export { createProtectedSwitch, createFirestoreFlagReader, parseHardDisable, admission, PROTECTED_EXECUTION_DOC, MAINTENANCE } from "./maintenance.js";
 export { createLocalSigner, issueToken, verifyToken, tokenParts, PROFILES, ISSUER, ALG, CLOCK_SKEW_SECONDS, RESERVED_CLAIMS } from "./tokens.js";
@@ -8,7 +9,7 @@ export { createCallerIdentity, buildGoogleIdTokenVerifier } from "./caller.js";
 export { createPolicyApp, verifyUserWithRetry, authUnreachable, withTimeout } from "./app.js";
 export { createKmsSigner, derToJose } from "./kms.js";
 export { createFirestoreConnectionStore, createFirestoreInvocationStore, createFirestorePublicationStore, createFirestoreGrantStore, createFirestoreCommandStore, createFirestoreCommandBackend } from "./firestore.js";
-export { createCommandRecords, createMemoryCommandBackend, runtimeOccurrenceId, observationId, RUNTIME_PREFIX, repairGate, canonicalStages } from "./command-records.js";
+export { createCommandRecords, declaresItemScope, createMemoryCommandBackend, runtimeOccurrenceId, observationId, RUNTIME_PREFIX, repairGate, canonicalStages } from "./command-records.js";
 export { aggregateStatus, outcomeFromReceipt, OPERATION_OUTCOMES } from "./command-outcomes.js";
 export { createMemoryCommandStore, CommandRefused, commandIdFor, commandSummary, ownerRefusal, requestProblem, COMMAND_LEASE_MS, MAX_PAYLOAD_BYTES, COMMAND_ID_RE } from "./commands.js";
 export { createMemoryGrantStore, grantIdFor } from "./grants.js";

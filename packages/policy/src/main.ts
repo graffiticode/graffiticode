@@ -11,6 +11,10 @@
 //   POLICY_SYSTEM_CONNECTIONS  optional backend -> system connection id (see config.js)
 //   SYSTEM_SIGNINGS_PER_MINUTE, SYSTEM_SIGNINGS_BURST  optional; this instance's bucket on
 //                           system preview mints (rate-limit.js; defaults 120 and 60)
+//   ITEM_AUTHORITY_URL      optional; the console's item-authority route (C5 decision 3,
+//                           item-authority.js), asked as this service's account with
+//                           an ID token for ITEM_AUTHORITY_AUDIENCE (default: the URL).
+//                           Absent: every item scope is refused item-authority-unavailable.
 //   PROTECTED_EXECUTION     optional; "disabled" hard-disables protected execution.
 //                           Otherwise controls/protected-execution in this database
 //                           decides, and a missing flag means off (see maintenance.js)
@@ -22,6 +26,7 @@ import { OAuth2Client, GoogleAuth } from "google-auth-library";
 import { importSPKI, exportJWK } from "jose";
 import { createClient as createAuthClient } from "@graffiticode/auth/client";
 import { cacheVerifications } from "@graffiticode/common/verified-tokens";
+import { buildItemAuthority } from "./item-authority.js";
 import {
   createPolicy,
   createPolicyApp,
@@ -82,7 +87,11 @@ const grants = createFirestoreGrantStore(db);
 const protectedSwitch = createProtectedSwitch({ hardDisabled: parseHardDisable(env.PROTECTED_EXECUTION), readFlag: createFirestoreFlagReader(db) });
 const idToken = createIdTokenSource({ GoogleAuth });
 const brokerAdmin = createBrokerAdminClient({ brokerUrl, idToken });
+const itemAuthority = env.ITEM_AUTHORITY_URL
+  ? buildItemAuthority({ url: env.ITEM_AUTHORITY_URL, audience: env.ITEM_AUTHORITY_AUDIENCE || env.ITEM_AUTHORITY_URL, idToken })
+  : null;
 const policy = createPolicy({
+  itemAuthority,
   brokerReconcile: brokerAdmin.reconcile,
   signer,
   jwks: publicJwks,
