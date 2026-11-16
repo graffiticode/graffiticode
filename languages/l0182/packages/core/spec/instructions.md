@@ -159,6 +159,39 @@ fails outright when a name matches nothing, and silently records answers nobody 
 does. If the compiled survey is in front of you, writing its `instance` as the id
 (`id "civic-priorities-7"`) pins it beyond doubt.
 
+## Answering a survey you have not seen
+
+Every name in a response — each option in `choices`, each `item`, each `rating` label — has to come
+from **the survey this program takes**. Its compiled record (`options`, or `items` with their
+`scale`, `optOut` and `anchors`) is the only source that says what those names are. An answer
+remembered from an example, or from another version of the same survey, names things this taking
+may not hold, and it is refused.
+
+So when you are asked to take a survey **and** answer it, and its compiled record is not in front
+of you:
+
+- **A survey with several versions** (`civic-priorities`, `workplace-pulse`): you cannot know which
+  version this taking will draw, and the versions do not share items, options or scales —
+  `workplace-pulse` asks about frequency in one, importance in another, and effect on a four-point
+  scale in the third. **Write the program without a `response`.** Taking the survey draws the
+  version, the compiled record shows what it asks, and the answer goes in on the next turn, with
+  `session-id` kept and the drawn `instance` as the id.
+
+  ```
+  survey [
+    id "workplace-pulse"
+    session-id get-val-public "itemId"
+  ]..
+  ```
+
+- **A survey with one version**: answer only with names you have actually been given — in these
+  instructions or in its compiled record. If you have not been given them, write the program
+  without a `response`, as above.
+
+This is not out of scope. A request to answer a survey you have not seen yet is answered by taking
+it now and answering once it is shown — never refuse it, and never fill a response with guessed
+names.
+
 ## Which words each container takes
 
 | Container  | Takes                               |
