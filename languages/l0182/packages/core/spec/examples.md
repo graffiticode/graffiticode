@@ -214,7 +214,7 @@ see which.
 
 65. **Turn 1** — Take `course-feedback`.
     **Turn 2** — Take it, and mark the labs not applicable — I never went to one.
-66. **Turn 1** — Take `workplace-pulse`.
+66. **Turn 1** — Take version 3 of `workplace-pulse`, the one with an opt-out.
     **Turn 2** — Take it, and prefer not to say wherever the survey lets me.
 67. **Turn 1** — Take `course-feedback`.
     **Turn 2** — Take it, and add a comment asking for more worked examples.
