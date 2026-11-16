@@ -15,7 +15,7 @@ use axum::http::HeaderMap;
 use axum::response::Html;
 use axum::routing::get;
 use axum::{Json as Body, Router};
-use graffiticode_l0013::{Camera, Clip, Size, SnapRequest};
+use graffiticode_l0013::{Camera, Clip, RenderGrant, Size, SnapRequest};
 use image::Rgba;
 use l0013_capture::{CameraError, ChromeCamera, Config, Storage, pixels};
 use serde_json::json;
@@ -34,6 +34,16 @@ const FORM: &str = r#"<!doctype html>
 struct Seen {
     forms: Mutex<Vec<HashMap<String, String>>>,
     resolver_tokens: Mutex<Vec<Option<String>>>,
+    /// C5: the render-grant header each request arrived with, by path.
+    grants: Mutex<Vec<(String, Option<String>)>>,
+    /// Another origin the form also loads from, when set.
+    other: Mutex<Option<String>>,
+}
+
+const GRANT_HEADER: &str = "graffiticode-render-grant";
+
+fn grant_of(headers: &HeaderMap) -> Option<String> {
+    headers.get(GRANT_HEADER).and_then(|v| v.to_str().ok()).map(str::to_owned)
 }
 
 async fn serve() -> (String, Arc<Seen>) {
@@ -42,9 +52,32 @@ async fn serve() -> (String, Arc<Seen>) {
         Router::new()
             .route(
                 "/form",
-                get(|State(seen): State<Arc<Seen>>, Query(query): Query<HashMap<String, String>>| async move {
-                    seen.forms.lock().unwrap().push(query);
-                    Html(FORM)
+                get(
+                    |State(seen): State<Arc<Seen>>,
+                     headers: HeaderMap,
+                     Query(query): Query<HashMap<String, String>>| async move {
+                        seen.forms.lock().unwrap().push(query);
+                        seen.grants.lock().unwrap().push(("/form".into(), grant_of(&headers)));
+                        // The View loads its data from the API, and may load from elsewhere.
+                        let other = seen.other.lock().unwrap().clone();
+                        let elsewhere =
+                            other.map(|o| format!("<img src=\"{o}/pixel\" width=1 height=1>")).unwrap_or_default();
+                        Html(format!("{FORM}<script>fetch('/data?id=task1')</script>{elsewhere}"))
+                    },
+                ),
+            )
+            .route(
+                "/data",
+                get(|State(seen): State<Arc<Seen>>, headers: HeaderMap| async move {
+                    seen.grants.lock().unwrap().push(("/data".into(), grant_of(&headers)));
+                    Body(json!({ "status": "success", "data": {} }))
+                }),
+            )
+            .route(
+                "/pixel",
+                get(|State(seen): State<Arc<Seen>>, headers: HeaderMap| async move {
+                    seen.grants.lock().unwrap().push(("/pixel".into(), grant_of(&headers)));
+                    ""
                 }),
             )
             .route(
@@ -55,6 +88,7 @@ async fn serve() -> (String, Arc<Seen>) {
                      Query(query): Query<HashMap<String, String>>| async move {
                         let token = headers.get("authorization").and_then(|v| v.to_str().ok()).map(str::to_owned);
                         seen.resolver_tokens.lock().unwrap().push(token);
+                        seen.grants.lock().unwrap().push(("/api/form/resolve".into(), grant_of(&headers)));
                         let id = query.get("id").cloned().unwrap_or_default();
                         Body(match id.as_str() {
                             "item1" => json!({ "taskId": "task1", "lang": "0166" }),
@@ -231,4 +265,46 @@ async fn an_item_that_cannot_be_resolved_is_refused_before_any_browser_starts() 
     );
     assert!(studio.seen.forms.lock().unwrap().is_empty());
     assert!(studio.storage.0.lock().unwrap().is_empty());
+}
+
+// C5 render grants: under a command, a private item renders with Policy's grant, in its own
+// header only. The resolver and the API's /form and /data get it; no URL carries it, no user
+// token goes with it, and no other origin ever sees it.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_render_grant_reaches_the_resolver_and_the_apis_reads_in_its_header_only() {
+    if !chrome_is_installed() {
+        return;
+    }
+    let studio = studio().await;
+    let (other, other_seen) = serve().await;
+    *studio.seen.other.lock().unwrap() = Some(other);
+    let request = SnapRequest {
+        render_grant: Some(RenderGrant::new("grant-1".into(), 1)),
+        token: Some("a-user-token".into()),
+        width: Some(50.0),
+        ..item("item1")
+    };
+    studio.camera.render(request).await.unwrap();
+    // No user token went anywhere, and the form URL carries no token.
+    assert_eq!(*studio.seen.resolver_tokens.lock().unwrap(), [None]);
+    let forms = studio.seen.forms.lock().unwrap().clone();
+    assert!(!forms[0].contains_key("access_token"), "{forms:?}");
+    assert!(forms[0].values().all(|v| !v.contains("grant-1")), "{forms:?}");
+    let grants = studio.seen.grants.lock().unwrap().clone();
+    for path in ["/api/form/resolve", "/form", "/data"] {
+        assert!(grants.contains(&(path.to_owned(), Some("grant-1".to_owned()))), "{path}: {grants:?}");
+    }
+    // The other origin was loaded, without the grant.
+    let elsewhere = other_seen.grants.lock().unwrap().clone();
+    assert!(!elsewhere.is_empty(), "the other origin was never loaded");
+    assert!(elsewhere.iter().all(|(_, grant)| grant.is_none()), "{elsewhere:?}");
+}
+
+#[tokio::test]
+async fn a_direct_snap_never_carries_a_render_grant() {
+    let studio = studio().await;
+    let request = SnapRequest { render_grant: Some(RenderGrant::new("grant-1".into(), 1)), ..item("item1") };
+    let refused = studio.camera.snap(request).await.unwrap_err().to_string();
+    assert_eq!(refused, "a render grant is only for a command's capture");
+    assert!(studio.seen.grants.lock().unwrap().is_empty());
 }

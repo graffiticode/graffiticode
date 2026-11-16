@@ -257,12 +257,42 @@ pub struct ReserveRequest {
 
 /// What policy recorded for a capture: its item and sequence, whether it was counted under the
 /// public-capture exception, and the staged digest once staged.
+/// A Policy render grant (C5): lets the camera render exactly one private item's pinned task for
+/// this capture, as the command's subject, for five minutes at most. Its token is a credential:
+/// it is never printed, and travels only in the `Graffiticode-Render-Grant` header.
+#[derive(Clone, PartialEq, Eq)]
+pub struct RenderGrant {
+    token: String,
+    /// When it expires, in epoch milliseconds.
+    pub expires_at: u64,
+}
+
+impl RenderGrant {
+    pub fn new(token: String, expires_at: u64) -> Self {
+        Self { token, expires_at }
+    }
+
+    /// The grant itself, to send in its header and nowhere else.
+    pub fn token(&self) -> &str {
+        &self.token
+    }
+}
+
+impl std::fmt::Debug for RenderGrant {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RenderGrant").field("token", &"[redacted]").field("expires_at", &self.expires_at).finish()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Reservation {
     pub item: String,
     pub capture_sequence: u64,
     pub public_capture: bool,
     pub staged: Option<StagedDigest>,
+    /// A private item's render grant, while it is still to be rendered (C5). None for a public
+    /// item, and once staged.
+    pub render_grant: Option<RenderGrant>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

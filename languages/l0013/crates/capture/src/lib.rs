@@ -98,12 +98,15 @@ impl<S: Storage> ChromeCamera<S> {
 
     /// Resolves an item id to its task (and language) through the app's server-side resolver.
     /// It works for a public item with no token and for the owner's own item with theirs.
-    async fn resolve(&self, item: &str, token: Option<&str>) -> Result<(String, Option<String>), CameraError> {
+    async fn resolve(&self, item: &str, credential: Credential<'_>) -> Result<(String, Option<String>), CameraError> {
         let app = &self.config.app_url;
         let url = format!("{app}/api/form/resolve");
         let mut request = self.http.get(&url).query(&[("id", item)]);
-        if let Some(token) = token {
-            request = request.header("Authorization", token);
+        match credential {
+            Credential::None => {}
+            Credential::User(token) => request = request.header("Authorization", token),
+            // Its own header, never Authorization: the resolver's render context (C5).
+            Credential::Grant(grant) => request = request.header(RENDER_GRANT_HEADER, grant),
         }
         let response = request.send().await?;
         if !response.status().is_success() {
@@ -215,6 +218,44 @@ impl<S: Storage> ChromeCamera<S> {
     }
 }
 
+/// The header a render grant travels in, to the app's resolver and the API, and nowhere else.
+pub const RENDER_GRANT_HEADER: &str = "Graffiticode-Render-Grant";
+
+/// What a form is rendered with: nothing (a public item), a user's token, or, under a command,
+/// Policy's render grant (C5). Never two at once.
+#[derive(Clone, Copy)]
+enum Credential<'a> {
+    None,
+    User(&'a str),
+    Grant(&'a str),
+}
+
+impl<'a> Credential<'a> {
+    /// A grant when the request carries one, and only then; otherwise the user's token, or the
+    /// configured fallback.
+    fn of(request: &'a SnapRequest, fallback: Option<&'a str>) -> Self {
+        match (&request.render_grant, request.token.as_deref().or(fallback)) {
+            (Some(grant), _) => Self::Grant(grant.token()),
+            (None, Some(token)) => Self::User(token),
+            (None, None) => Self::None,
+        }
+    }
+
+    /// The token a form URL may carry: a user's only. A grant never goes in a URL.
+    fn url_token(self) -> Option<&'a str> {
+        match self {
+            Self::User(token) => Some(token),
+            _ => None,
+        }
+    }
+}
+
+/// The API's origin, which a render grant is sent to.
+fn origin_of(api_url: &str) -> Result<String, CameraError> {
+    let url = reqwest::Url::parse(api_url)?;
+    Ok(url.origin().ascii_serialization())
+}
+
 /// The bare form, from the API's route (the app's mounts a sign-in shell around it). A public
 /// task renders with no token; a private one when the token is its owner's.
 fn form_url(api_url: &str, task: &str, lang: Option<&str>, token: Option<&str>) -> Result<String, CameraError> {
@@ -249,10 +290,19 @@ impl<S: Storage> Camera for ChromeCamera<S> {
     /// does, and stored nowhere. Policy stages it and Broker publishes it.
     async fn render(&self, request: SnapRequest) -> Result<Vec<u8>, CameraError> {
         let started = Instant::now();
-        let token = request.token.as_deref().or(self.config.fallback_token.as_deref());
-        let (task, lang) = self.resolve(&request.item, token).await?;
-        let url = form_url(&self.config.api_url, &task, lang.as_deref(), token)?;
-        let session = Session::launch(self.config.chrome.as_deref()).await?;
+        let credential = Credential::of(&request, self.config.fallback_token.as_deref());
+        let (task, lang) = self.resolve(&request.item, credential).await?;
+        let url = form_url(&self.config.api_url, &task, lang.as_deref(), credential.url_token())?;
+        let mut session = Session::launch(self.config.chrome.as_deref()).await?;
+        // A grant reaches the API's /form and /data in its header, added by the browser to that
+        // origin's GET requests only; the form URL carries no token.
+        if let Credential::Grant(grant) = credential {
+            let origin = origin_of(&self.config.api_url)?;
+            if let Err(e) = session.send_header_to(&origin, RENDER_GRANT_HEADER, grant).await {
+                session.close().await;
+                return Err(e);
+            }
+        }
         let photographed = self.photograph(&session, &url, &request).await;
         session.close().await;
         let png = photographed?;
@@ -264,9 +314,13 @@ impl<S: Storage> Camera for ChromeCamera<S> {
         let started = Instant::now();
         // Refused before any rendering when there is nowhere to store the capture.
         self.storage.ready()?;
-        let token = request.token.as_deref().or(self.config.fallback_token.as_deref());
-        let (task, lang) = self.resolve(&request.item, token).await?;
-        let url = form_url(&self.config.api_url, &task, lang.as_deref(), token)?;
+        // A direct snap never carries a grant: it renders as its caller.
+        let credential = match Credential::of(&request, self.config.fallback_token.as_deref()) {
+            Credential::Grant(_) => return Err("a render grant is only for a command's capture".into()),
+            credential => credential,
+        };
+        let (task, lang) = self.resolve(&request.item, credential).await?;
+        let url = form_url(&self.config.api_url, &task, lang.as_deref(), credential.url_token())?;
 
         let session = Session::launch(self.config.chrome.as_deref()).await?;
         let photographed = self.photograph(&session, &url, &request).await;

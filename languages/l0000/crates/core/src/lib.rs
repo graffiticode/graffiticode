@@ -65,7 +65,7 @@ pub use number::Number;
 pub use preflight::{RevisionIdentity, StageManifest};
 pub use protected::{
     OccurrenceBinding, PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError,
-    ProtectedFunction, ProtectedKind, Reservation, ReserveRequest, SnapshotRequest, Staged, StagedDigest,
+    ProtectedFunction, ProtectedKind, RenderGrant, Reservation, ReserveRequest, SnapshotRequest, Staged, StagedDigest,
 };
 pub use schema::{LanguageSchema, NoSchemas, SchemaError, SchemaSource};
 pub use secret::Keyring;

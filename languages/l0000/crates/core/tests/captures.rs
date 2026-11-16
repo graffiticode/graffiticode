@@ -153,6 +153,7 @@ impl PolicyClient for Policy {
             capture_sequence: 7,
             public_capture: false,
             staged: self.staged.lock().unwrap().clone(),
+            render_grant: None,
         })
     }
 

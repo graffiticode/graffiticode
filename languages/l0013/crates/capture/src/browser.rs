@@ -8,6 +8,9 @@ use std::time::Duration;
 use base64::Engine;
 use chromiumoxide::browser::{Browser, BrowserConfig};
 use chromiumoxide::cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams;
+use chromiumoxide::cdp::browser_protocol::fetch::{
+    ContinueRequestParams, EnableParams, EventRequestPaused, HeaderEntry, RequestPattern, RequestStage,
+};
 use chromiumoxide::cdp::browser_protocol::page::{CaptureScreenshotFormat, CaptureScreenshotParams, Viewport};
 use chromiumoxide::page::Page;
 use futures_util::StreamExt;
@@ -28,6 +31,8 @@ pub struct CssRect {
 pub struct Session {
     browser: Browser,
     events: JoinHandle<()>,
+    /// Adds a header to the page's requests to one origin ([`Session::send_header_to`]).
+    interceptor: Option<JoinHandle<()>>,
     page: Page,
     // Each browser gets its own profile, so concurrent snaps never share one.
     _profile: tempfile::TempDir,
@@ -66,7 +71,44 @@ impl Session {
         let (browser, mut handler) = Browser::launch(config.build()?).await?;
         let events = tokio::spawn(async move { while handler.next().await.is_some() {} });
         let page = browser.new_page("about:blank").await?;
-        Ok(Self { browser, events, page, _profile: profile, _home: home })
+        Ok(Self { browser, events, interceptor: None, page, _profile: profile, _home: home })
+    }
+
+    /// Adds `name: value` to every GET request the page makes to `origin` (scheme, host and
+    /// port, no path), and to nothing else: other origins, other methods and preflights are
+    /// continued untouched. For a render grant (C5), which must reach the API's `/form` and
+    /// `/data` without ever appearing in a URL. Set before the first navigation.
+    pub async fn send_header_to(&mut self, origin: &str, name: &str, value: &str) -> Result<(), CameraError> {
+        let origin = origin.trim_end_matches('/').to_owned();
+        let pattern =
+            RequestPattern::builder().url_pattern(format!("{origin}/*")).request_stage(RequestStage::Request).build();
+        let mut paused = self.page.event_listener::<EventRequestPaused>().await?;
+        self.page.execute(EnableParams::builder().pattern(pattern).build()).await?;
+        let page = self.page.clone();
+        let (name, value) = (name.to_owned(), value.to_owned());
+        let prefix = format!("{origin}/");
+        self.interceptor = Some(tokio::spawn(async move {
+            while let Some(event) = paused.next().await {
+                let request = &event.request;
+                let mut continued = ContinueRequestParams::builder().request_id(event.request_id.clone());
+                if request.method == "GET" && request.url.starts_with(&prefix) {
+                    let mut headers: Vec<HeaderEntry> = request
+                        .headers
+                        .inner()
+                        .as_object()
+                        .into_iter()
+                        .flatten()
+                        .filter(|(key, _)| !key.eq_ignore_ascii_case(&name))
+                        .filter_map(|(key, v)| v.as_str().map(|v| HeaderEntry::new(key.clone(), v.to_owned())))
+                        .collect();
+                    headers.push(HeaderEntry::new(name.clone(), value.clone()));
+                    continued = continued.headers(headers);
+                }
+                let Ok(params) = continued.build() else { continue };
+                let _ = page.execute(params).await;
+            }
+        }));
+        Ok(())
     }
 
     /// Sizes the window the page lays out into. Changing only the scale re-renders the same
@@ -109,6 +151,9 @@ impl Session {
             let _ = self.browser.kill().await;
         }
         let _ = self.browser.wait().await;
+        if let Some(interceptor) = self.interceptor.take() {
+            interceptor.abort();
+        }
         self.events.abort();
     }
 }
