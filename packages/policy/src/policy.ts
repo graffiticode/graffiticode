@@ -970,6 +970,8 @@ export const createPolicy = ({
       // against the task this reservation pinned, never a new one.
       if (typeof existing.renderTask === "string" && existing.state !== "staged") {
         Object.assign(record, { itemId: existing.item });
+        // A finished command renders nothing more.
+        if (command.status !== "pending") return deny("command-finished", record);
         const access = await itemAccess(itemAuthority, { itemId: existing.item, uid: command.uid, lang: session.lang, fn: intentFn(command, session.stg, intentId) });
         if (access.refusal === "item-authority-unavailable") return unavailable(access.refusal, record);
         // Definite: the occurrence fails, as a refused bind does.
@@ -986,7 +988,7 @@ export const createPolicy = ({
           await failOccurrence("render-target-changed");
           return deny("render-target-changed", record);
         }
-        return reservationAnswer(existing, await renderGrant({ session, command, reservation: existing, record }));
+        return grantIfCurrent({ session, occurrenceId, pinned: existing, record });
       }
       return reservationAnswer(existing);
     }
@@ -1022,8 +1024,26 @@ export const createPolicy = ({
     // A concurrent reservation won: it is answered as a repeat is.
     if (reservation.reused) return commandReserve({ caller, sessionToken, occurrenceId, intentId, expansionKey, item });
     await audit({ ...record, publicCapture, provenance: command.uid === ANONYMOUS_SUBJECT ? "anonymous" : "user", outcome: "allowed" });
-    const grant = typeof reservation.renderTask === "string" ? await renderGrant({ session, command, reservation, record }) : null;
-    return reservationAnswer(reservation, grant);
+    if (typeof reservation.renderTask !== "string") return reservationAnswer(reservation);
+    return grantIfCurrent({ session, occurrenceId, pinned: reservation, record });
+  };
+  // The owner's review of #407: a grant is issued only while the command and
+  // the reservation it was decided for still stand, read again after every
+  // await that decided it (item authority, the audit): the command still
+  // pending and still owned by this session's generation, and the reservation
+  // still unstaged with the same pinned task. Nothing else is awaited between
+  // these reads and the signature.
+  const grantIfCurrent = async ({ session, occurrenceId, pinned, record }) => {
+    const command = await commands.get(session.cmd);
+    if (!command || command.status !== "pending") return deny("command-finished", record);
+    const fenced = ownerRefusal(command, { generation: session.fg, now: now() });
+    if (fenced) return deny(fenced, record);
+    const current = await commandRecords.getReservation(session.cmd, session.stg, occurrenceId);
+    if (!current) return deny("occurrence-not-reserved", record);
+    if (current.renderTask !== pinned.renderTask || current.item !== pinned.item) return deny("render-target-changed", record);
+    // Staged meanwhile: nothing is rendered again.
+    if (current.state === "staged") return reservationAnswer(current);
+    return reservationAnswer(current, await renderGrant({ session, command, reservation: current, record }));
   };
   const intentFn = (command, stage, intentId) => (command.admission.stages?.[stage]?.intents ?? []).find(i => i.id === intentId)?.fn;
   // C5: a render grant for one reserved private capture (tokens.ts `render`).

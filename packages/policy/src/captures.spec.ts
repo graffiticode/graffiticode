@@ -468,6 +468,47 @@ describe("render grants", () => {
     expect(await outcomes(c)).toEqual([]);
   });
 
+  // The owner's review of #407: a grant is issued only while the command is
+  // pending and still this session's, rechecked after item authority answers.
+  it("renews nothing for a finished command", async () => {
+    const c = await capture();
+    const s = await c.session();
+    await reserve(s);
+    await policy.commandWrite({ caller: GATEWAY, commandId: c.commandId, generation: 1, fn: "finish", args: { result: null } });
+    await denied(reserve(s), "command-finished");
+  });
+
+  it("renews nothing when the command is taken over while item authority is asked", async () => {
+    const c = await capture();
+    const s = await c.session();
+    await reserve(s);
+    // The lookup the renewal waits on; meanwhile another worker takes over.
+    const lookup = deps.itemAuthority;
+    build({
+      itemAuthority: async itemId => {
+        clock += COMMAND_LEASE_MS + 1;
+        await policy.leaseCommand({ caller: GATEWAY, commandId: c.commandId, worker: "api-2", generation: 1, takeOver: true, scopes: 1 });
+        return lookup(itemId);
+      },
+    });
+    const e = await reserve(s).catch(err => err);
+    expect(e).toBeInstanceOf(PolicyDenied);
+    expect(["stale-generation", "lease-expired"]).toContain(e.reason);
+  });
+
+  it("issues a first grant only if the command still stands once the reservation is recorded", async () => {
+    const c = await capture();
+    const s = await c.session();
+    // The audit of the new reservation is the last await before issuance;
+    // the command is finished meanwhile.
+    build({
+      audit: async r => {
+        if (r.event === "command-reserve") await policy.commandWrite({ caller: GATEWAY, commandId: c.commandId, generation: 1, fn: "finish", args: { result: null } });
+      },
+    });
+    await denied(reserve(s), "command-finished");
+  });
+
   it("grants nothing once the capture is staged: nothing is rendered again", async () => {
     const c = await capture();
     const s = await c.session();
