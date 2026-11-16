@@ -38,11 +38,13 @@
 //   backend.transaction(async tx => …)
 //     tx.get(path) -> doc | null      tx.set(path, doc)      tx.list(path) -> [doc]
 //   where a path is ["commands", id] or ["commands", id, collection, docId]
-//   (list takes ["commands", id, collection]).
+//   (list takes ["commands", id, collection]), or ["item-captures", item]
+//   (C5: an item's capture sequence and its public captures this hour).
 
 import { createHash } from "node:crypto";
 import { CommandRefused, MAX_PAYLOAD_BYTES, ownerRefusal } from "./commands.js";
 import { protectedFunctionsForLang, credentialOf } from "@graffiticode/common/protected-registry";
+import { canonicalDigest } from "@graffiticode/common/canonical";
 import { aggregateStatus, outcomeFromReceipt } from "./command-outcomes.js";
 
 export const sha256 = text => createHash("sha256").update(text, "utf8").digest("hex");
@@ -160,6 +162,25 @@ export const declaresItemScope = text => {
   const intents = Array.isArray(model?.intents) ? model.intents : [];
   return intents.some(i => (i?.scope && typeof i.scope === "object" && i.scope.kind === "item") ||
     (typeof model?.lang === "string" && credentialOf(protectedFunctionsForLang(model.lang)?.[i?.fn]) === "service"));
+};
+
+// C5: an intent whose scope is an item (stored normalized at admission).
+const ITEM_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
+const isItemScoped = intent => Boolean(intent?.scope && typeof intent.scope === "object" && intent.scope.kind === "item");
+// The digest of the payload Broker publishes for a reserved and staged
+// capture (its argsDigest: @graffiticode/common/canonical).
+export const capturePayloadDigest = reservation => canonicalDigest({ item: reservation.item, sha256: reservation.sha256, captureSequence: reservation.captureSequence });
+// A capture's bound arguments are exactly what was reserved and staged.
+const sameCaptureArgs = (text, reservation) => {
+  let args;
+  try {
+    args = JSON.parse(text);
+  } catch {
+    return false;
+  }
+  return Boolean(args) && typeof args === "object" && !Array.isArray(args) &&
+    Object.keys(args).sort().join(",") === "captureSequence,item,sha256" &&
+    args.item === reservation.item && args.sha256 === reservation.sha256 && args.captureSequence === reservation.captureSequence;
 };
 
 export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
@@ -390,6 +411,19 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       } else if (expansionKey !== null || !(intent.occurrences ?? []).includes(occurrenceId)) {
         return refuse("occurrence-mismatch");
       }
+      // C5 (decision 9): an item-scoped occurrence binds only after it was
+      // reserved and staged, and only with exactly those arguments:
+      // { item, sha256, captureSequence }. Broker's payload digest (`argd`),
+      // which mint and authorize-execution hold its token to, must be the
+      // canonical digest of exactly that payload, so no other payload (a
+      // higher sequence, another item) can be published under this binding.
+      let captured = null;
+      if (isItemScoped(intent)) {
+        const reservation = await tx.get(sub(commandId, "reservations", key));
+        if (!reservation) return refuse("occurrence-not-reserved");
+        if (reservation.state !== "staged" || !sameCaptureArgs(args, reservation) || argd !== capturePayloadDigest(reservation)) return refuse("binding-mismatch");
+        captured = { item: reservation.item, publicCapture: reservation.publicCapture === true };
+      }
       const argsDigest = sha256(args);
       const path = sub(commandId, "occurrences", docKey(stage, occurrenceId));
       const existing = await tx.get(path);
@@ -443,10 +477,69 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       }
       if ((byIntent[countKey] ?? 0) >= max) return refuse("bounds-exceeded");
       byIntent[countKey] = (byIntent[countKey] ?? 0) + 1;
-      tx.set(path, { stage, occurrenceId, intentId, expansionKey, args, argsDigest, argd, observations, minted: [], boundAt: new Date(now()).toISOString(), generation });
+      tx.set(path, { stage, occurrenceId, intentId, expansionKey, args, argsDigest, argd, observations, minted: [], boundAt: new Date(now()).toISOString(), generation, ...(captured ?? {}) });
       touch(tx, command, { counts: { ...counts, byIntent, bound: (counts.bound ?? 0) + 1 } });
       return { stage, occurrenceId, argsDigest, bound: true };
     }),
+
+    // C5 (decision 9): a capture's reservation, before rendering. Once per
+    // occurrence: the item's next capture sequence, taken in the same
+    // transaction as the item's counter, and, for a capture under the
+    // public-capture exception, its place in the item's hourly limit
+    // (`limit` within `windowMs`, across all non-owner callers; the
+    // (limit+1)th is refused `rate-limited`, with when to retry). A repeat
+    // returns the reservation as it stands, counting nothing again.
+    reserve: ({ commandId, generation, stage, occurrenceId, intentId, expansionKey = null, item, publicCapture, limit, windowMs }) => owned(commandId, generation, async (tx, command) => {
+      requireStage(stage);
+      if (typeof occurrenceId !== "string" || !OCC_RE.test(occurrenceId) || typeof intentId !== "string" || !intentId || typeof item !== "string" || !ITEM_RE.test(item) || typeof publicCapture !== "boolean") throw new CommandRefused("bad-request");
+      const intents = admittedIntents(command, stage);
+      if (!intents) throw new CommandRefused("not-admitted");
+      const intent = intents.find(i => i.id === intentId);
+      if (!intent) throw new CommandRefused("intent-not-admitted");
+      if (!isItemScoped(intent) || (intent.scope.id !== undefined && intent.scope.id !== item)) throw new CommandRefused("intent-mismatch");
+      if (occurrenceId.startsWith(RUNTIME_PREFIX) ? (typeof expansionKey !== "string" || occurrenceId !== runtimeOccurrenceId(intentId, expansionKey)) : (expansionKey !== null || !(intent.occurrences ?? []).includes(occurrenceId))) {
+        throw new CommandRefused("occurrence-mismatch");
+      }
+      const path = sub(commandId, "reservations", docKey(stage, occurrenceId));
+      const existing = await tx.get(path);
+      const capturesPath = ["item-captures", item];
+      const captures = existing ? null : ((await tx.get(capturesPath)) ?? { item, nextCaptureSequence: 1, publicCaptures: [] });
+      if (existing) {
+        if (existing.item !== item || existing.intentId !== intentId) throw new CommandRefused("binding-mismatch");
+        return { ...existing, reused: true };
+      }
+      const at = now();
+      const recent = (captures.publicCaptures ?? []).filter(t => t > at - windowMs);
+      if (publicCapture && recent.length >= limit) {
+        throw new CommandRefused("rate-limited", { retryAfter: Math.max(1, Math.ceil((Math.min(...recent) + windowMs - at) / 1000)) });
+      }
+      const captureSequence = captures.nextCaptureSequence;
+      tx.set(capturesPath, { item, nextCaptureSequence: captureSequence + 1, publicCaptures: publicCapture ? [...recent, at] : recent, updatedAt: new Date(at).toISOString() });
+      const reservation = { stage, occurrenceId, intentId, expansionKey, item, captureSequence, publicCapture, state: "reserved", reservedAt: new Date(at).toISOString(), generation };
+      tx.set(path, reservation);
+      return { ...reservation, reused: false };
+    }),
+
+    // C5 (decision 9): reserved -> staged, once, after the staged object
+    // exists. The first staging stands: a repeat returns it.
+    markStaged: ({ commandId, generation, stage, occurrenceId, sha256: digest, size, object }) => owned(commandId, generation, async tx => {
+      requireStage(stage);
+      if (typeof digest !== "string" || !DIGEST_RE.test(digest) || !Number.isSafeInteger(size) || size < 1 || typeof object !== "string") throw new CommandRefused("bad-request");
+      const path = sub(commandId, "reservations", docKey(stage, occurrenceId));
+      const reservation = await tx.get(path);
+      if (!reservation) throw new CommandRefused("occurrence-not-reserved");
+      if (reservation.state === "staged") return reservation;
+      const staged = { ...reservation, state: "staged", sha256: digest, size, object, stagedAt: new Date(now()).toISOString(), stagedGeneration: generation };
+      tx.set(path, staged);
+      return staged;
+    }),
+
+    async getReservation(commandId, stage, occurrenceId) {
+      return backend.transaction(tx => tx.get(sub(commandId, "reservations", docKey(stage, occurrenceId))));
+    },
+    async getItemCaptures(item) {
+      return backend.transaction(tx => tx.get(["item-captures", item]));
+    },
 
     // §7: the issuance log, committed before a token leaves Policy.
     logIssuance: ({ commandId, generation, stage, occurrenceId, jti, exp }) => owned(commandId, generation, async tx => {
@@ -753,7 +846,7 @@ export const createMemoryCommandBackend = ({ commandStore }) => {
   let queue = Promise.resolve();
   const key = path => path.join("/");
   const read = path => {
-    if (path.length === 2) return commandStore.commands.get(path[1]) ?? null;
+    if (path.length === 2 && path[0] === "commands") return commandStore.commands.get(path[1]) ?? null;
     return docs.get(key(path)) ?? null;
   };
   return {
@@ -771,7 +864,7 @@ export const createMemoryCommandBackend = ({ commandStore }) => {
         };
         const out = await fn(tx);
         for (const { path, doc } of writes.values()) {
-          if (path.length === 2) commandStore.commands.set(path[1], doc);
+          if (path.length === 2 && path[0] === "commands") commandStore.commands.set(path[1], doc);
           else docs.set(key(path), doc);
         }
         return out;

@@ -20,6 +20,7 @@ import {
   createCommandRecords,
   createProtectedSwitch,
   createMemoryItemAuthority,
+  createMemoryStagingStore,
 } from "@graffiticode/policy";
 import {
   createBroker,
@@ -65,17 +66,21 @@ it("recovers the same capture after an item-authority outage at dispatch", async
     approvals: createMemoryApprovals(new Map([["0013/l0013r-r1", { lang: "0013", revision: "l0013r-r1", imageDigest: IMAGE, tag: "t", tagUrl: "https://t", status: "approved", contractVersions: [3] }]])),
     fence: createMemoryLeaseFence({ leases }),
     itemAuthority: items,
+    staging: createMemoryStagingStore(),
   });
 
   // An admitted capture, its occurrence bound.
   const { commandId } = (await policy.allocateCommand({ caller: GATEWAY, user: { uid: OWNER }, taskId: encodeChainId(["task-0"]), inputDigest: hex("9"), idempotencyKey: "job-1", lang: "0013", request: "{}", worker: "api-1", scopes: 1 })) as any;
   await policy.commandWrite({ caller: GATEWAY, commandId, generation: 1, fn: "installModel", args: { stage: "s0", text: JSON.stringify({ lang: "0013", kind: "plan", carried: {}, intents: [SNAP] }) } });
   await policy.admitCommand({ caller: GATEWAY, commandId, generation: 1, taskIds: ["task-0"], scopes: 1, stages: [{ stage: "s0", lang: "0013", sourceDigest: hex("b"), programDigest: hex("c"), optionsDigest: hex("d"), revision: "l0013r-r1", imageDigest: IMAGE, registryVersion: REGISTRY_VERSION, requiredFunctions: ["snap"] }] });
-  const bytes = new Uint8Array(Buffer.from("\x89PNG test"));
-  const payload = { item: ITEM, captureSequence: 1, sha256: sha256Hex(bytes) };
+  // Reserved, staged, then bound with exactly those arguments (decision 9).
+  const bytes = new Uint8Array(Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from("test")]));
+  const { sessionToken } = await policy.commandSession({ caller: GATEWAY, commandId, generation: 1, stage: "s0" });
+  const reserved = await policy.commandReserve({ caller: L0013, sessionToken, occurrenceId: "n0.0", intentId: "snap" });
+  await policy.commandStage({ caller: L0013, sessionToken, occurrenceId: "n0.0", png: Buffer.from(bytes).toString("base64") });
+  const payload = { item: ITEM, captureSequence: reserved.captureSequence, sha256: sha256Hex(bytes) };
   const argd = argsDigest(payload);
   await policy.commandWrite({ caller: GATEWAY, commandId, generation: 1, fn: "bindOccurrence", args: { stage: "s0", occurrenceId: "n0.0", intentId: "snap", args: JSON.stringify(payload), argd } });
-  const { sessionToken } = await policy.commandSession({ caller: GATEWAY, commandId, generation: 1, stage: "s0" });
   const mint = async () => (await policy.mint({ caller: L0013, sessionToken, fn: "snap", op: "gcs.put-thumbnail", occurrenceId: "n0.0", argsDigest: argd })).executionToken;
 
   let uploads = 0;

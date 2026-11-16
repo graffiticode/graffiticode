@@ -621,3 +621,32 @@ describe("v3 command routes over http", () => {
     expect(definite.body.error).not.toHaveProperty("retryable");
   });
 });
+
+// C5 slice 3c: a capture's reservation and staging, for compilers only; the
+// rate limit answers 429 with when to retry.
+describe("capture routes over http", () => {
+  it("take a compiler's reservation and staging, and answer the rate limit 429", async () => {
+    const calls = [];
+    let limited = false;
+    const server = createPolicyApp({
+      policy: {
+        commandReserve: async args => { calls.push(["reserve", args]); if (limited) throw new PolicyDenied("rate-limited", { retryAfter: 120 }); return { captureSequence: 1 }; },
+        commandStage: async args => { calls.push(["stage", args]); return { sha256: "s" }; },
+      },
+      manager: {},
+      identifyCaller: createCallerIdentity({ verifyIdToken, audience: AUD, callers: { [SA.l0176]: { role: "compiler", lang: "0176" }, [SA.gateway]: { role: "gateway" } } }),
+      verifyUser,
+      publicJwks: { keys: [] },
+      audit: async () => {},
+    });
+    const post = (path, email, body) => as(request(server).post(path), email, { user: null }).send(body);
+    expect((await post("/v1/command-reservations", SA.l0176, { sessionToken: "t", occurrenceId: "n0.0", intentId: "snap", item: "i" })).status).toBe(200);
+    expect((await post("/v1/command-stagings", SA.l0176, { sessionToken: "t", occurrenceId: "n0.0", png: "AA==" })).status).toBe(200);
+    expect(calls.map(([name, args]) => [name, args.occurrenceId])).toEqual([["reserve", "n0.0"], ["stage", "n0.0"]]);
+    expect((await post("/v1/command-reservations", SA.gateway, { sessionToken: "t" })).status).toBe(403);
+    limited = true;
+    const busy = await post("/v1/command-reservations", SA.l0176, { sessionToken: "t", occurrenceId: "n0.0", intentId: "snap" });
+    expect(busy.status).toBe(429);
+    expect(busy.headers["retry-after"]).toBe("120");
+  });
+});

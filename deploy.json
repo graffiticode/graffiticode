@@ -497,7 +497,8 @@
         "POLICY_SYSTEM_CONNECTIONS": "{\"learnosity\":\"conn-d9afcb13-cff3-43a6-8041-c44989bf689c\"}",
         "POLICY_MIN_CONTRACT_VERSION": "2",
         "SYSTEM_SIGNINGS_PER_MINUTE": "120",
-        "SYSTEM_SIGNINGS_BURST": "60"
+        "SYSTEM_SIGNINGS_BURST": "60",
+        "COMMAND_STAGING_BUCKET": "graffiticode-command-staging"
       },
       "smoke": [
         {
