@@ -3,15 +3,27 @@
 // own identity with the command id and the owner's generation, so recovery
 // never depends on a user token (decision 3). A refusal with a reason throws
 // PolicyRefused; anything else Policy answers that isn't success throws.
+// A refusal Policy marks `retryable` (C5: it can't decide now, or another
+// worker can) throws PolicyUnavailable, which isn't a PolicyRefused: the
+// worker leaves the command pending for recovery instead of failing it.
 
 import { buildPolicyRequest, PolicyRefused } from "@graffiticode/policy/client";
 
 export { PolicyRefused };
 
+export class PolicyUnavailable extends Error {
+  constructor(reason) {
+    super(`policy can't decide now (${reason})`);
+    this.name = "PolicyUnavailable";
+    this.reason = reason;
+  }
+}
+
 export const buildPolicyCommands = ({ policyUrl, idToken, fetch: doFetch = fetch }) => {
   const request = buildPolicyRequest({ policyUrl, idToken, fetch: doFetch });
   const call = async (method, path, { body = undefined, authToken = null } = {}) => {
     const { ok, status, body: json } = await request(method, path, { body, authToken });
+    if (!ok && json?.error?.retryable === true && typeof json.error.reason === "string") throw new PolicyUnavailable(json.error.reason);
     if (!ok && typeof json?.error?.reason === "string") throw new PolicyRefused(json.error.reason, json.error.detail ?? null);
     if (!ok || json?.status !== "success") throw new Error(`policy ${method} ${path} failed (${status})`);
     return json.data;

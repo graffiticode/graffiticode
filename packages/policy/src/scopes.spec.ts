@@ -21,6 +21,8 @@ import {
   createProtectedSwitch,
   createMemoryItemAuthority,
   buildItemAuthority,
+  PolicyUnavailable,
+  declaresItemScope,
   ItemAuthorityUnavailable,
   intentScope,
   modelIntents,
@@ -210,15 +212,51 @@ describe("the scopes worker capability (§3)", () => {
     expect(await policy.leaseCommand({ caller: GATEWAY, commandId: c.commandId, worker: "api-new", generation: 2, scopes: 1 })).toMatchObject({ generation: 2 });
   });
 
-  it("marks a connection command admitted under a v3 plan, and admits one only for a worker that declares scopes", async () => {
+  // The owner's review of #402: the capability is persisted before any
+  // recovery window, so no older sweeper ever lists or leases a command it
+  // would fail at admission.
+  it("marks a connection command when an installed model declares an item-scoped intent, before admission", async () => {
     const c = await command({ langs: ["0013", "0176"], connectionId: "conn-1", intents: { s0: [snapIntent()], s1: [SAVE_INTENT] }, scopes: 0 });
-    expect(commandStore.commands.get(c.commandId)).not.toHaveProperty("scopes");
-    await denied(c.admit({ scopes: 0 }), "worker-unsupported");
-    expect(plans()).toEqual([]);
-    await c.admit();
-    expect(commandStore.commands.get(c.commandId).scopes).toBe(1);
+    expect(commandStore.commands.get(c.commandId)).toMatchObject({ scopes: 1, phase: "initializing" });
+    // Its worker dies before admission: an older sweeper neither lists nor takes it.
     clock += COMMAND_LEASE_MS + 1;
-    expect((await policy.dueCommands({ caller: GATEWAY })).commands).toEqual([]);
+    expect((await policy.dueCommands({ caller: GATEWAY, recording: 1, repairs: 1 })).commands.map(d => d.commandId)).not.toContain(c.commandId);
+    await denied(policy.leaseCommand({ caller: GATEWAY, commandId: c.commandId, worker: "old-api", generation: 1, takeOver: true, recording: 1, repairs: 1 }), "worker-unsupported");
+    await policy.leaseCommand({ caller: GATEWAY, commandId: c.commandId, worker: "new-api", generation: 1, takeOver: true, recording: 1, repairs: 1, scopes: 1 });
+    await policy.admitCommand({ caller: GATEWAY, commandId: c.commandId, generation: 2, taskIds: c.taskIds, stages: c.stages, scopes: 1 });
+    expect(commandStore.commands.get(c.commandId).phase).toBe("admitted");
+  });
+
+  it("leaves a connection command whose models declare no item scope to any worker", async () => {
+    const c = await command({ langs: ["0176"], connectionId: "conn-1", intents: { s0: [SAVE_INTENT] }, scopes: 0 });
+    expect(commandStore.commands.get(c.commandId)).not.toHaveProperty("scopes");
+    clock += COMMAND_LEASE_MS + 1;
+    expect((await policy.dueCommands({ caller: GATEWAY, recording: 1, repairs: 1 })).commands.map(d => d.commandId)).toContain(c.commandId);
+  });
+
+  it("answers an older worker's v3 admission as temporary, records no refusal, and marks the command", async () => {
+    // An older worker owned it from before its models: it installs them
+    // itself (which marks the command), then asks to admit.
+    const c = await command({ langs: ["0013"], connectionId: "conn-1", intents: {}, scopes: 0 });
+    expect(commandStore.commands.get(c.commandId)).not.toHaveProperty("scopes");
+    // A manifest needing `snap` over a model that declares no intent for it:
+    // only admission can tell.
+    const e = await c.admit({ scopes: 0 }).catch(err => err);
+    expect(e).toBeInstanceOf(PolicyUnavailable);
+    expect(e.reason).toBe("worker-unsupported");
+    const state = commandStore.commands.get(c.commandId);
+    expect(state).toMatchObject({ status: "pending", scopes: 1 });
+    expect(state).not.toHaveProperty("admissionRefusal");
+    expect(plans()).toEqual([]);
+  });
+
+  it("reads a model's item-scoped intents for the mark", () => {
+    expect(declaresItemScope(model("0013", [snapIntent()]))).toBe(true);
+    expect(declaresItemScope(model("0013", [snapIntent({ kind: "item" })]))).toBe(true);
+    expect(declaresItemScope(model("0013", [{ ...snapIntent(), scope: undefined }]))).toBe(true);
+    expect(declaresItemScope(model("0176", [SAVE_INTENT]))).toBe(false);
+    expect(declaresItemScope(model("0176", [{ ...SAVE_INTENT, scope: "conn-1" }]))).toBe(false);
+    expect(declaresItemScope("not json")).toBe(false);
   });
 });
 
@@ -265,6 +303,25 @@ describe("v3 admission (decisions 1, 3, 6, 10)", () => {
     build({ itemAuthority: null });
     await denied((await command({ langs: ["0013"], intents: { s0: [snapIntent()] } })).admit(), "item-authority-unavailable");
     expect(plans()).toEqual([]);
+  });
+
+  // The owner's review of #402: an outage is temporary, never the command's
+  // refusal, so the command stays pending and a later admission succeeds.
+  it("answers an item-authority outage as temporary, and admits once it is back", async () => {
+    const c = await command({ langs: ["0013"], intents: { s0: [snapIntent()] } });
+    items.state.unavailable = true;
+    const e = await c.admit().catch(err => err);
+    expect(e).toBeInstanceOf(PolicyUnavailable);
+    expect(e.reason).toBe("item-authority-unavailable");
+    const state = commandStore.commands.get(c.commandId);
+    expect(state).toMatchObject({ status: "pending", phase: "initializing" });
+    expect(state).not.toHaveProperty("admissionRefusal");
+    items.state.unavailable = false;
+    await c.admit();
+    expect(commandStore.commands.get(c.commandId).phase).toBe("admitted");
+    // A definite refusal is still recorded.
+    await denied((await command({ langs: ["0013"], uid: OTHER, intents: { s0: [snapIntent()] } })).admit(), "not-owner");
+    expect([...commandStore.commands.values()].find(x => x.uid === OTHER).admissionRefusal).toMatchObject({ reason: "not-owner" });
   });
 
   it("refuses a connectionless chain with a connection-scoped stage, `connection-required`", async () => {

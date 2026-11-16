@@ -42,6 +42,7 @@
 
 import { createHash } from "node:crypto";
 import { CommandRefused, MAX_PAYLOAD_BYTES, ownerRefusal } from "./commands.js";
+import { protectedFunctionsForLang, credentialOf } from "@graffiticode/common/protected-registry";
 import { aggregateStatus, outcomeFromReceipt } from "./command-outcomes.js";
 
 export const sha256 = text => createHash("sha256").update(text, "utf8").digest("hex");
@@ -146,6 +147,21 @@ export const repairGate = (original, selection = []) => {
   return null;
 };
 
+// Does a stage model declare an item-scoped intent (C5 decision 1): one whose
+// scope is an item, or whose function the registry gives a service
+// credential? Only ever makes a command stricter about who may own it.
+export const declaresItemScope = text => {
+  let model;
+  try {
+    model = JSON.parse(text);
+  } catch {
+    return false;
+  }
+  const intents = Array.isArray(model?.intents) ? model.intents : [];
+  return intents.some(i => (i?.scope && typeof i.scope === "object" && i.scope.kind === "item") ||
+    (typeof model?.lang === "string" && credentialOf(protectedFunctionsForLang(model.lang)?.[i?.fn]) === "service"));
+};
+
 export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
   const cmdPath = id => ["commands", id];
   const sub = (id, collection, docId) => ["commands", id, collection, docId];
@@ -207,13 +223,25 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
 
   return {
     // §6 step 2: a stage's model, installed once with its revision.
+    // C5: a model with an item-scoped intent makes the command one only a
+    // worker that runs v3 commands may own (`scopes: 1`), from now, before
+    // admission: an older sweeper must never take over a command it would
+    // fail at admission.
     installModel: ({ commandId, generation, stage, text, revision, tagUrl }) => owned(commandId, generation, async (tx, command) => {
       requireStage(stage);
       requirePayload(text);
       if (command.phase === "admitted") throw new CommandRefused("command-admitted");
       const { installed } = await installOnce(tx, sub(commandId, "models", stage), { stage, text, digest: sha256(text), revision: revision ?? null, tagUrl: tagUrl ?? null });
-      if (command.phase === "allocated") touch(tx, command, { phase: "initializing" });
+      const scoped = command.scopes !== 1 && declaresItemScope(installed.text);
+      if (command.phase === "allocated" || scoped) touch(tx, command, { ...(command.phase === "allocated" ? { phase: "initializing" } : {}), ...(scoped ? { scopes: 1 } : {}) });
       return { stage, digest: installed.digest, revision: installed.revision, tagUrl: installed.tagUrl };
+    }),
+
+    // C5: the command needs a worker that runs v3 commands (`scopes: 1`),
+    // marked when one that doesn't was refused its admission.
+    requireScopes: ({ commandId, generation }) => owned(commandId, generation, async (tx, command) => {
+      if (command.scopes === 1) return command;
+      return touch(tx, command, { scopes: 1 });
     }),
 
     // §6 step 2: admission recorded on the command, once. A retry of the same

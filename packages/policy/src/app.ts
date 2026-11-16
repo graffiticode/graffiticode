@@ -71,7 +71,7 @@ import { Router } from "express";
 import { buildHttpHandler, createHttpApp, sendSuccessResponse, parseTokenFromRequest } from "@graffiticode/common/http";
 import { UnauthenticatedError, UnauthorizedError, UnavailableError } from "@graffiticode/common/errors";
 import { classify } from "@graffiticode/common/failures";
-import { PolicyDenied, PolicyMaintenance } from "./policy.js";
+import { PolicyDenied, PolicyMaintenance, PolicyUnavailable } from "./policy.js";
 import { requestContextMiddleware } from "./audit.js";
 
 const ROUTE_ROLES = Object.freeze({
@@ -179,6 +179,12 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
       }
       // Busy, not denied (rate-limit.js): 429 with when to try again, never
       // cached.
+      // Temporary (C5): retry later, and never a definite refusal.
+      if (err instanceof PolicyUnavailable) {
+        res.set("Cache-Control", "no-store");
+        res.status(503).json({ status: "error", error: { code: 503, message: "policy can't decide now", reason: err.reason, category: await categoryOf(err.reason, null), retryable: true }, data: null });
+        return;
+      }
       if (err instanceof PolicyDenied && err.retryAfter !== undefined) {
         res.set("Retry-After", String(err.retryAfter));
         res.set("Cache-Control", "no-store");

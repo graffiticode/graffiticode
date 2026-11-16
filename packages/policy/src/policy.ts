@@ -88,6 +88,13 @@ export class PolicyDenied extends Error {
   }
 }
 
+// Policy can't decide now, and another attempt may succeed (C5: item
+// authority unreachable, or a worker that can't own the command while one that
+// can may): not a judgement on the request. Answered 503 with `retryable`, and
+// never recorded as a command's admission refusal, so the command stays
+// pending for recovery.
+export class PolicyUnavailable extends PolicyDenied {}
+
 // Protected execution is switched off (maintenance.js): not a judgement on the
 // request, which may be retried once it is back on.
 export class PolicyMaintenance extends PolicyDenied {
@@ -216,6 +223,11 @@ export const createPolicy = ({
   const deny = async (reason, record, { retryAfter, detail }: { retryAfter?: number, detail?: Record<string, unknown> | null } = {}) => {
     await audit({ ...record, outcome: "denied", reason });
     throw new PolicyDenied(reason, { retryAfter, detail });
+  };
+  // A temporary refusal (PolicyUnavailable): audited like any other.
+  const unavailable = async (reason, record) => {
+    await audit({ ...record, outcome: "denied", reason });
+    throw new PolicyUnavailable(reason);
   };
   // Every protected entry point asks first, before reading or issuing
   // anything. `principal` is verified identity only (the authenticated user,
@@ -610,6 +622,13 @@ export const createPolicy = ({
       if (command.kind === "repair") return await admitRepair({ record, command, commandId, generation });
       return await admitOwnedCommand({ record, command, commandId, generation, taskIds, stages, recording, scopes });
     } catch (e) {
+      // A temporary refusal leaves the command pending. A worker that can't
+      // own a v3 command marks it as needing one that can (C5), so no older
+      // sweeper lists or leases it again. Best effort.
+      if (e instanceof PolicyUnavailable) {
+        if (e.reason === "worker-unsupported") await commandRecords.requireScopes({ commandId, generation }).catch(() => {});
+        throw e;
+      }
       // A refusal of the owner's admission is the command's answer: record its
       // reason on the command, so its callers can say why it failed (C6).
       // Best effort: the refusal stands either way.
@@ -1660,7 +1679,8 @@ export const createPolicy = ({
   const admitScopedChain = async ({ record, uid, invocation, taskIds, stages, models, scopes, planRegistry }) => {
     const { invocationId, connectionId } = invocation;
     if (!models) return deny("not-supported", record);
-    if (scopes !== 1) return deny("worker-unsupported", record);
+    // Another worker, one that runs v3 commands, can admit it.
+    if (scopes !== 1) return unavailable("worker-unsupported", record);
     const pinned = stages.map(pinnedStage);
     const needsConnection = pinned.some(m => m.requiredFunctions.some(fn => credentialFor(m.lang, fn) === "connection"));
     if (needsConnection && connectionId === null) return deny("connection-required", record);
@@ -1718,6 +1738,8 @@ export const createPolicy = ({
     const items: Record<string, { publicCapture: boolean }> = {};
     for (const [itemId, use] of itemUses) {
       const access = await itemAccess(itemAuthority, { itemId, uid, lang: use.lang, fn: use.fn });
+      // Unreachable item authority never allows, and never fails the command.
+      if (access.refusal === "item-authority-unavailable") return unavailable(access.refusal, { ...record, itemId });
       if (access.refusal) return deny(access.refusal, { ...record, itemId });
       items[itemId] = { publicCapture: access.publicCapture === true };
     }

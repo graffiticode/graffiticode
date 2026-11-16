@@ -15,7 +15,9 @@ import {
   createPseudonymizer,
   createProtectedSwitch,
   verifyUserWithRetry,
-  authUnreachable
+  authUnreachable,
+  PolicyUnavailable,
+  PolicyDenied
 } from "./index.js";
 
 const OWNER = "0xowneruid";
@@ -598,5 +600,24 @@ describe("v3 command routes over http", () => {
     await as(request(stubbed).get("/v1/commands-due?scopes=1"), SA.gateway, { user: null });
     await as(request(stubbed).post("/v1/commands/c:x/admit"), SA.gateway, { user: null }).send({ generation: 1, taskIds: [], stages: [], scopes: 1 });
     expect(calls.map(([name, args]) => [name, args.scopes])).toEqual([["lease", 1], ["due", 1], ["admit", 1]]);
+  });
+
+  it("answers a temporary refusal 503 and retryable, and a definite one 403 as before", async () => {
+    const answering = error => createPolicyApp({
+      policy: { admitCommand: async () => { throw error; } },
+      manager: {},
+      identifyCaller: createCallerIdentity({ verifyIdToken, audience: AUD, callers: { [SA.gateway]: { role: "gateway" } } }),
+      verifyUser,
+      publicJwks: { keys: [] },
+      audit: async () => {},
+    });
+    const admit = server => as(request(server).post("/v1/commands/c:x/admit"), SA.gateway, { user: null }).send({ generation: 1 });
+    const temporary = await admit(answering(new PolicyUnavailable("item-authority-unavailable")));
+    expect(temporary.status).toBe(503);
+    expect(temporary.headers["cache-control"]).toBe("no-store");
+    expect(temporary.body.error).toMatchObject({ reason: "item-authority-unavailable", category: "unavailable", retryable: true });
+    const definite = await admit(answering(new PolicyDenied("not-owner")));
+    expect(definite.status).toBe(403);
+    expect(definite.body.error).not.toHaveProperty("retryable");
   });
 });
