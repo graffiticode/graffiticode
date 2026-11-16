@@ -382,6 +382,8 @@ For the initial engine, a persisted state machine is a viable implementation pro
 
 ## Platform prerequisites and native Rust activation
 
+*These prerequisites are sequenced, together with the frontend service-job and A2A work, in the [execution observation plan](execution-observation-plan.md): milestones M2 and M3, and decisions D-2, D-4 and D-6.*
+
 L0188 starts as a native Rust language and has no TypeScript compiler or legacy effect path to migrate. Its acceptance gate is operation conformance and durable-execution evidence, not parity against a nonexistent TS implementation. It reuses B1–B4, and can be delivered without waiting for every existing language to finish Tracks A or C.
 
 Before accepting production starts:

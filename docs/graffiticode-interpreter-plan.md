@@ -519,6 +519,13 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
 ## Track E — Durable execution, driven by L0188
 Durable execution was deferred until a concrete language needed it. [L0188](l0188-language-design.md) (Learnosity Data Operations) is that language. Its operations, such as a cohort rescore or a dataset generation, outlive a request, a session and several deployments.
 
+*Track E is sequenced together with the frontend's service jobs and A2A work in the [execution observation plan](execution-observation-plan.md). That plan's decisions apply here:*
+- *D-2: runs own themselves after the handoff from their command;*
+- *D-4: nonblocking submission;*
+- *D-6: one transactional store for run state, manifests and checkpoints.*
+
+*Its workstream W1 (errors, capability declarations, contract versions, service scope) needs no runs and can ship before E1.*
+
 **Independence, both ways.**
 - Track E doesn't wait on the remaining A, C or D work for other languages. It needs B1–B4 (shipped), B5, D1 and D2a.
 - Its prerequisites apply only to durable languages. An ordinary Track C upgrade, an immediate command (C5, C6) or a read-only interpretation never needs E1–E6.
@@ -548,7 +555,8 @@ Durable execution was deferred until a concrete language needed it. [L0188](l018
       - each chunk has a stable ordinal, and its append commits atomically with its processing checkpoint;
       - replaying an accepted append returns the existing manifest version.
     - **Not presentation refreshes.** Presentation refreshes stay outside the run event log (E4's per-audience ordering).
-  - **Error registry and capability declarations**, shipped with E1:
+  - **Errors and capability declarations.** Both may ship earlier, as W1 of the execution observation plan, and E1 doesn't ship without them.
+    - **Errors.** Extend the existing FAIL-01 registry (`packages/common/src/failures.ts`) and its enforcement tests: new reasons, typed details and context-aware recovery guidance, with the five existing categories unchanged.
     - the run's operations and `dispatch` events are declared in the interpreter manifest;
     - preflight refuses undeclared new work before allocation, and existing keys are served from their record (B5 §6).
 - **E2 Scheduling and recovery.**
