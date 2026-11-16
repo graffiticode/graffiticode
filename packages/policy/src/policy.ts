@@ -965,6 +965,31 @@ export const createPolicy = ({
     const existing = await commandRecords.getReservation(session.cmd, session.stg, occurrenceId);
     if (existing) {
       if (existing.intentId !== intentId || (item !== null && existing.item !== item)) return deny("binding-mismatch", record);
+      // Recovery's render grant: fresh, and only after the item is checked
+      // again (the owner and fencing were just checked by reservationClaims),
+      // against the task this reservation pinned, never a new one.
+      if (typeof existing.renderTask === "string" && existing.state !== "staged") {
+        Object.assign(record, { itemId: existing.item });
+        // A finished command renders nothing more.
+        if (command.status !== "pending") return deny("command-finished", record);
+        const access = await itemAccess(itemAuthority, { itemId: existing.item, uid: command.uid, lang: session.lang, fn: intentFn(command, session.stg, intentId) });
+        if (access.refusal === "item-authority-unavailable") return unavailable(access.refusal, record);
+        // Definite: the occurrence fails, as a refused bind does.
+        const failOccurrence = reason => commandRecords.recordRefusal({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, reason }).catch(() => {});
+        if (access.refusal) {
+          await failOccurrence(access.refusal);
+          return deny(access.refusal, record);
+        }
+        if (!access.owner) {
+          await failOccurrence("not-owner");
+          return deny("not-owner", record);
+        }
+        if (access.taskId !== existing.renderTask) {
+          await failOccurrence("render-target-changed");
+          return deny("render-target-changed", record);
+        }
+        return grantIfCurrent({ session, occurrenceId, pinned: existing, record });
+      }
       return reservationAnswer(existing);
     }
     const intent = (command.admission.stages?.[session.stg]?.intents ?? []).find(i => i.id === intentId);
@@ -982,20 +1007,55 @@ export const createPolicy = ({
       return deny(access.refusal, record);
     }
     const publicCapture = access.publicCapture === true;
+    // A private item (only its owner reaches here with one) is rendered under
+    // a grant pinned to the task the authority resolved now. A public item
+    // renders without one.
+    const renderTask = access.owner && !access.isPublic ? access.taskId : null;
+    if (access.owner && !access.isPublic && !renderTask) {
+      await commandRecords.recordRefusal({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, reason: "render-target-missing" }).catch(() => {});
+      return deny("render-target-missing", record);
+    }
     let reservation;
     try {
-      reservation = await commandRecords.reserve({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, intentId, expansionKey, item: itemId, publicCapture, limit: publicCaptureLimit.perWindow, windowMs: publicCaptureLimit.windowMs });
+      reservation = await commandRecords.reserve({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, intentId, expansionKey, item: itemId, publicCapture, renderTask, limit: publicCaptureLimit.perWindow, windowMs: publicCaptureLimit.windowMs });
     } catch (e) {
       return recordsDenied(e, { ...record, publicCapture });
     }
-    if (!reservation.reused) await audit({ ...record, publicCapture, provenance: command.uid === ANONYMOUS_SUBJECT ? "anonymous" : "user", outcome: "allowed" });
-    return reservationAnswer(reservation);
+    // A concurrent reservation won: it is answered as a repeat is.
+    if (reservation.reused) return commandReserve({ caller, sessionToken, occurrenceId, intentId, expansionKey, item });
+    await audit({ ...record, publicCapture, provenance: command.uid === ANONYMOUS_SUBJECT ? "anonymous" : "user", outcome: "allowed" });
+    if (typeof reservation.renderTask !== "string") return reservationAnswer(reservation);
+    return grantIfCurrent({ session, occurrenceId, pinned: reservation, record });
   };
-  const reservationAnswer = r => ({
+  // The owner's reviews of #407: a grant leaves Policy only once its issuance
+  // is recorded, in one fenced transaction (records.recordRenderGrant) that
+  // decides it against the command and reservation as they stand at commit:
+  // the command still pending and still owned by this session's generation,
+  // the reservation still unstaged with the same item and pinned task. The
+  // token is signed first, from the reservation's fixed fields, so its id can
+  // be recorded; a refused or staged decision discards it.
+  const grantIfCurrent = async ({ session, occurrenceId, pinned, record }) => {
+    const token = await issueToken(signer, "render", { sub: session.sub, itm: pinned.item, tsk: pinned.renderTask, cmd: session.cmd, fg: session.fg, stg: session.stg, occ: occurrenceId, cseq: pinned.captureSequence });
+    const { jti, exp } = decodeJwt(token);
+    let decided;
+    try {
+      decided = await commandRecords.recordRenderGrant({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, item: pinned.item, renderTask: pinned.renderTask, jti, exp });
+    } catch (e) {
+      return recordsDenied(e, record);
+    }
+    // Staged meanwhile: nothing is rendered again, and the token is dropped.
+    if (!decided.granted) return reservationAnswer(decided.reservation);
+    // The audit names the grant, never carries it.
+    await audit({ ...record, event: "render-grant", itemId: pinned.item, renderGrant: { jti, exp }, outcome: "allowed" });
+    return reservationAnswer(decided.reservation, { token, expiresAt: Number(exp) * 1000 });
+  };
+  const intentFn = (command, stage, intentId) => (command.admission.stages?.[stage]?.intents ?? []).find(i => i.id === intentId)?.fn;
+  const reservationAnswer = (r, grant = null) => ({
     item: r.item,
     captureSequence: r.captureSequence,
     publicCapture: r.publicCapture === true,
     staged: r.state === "staged" ? { sha256: r.sha256, size: r.size } : null,
+    ...(grant ? { renderGrant: grant } : {}),
   });
   const commandStage = async ({ caller, sessionToken, occurrenceId, png }) => {
     const record = { event: "command-stage", callerRole: caller?.role };

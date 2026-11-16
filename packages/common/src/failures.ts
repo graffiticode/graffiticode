@@ -160,6 +160,9 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // C5 slice 3b: a bound item's occurrence minted before its reservation.
   ...cat("conflict", ["occurrence-not-reserved"]),
   ...cat("conflict", ["staging-unavailable", "precondition-contention"]),
+  // C5 render grants: a private item with no task to render, or one whose
+  // task is no longer the one its reservation pinned.
+  ...cat("conflict", ["render-target-missing", "render-target-changed"]),
 ]));
 
 // Broker wraps Policy's reason (`authorization-denied:<reason>`); the category

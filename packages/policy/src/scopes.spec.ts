@@ -90,7 +90,7 @@ beforeEach(async () => {
   invocationStore = createMemoryInvocationStore({ leases });
   commandStore = createMemoryCommandStore({ invocationStore });
   approvals = createMemoryApprovals(new Map([approved("0000", [1, 2]), approved("0013", [3]), approved("0176", [1, 2]), approved("0185", [1, 2])]));
-  items = createMemoryItemAuthority({ [PRIVATE]: { ownerUid: OWNER, isPublic: false }, [PUBLIC]: { ownerUid: OWNER, isPublic: true }, twice: "ambiguous" });
+  items = createMemoryItemAuthority({ [PRIVATE]: { ownerUid: OWNER, isPublic: false, taskId: "privateTask" }, [PUBLIC]: { ownerUid: OWNER, isPublic: true }, twice: "ambiguous" });
   audits = [];
   deps = {
     signer,

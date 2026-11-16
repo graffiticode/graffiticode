@@ -51,7 +51,7 @@ it("recovers the same capture after an item-authority outage at dispatch", async
   const leases = new Map();
   const invocations = createMemoryInvocationStore({ leases });
   const commandStore = createMemoryCommandStore({ invocationStore: invocations });
-  const items = createMemoryItemAuthority({ [ITEM]: { ownerUid: OWNER, isPublic: false } });
+  const items = createMemoryItemAuthority({ [ITEM]: { ownerUid: OWNER, isPublic: false, taskId: "itemTask" } });
   const protectedSwitch = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
   const policy = createPolicy({
     signer,
