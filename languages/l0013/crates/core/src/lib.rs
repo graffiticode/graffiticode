@@ -17,15 +17,24 @@ pub mod crop;
 
 /// The protected registry's version (`packages/common/src/protected-registry.ts`), kept equal to
 /// it by `scripts/check-registry-version.js`. L0013 registers `snap` (C5,
-/// `docs/c5-l0013-commands-plan.md`), and the registry moves to 9 in its own rollout change. It
-/// is reported in preflight manifests only once snap runs as a command (C5a slice 6); until then
-/// the dialect declares no protected functions.
+/// `docs/c5-l0013-commands-plan.md`), and reports this version in its preflight manifests
+/// (C5a slice 6).
 pub const REGISTRY_VERSION: u32 = 8;
+
+/// `snap`'s registered names (the registry's `PROTECTED_FUNCTIONS["0013"].snap`).
+pub const SNAP: &str = "snap";
+pub const SNAP_OP: &str = "gcs.put-thumbnail";
+/// The most captures one `snap` site makes in one command stage (its intent's bound).
+pub const MAX_SNAPS_PER_SITE: u32 = 16;
 
 use std::sync::{Arc, LazyLock};
 
 use async_trait::async_trait;
-use graffiticode_l0000::{Dialect, Evaluator, Key, Lexicon, NodeId, Op, Record, Value};
+use graffiticode_l0000::{
+    Ast, Dialect, Evaluator, Intent, IntentScope, Key, Lexicon, Node, NodeId, Op, ProtectedCall, ProtectedFunction,
+    ProtectedKind, Record, Value,
+};
+use serde_json::json;
 
 /// The words L0013 adds to the base lexicon. Generated from the TypeScript package by
 /// `tests/conformance/generate.mjs`.
@@ -99,6 +108,12 @@ pub type CameraError = Box<dyn std::error::Error + Send + Sync>;
 pub trait Camera: Send + Sync {
     async fn snap(&self, request: SnapRequest) -> Result<Snapshot, CameraError>;
 
+    /// Renders and crops, and stores nothing: the PNG a command stages (C5 decision 9), which
+    /// Broker publishes. A camera that can't is refused under a command.
+    async fn render(&self, _request: SnapRequest) -> Result<Vec<u8>, CameraError> {
+        Err("this camera can't render without storing the capture".into())
+    }
+
     /// What the camera reports about its configuration (where captures go), for `/egress`.
     fn status(&self) -> Option<serde_json::Value> {
         None
@@ -108,13 +123,52 @@ pub trait Camera: Send + Sync {
 #[derive(Clone)]
 pub struct L0013 {
     camera: Arc<dyn Camera>,
+    protected: Vec<(String, ProtectedFunction)>,
 }
 
 impl L0013 {
     pub fn new(camera: impl Camera + 'static) -> Self {
-        Self { camera: Arc::new(camera) }
+        Self {
+            camera: Arc::new(camera),
+            protected: vec![("SNAP".to_owned(), ProtectedFunction::new(SNAP, ProtectedKind::Write))],
+        }
     }
 }
+
+/// A `snap` site: where it is in the source (stable across normalization), or its node.
+pub fn snap_site(ast: &Ast, id: NodeId) -> String {
+    ast.span(id).map_or_else(|| format!("n{id}"), |span| span.from.to_string())
+}
+
+/// A `snap` site's intent id: `snap:<site>` (policy accepts `[A-Za-z0-9_:.-]`).
+pub fn snap_intent_id(site: &str) -> String {
+    format!("snap:{site}")
+}
+
+/// The item a `snap` names as a literal, if it does: the outermost `item` modifier of its
+/// options, as evaluation lets the outermost win. `None` when that modifier's value is computed,
+/// or there is none: the item then arrives as data.
+pub fn literal_item(ast: &Ast, snap: NodeId) -> Option<String> {
+    let mut at = ast.get(snap)?.elts().first().copied();
+    while let Some(id) = at {
+        let Node::Form { op, elts } = ast.get(id)? else { return None };
+        match op.tag() {
+            "ITEM" => {
+                return match elts.first().and_then(|&value| ast.get(value)) {
+                    Some(Node::Str(item)) if !item.is_empty() => Some(item.clone()),
+                    _ => None,
+                };
+            }
+            "VIEWPORT" | "SLICE" | "ZOOM" | "CROP" | "WIDTH" | "HEIGHT" => at = elts.get(1).copied(),
+            _ => return None,
+        }
+    }
+    None
+}
+
+/// The occurrences one site has made in this stage, by site (a command's expansion keys).
+#[derive(Default)]
+struct SiteCounts(std::collections::HashMap<String, u32>);
 
 #[async_trait]
 impl Dialect for L0013 {
@@ -126,6 +180,35 @@ impl Dialect for L0013 {
     /// evidence run can check it is the isolated bucket before its first capture.
     fn status(&self) -> Option<serde_json::Value> {
         self.camera.status()
+    }
+
+    /// `snap` is a protected write (C5): Broker publishes the capture as itself, on the item's
+    /// scope. Admitted only as a command: any other compile admits nothing, asks policy nothing
+    /// whatever connection was sent, and uploads directly as before.
+    fn protected_functions(&self) -> &[(String, ProtectedFunction)] {
+        &self.protected
+    }
+
+    fn admits_outside_commands(&self) -> bool {
+        false
+    }
+
+    fn registry_version(&self) -> Option<u32> {
+        Some(REGISTRY_VERSION)
+    }
+
+    /// One runtime-expanded intent per `snap` site, on its item: static when the program names
+    /// it as a literal (authorized at admission), bound otherwise (authorized at reservation).
+    fn intents(&self, ast: &Ast) -> Vec<Intent> {
+        ast.nodes()
+            .filter_map(|(id, node)| match node {
+                Node::Form { op, .. } if op.tag() == "SNAP" => Some(
+                    Intent::expanding(snap_intent_id(&snap_site(ast, id)), SNAP, SNAP_OP, MAX_SNAPS_PER_SITE)
+                        .with_scope(IntentScope::Item(literal_item(ast, id))),
+                ),
+                _ => None,
+            })
+            .collect()
     }
 
     async fn eval(&self, cx: &mut Evaluator<'_>, id: NodeId, op: &Op, elts: &[NodeId]) -> Option<Value> {
@@ -176,16 +259,73 @@ impl L0013 {
             // Only a token the server verified reaches the camera.
             token: cx.exec().user_token().map(str::to_owned),
         };
+        if cx.exec().is_command() {
+            return self.capture(cx, id, request).await;
+        }
         match self.camera.snap(request).await {
-            Ok(Snapshot { url, item }) => Value::Record(
-                [(Key::tag("url"), Value::Str(url)), (Key::tag("item"), Value::Str(item))].into_iter().collect(),
-            ),
+            Ok(Snapshot { url, item }) => snapshot_value(url, item),
             Err(err) => {
                 cx.report(id, format!("snap failed: {err}"));
                 Value::Null
             }
         }
     }
+
+    /// A command's snap (C5 decision 9): the occurrence reserved (the item's next capture
+    /// sequence), rendered only when nothing is staged for it yet, staged, then published by
+    /// Broker with exactly `{ item, sha256, captureSequence }` as staged. Its value is the
+    /// publication's `{ url, item }`.
+    async fn capture(&self, cx: &mut Evaluator<'_>, id: NodeId, request: SnapRequest) -> Value {
+        let site = snap_site(cx.ast(), id);
+        let n = {
+            let counts = &mut cx.exec().state::<SiteCounts>().0;
+            let n = counts.entry(site.clone()).or_default();
+            *n += 1;
+            *n - 1
+        };
+        let item = request.item.clone();
+        let outcome: Result<serde_json::Value, String> = async {
+            let occurrence = cx.exec().expand(&snap_intent_id(&site), &format!("{site}#{n}")).map_err(|e| e.to_string())?;
+            let reserved = cx.exec().reserve_capture(&occurrence, &item).await.map_err(|e| e.to_string())?;
+            let sha256 = match reserved.staged {
+                Some(staged) => staged.sha256,
+                None => {
+                    let png = self.camera.render(request).await.map_err(|e| e.to_string())?;
+                    cx.exec().stage_capture(&occurrence, &png).await.map_err(|e| e.to_string())?.sha256
+                }
+            };
+            let call = ProtectedCall {
+                function: SNAP.to_owned(),
+                op: SNAP_OP.to_owned(),
+                payload: json!({ "item": reserved.item, "sha256": sha256, "captureSequence": reserved.capture_sequence }),
+                occurrence_id: occurrence,
+            };
+            let outcome = cx.exec().invoke(&call).await.map_err(|e| e.to_string())?;
+            if outcome["status"] != "succeeded" {
+                let reason = outcome["reason"].as_str().unwrap_or("not published");
+                return Err(format!("the capture wasn't published ({reason})"));
+            }
+            Ok(outcome["result"].clone())
+        }
+        .await;
+        match outcome {
+            Ok(result) => match (result["url"].as_str(), result["item"].as_str()) {
+                (Some(url), Some(item)) => snapshot_value(url.to_owned(), item.to_owned()),
+                _ => {
+                    cx.report(id, "snap failed: the publication returned no url");
+                    Value::Null
+                }
+            },
+            Err(err) => {
+                cx.report(id, format!("snap failed: {err}"));
+                Value::Null
+            }
+        }
+    }
+}
+
+fn snapshot_value(url: String, item: String) -> Value {
+    Value::Record([(Key::tag("url"), Value::Str(url)), (Key::tag("item"), Value::Str(item))].into_iter().collect())
 }
 
 /// The options a value carries: a record's fields by name, whatever kind of key they were

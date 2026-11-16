@@ -854,6 +854,12 @@
       "access": "public",
       "retireTags": true,
       "runtimeServiceAccount": "l0013r-run@graffiticode.iam.gserviceaccount.com",
+      "pinnable": {
+        "lang": "0013",
+        "contractVersions": [
+          3
+        ]
+      },
       "network": {
         "network": "compilers",
         "subnet": "compilers-l0013",
@@ -927,7 +933,10 @@
       ],
       "env": {
         "AUTH_URL": "https://auth.graffiticode.org",
-        "THUMBNAIL_BUCKET": "graffiticode.appspot.com"
+        "THUMBNAIL_BUCKET": "graffiticode.appspot.com",
+        "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
+        "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app",
+        "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com"
       },
       "smoke": [
         {

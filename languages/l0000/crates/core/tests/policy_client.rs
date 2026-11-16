@@ -110,6 +110,22 @@ async fn serve(fake: Arc<Fake>) -> String {
                     let n = fake.sent("/v1/mint").len();
                     Fake::next(&fake.mint, success(json!({ "executionToken": format!("exec-{n}") })))
                 }
+                // C5: a capture's reservation and staging, answered as policy records them.
+                "/v1/command-reservations" => Fake::next(
+                    &fake.execute,
+                    success(json!({ "item": "item-1", "captureSequence": 3, "publicCapture": false, "staged": null })),
+                ),
+                "/v1/command-stagings" => {
+                    use sha2::Digest;
+                    let png = base64::engine::general_purpose::STANDARD
+                        .decode(fake.sent("/v1/command-stagings").last().unwrap().0["png"].as_str().unwrap())
+                        .unwrap();
+                    let sha256 = hex::encode(sha2::Sha256::digest(&png));
+                    Fake::next(
+                        &fake.execute,
+                        success(json!({ "item": "item-1", "captureSequence": 3, "sha256": sha256, "size": png.len() })),
+                    )
+                }
                 _ => Fake::next(&fake.execute, success(json!({ "status": "succeeded", "steps": [] }))),
             }
         }
@@ -126,6 +142,9 @@ async fn serve(fake: Arc<Fake>) -> String {
         .route("/v1/mint", post(record("/v1/mint")))
         .route("/v1/preview-session", post(record("/v1/preview-session")))
         .route("/v1/execute", post(record("/v1/execute")))
+        .route("/v1/command-occurrences", post(record("/v1/command-occurrences")))
+        .route("/v1/command-reservations", post(record("/v1/command-reservations")))
+        .route("/v1/command-stagings", post(record("/v1/command-stagings")))
         .with_state(fake);
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
@@ -423,5 +442,121 @@ mod preview_sessions {
         assert_eq!((session.allowed.len(), session.session_token), (0, None));
         let refused = client(&url, None).preview_session("0176").await.unwrap_err();
         assert_eq!(refused.reason(), Some("not-configured"));
+    }
+}
+
+/// C5 (docs/c5-l0013-commands-plan.md decisions 6, 9 and 10): the requests a capture makes, and
+/// a v3 session read like any other.
+mod captures {
+    use super::*;
+    use graffiticode_l0000::{OccurrenceBinding, Reservation, ReserveRequest, StagedDigest};
+
+    async fn served() -> (Arc<Fake>, String, SigningKey) {
+        let fake = Arc::new(Fake::default());
+        let key = SigningKey::generate("k1");
+        fake.jwks.lock().unwrap().push(key.jwk.clone());
+        let url = serve(Arc::clone(&fake)).await;
+        (fake, url, key)
+    }
+
+    #[tokio::test]
+    async fn a_v3_command_session_is_read_like_any_other_with_or_without_a_connection() {
+        let (_fake, url, key) = served().await;
+        let client = client(&url, Some(&url));
+        let bound = json!({ "cmd": "c:1", "fg": 1, "cv": 3, "pld": "p", "fns": ["snap"], "bind": { "revision": "r" } });
+        let connectionless = key.session("gc-session+jwt", bound.clone());
+        let snapshot = client.command_session(&connectionless).await.unwrap();
+        assert_eq!(snapshot.allowed, vec!["snap".to_owned()]);
+        assert_eq!(snapshot.bind, Some(json!({ "revision": "r" })));
+        let mut connected = bound;
+        connected
+            .as_object_mut()
+            .unwrap()
+            .extend(json!({ "conn": "conn-1", "own": "u1", "backend": "learnosity" }).as_object().unwrap().clone());
+        assert!(client.command_session(&key.session("gc-session+jwt", connected)).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn a_connection_stage_sends_the_same_requests_under_a_v3_session_as_under_v2() {
+        let (fake, url, key) = served().await;
+        let client = client(&url, Some(&url));
+        let session = |cv: u64| {
+            key.session("gc-session+jwt", json!({ "cmd": "c:1", "fg": 1, "cv": cv, "conn": "conn-1", "own": "u1", "backend": "learnosity", "pld": "p" }))
+        };
+        let binding = OccurrenceBinding {
+            occurrence_id: "n6.0".into(),
+            intent_id: "save".into(),
+            expansion_key: None,
+            args: "{\"a\":1}".into(),
+            argd: args_digest(&json!({ "a": 1 })),
+        };
+        let mut sent = Vec::new();
+        for cv in [2, 3] {
+            let token = session(cv);
+            client.bind_occurrence(&token, &binding).await.unwrap();
+            client.invoke(&token, &call()).await.unwrap();
+            // The session is opaque: every request is the same but for the token itself.
+            let strip = |mut body: Json| {
+                body.as_object_mut().unwrap().remove("sessionToken");
+                body
+            };
+            sent.push((
+                strip(fake.sent("/v1/command-occurrences").last().unwrap().0.clone()),
+                strip(fake.sent("/v1/mint").last().unwrap().0.clone()),
+                fake.sent("/v1/execute").last().unwrap().0.clone(),
+            ));
+        }
+        assert_eq!(sent[0], sent[1]);
+    }
+
+    #[tokio::test]
+    async fn reserve_and_stage_send_what_policy_reads_and_read_its_answers_exactly() {
+        let (fake, url, _key) = served().await;
+        let client = client(&url, Some(&url));
+        let request = ReserveRequest {
+            occurrence_id: "x:1".into(),
+            intent_id: "snap:0".into(),
+            expansion_key: Some("0#0".into()),
+            item: "item-1".into(),
+        };
+        let reserved = client.reserve("session", &request).await.unwrap();
+        assert_eq!(
+            reserved,
+            Reservation { item: "item-1".into(), capture_sequence: 3, public_capture: false, staged: None }
+        );
+        assert_eq!(
+            fake.sent("/v1/command-reservations")[0].0,
+            json!({ "sessionToken": "session", "occurrenceId": "x:1", "intentId": "snap:0", "item": "item-1", "expansionKey": "0#0" })
+        );
+        // The kernel's own base64 agrees with the standard one, for every padding.
+        for bytes in [&b""[..], b"f", b"fo", b"foo", b"foob", b"fooba", b"foobar", &[0, 255, 254, 1, 2]] {
+            assert_eq!(
+                graffiticode_l0000::policy_client::base64_standard(bytes),
+                base64::engine::general_purpose::STANDARD.encode(bytes)
+            );
+        }
+        let staged = client.stage("session", "x:1", b"\x89PNG rendered").await.unwrap();
+        assert_eq!((staged.capture_sequence, staged.size), (3, 13));
+        let body = &fake.sent("/v1/command-stagings")[0].0;
+        assert_eq!(body["occurrenceId"], "x:1");
+        assert_eq!(
+            base64::engine::general_purpose::STANDARD.decode(body["png"].as_str().unwrap()).unwrap(),
+            b"\x89PNG rendered"
+        );
+        // A reservation already staged says so.
+        fake.execute.lock().unwrap().push(success(json!({ "item": "item-1", "captureSequence": 3, "publicCapture": true, "staged": { "sha256": "a".repeat(64), "size": 9 } })));
+        assert_eq!(
+            client.reserve("session", &request).await.unwrap().staged,
+            Some(StagedDigest { sha256: "a".repeat(64), size: 9 })
+        );
+        // Anything else is refused, as malformed.
+        for answer in [
+            json!({ "item": "item-1", "captureSequence": 0, "publicCapture": false, "staged": null }),
+            json!({ "item": "item-1", "captureSequence": 3, "staged": null }),
+            json!({ "item": "item-1", "captureSequence": 3, "publicCapture": false, "staged": { "sha256": "x" } }),
+        ] {
+            fake.execute.lock().unwrap().push(success(answer));
+            assert_eq!(client.reserve("session", &request).await.unwrap_err().reason(), Some("malformed"));
+        }
     }
 }

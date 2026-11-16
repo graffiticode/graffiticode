@@ -915,6 +915,31 @@ test("release-check for a pinnable service covers every reachable revision", asy
   assert.ok((await releaseCheck(v2, { ...h.deps, git, revisions })).revisions.unsupportedContract.includes(receipt.revision));
 });
 
+// C5a slice 6 (decision 10): a revision meets the contract floor when it
+// declares the floor or any later version, so l0013r's v3-only revisions are
+// never reported unsupported at a floor of 2; one declaring only versions
+// below the floor is.
+test("a revision meets the contract floor with the floor or a later version", async () => {
+  const service = { status: { traffic: [{ revisionName: "v3-only", percent: 100 }, { revisionName: "v1-only", tag: "old" }, { revisionName: "both", tag: "both" }] } };
+  const records = new Map([
+    ["v3-only", { status: "approved", contractVersions: [3] }],
+    ["v1-only", { status: "approved", contractVersions: [1] }],
+    ["both", { status: "approved", contractVersions: [1, 2] }],
+  ]);
+  assert.deepEqual(reachableProblems(service, records, { minContractVersion: 2 }).unsupportedContract, ["v1-only"]);
+  assert.deepEqual(reachableProblems(service, records, { minContractVersion: 3 }).unsupportedContract, ["both", "v1-only"]);
+  // The repository's l0013r is pinnable at [3] only, with Policy and Broker
+  // configured, and no other compiler declares 3 (decision 10).
+  const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
+  assert.deepEqual(raw.services.l0013r.pinnable, { lang: "0013", contractVersions: [3] });
+  assert.equal(raw.services.l0013r.env.POLICY_URL, raw.services.l0176r.env.POLICY_URL);
+  assert.equal(raw.services.l0013r.env.BROKER_URL, raw.services.l0176r.env.BROKER_URL);
+  assert.equal(raw.services.l0013r.env.PREFLIGHT_GATEWAYS, raw.services.l0176r.env.PREFLIGHT_GATEWAYS);
+  for (const [name, service] of Object.entries(raw.services)) {
+    if (name !== "l0013r" && service.pinnable) assert.ok(!(service.pinnable.contractVersions ?? [1]).includes(3), name);
+  }
+});
+
 test("reachable problems and retained tags are judged per revision", () => {
   const service = { status: { traffic: [{ revisionName: "s-a", percent: 100 }, { revisionName: "s-b", tag: "b" }, { revisionName: "s-c", tag: "c" }] } };
   const records = new Map([["s-a", { status: "approved", contractVersions: [1, 2] }], ["s-b", { status: "retiring", contractVersions: [1] }]]);

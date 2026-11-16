@@ -226,6 +226,10 @@ impl Compiler {
             // admit, and policy isn't asked for a snapshot. A live protected call in either is
             // refused (`ExecContext::invoke`), as is a system session.
             Vec::new()
+        } else if !dialect.admits_outside_commands() {
+            // C5: protected only as a command; this compile admits nothing, and a protected call
+            // in it is refused (`ExecContext::invoke`).
+            Vec::new()
         } else {
             admit(&ast, dialect, self.policy.as_ref(), exec).await
         };

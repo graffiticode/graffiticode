@@ -24,7 +24,9 @@ use uuid::Uuid;
 
 use crate::canonical::args_digest;
 use crate::model::{Intent, Mode};
-use crate::protected::{OccurrenceBinding, PolicyClient, ProtectedCall, ProtectedCallError};
+use crate::protected::{
+    OccurrenceBinding, PolicyClient, ProtectedCall, ProtectedCallError, Reservation, ReserveRequest, Staged,
+};
 
 /// A runtime occurrence's id (B5 §4): `x:` and the hex SHA-256 of `{"intentId":…,"expansionKey":…}`
 /// in that key order, exactly as policy recomputes it (`runtimeOccurrenceId` in
@@ -53,6 +55,14 @@ struct CommandState {
     /// Every call the records refused, as (reason, message). Any one fails the stage, however
     /// the dialect reported it.
     record_refusals: Vec<(String, String)>,
+}
+
+/// What a capture occurrence (C5) is reserved and staged under.
+struct CaptureContext {
+    session: String,
+    policy: Arc<dyn PolicyClient>,
+    intent_id: String,
+    expansion_key: Option<String>,
 }
 
 /// One occurrence's recorded result (B6): the args digest it ran with and Broker's `result`.
@@ -594,6 +604,59 @@ impl ExecContext {
             .map_err(|_| ProtectedCallError::Unavailable("an observation can't be recorded".to_owned()))?;
         let recorded = policy.observe(&session, key, Some(&text)).await?.unwrap_or(text);
         parse(recorded)
+    }
+
+    /// A capture's reservation (C5 decision 9), before anything is rendered: `occurrence_id` (an
+    /// expansion of, or a static occurrence of, an item-scoped intent) on `item`. Policy takes
+    /// the item's next capture sequence, once per occurrence; a repeat answers what was
+    /// recorded, with the staged digest once there is one, so a retry never renders again.
+    /// Only a command's `start` reserves: a replay acts on nothing, and outside a command there
+    /// is no capture to reserve.
+    pub async fn reserve_capture(
+        &mut self,
+        occurrence_id: &str,
+        item: &str,
+    ) -> Result<Reservation, ProtectedCallError> {
+        let CaptureContext { session, policy, intent_id, expansion_key } = self.capture_context(occurrence_id)?;
+        let request =
+            ReserveRequest { occurrence_id: occurrence_id.to_owned(), intent_id, expansion_key, item: item.to_owned() };
+        policy.reserve(&session, &request).await
+    }
+
+    /// A reserved capture's rendered PNG, staged once (C5 decision 9). What was staged first
+    /// stands: the answer's digest is the one the occurrence binds with.
+    pub async fn stage_capture(&mut self, occurrence_id: &str, png: &[u8]) -> Result<Staged, ProtectedCallError> {
+        let capture = self.capture_context(occurrence_id)?;
+        capture.policy.stage(&capture.session, occurrence_id, png).await
+    }
+
+    /// The session, policy client, intent and expansion key of a capture occurrence: one of an
+    /// item-scoped intent of this command's `start`.
+    fn capture_context(&self, occurrence_id: &str) -> Result<CaptureContext, ProtectedCallError> {
+        let refuse = || ProtectedCallError::NotAdmitted(format!("capture {occurrence_id}"));
+        if self.mode != Mode::Present {
+            return Err(refuse());
+        }
+        let command = self.command.as_ref().ok_or_else(refuse)?;
+        let (intent_id, expansion_key) = match command.expansions.get(occurrence_id) {
+            Some((intent, key)) => (intent.clone(), Some(key.clone())),
+            None => (
+                command
+                    .intents
+                    .iter()
+                    .find(|i| !i.is_runtime() && i.occurrences.iter().any(|o| o == occurrence_id))
+                    .ok_or_else(refuse)?
+                    .id
+                    .clone(),
+                None,
+            ),
+        };
+        if !command.intents.iter().any(|i| i.id == intent_id && i.is_item_scoped()) {
+            return Err(refuse());
+        }
+        let session = self.identity.command_session.clone().ok_or(ProtectedCallError::NoSession)?;
+        let policy = self.grant.as_ref().and_then(|g| g.policy.clone()).ok_or(ProtectedCallError::NoClient)?;
+        Ok(CaptureContext { session, policy, intent_id, expansion_key })
     }
 
     /// The occurrences this command stage performed, by intent: what the stage's answer lists.

@@ -149,6 +149,16 @@ pub trait Dialect: Send + Sync {
         false
     }
 
+    /// Whether this language's protected functions are admitted outside a command (C5). `false`
+    /// for a language whose protected functions only ever run as commands (L0013's `snap`, a
+    /// service-credential write that no connection reaches): a compile that isn't a command's
+    /// `start` admits nothing and asks policy nothing, whatever connection the caller sent, and
+    /// the dialect performs its own unprotected path. Its preflight still reports the functions,
+    /// so a command's admission sees them. The default is `true`: admission as always.
+    fn admits_outside_commands(&self) -> bool {
+        true
+    }
+
     /// The effect intents a `start` of this program may execute (B5, docs/b5-commands-plan.md
     /// §4), each a protected write with the occurrence ids it runs as. They are carried in the
     /// model and bound by admission, so a command can only perform what its model declares. The
