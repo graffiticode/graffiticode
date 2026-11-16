@@ -163,9 +163,9 @@ does. If the compiled survey is in front of you, writing its `instance` as the i
 
 Every name in a response — each option in `choices`, each `item`, each `rating` label — has to come
 from **the survey this program takes**. Its compiled record (`options`, or `items` with their
-`scale`, `optOut` and `anchors`) is the only source that says what those names are. An answer
-remembered from an example, or from another version of the same survey, names things this taking
-may not hold, and it is refused.
+`scale`, `optOut` and `anchors`) is the final word on what those names are. An answer copied from
+another survey, or from another version of the same survey, names things this taking does not
+hold, and it is refused.
 
 So when you are asked to take a survey **and** answer it, and its compiled record is not in front
 of you:
@@ -184,9 +184,11 @@ of you:
   ]..
   ```
 
-- **A survey with one version**: answer only with names you have actually been given — in these
-  instructions or in its compiled record. If you have not been given them, write the program
-  without a `response`, as above.
+- **A survey with one version** (every other survey): there is only one set of names, so any
+  example that answers that same survey shows its real ones. **Answer it now**, copying option
+  and item texts exactly from those examples, from these instructions or from its compiled
+  record. Only when none of them shows you the name you need — never as a precaution — write the
+  program without a `response`, as above.
 
 This is not out of scope. A request to answer a survey you have not seen yet is answered by taking
 it now and answering once it is shown — never refuse it, and never fill a response with guessed
