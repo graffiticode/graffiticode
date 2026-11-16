@@ -418,6 +418,11 @@
         {
           "milestone": "v8",
           "commit": "1a8d828f3ab7b8fb1b86fd6e01ee659617f5ce08"
+        },
+        {
+          "milestone": "C5a-scopes",
+          "commit": "3ecebcb0d7c70ba73fd0e7d968fec14b9d60fc4a",
+          "floor": true
         }
       ],
       "requires": [
@@ -562,6 +567,11 @@
         {
           "milestone": "B6-repairs",
           "commit": "2ce1433542edc995787dede3683a5527a5218171",
+          "floor": true
+        },
+        {
+          "milestone": "C5a-scopes",
+          "commit": "3ecebcb0d7c70ba73fd0e7d968fec14b9d60fc4a",
           "floor": true
         }
       ],

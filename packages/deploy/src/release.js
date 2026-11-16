@@ -249,6 +249,18 @@ export async function release(context, source, deps) {
   requireValue(!config.blocked, config.blocked);
   requireValue(!context.unresolved.length, `Set required variables: ${context.unresolved.join(", ")}`);
   requireValue(!config.verify || source.files.includes(config.verify.module), `Verify module ${config.verify?.module} is missing from the source snapshot`);
+  // A floor (`baselines` marked `floor: true`; B5's D2b, B6, C5a) is never
+  // released below, as it is never rolled back below: the source must be the
+  // floor's commit or a descendant of it. Ancestry only; a dirty release is
+  // judged as its commit. No override.
+  const floors = (config.baselines ?? []).filter(b => b.floor === true);
+  if (floors.length) {
+    requireValue(deps.git, "Checking the release floor needs the local Git history");
+    for (const { milestone, commit } of floors) {
+      requireValue(await meetsMilestone(deps.git, { commit: source.commit, dirty: "false" }, commit),
+        `Source ${source.commit} is below the ${milestone} floor; refusing to release it, with no override. Release from ${commit} or later. Nothing built.`);
+    }
+  }
   log("Checking existing service, identity, and secret versions…");
   const initial = await checkService(config, cloud);
   const { problems: flagProblems, unmanaged } = await releaseFlagProblems(config, initial, cloud);
