@@ -54,10 +54,11 @@ import {
   PROTECTED_FUNCTIONS,
   credentialOf
 } from "@graffiticode/common/protected-registry";
+import { CONTRACT_VERSION_SCOPED, canonicalScopes, scopeProblems, CONTRACT_VERSION, SUPPORTED_CONTRACT_VERSIONS, manifestProblems, pinnedStage, planDigest as digestOf, stageBinding, sameStage } from "@graffiticode/common/contract";
+import { itemAccess, ITEM_ID_RE } from "./item-authority.js";
 import { createHash, randomUUID } from "node:crypto";
 import { decodeJwt } from "jose";
 import { decodeChainId } from "@graffiticode/common/chain";
-import { CONTRACT_VERSION, SUPPORTED_CONTRACT_VERSIONS, manifestProblems, pinnedStage, planDigest as digestOf, stageBinding, sameStage } from "@graffiticode/common/contract";
 import { issueToken, verifyToken } from "./tokens.js";
 import { grantIdFor, isExpired } from "./grants.js";
 import { InvocationConflict, AdmissionRefused, ProtocolMismatch } from "./invocations.js";
@@ -65,7 +66,7 @@ import { CommandRefused, COMMAND_ID_RE, WORKER_RE, commandIdFor, commandSummary,
 import { RUNTIME_PREFIX, runtimeOccurrenceId, repairGate, canonicalStages } from "./command-records.js";
 import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
-import { SYSTEM_PREVIEW_SUBJECT, sessionProvenance, provenanceRefusal } from "./provenance.js";
+import { SYSTEM_PREVIEW_SUBJECT, ANONYMOUS_SUBJECT, sessionProvenance, provenanceRefusal } from "./provenance.js";
 import { DEFAULT_SYSTEM_SIGNING, createTokenBucket } from "./rate-limit.js";
 
 // At most this many occurrences in one repair's selection (B6): its claim is
@@ -116,9 +117,37 @@ export const COMMAND_SETTLE_GRACE_MS = 120_000;
 // Expansion bounds an intent may declare (B5 §4).
 export const MAX_INTENT_OCCURRENCES = 10_000;
 
+// An intent's scope (C5, docs/c5-l0013-commands-plan.md decision 1), read as
+// { kind, id? }: a bare string is a connection's id, as before; an object is
+// `{ kind: "connection", id }`, `{ kind: "item", id }` (static: the item is a
+// literal in the model), or `{ kind: "item" }` (bound: the item arrives as
+// data, and is authorized at the occurrence's reservation). Null when the
+// intent names none; "bad" when it is malformed.
+export type IntentScope = { kind: "connection" | "item", id?: string };
+export const intentScope = (scope): IntentScope | null | "bad" => {
+  if (scope === undefined) return null;
+  if (typeof scope === "string") return { kind: "connection", id: scope };
+  if (!scope || typeof scope !== "object" || Array.isArray(scope)) return "bad";
+  if (scope.kind === "item" && scope.id === undefined && Object.keys(scope).length === 1) return { kind: "item" };
+  if (scopeProblems(scope).length) return "bad";
+  if (scope.kind === "item" && !ITEM_ID_RE.test(scope.id)) return "bad";
+  return { kind: scope.kind, id: scope.id };
+};
+// The scope of an intent already admitted (so well formed), or null.
+export const admittedScope = (intent): IntentScope | null => {
+  const scope = intentScope(intent?.scope);
+  return scope === "bad" ? null : scope;
+};
+
 // A stage model's declared effect intents (B5 §4), checked against the
 // registry, the stage's admitted functions and the connection's backend.
 // Returns { intents } or { refusal }.
+// C5: a service-credential function's intent (L0013's `snap`) must carry an
+// item scope, static or bound, and runs against its operation's own backend;
+// a connection function's intent carries a connection scope or none, and
+// needs a connection (`backend` null: `connection-required`). A connection
+// intent's scope is stored as it was declared, so a v2 admission is
+// unchanged.
 export const modelIntents = ({ modelText, lang, requiredFunctions, backend }) => {
   let model;
   try {
@@ -134,8 +163,15 @@ export const modelIntents = ({ modelText, lang, requiredFunctions, backend }) =>
     if (!i || typeof i.id !== "string" || !/^[A-Za-z0-9_:.-]{1,128}$/.test(i.id) || ids.has(i.id)) return { refusal: "bad-request" };
     ids.add(i.id);
     const spec = protectedFunctionsForLang(lang)?.[i.fn];
-    if (!spec || !requiredFunctions.includes(i.fn) || typeof i.op !== "string" || !isOperationAllowed({ lang, fn: i.fn, op: i.op, backend })) {
-      return { refusal: "intent-not-registered" };
+    if (!spec || !requiredFunctions.includes(i.fn) || typeof i.op !== "string") return { refusal: "intent-not-registered" };
+    const scope = intentScope(i.scope);
+    if (scope === "bad") return { refusal: "bad-request" };
+    if (credentialOf(spec) === "service") {
+      if (scope?.kind !== "item" || !isOperationAllowed({ lang, fn: i.fn, op: i.op, backend: spec.backend })) return { refusal: "intent-not-registered" };
+    } else {
+      if (scope && scope.kind !== "connection") return { refusal: "intent-not-registered" };
+      if (backend === null) return { refusal: "connection-required" };
+      if (!isOperationAllowed({ lang, fn: i.fn, op: i.op, backend })) return { refusal: "intent-not-registered" };
     }
     const runtime = i.runtime === true;
     const occurrences = runtime ? [] : i.occurrences;
@@ -144,8 +180,7 @@ export const modelIntents = ({ modelText, lang, requiredFunctions, backend }) =>
     }
     const max = runtime ? i.bounds?.maxOccurrences : occurrences.length;
     if (!Number.isInteger(max) || max < 1 || max > MAX_INTENT_OCCURRENCES) return { refusal: "bad-request" };
-    if (i.scope !== undefined && typeof i.scope !== "string") return { refusal: "bad-request" };
-    intents.push({ id: i.id, fn: i.fn, op: i.op, runtime, ...(runtime ? {} : { occurrences: [...occurrences] }), bounds: { maxOccurrences: max }, ...(i.scope !== undefined ? { scope: i.scope } : {}) });
+    intents.push({ id: i.id, fn: i.fn, op: i.op, runtime, ...(runtime ? {} : { occurrences: [...occurrences] }), bounds: { maxOccurrences: max }, ...(i.scope !== undefined ? { scope: typeof i.scope === "string" ? i.scope : scope } : {}) });
   }
   return { intents };
 };
@@ -169,6 +204,10 @@ export const createPolicy = ({
   // The registry this instance runs under, and the earlier versions it still
   // accepts during a bump's rollout (P1b). Injectable for tests.
   registryVersion = REGISTRY_VERSION, registryWindow = REGISTRY_WINDOW,
+  // C5 (decision 3): the console's item authority (item-authority.js
+  // buildItemAuthority). Without it, every item scope is refused
+  // `item-authority-unavailable`.
+  itemAuthority = null,
 }) => {
   const acceptedRegistry = v => isAcceptedRegistryVersion(v, { current: registryVersion, window: registryWindow });
   // No default: a policy built without the switch would run ungated.
@@ -277,23 +316,35 @@ export const createPolicy = ({
   // With `create: false` (a language whose COMMANDS flag is off), a key nothing
   // holds yet is answered { protocol: "none" } and no command is created; a
   // key either protocol holds is answered as always (D2a).
-  const allocateCommand = async ({ caller, user, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create = true }) => {
-    const record = { event: "command", uid: user?.uid, connectionId, callerRole: caller?.role };
+  // C5 (docs/c5-l0013-commands-plan.md decisions 1 and 4): a command may name
+  // no connection (`connectionId` null), when its effects are item-scoped; its
+  // items are authorized at admission and reservation, not here. Such a
+  // command is allocated only by a worker that runs v3 commands (`scopes: 1`).
+  // An anonymous caller (`anonymous: true`, no user, the bridge only) is
+  // the subject ANONYMOUS_SUBJECT and never names a connection.
+  const allocateCommand = async ({ caller, user, connectionId = null, taskId, inputDigest, idempotencyKey, lang, request, worker, create = true, anonymous = false, scopes = 0 }) => {
+    const uid = anonymous === true ? ANONYMOUS_SUBJECT : user?.uid;
+    const record = { event: "command", uid, connectionId, callerRole: caller?.role };
     if (!commands) return deny("unavailable", record);
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
-    if (!user?.uid) return deny("no-user", record);
-    if (!isId(connectionId) || !isTaskId(taskId) || typeof inputDigest !== "string" || !DIGEST_RE.test(inputDigest) ||
-      !isId(idempotencyKey) || !isLang(lang) || typeof worker !== "string" || !WORKER_RE.test(worker) || typeof create !== "boolean") {
+    if (typeof anonymous !== "boolean" || (anonymous && (user || connectionId !== null))) return deny("bad-request", record);
+    if (!uid) return deny("no-user", record);
+    if ((connectionId !== null && !isId(connectionId)) || !isTaskId(taskId) || typeof inputDigest !== "string" || !DIGEST_RE.test(inputDigest) ||
+      !isId(idempotencyKey) || !isLang(lang) || typeof worker !== "string" || !WORKER_RE.test(worker) || typeof create !== "boolean" || (scopes !== 0 && scopes !== 1)) {
       return deny("bad-request", record);
     }
+    if (connectionId === null && scopes !== 1) return deny("worker-unsupported", record);
     const problem = requestProblem(request);
     if (problem) return deny(problem, record);
-    const connection = await connections.get(connectionId);
-    const access = await accessFor(connection, user.uid);
-    if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+    let connection = null;
+    if (connectionId !== null) {
+      connection = await connections.get(connectionId);
+      const access = await accessFor(connection, uid);
+      if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+    }
     let allocated;
     try {
-      allocated = await commands.allocate({ uid: user.uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now: now(), create });
+      allocated = await commands.allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now: now(), create });
     } catch (e) {
       if (e instanceof InvocationConflict) return deny("idempotency-key-reused", record);
       throw e;
@@ -306,7 +357,7 @@ export const createPolicy = ({
     const { command, reused } = allocated;
     await audit({ ...record, commandId: command.commandId, invocationId: command.invocationId, outcome: "allowed", reason: reused ? "reused" : "new" });
     // A new command is owned by the worker that allocated it, at generation 1.
-    return { ...commandSummary(command), reused, owned: !reused, ownerUid: connection.ownerUid };
+    return { ...commandSummary(command), reused, owned: !reused, ownerUid: connection?.ownerUid ?? null };
   };
 
   // A repair (B6 slice 3, docs/b6-command-repair-plan.md decisions 1, 3, 11):
@@ -332,6 +383,8 @@ export const createPolicy = ({
     // Only the original's own user may repair it; anyone else is told nothing.
     if (!original || original.uid !== user.uid) return deny("command-not-found", record);
     Object.assign(record, { connectionId: original.connectionId, invocationId: original.invocationId });
+    // C5: repairs of v3 commands aren't part of C5a.
+    if (original.scopes === 1) return deny("not-supported", record);
     const connection = await connections.get(original.connectionId);
     const access = await accessFor(connection, user.uid);
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
@@ -404,18 +457,18 @@ export const createPolicy = ({
 
   // The lease, renewed by its owner or taken over once expired. Service only:
   // no user token, so recovery never depends on one (decision 3).
-  const leaseCommand = async ({ caller, commandId, worker, generation, takeOver = false, recording = 0, repairs = 0 }) => {
+  const leaseCommand = async ({ caller, commandId, worker, generation, takeOver = false, recording = 0, repairs = 0, scopes = 0 }) => {
     const record = { event: "command-lease", callerRole: caller?.role };
     if (!commands) return deny("unavailable", record);
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
     if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || typeof worker !== "string" || !WORKER_RE.test(worker) ||
-      !Number.isInteger(generation) || generation < 1 || typeof takeOver !== "boolean") {
+      !Number.isInteger(generation) || generation < 1 || typeof takeOver !== "boolean" || (scopes !== 0 && scopes !== 1)) {
       return deny("bad-request", record);
     }
     try {
       const command = takeOver
-        ? await commands.takeOver({ commandId, worker, expectedGeneration: generation, now: now(), recording, repairs })
-        : await commands.renewLease({ commandId, worker, generation, now: now(), recording, repairs });
+        ? await commands.takeOver({ commandId, worker, expectedGeneration: generation, now: now(), recording, repairs, scopes })
+        : await commands.renewLease({ commandId, worker, generation, now: now(), recording, repairs, scopes });
       if (takeOver) await audit({ ...record, commandId, invocationId: command.invocationId, outcome: "allowed", reason: "takeover" });
       return commandSummary(command);
     } catch (e) {
@@ -492,7 +545,7 @@ export const createPolicy = ({
     // status, result and publication, and the connection's owner, whom the
     // artifact is bound to. Never the request or any payload.
     if (what === "state") {
-      const connection = await connections.get(command.connectionId);
+      const connection = command.connectionId === null ? null : await connections.get(command.connectionId);
       const { commandId: id, uid, invocationId, seq, lang, taskId, connectionId, phase, admission, stages, status, result, publication, counts, admissionRefusal, repairOf, selection, canonical } = command;
       // An original's canonical snapshot (B6): its repairs' stage inputs and
       // outputs, each naming the repair that recorded it.
@@ -544,18 +597,18 @@ export const createPolicy = ({
   // on the command, never the caller's; their intents come from the models.
   // The plan is written as for any chain (admitChain), then recorded on the
   // command once. A retry of the same admission is acknowledged.
-  const admitCommand = async ({ caller, commandId, generation, taskIds, stages, recording = 0 }) => {
+  const admitCommand = async ({ caller, commandId, generation, taskIds, stages, recording = 0, scopes = 0 }) => {
     const record = { event: "command-admission", callerRole: caller?.role, registryVersion, commandId };
     if (!commands || !commandRecords) return deny("unavailable", record);
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
-    if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || !Number.isInteger(generation)) return deny("bad-request", record);
+    if (typeof commandId !== "string" || !COMMAND_ID_RE.test(commandId) || !Number.isInteger(generation) || (scopes !== 0 && scopes !== 1)) return deny("bad-request", record);
     const command = await commands.get(commandId);
     const fenced = ownerRefusal(command, { generation, now: now() });
     if (fenced) throw new PolicyDenied(fenced);
     try {
       // A repair is never admitted afresh: it references its original's.
       if (command.kind === "repair") return await admitRepair({ record, command, commandId, generation });
-      return await admitOwnedCommand({ record, command, commandId, generation, taskIds, stages, recording });
+      return await admitOwnedCommand({ record, command, commandId, generation, taskIds, stages, recording, scopes });
     } catch (e) {
       // A refusal of the owner's admission is the command's answer: record its
       // reason on the command, so its callers can say why it failed (C6).
@@ -576,6 +629,7 @@ export const createPolicy = ({
   const admitRepair = async ({ record, command, commandId, generation }) => {
     Object.assign(record, { uid: command.uid, repairOf: command.repairOf, connectionId: command.connectionId });
     const original = await commands.get(command.repairOf);
+    if (original?.scopes === 1) return deny("not-supported", record);
     const gate = repairGate(original, command.selection ?? []);
     if (gate) return deny(gate, record);
     await requireProtectedExecution(record, { uid: command.uid, connectionId: command.connectionId });
@@ -608,14 +662,14 @@ export const createPolicy = ({
       stages: Object.entries(admitted.admission.stages).map(([stage, a]: [string, { lang: string, revision: string, tagUrl: string, modelDigest: string }]) => ({ stage, lang: a.lang, revision: a.revision, tagUrl: a.tagUrl, modelDigest: a.modelDigest })),
     };
   };
-  const admitOwnedCommand = async ({ record, command, commandId, generation, taskIds, stages, recording }) => {
+  const admitOwnedCommand = async ({ record, command, commandId, generation, taskIds, stages, recording, scopes }) => {
     Object.assign(record, { uid: command.uid });
     const invocation = await invocations.get(command.invocationId);
     if (!invocation) return deny("invocation-incompatible", record);
     if (!Array.isArray(stages)) return deny("bad-request", record);
     const models = new Map<string, { text: string, digest: string }>((await commandRecords.getModels(commandId)).map(m => [m.stage, m]));
     if (stages.some((m, i) => !models.has(`s${i}`))) return deny("models-missing", record);
-    const admitted = await admitChain({ record, uid: command.uid, invocation, taskIds, stages });
+    const admitted = await admitChain({ record, uid: command.uid, invocation, taskIds, stages, models, scopes });
     type AdmittedStage = { lang: string, modelDigest: string, revision: string, tagUrl: string, intents: unknown[], replay: 0 | 1 };
     // B6 (docs/b6-command-repair-plan.md decisions 5 and 11): `recording: 1`
     // says this command records every stage's output. The worker says so in
@@ -625,10 +679,16 @@ export const createPolicy = ({
     // records, as that revision's own preflight said. Both are kept here,
     // beside the plan: the plan's pinned stages (`pinnedStage`) and its digest
     // and session bindings stay exactly what they were.
-    const admission: { planDigest: string, recording: 0 | 1, stages: Record<string, AdmittedStage> } = { planDigest: admitted.planDigest, recording: recording === 1 ? 1 : 0, stages: {} };
+    // C5: a v3 admission says so (`contractVersion: 3`) and names how each
+    // static item was authorized (`items`); a v2 admission is unchanged.
+    const scoped = admitted.plan.contractVersion === CONTRACT_VERSION_SCOPED;
+    const admission: { planDigest: string, recording: 0 | 1, stages: Record<string, AdmittedStage>, contractVersion?: 3, items?: Record<string, { publicCapture: boolean }> } = {
+      planDigest: admitted.planDigest, recording: recording === 1 ? 1 : 0, stages: {}, ...(scoped ? { contractVersion: CONTRACT_VERSION_SCOPED as 3, items: (admitted as any).items } : {}),
+    };
     for (const [i, pinned] of admitted.plan.stages.entries()) {
       const model = models.get(`s${i}`);
-      const declared = modelIntents({ modelText: model.text, lang: pinned.lang, requiredFunctions: pinned.requiredFunctions, backend: admitted.backend });
+      // A v3 admission parsed its intents before its plan was written.
+      const declared = scoped ? { intents: (admitted as any).intents[pinned.stage], refusal: null } : modelIntents({ modelText: model.text, lang: pinned.lang, requiredFunctions: pinned.requiredFunctions, backend: admitted.backend });
       if (declared.refusal) return deny(declared.refusal, record);
       const reported = stages.find(m => m?.stage === pinned.stage);
       admission.stages[pinned.stage] = { lang: pinned.lang, modelDigest: model.digest, revision: pinned.revision, tagUrl: admitted.stages[i].tagUrl, intents: declared.intents, replay: reported?.replay === 1 ? 1 : 0 };
@@ -796,14 +856,15 @@ export const createPolicy = ({
   // `recording` is the sweeping worker's capability (B6 slice 2): without it,
   // a command admitted as recording is neither listed nor counted toward the
   // limit, since its takeover would be refused.
-  const dueCommands = async ({ caller, limit = 20, recording = 0, repairs = 0 }) => {
+  const dueCommands = async ({ caller, limit = 20, recording = 0, repairs = 0, scopes = 0 }) => {
     const record = { event: "command-sweep", callerRole: caller?.role };
     if (!commands) return deny("unavailable", record);
     if (caller?.role !== "gateway") return deny("caller-not-entry-point", record);
     if (!Number.isInteger(limit) || limit < 1 || limit > MAX_DUE) return deny("bad-request", record);
     if (recording !== 0 && recording !== 1) return deny("bad-request", record);
     if (repairs !== 0 && repairs !== 1) return deny("bad-request", record);
-    const due = await commands.listDue({ now: now(), limit, recording, repairs });
+    if (scopes !== 0 && scopes !== 1) return deny("bad-request", record);
+    const due = await commands.listDue({ now: now(), limit, recording, repairs, scopes });
     return { commands: due.map(c => ({ commandId: c.commandId, generation: c.owner.generation, status: c.status, publication: c.publication?.state ?? "none" })) };
   };
 
@@ -1456,7 +1517,11 @@ export const createPolicy = ({
   // invocation token) and a command's (its stored principal, B5): one
   // decision for every stage at one consistent read, and the plan written.
   // Returns { planDigest, plan, stages, ownerUid, created }, or denies.
-  const admitChain = async ({ record, uid, invocation, taskIds, stages }) => {
+  // C5: a chain any of whose stages requires an item-scoped (service)
+  // function is admitted under a v3 plan (admitScopedChain); a command's
+  // `models` declare its intents and `scopes` is its worker's capability.
+  // Every other chain is admitted exactly as before.
+  const admitChain = async ({ record, uid, invocation, taskIds, stages, models = null, scopes = 0 }) => {
     const { invocationId, connectionId } = invocation;
     Object.assign(record, { invocationId, connectionId });
     await requireProtectedExecution(record, { uid, connectionId });
@@ -1502,6 +1567,11 @@ export const createPolicy = ({
       const registered = protectedFunctionsForLang(m.lang) || {};
       if (m.requiredFunctions.some(fn => !Object.prototype.hasOwnProperty.call(registered, fn))) return deny("bad-request", record);
     }
+    if (stages.some(m => m.requiredFunctions.some(fn => credentialFor(m.lang, fn) === "service"))) {
+      return admitScopedChain({ record, uid, invocation, taskIds, stages, models, scopes, planRegistry });
+    }
+    // A chain with no item scope needs its connection.
+    if (connectionId === null) return deny("connection-required", record);
     const plan = {
       contractVersion: CONTRACT_VERSION as 2,
       invocationId,
@@ -1518,19 +1588,7 @@ export const createPolicy = ({
 
     // The fence (W4 section A): the lease first, then every read at a time no
     // earlier than it, then the plan write that consumes it.
-    const revisions = [...new Set(plan.stages.map(s => s.revision))];
-    const lease = await fence.register(revisions);
-    const approved = await approvals.read(plan.stages.map(s => ({ lang: s.lang, revision: s.revision })), lease.readTime);
-    for (const [i, { record: rev, languageKnown }] of approved.entries()) {
-      const m = plan.stages[i];
-      if (!languageKnown) return deny("stage-not-pinnable", record);
-      if (!rev || rev.lang !== m.lang) return deny(retry ? "pinned-revision-unavailable" : "revision-not-approved", record);
-      if (rev.status !== "approved") {
-        return deny(retry ? "pinned-revision-unavailable" : rev.status === "retiring" ? "revision-retiring" : "revision-not-approved", record);
-      }
-      if (rev.imageDigest !== m.imageDigest) return deny("plan-binding-mismatch", record);
-      if (!(rev.contractVersions ?? []).includes(CONTRACT_VERSION)) return deny("contract-version-unsupported", record);
-    }
+    const { lease, approved } = await pinnedRevisions({ record, plan, retry, accepts: () => [CONTRACT_VERSION] });
     const connection = await connections.get(connectionId, { readTime: lease.readTime });
     const access = await accessFor(connection, uid, { readTime: lease.readTime });
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
@@ -1542,19 +1600,136 @@ export const createPolicy = ({
         }
       }
     }
-    let committed;
-    try {
-      committed = await invocations.commitPlan({ leaseId: lease.id, invocationId, planDigest: digest, plan, revisions, readTime: lease.readTime, maxAgeMs: admissionMaxAgeMs, now });
-    } catch (e) {
-      if (e instanceof AdmissionRefused) return deny(e.reason, { ...record, ownerUid: connection.ownerUid });
-      throw e;
-    }
+    const committed = await commitAdmission({ record: { ...record, ownerUid: connection.ownerUid }, lease, invocationId, digest, plan });
     return {
       planDigest: digest,
       plan,
       ownerUid: connection.ownerUid,
       backend: connection.backend,
       created: committed.created,
+      stages: plan.stages.map((m, i) => ({ stage: m.stage, lang: m.lang, revision: m.revision, tagUrl: approved[i].record.tagUrl })),
+    };
+  };
+
+  const credentialFor = (lang, fn) => credentialOf((protectedFunctionsForLang(lang) || {})[fn]);
+
+  // The fence's lease, and every stage's pinned revision read at its time:
+  // approved for its language, the image the stage reported, and declaring a
+  // contract version `accepts(stage)` lists. Denies, or returns both.
+  const pinnedRevisions = async ({ record, plan, retry, accepts }) => {
+    const revisions = [...new Set<string>(plan.stages.map(s => s.revision))];
+    const lease = await fence.register(revisions);
+    const approved = await approvals.read(plan.stages.map(s => ({ lang: s.lang, revision: s.revision })), lease.readTime);
+    for (const [i, { record: rev, languageKnown }] of approved.entries()) {
+      const m = plan.stages[i];
+      if (!languageKnown) return deny("stage-not-pinnable", record);
+      if (!rev || rev.lang !== m.lang) return deny(retry ? "pinned-revision-unavailable" : "revision-not-approved", record);
+      if (rev.status !== "approved") {
+        return deny(retry ? "pinned-revision-unavailable" : rev.status === "retiring" ? "revision-retiring" : "revision-not-approved", record);
+      }
+      if (rev.imageDigest !== m.imageDigest) return deny("plan-binding-mismatch", record);
+      if (!(rev.contractVersions ?? []).some(v => accepts(m).includes(v))) return deny("contract-version-unsupported", record);
+    }
+    return { lease, approved, revisions };
+  };
+  // The plan write that consumes the lease.
+  const commitAdmission = async ({ record, lease, invocationId, digest, plan }) => {
+    const revisions = [...new Set<string>(plan.stages.map(s => s.revision))];
+    try {
+      return await invocations.commitPlan({ leaseId: lease.id, invocationId, planDigest: digest, plan, revisions, readTime: lease.readTime, maxAgeMs: admissionMaxAgeMs, now });
+    } catch (e) {
+      if (e instanceof AdmissionRefused) return deny(e.reason, record);
+      throw e;
+    }
+  };
+
+  // A v3 admission (C5, docs/c5-l0013-commands-plan.md decisions 1, 3, 6, 10).
+  // Only a command's: its models declare the intents, and item-scoped
+  // functions never run outside one (`not-supported`). Its worker must run v3
+  // commands (`worker-unsupported`).
+  //   - The plan holds a connection only when some stage requires a
+  //     connection function, and then the connection must be there
+  //     (`connection-required`) and the intents' connection scopes must be
+  //     it. Its `scopes` are the static scopes, canonical, in the digest.
+  //   - Each stage's pinned revision must declare contract 3 when the stage
+  //     has an item-scoped intent, and 2 or 3 otherwise (decision 10).
+  //   - The connection is authorized as for v2, for its own functions. Each
+  //     static item is authorized by item authority (decision 3): its owner,
+  //     or anyone under the function's public-capture exception, recorded.
+  //     A bound item is authorized at its reservation.
+  const admitScopedChain = async ({ record, uid, invocation, taskIds, stages, models, scopes, planRegistry }) => {
+    const { invocationId, connectionId } = invocation;
+    if (!models) return deny("not-supported", record);
+    if (scopes !== 1) return deny("worker-unsupported", record);
+    const pinned = stages.map(pinnedStage);
+    const needsConnection = pinned.some(m => m.requiredFunctions.some(fn => credentialFor(m.lang, fn) === "connection"));
+    if (needsConnection && connectionId === null) return deny("connection-required", record);
+    // The connection's backend, which its intents are checked against (a
+    // connection's backend never changes); authorized below at the fence.
+    const current = needsConnection ? await connections.get(connectionId) : null;
+    if (needsConnection && !current) return deny("connection-not-found", record);
+    const backend = current?.backend ?? null;
+    const intents: Record<string, any[]> = {};
+    const staticScopes: { kind: "connection" | "item", id: string }[] = needsConnection ? [{ kind: "connection", id: connectionId }] : [];
+    // Each static item, with a function that acts on it, to authorize.
+    const itemUses = new Map<string, { lang: string, fn: string }>();
+    for (const [i, m] of pinned.entries()) {
+      const declared = modelIntents({ modelText: models.get(`s${i}`).text, lang: m.lang, requiredFunctions: m.requiredFunctions, backend });
+      if (declared.refusal) return deny(declared.refusal, record);
+      for (const intent of declared.intents) {
+        const scope = admittedScope(intent);
+        if (scope?.kind === "connection" && scope.id !== connectionId) return deny("intent-mismatch", record);
+        if (scope?.kind === "item" && scope.id !== undefined) {
+          staticScopes.push({ kind: "item", id: scope.id });
+          if (!itemUses.has(scope.id)) itemUses.set(scope.id, { lang: m.lang, fn: intent.fn });
+        }
+      }
+      intents[m.stage] = declared.intents;
+    }
+    const plan = {
+      contractVersion: CONTRACT_VERSION_SCOPED as 3,
+      invocationId,
+      taskIds,
+      ...(needsConnection ? { connectionId } : {}),
+      inputDigest: invocation.inputDigest,
+      registryVersion: planRegistry,
+      scopes: canonicalScopes(staticScopes),
+      stages: pinned,
+    };
+    const digest = digestOf(plan);
+    Object.assign(record, { planDigest: digest });
+    const retry = Boolean(invocation.planDigest);
+    if (retry && invocation.planDigest !== digest) return deny("plan-mismatch", record);
+    const itemScoped = m => (intents[m.stage] ?? []).some(i => admittedScope(i)?.kind === "item");
+    const { lease, approved } = await pinnedRevisions({ record, plan, retry, accepts: m => (itemScoped(m) ? [CONTRACT_VERSION_SCOPED] : [CONTRACT_VERSION, CONTRACT_VERSION_SCOPED]) });
+    let connection = null;
+    if (needsConnection) {
+      connection = await connections.get(connectionId, { readTime: lease.readTime });
+      const access = await accessFor(connection, uid, { readTime: lease.readTime });
+      if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+      for (const m of plan.stages) {
+        for (const fn of m.requiredFunctions.filter(f => credentialFor(m.lang, f) === "connection")) {
+          if (protectedFunctionsForLang(m.lang)[fn].backend !== connection.backend || !mayUse(access, m.lang, fn)) {
+            return deny("not-granted", { ...record, ownerUid: connection.ownerUid });
+          }
+        }
+      }
+    }
+    const items: Record<string, { publicCapture: boolean }> = {};
+    for (const [itemId, use] of itemUses) {
+      const access = await itemAccess(itemAuthority, { itemId, uid, lang: use.lang, fn: use.fn });
+      if (access.refusal) return deny(access.refusal, { ...record, itemId });
+      items[itemId] = { publicCapture: access.publicCapture === true };
+    }
+    const committed = await commitAdmission({ record, lease, invocationId, digest, plan });
+    return {
+      planDigest: digest,
+      plan,
+      ownerUid: connection?.ownerUid ?? null,
+      backend,
+      created: committed.created,
+      intents,
+      items,
       stages: plan.stages.map((m, i) => ({ stage: m.stage, lang: m.lang, revision: m.revision, tagUrl: approved[i].record.tagUrl })),
     };
   };

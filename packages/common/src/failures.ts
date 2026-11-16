@@ -149,6 +149,14 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // claim, so nothing was written (decision 9); and a publish whose every
   // attempt found the object changed, so nothing was written (decision 8).
   ...cat("permission", ["credential-scope-mismatch"]),
+  // C5 slice 3 (decisions 1 and 3): a chain whose connection-scoped effects
+  // have no connection; an item the console doesn't know, or holds under two
+  // owners; and item authority that couldn't be asked (temporary, never
+  // allowing).
+  ...cat("malformed", ["connection-required"]),
+  ...cat("permission", ["item-not-found"]),
+  ...cat("conflict", ["item-ambiguous"]),
+  ...cat("unavailable", ["item-authority-unavailable"]),
   ...cat("conflict", ["staging-unavailable", "precondition-contention"]),
 ]));
 

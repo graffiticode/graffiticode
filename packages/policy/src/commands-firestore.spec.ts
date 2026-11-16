@@ -244,4 +244,21 @@ run("command records in Firestore", () => {
     const all = (await paged.listDue({ now, limit: 50, recording: 1 })).map(c => c.commandId);
     expect(all).toEqual(expect.arrayContaining([...ids, legacy]));
   }, 30_000);
+
+  // C5 (§3): a command with no connection is marked v3, and only a worker
+  // that runs v3 commands lists, renews or takes it over.
+  it("allocates a command with no connection, and hands it only to a worker that declares scopes", async () => {
+    const { command } = await allocate({ connectionId: null, idempotencyKey: `scoped-${uid}` });
+    expect(command).toMatchObject({ connectionId: null, scopes: 1, binding: { connectionId: null } });
+    expect((await invocations.get(command.invocationId)).connectionId).toBeNull();
+    const again = await allocate({ connectionId: null, idempotencyKey: `scoped-${uid}` });
+    expect(again).toMatchObject({ reused: true, command: { commandId: command.commandId } });
+    await expect(commands.renewLease({ commandId: command.commandId, worker: "api-1", generation: 1, now: T0 + 1 })).rejects.toMatchObject({ reason: "worker-unsupported" });
+    expect(await commands.renewLease({ commandId: command.commandId, worker: "api-1", generation: 1, now: T0 + 1, scopes: 1 })).toMatchObject({ scopes: 1 });
+    const now = T0 + 10 * COMMAND_LEASE_MS;
+    expect((await commands.listDue({ now, limit: 50 })).map(c => c.commandId)).not.toContain(command.commandId);
+    expect((await commands.listDue({ now, limit: 50, recording: 1, repairs: 1, scopes: 1 })).map(c => c.commandId)).toContain(command.commandId);
+    await expect(commands.takeOver({ commandId: command.commandId, worker: "api-2", expectedGeneration: 1, now })).rejects.toMatchObject({ reason: "worker-unsupported" });
+    expect(await commands.takeOver({ commandId: command.commandId, worker: "api-2", expectedGeneration: 1, now, scopes: 1 })).toMatchObject({ owner: { generation: 2 } });
+  });
 });

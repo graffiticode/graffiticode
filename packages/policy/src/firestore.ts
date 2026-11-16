@@ -162,23 +162,24 @@ export const createFirestoreCommandStore = (db, { duePage = DUE_PAGE } = {}) => 
       const snap = await requestRef(commandId).get();
       return snap.exists ? snap.data().text : null;
     },
-    async renewLease({ commandId, worker, generation, now, leaseMs = COMMAND_LEASE_MS, recording = 0, repairs = 0 }) {
-      return change(commandId, c => renewedLease(c, { worker, generation, now, leaseMs, recording, repairs }));
+    async renewLease({ commandId, worker, generation, now, leaseMs = COMMAND_LEASE_MS, recording = 0, repairs = 0, scopes = 0 }) {
+      return change(commandId, c => renewedLease(c, { worker, generation, now, leaseMs, recording, repairs, scopes }));
     },
-    async takeOver({ commandId, worker, expectedGeneration, now, leaseMs = COMMAND_LEASE_MS, recording = 0, repairs = 0 }) {
-      return change(commandId, c => takenOverLease(c, { worker, expectedGeneration, now, leaseMs, recording, repairs }));
+    async takeOver({ commandId, worker, expectedGeneration, now, leaseMs = COMMAND_LEASE_MS, recording = 0, repairs = 0, scopes = 0 }) {
+      return change(commandId, c => takenOverLease(c, { worker, expectedGeneration, now, leaseMs, recording, repairs, scopes }));
     },
     // Two queries, each on its composite index in the policy database
     // (configs/firestore-policy-indexes.json): pending, and publication due,
     // each with an expired lease. A worker that doesn't record outputs may not
     // own a recording command (B6 slice 2), nor one that doesn't run repairs a
-    // repair (slice 3), so for it each query is read on, a
+    // repair (slice 3), nor one that doesn't run v3 commands a v3 one (C5), so
+    // for it each query is read on, a
     // page at a time, until `limit` it may own are found: commands it can't
     // own never fill its sweep and hide ones it can. Only such a worker (a
     // staged or rolled-back api) ever skips any.
-    async listDue({ now, limit, recording = 0, repairs = 0 }) {
-      const caps = { recording, repairs };
-      const page = recording === 1 && repairs === 1 ? limit : Math.max(limit, duePage);
+    async listDue({ now, limit, recording = 0, repairs = 0, scopes = 0 }) {
+      const caps = { recording, repairs, scopes };
+      const page = recording === 1 && repairs === 1 && scopes === 1 ? limit : Math.max(limit, duePage);
       const scan = async (field, value) => {
         const found = [];
         let after = null;

@@ -562,3 +562,41 @@ describe("user token verification when auth can't be reached", () => {
     expect(authUnreachable(new Error("no uid"))).toBe(false);
   });
 });
+
+// C5 (§3, decision 4): the command routes carry the worker's `scopes`, and an
+// anonymous allocation (the bridge's) needs no user token.
+describe("v3 command routes over http", () => {
+  let calls;
+  let stubbed;
+  beforeEach(() => {
+    calls = [];
+    const record = name => async args => { calls.push([name, args]); return { ok: true }; };
+    const identifyCaller = createCallerIdentity({ verifyIdToken, audience: AUD, callers: { [SA.gateway]: { role: "gateway" } } });
+    stubbed = createPolicyApp({
+      policy: { allocateCommand: record("allocate"), leaseCommand: record("lease"), dueCommands: record("due"), admitCommand: record("admit") },
+      manager: {},
+      identifyCaller,
+      verifyUser,
+      publicJwks: { keys: [] },
+      audit: async () => {},
+    });
+  });
+  const command = { taskId: "t", inputDigest: "b".repeat(64), idempotencyKey: "k", lang: "0013", request: "{}", worker: "api-1" };
+
+  it("allocates anonymously without a user token, and otherwise still requires one", async () => {
+    expect((await as(request(stubbed).post("/v1/commands"), SA.gateway, { user: null }).send({ ...command, anonymous: true, scopes: 1 })).status).toBe(200);
+    expect(calls[0][1]).toMatchObject({ user: null, anonymous: true, scopes: 1, connectionId: null });
+    expect((await as(request(stubbed).post("/v1/commands"), SA.gateway, { user: null }).send({ ...command, scopes: 1 })).status).toBe(401);
+    // A token that is present must verify, anonymous or not.
+    expect((await as(request(stubbed).post("/v1/commands"), SA.gateway, { user: "not-a-user" }).send({ ...command, anonymous: true })).status).toBe(401);
+    expect((await as(request(stubbed).post("/v1/commands"), SA.gateway).send({ ...command, connectionId: "conn-1" })).status).toBe(200);
+    expect(calls[1][1]).toMatchObject({ user: { uid: OWNER }, anonymous: false, scopes: 0, connectionId: "conn-1" });
+  });
+
+  it("passes the worker's scopes on lease, sweep and admission", async () => {
+    await as(request(stubbed).post("/v1/commands/c:x/lease"), SA.gateway, { user: null }).send({ worker: "w", generation: 1, scopes: 1 });
+    await as(request(stubbed).get("/v1/commands-due?scopes=1"), SA.gateway, { user: null });
+    await as(request(stubbed).post("/v1/commands/c:x/admit"), SA.gateway, { user: null }).send({ generation: 1, taskIds: [], stages: [], scopes: 1 });
+    expect(calls.map(([name, args]) => [name, args.scopes])).toEqual([["lease", 1], ["due", 1], ["admit", 1]]);
+  });
+});

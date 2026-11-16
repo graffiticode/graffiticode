@@ -204,10 +204,12 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   // Commands (B5). Only allocation reads a user token.
   router.post("/commands", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
-    const u = await user(req);
-    const { connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create = true } = req.body ?? {};
+    const { connectionId = null, taskId, inputDigest, idempotencyKey, lang, request, worker, create = true, anonymous = false, scopes = 0 } = req.body ?? {};
+    // C5 (decision 4): an anonymous capture, from the bridge, carries no user
+    // token; any token that is present must still verify.
+    const u = anonymous === true ? await optionalUser(req) : await user(req);
     res.set("Cache-Control", "no-store");
-    await decide(res, () => policy.allocateCommand({ caller, user: u, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create }));
+    await decide(res, () => policy.allocateCommand({ caller, user: u, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, create, anonymous, scopes }));
   }));
   // A repair of the command (B6 slice 3): reads the user's token, as
   // allocation does.
@@ -220,9 +222,9 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   }));
   router.post("/commands/:id/lease", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
-    const { worker, generation, takeOver = false, recording = 0, repairs = 0 } = req.body ?? {};
+    const { worker, generation, takeOver = false, recording = 0, repairs = 0, scopes = 0 } = req.body ?? {};
     res.set("Cache-Control", "no-store");
-    await decide(res, () => policy.leaseCommand({ caller, commandId: req.params.id, worker, generation, takeOver, recording, repairs }));
+    await decide(res, () => policy.leaseCommand({ caller, commandId: req.params.id, worker, generation, takeOver, recording, repairs, scopes }));
   }));
   router.get("/commands/:id", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
@@ -257,8 +259,8 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   router.post("/commands/:id/admit", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
     res.set("Cache-Control", "no-store");
-    const { generation, taskIds, stages, recording = 0 } = body(req);
-    await decide(res, () => policy.admitCommand({ caller, commandId: req.params.id, generation, taskIds, stages, recording }));
+    const { generation, taskIds, stages, recording = 0, scopes = 0 } = body(req);
+    await decide(res, () => policy.admitCommand({ caller, commandId: req.params.id, generation, taskIds, stages, recording, scopes }));
   }));
   router.post("/commands/:id/session", buildHttpHandler(async (req, res) => {
     const caller = await authorize("commands")(req);
@@ -271,7 +273,8 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
     const recording = req.query.recording === undefined ? 0 : Number(req.query.recording);
     const repairs = req.query.repairs === undefined ? 0 : Number(req.query.repairs);
-    await decide(res, () => policy.dueCommands({ caller, limit, recording, repairs }));
+    const scopes = req.query.scopes === undefined ? 0 : Number(req.query.scopes);
+    await decide(res, () => policy.dueCommands({ caller, limit, recording, repairs, scopes }));
   }));
   router.post("/command-occurrences", buildHttpHandler(async (req, res) => {
     const caller = await authorize("command-compiler")(req);

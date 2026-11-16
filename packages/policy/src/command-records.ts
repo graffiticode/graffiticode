@@ -224,7 +224,9 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
         return command;
       }
       const stages = Object.fromEntries(Object.keys(admission.stages).map(name => [name, { ...stageOf(command, name) }]));
-      return touch(tx, command, { phase: "admitted", admission, stages, revisions: admission.revisions ?? null });
+      // C5: a v3 admission makes the command one only a worker that runs v3
+      // commands may own (commands.js ownableBy).
+      return touch(tx, command, { phase: "admitted", admission, stages, revisions: admission.revisions ?? null, ...(admission.contractVersion === 3 ? { scopes: 1 } : {}) });
     }),
 
     // §6 step 2, refused: why Policy refused this command's admission (a
