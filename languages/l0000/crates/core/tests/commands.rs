@@ -138,6 +138,8 @@ struct Policy {
     minted: Arc<Mutex<Vec<String>>>,
     recorded: Arc<Mutex<Option<String>>>,
     snapshots: Arc<Mutex<usize>>,
+    /// Every mint is refused for now (503), as item authority or a paused broker would.
+    temporary_mint: bool,
 }
 
 #[async_trait]
@@ -177,6 +179,15 @@ impl PolicyClient for Policy {
     }
 
     async fn invoke(&self, _session_token: &str, call: &ProtectedCall) -> Result<Json, ProtectedCallError> {
+        if self.temporary_mint {
+            return Err(ProtectedCallError::Rejected {
+                path: "/v1/mint".into(),
+                status: 503,
+                reason: Some("unavailable".into()),
+                category: Some("unavailable".into()),
+                effect_unknown: false,
+            });
+        }
         self.minted.lock().unwrap().push(call.occurrence_id.clone());
         Ok(json!({ "status": "succeeded", "steps": [], "result": { "saved": call.payload } }))
     }
@@ -563,4 +574,17 @@ mod replay {
     fn materializing(policy: &Policy) -> Compiler {
         Compiler::new(Cmd::materializing(true)).with_policy(policy.clone()).with_revision(revision())
     }
+}
+
+// C5 (the owner's review of #406): only an item-scoped capture resumes later. A connection
+// write refused for now fails its stage exactly as before, and closes what it bound.
+#[tokio::test]
+async fn a_connection_write_refused_for_now_still_fails_as_before() {
+    let (_compiler, policy, model) = setup("save-it 1..", false).await;
+    let policy = Policy { temporary_mint: true, ..policy };
+    let compiler = Compiler::new(Cmd::new(false)).with_policy(policy.clone()).with_revision(revision());
+    let run = compiler.start(&model, &Json::Null, &Json::Null, command("s0")).await;
+    assert_eq!(run.resume, None);
+    assert!(run.occurrences.is_some());
+    assert!(compiler.envelope(&run).get("resume").is_none());
 }

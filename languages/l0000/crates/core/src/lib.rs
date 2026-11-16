@@ -60,12 +60,12 @@ pub use exec::{
     runtime_occurrence_id,
 };
 pub use lexicon::{Lexicon, LexiconEntry, LexiconError};
-pub use model::{Intent, Mode, Model, ModelKind};
+pub use model::{Intent, IntentScope, Mode, Model, ModelKind};
 pub use number::Number;
 pub use preflight::{RevisionIdentity, StageManifest};
 pub use protected::{
     OccurrenceBinding, PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError,
-    ProtectedFunction, ProtectedKind, SnapshotRequest,
+    ProtectedFunction, ProtectedKind, Reservation, ReserveRequest, SnapshotRequest, Staged, StagedDigest,
 };
 pub use schema::{LanguageSchema, NoSchemas, SchemaError, SchemaSource};
 pub use secret::Keyring;

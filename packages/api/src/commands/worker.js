@@ -370,6 +370,14 @@ export const buildCommandWorker = ({
         await step(() => policy.lost({ commandId: id, generation: g, stage }));
         return stop();
       }
+      // C5: the stage stopped for something temporary (a capture's reservation,
+      // staging or publication refused for now). Nothing closes: what ran is
+      // settled from receipts, and recovery runs the stage again with its
+      // expansions still open.
+      if (answer?.resume) {
+        await step(() => policy.settle({ commandId: id, generation: g }));
+        throw new ResumeLater(`${stage} stopped for something temporary (${typeof answer.resume.reason === "string" ? answer.resume.reason : "unavailable"})`);
+      }
       if (answer?.occurrences) await step(() => policy.closeStage({ commandId: id, generation: g, stage, occurrences: answer.occurrences }));
       await step(() => policy.settle({ commandId: id, generation: g }));
       if (failed(answer)) return stop();

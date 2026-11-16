@@ -114,7 +114,9 @@ export const retainedTags = (service, records) => (service.status?.traffic ?? []
 
 // Reachable revisions of a pinnable service (serving, or tagged) that must not
 // be: unknown to the store, mid-retirement, retired but still tagged, or
-// without the contract version required now.
+// without the contract version required now. A revision meets that floor when
+// it declares the floor or any later version (C5a, decision 10): one that
+// declares only 3 (l0013r) is not below a floor of 2.
 export function reachableProblems(service, records, { minContractVersion = 1 } = {}) {
   const reachable = new Set((service.status?.traffic ?? []).map(entry => entry.revisionName).filter(Boolean));
   const problems = { unapproved: [], retiring: [], retired: [], unsupportedContract: [] };
@@ -123,7 +125,7 @@ export function reachableProblems(service, records, { minContractVersion = 1 } =
     if (!record) problems.unapproved.push(revision);
     else if (record.status === "retiring") problems.retiring.push(revision);
     else if (record.status === "retired") problems.retired.push(revision);
-    else if (!(record.contractVersions ?? []).includes(minContractVersion)) problems.unsupportedContract.push(revision);
+    else if (!(record.contractVersions ?? []).some(v => v >= minContractVersion)) problems.unsupportedContract.push(revision);
   }
   return { reachable: [...reachable].sort(), ...problems };
 }

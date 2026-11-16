@@ -52,11 +52,14 @@ pub struct Compilation {
     /// B6: the occurrences answered from their records, by intent, when there were any (a
     /// materialization, or a repair's `start`). Never bound, minted or performed.
     pub replayed: Option<BTreeMap<String, Vec<String>>>,
+    /// C5: a command `start` that stopped for something temporary, and why. Its answer then
+    /// lists no occurrences, and the gateway resumes the stage later.
+    pub resume: Option<String>,
 }
 
 impl Compilation {
     fn of(result: Result<Value, Vec<Diagnostic>>, mode: Mode) -> Self {
-        Self { result, effects: Vec::new(), occurrences: None, restriction: None, mode, replayed: None }
+        Self { result, effects: Vec::new(), occurrences: None, restriction: None, mode, replayed: None, resume: None }
     }
 }
 
@@ -161,6 +164,10 @@ impl Compiler {
         if let Some(occurrences) = &compiled.occurrences {
             envelope["occurrences"] = json!(occurrences);
         }
+        // C5: the stage stopped for something temporary; the gateway resumes it later.
+        if let Some(reason) = &compiled.resume {
+            envelope["resume"] = json!({ "reason": reason });
+        }
         // The occurrences answered from their records (B6), which the gateway checks against
         // what it recorded.
         if let Some(replayed) = compiled.replayed.as_ref().filter(|r| !r.is_empty()) {
@@ -195,7 +202,15 @@ impl Compiler {
         let result = self.run(code, data, config, &mut exec, None).await;
         let occurrences = exec.command_occurrences().cloned();
         let restriction = exec.restriction();
-        Compilation { result, effects: exec.into_effects(), occurrences, restriction, mode, replayed: None }
+        Compilation {
+            result,
+            effects: exec.into_effects(),
+            occurrences,
+            restriction,
+            mode,
+            replayed: None,
+            resume: None,
+        }
     }
 
     async fn run(
@@ -225,6 +240,10 @@ impl Compiler {
             // Only `present` acts: `evaluate` (C6 part 2) and a replay (B6) have nothing to
             // admit, and policy isn't asked for a snapshot. A live protected call in either is
             // refused (`ExecContext::invoke`), as is a system session.
+            Vec::new()
+        } else if !dialect.admits_outside_commands() {
+            // C5: protected only as a command; this compile admits nothing, and a protected call
+            // in it is refused (`ExecContext::invoke`).
             Vec::new()
         } else {
             admit(&ast, dialect, self.policy.as_ref(), exec).await
@@ -360,10 +379,21 @@ impl Compiler {
         let result = self.run_recorded(program, input, config, &mut exec, model.intents.clone(), recorded, true).await;
         // The occurrences performed, even when the stage failed partway: what was bound is the
         // stage's to close.
-        let occurrences = Some(exec.command_occurrences().cloned().unwrap_or_default());
+        // C5: a stage stopped for something temporary closes nothing: no occurrences, and the
+        // gateway resumes it later with every expansion still open.
+        let resume = exec.resume_reason().map(str::to_owned);
+        let occurrences = resume.is_none().then(|| exec.command_occurrences().cloned().unwrap_or_default());
         let replayed = replaying.then(|| exec.replayed_occurrences().cloned().unwrap_or_default());
         let restriction = exec.restriction();
-        Compilation { result, effects: exec.into_effects(), occurrences, restriction, mode: Mode::Present, replayed }
+        Compilation {
+            result,
+            effects: exec.into_effects(),
+            occurrences,
+            restriction,
+            mode: Mode::Present,
+            replayed,
+            resume,
+        }
     }
 
     /// Rebuilds a command stage's result from its records (B6, docs/b6-command-repair-plan.md
@@ -403,7 +433,15 @@ impl Compiler {
         let result =
             self.run_recorded(program, input, config, &mut exec, model.intents.clone(), Some(recorded), false).await;
         let replayed = Some(exec.replayed_occurrences().cloned().unwrap_or_default());
-        Compilation { result, effects: Vec::new(), occurrences: None, restriction: None, mode: Mode::Replay, replayed }
+        Compilation {
+            result,
+            effects: Vec::new(),
+            occurrences: None,
+            restriction: None,
+            mode: Mode::Replay,
+            replayed,
+            resume: None,
+        }
     }
 
     /// Runs a command stage with its recorded occurrences: a `start` (`live`, admitted by its

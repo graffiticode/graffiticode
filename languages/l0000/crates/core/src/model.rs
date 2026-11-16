@@ -43,8 +43,54 @@ pub struct Intent {
     pub occurrences: Vec<String>,
     /// A runtime-expanded intent's most occurrences. `None` for a static one.
     pub max_occurrences: Option<u32>,
-    /// The connection it acts on, when it names one.
-    pub scope: Option<String>,
+    /// What it acts on, when it names it (C5, docs/c5-l0013-commands-plan.md decision 1).
+    pub scope: Option<IntentScope>,
+}
+
+/// What an intent acts on. A connection is written as its bare id, exactly as before C5, so a
+/// model with one keeps its text and digest. An item is `{ "kind": "item", "id" }` when the item
+/// is a literal in the program (static: policy authorizes it at admission), or
+/// `{ "kind": "item" }` when it arrives as data (bound: authorized at the occurrence's
+/// reservation, [`crate::ExecContext::reserve_capture`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IntentScope {
+    Connection(String),
+    Item(Option<String>),
+}
+
+impl IntentScope {
+    fn to_json(&self) -> Json {
+        match self {
+            Self::Connection(id) => Json::String(id.clone()),
+            Self::Item(Some(id)) => json!({ "kind": "item", "id": id }),
+            Self::Item(None) => json!({ "kind": "item" }),
+        }
+    }
+
+    fn from_json(json: &Json) -> Result<Self, String> {
+        let bad = || "an intent's scope is a connection id, or { kind: \"item\", id? }".to_owned();
+        match json {
+            Json::String(id) => Ok(Self::Connection(id.clone())),
+            Json::Object(object) => {
+                if object.get("kind").and_then(Json::as_str) != Some("item")
+                    || object.keys().any(|k| k != "kind" && k != "id")
+                {
+                    return Err(bad());
+                }
+                match object.get("id") {
+                    None => Ok(Self::Item(None)),
+                    Some(Json::String(id)) if !id.is_empty() => Ok(Self::Item(Some(id.clone()))),
+                    Some(_) => Err(bad()),
+                }
+            }
+            _ => Err(bad()),
+        }
+    }
+
+    /// Whether it is an item, static or bound.
+    pub fn is_item(&self) -> bool {
+        matches!(self, Self::Item(_))
+    }
 }
 
 impl Intent {
@@ -81,6 +127,17 @@ impl Intent {
         self.max_occurrences.is_some()
     }
 
+    /// The same intent, acting on `scope`.
+    pub fn with_scope(self, scope: IntentScope) -> Self {
+        Self { scope: Some(scope), ..self }
+    }
+
+    /// Whether its occurrences act on an item (C5): each is reserved, staged and bound to that
+    /// capture before it is minted.
+    pub fn is_item_scoped(&self) -> bool {
+        self.scope.as_ref().is_some_and(IntentScope::is_item)
+    }
+
     /// Policy's shape for it (packages/policy/src/policy.ts, `modelIntents`).
     pub fn to_json(&self) -> Json {
         let mut json = json!({ "id": self.id, "fn": self.function, "op": self.op });
@@ -92,7 +149,7 @@ impl Intent {
             None => json["occurrences"] = json!(self.occurrences),
         }
         if let Some(scope) = &self.scope {
-            json["scope"] = scope.clone().into();
+            json["scope"] = scope.to_json();
         }
         json
     }
@@ -119,7 +176,7 @@ impl Intent {
                 .and_then(|list| list.iter().map(|o| o.as_str().map(str::to_owned)).collect::<Option<Vec<_>>>())
                 .ok_or("a static intent lists its occurrences")?
         };
-        let scope = json.get("scope").and_then(Json::as_str).map(str::to_owned);
+        let scope = json.get("scope").map(IntentScope::from_json).transpose()?;
         Ok(Self { id: text("id")?, function: text("fn")?, op: text("op")?, occurrences, max_occurrences, scope })
     }
 }

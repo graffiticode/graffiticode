@@ -112,6 +112,20 @@ impl ProtectedCallError {
         }
     }
 
+    /// Whether this refusal is temporary (C5): policy or the broker couldn't decide now (429 or
+    /// 503, or an `unavailable` category), or no answer came before anything could act. A later
+    /// attempt may succeed, so a command stage that meets one resumes later rather than failing
+    /// ([`crate::ExecContext::resume_later`]). Never a refusal whose effect is unknown.
+    pub fn is_temporary(&self) -> bool {
+        match self {
+            Self::Rejected { status, category, effect_unknown: false, .. } => {
+                matches!(status, 429 | 503) || category.as_deref() == Some("unavailable")
+            }
+            Self::Unreachable { effect_unknown: false, .. } | Self::Unavailable(_) => true,
+            _ => false,
+        }
+    }
+
     /// Whether the broker was asked to act and its answer was lost, so the provider may have
     /// changed: an uncertain write, not a refusal.
     pub fn effect_unknown(&self) -> bool {
@@ -196,6 +210,29 @@ pub trait PolicyClient: Send + Sync {
         Err(ProtectedCallError::NoClient)
     }
 
+    /// A capture's reservation under its command session (`POST /v1/command-reservations`, C5
+    /// decision 9): the item's next capture sequence, once per occurrence, and the staged digest
+    /// once there is one. `item` is the item the program names (a bound scope's comes only from
+    /// here).
+    async fn reserve(
+        &self,
+        _session_token: &str,
+        _request: &ReserveRequest,
+    ) -> Result<Reservation, ProtectedCallError> {
+        Err(ProtectedCallError::NoClient)
+    }
+
+    /// A capture's rendered PNG, staged once for its reserved occurrence
+    /// (`POST /v1/command-stagings`, C5 decision 9). What was staged first stands.
+    async fn stage(
+        &self,
+        _session_token: &str,
+        _occurrence_id: &str,
+        _png: &[u8],
+    ) -> Result<Staged, ProtectedCallError> {
+        Err(ProtectedCallError::NoClient)
+    }
+
     /// A command's observation under its session (`POST /v1/command-observations`, B5 §5): with
     /// no `text`, the recorded one if there is one; with `text`, records it once and returns
     /// whichever was recorded first.
@@ -207,6 +244,40 @@ pub trait PolicyClient: Send + Sync {
     ) -> Result<Option<String>, ProtectedCallError> {
         Err(ProtectedCallError::NoClient)
     }
+}
+
+/// A capture occurrence to reserve (C5 decision 9).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReserveRequest {
+    pub occurrence_id: String,
+    pub intent_id: String,
+    pub expansion_key: Option<String>,
+    pub item: String,
+}
+
+/// What policy recorded for a capture: its item and sequence, whether it was counted under the
+/// public-capture exception, and the staged digest once staged.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reservation {
+    pub item: String,
+    pub capture_sequence: u64,
+    pub public_capture: bool,
+    pub staged: Option<StagedDigest>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StagedDigest {
+    pub sha256: String,
+    pub size: u64,
+}
+
+/// A staged capture, as policy recorded it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Staged {
+    pub item: String,
+    pub capture_sequence: u64,
+    pub sha256: String,
+    pub size: u64,
 }
 
 /// One occurrence of a command's intent, as policy binds it before any token is minted for it.

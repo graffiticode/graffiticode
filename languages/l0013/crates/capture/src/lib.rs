@@ -245,6 +245,21 @@ impl<S: Storage> Camera for ChromeCamera<S> {
         Some(serde_json::json!({ "thumbnailBucket": self.storage.bucket() }))
     }
 
+    /// A command's capture (C5 decision 9): resolved, rendered and cropped exactly as `snap`
+    /// does, and stored nowhere. Policy stages it and Broker publishes it.
+    async fn render(&self, request: SnapRequest) -> Result<Vec<u8>, CameraError> {
+        let started = Instant::now();
+        let token = request.token.as_deref().or(self.config.fallback_token.as_deref());
+        let (task, lang) = self.resolve(&request.item, token).await?;
+        let url = form_url(&self.config.api_url, &task, lang.as_deref(), token)?;
+        let session = Session::launch(self.config.chrome.as_deref()).await?;
+        let photographed = self.photograph(&session, &url, &request).await;
+        session.close().await;
+        let png = photographed?;
+        tracing::info!(item = %request.item, capture_ms = started.elapsed().as_millis() as u64, bytes = png.len(), "render");
+        Ok(png)
+    }
+
     async fn snap(&self, request: SnapRequest) -> Result<Snapshot, CameraError> {
         let started = Instant::now();
         // Refused before any rendering when there is nowhere to store the capture.

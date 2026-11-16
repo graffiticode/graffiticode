@@ -21,7 +21,8 @@ use serde_json::{Value as Json, json};
 
 use crate::canonical::args_digest;
 use crate::protected::{
-    OccurrenceBinding, PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError, SnapshotRequest,
+    OccurrenceBinding, PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError, Reservation,
+    ReserveRequest, SnapshotRequest, Staged, StagedDigest,
 };
 
 pub const POLICY_AUDIENCE: &str = "urn:graffiticode:policy";
@@ -263,6 +264,32 @@ impl<T: IdTokenSource> PolicyClient for HttpPolicyClient<T> {
         self.post(&self.policy_url, POLICY_AUDIENCE, "/v1/command-occurrences", &body, None).await.map(|_| ())
     }
 
+    /// `POST /v1/command-reservations`, under the command stage's session (C5).
+    async fn reserve(&self, session_token: &str, request: &ReserveRequest) -> Result<Reservation, ProtectedCallError> {
+        let mut body = json!({
+            "sessionToken": session_token,
+            "occurrenceId": request.occurrence_id,
+            "intentId": request.intent_id,
+            "item": request.item,
+        });
+        if let Some(key) = &request.expansion_key {
+            body["expansionKey"] = key.clone().into();
+        }
+        let data = self.post(&self.policy_url, POLICY_AUDIENCE, "/v1/command-reservations", &body, None).await?;
+        reservation(&data).ok_or_else(|| malformed("/v1/command-reservations"))
+    }
+
+    /// `POST /v1/command-stagings`, under the command stage's session (C5): the PNG, base64.
+    async fn stage(&self, session_token: &str, occurrence_id: &str, png: &[u8]) -> Result<Staged, ProtectedCallError> {
+        let body = json!({
+            "sessionToken": session_token,
+            "occurrenceId": occurrence_id,
+            "png": base64_standard(png),
+        });
+        let data = self.post(&self.policy_url, POLICY_AUDIENCE, "/v1/command-stagings", &body, None).await?;
+        staged(&data).ok_or_else(|| malformed("/v1/command-stagings"))
+    }
+
     /// `POST /v1/command-observations`, under the command stage's session.
     async fn observe(
         &self,
@@ -288,6 +315,62 @@ impl<T: IdTokenSource> PolicyClient for HttpPolicyClient<T> {
             session_token: data["sessionToken"].as_str().filter(|token| !token.is_empty()).map(str::to_owned),
         })
     }
+}
+
+/// Standard, padded base64 (RFC 4648 §4), as Node's `Buffer.from(text, "base64")` reads it.
+/// Written out here so the kernel takes no dependency for one encoding.
+pub fn base64_standard(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
+        let n = (u32::from(b[0]) << 16) | (u32::from(b[1]) << 8) | u32::from(b[2]);
+        for (i, shift) in [18, 12, 6, 0].into_iter().enumerate() {
+            out.push(if i <= chunk.len() { ALPHABET[((n >> shift) & 63) as usize] as char } else { '=' });
+        }
+    }
+    out
+}
+
+/// Policy answered, but not with what was asked for: nothing can be relied on.
+fn malformed(path: &str) -> ProtectedCallError {
+    ProtectedCallError::Rejected {
+        path: path.to_owned(),
+        status: 200,
+        reason: Some("malformed".to_owned()),
+        category: None,
+        effect_unknown: false,
+    }
+}
+
+fn staged_digest(json: &Json) -> Option<StagedDigest> {
+    let sha256 = json["sha256"].as_str().filter(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()))?;
+    Some(StagedDigest { sha256: sha256.to_owned(), size: json["size"].as_u64()? })
+}
+
+/// A reservation, exactly: an item, a positive sequence, and a staged digest or null.
+pub fn reservation(json: &Json) -> Option<Reservation> {
+    let staged = match &json["staged"] {
+        Json::Null => None,
+        staged => Some(staged_digest(staged)?),
+    };
+    Some(Reservation {
+        item: json["item"].as_str().filter(|s| !s.is_empty())?.to_owned(),
+        capture_sequence: json["captureSequence"].as_u64().filter(|n| *n >= 1)?,
+        public_capture: json["publicCapture"].as_bool()?,
+        staged,
+    })
+}
+
+/// A staged capture, exactly.
+pub fn staged(json: &Json) -> Option<Staged> {
+    let digest = staged_digest(json)?;
+    Some(Staged {
+        item: json["item"].as_str().filter(|s| !s.is_empty())?.to_owned(),
+        capture_sequence: json["captureSequence"].as_u64().filter(|n| *n >= 1)?,
+        sha256: digest.sha256,
+        size: digest.size,
+    })
 }
 
 /// Google ID tokens for this service's own account, from the Cloud Run metadata server, cached

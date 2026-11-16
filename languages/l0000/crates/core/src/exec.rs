@@ -24,7 +24,9 @@ use uuid::Uuid;
 
 use crate::canonical::args_digest;
 use crate::model::{Intent, Mode};
-use crate::protected::{OccurrenceBinding, PolicyClient, ProtectedCall, ProtectedCallError};
+use crate::protected::{
+    OccurrenceBinding, PolicyClient, ProtectedCall, ProtectedCallError, Reservation, ReserveRequest, Staged,
+};
 
 /// A runtime occurrence's id (B5 §4): `x:` and the hex SHA-256 of `{"intentId":…,"expansionKey":…}`
 /// in that key order, exactly as policy recomputes it (`runtimeOccurrenceId` in
@@ -53,6 +55,18 @@ struct CommandState {
     /// Every call the records refused, as (reason, message). Any one fails the stage, however
     /// the dialect reported it.
     record_refusals: Vec<(String, String)>,
+    /// C5: why the stage stopped for something temporary (a capture's reservation, staging or
+    /// publication refused for now). The stage's answer then says to resume it later, and
+    /// lists no occurrences, so nothing closes.
+    resume: Option<String>,
+}
+
+/// What a capture occurrence (C5) is reserved and staged under.
+struct CaptureContext {
+    session: String,
+    policy: Arc<dyn PolicyClient>,
+    intent_id: String,
+    expansion_key: Option<String>,
 }
 
 /// One occurrence's recorded result (B6): the args digest it ran with and Broker's `result`.
@@ -517,6 +531,30 @@ impl ExecContext {
         answer
     }
 
+    /// Stops this command stage for something temporary (C5): the gateway leaves the command
+    /// pending and recovery runs the stage again, with every expansion still open. Only a
+    /// command's `start` resumes; the first reason given stands.
+    pub fn resume_later(&mut self, reason: impl Into<String>) {
+        if let Some(command) = self.command.as_mut()
+            && command.resume.is_none()
+        {
+            command.resume = Some(reason.into());
+        }
+    }
+
+    /// Why this stage resumes later, if it does.
+    pub fn resume_reason(&self) -> Option<&str> {
+        self.command.as_ref().and_then(|c| c.resume.as_deref())
+    }
+
+    /// A capture's error, marking the stage to resume later when it is temporary.
+    fn capture_failed(&mut self, error: ProtectedCallError) -> ProtectedCallError {
+        if error.is_temporary() {
+            self.resume_later(error.reason().unwrap_or("unavailable").to_owned());
+        }
+        error
+    }
+
     /// The calls the records refused (B6), as (reason, message).
     pub(crate) fn record_refusals(&self) -> &[(String, String)] {
         self.command.as_ref().map_or(&[], |c| &c.record_refusals)
@@ -596,6 +634,74 @@ impl ExecContext {
         parse(recorded)
     }
 
+    /// A capture's reservation (C5 decision 9), before anything is rendered: `occurrence_id` (an
+    /// expansion of, or a static occurrence of, an item-scoped intent) on `item`. Policy takes
+    /// the item's next capture sequence, once per occurrence; a repeat answers what was
+    /// recorded, with the staged digest once there is one, so a retry never renders again.
+    /// Only a command's `start` reserves: a replay acts on nothing, and outside a command there
+    /// is no capture to reserve.
+    pub async fn reserve_capture(
+        &mut self,
+        occurrence_id: &str,
+        item: &str,
+    ) -> Result<Reservation, ProtectedCallError> {
+        let CaptureContext { session, policy, intent_id, expansion_key } = self.capture_context(occurrence_id)?;
+        let request =
+            ReserveRequest { occurrence_id: occurrence_id.to_owned(), intent_id, expansion_key, item: item.to_owned() };
+        policy.reserve(&session, &request).await.map_err(|error| self.capture_failed(error))
+    }
+
+    /// A reserved capture's rendered PNG, staged once (C5 decision 9). What was staged first
+    /// stands: the answer's digest is the one the occurrence binds with.
+    pub async fn stage_capture(&mut self, occurrence_id: &str, png: &[u8]) -> Result<Staged, ProtectedCallError> {
+        let capture = self.capture_context(occurrence_id)?;
+        capture.policy.stage(&capture.session, occurrence_id, png).await.map_err(|error| self.capture_failed(error))
+    }
+
+    /// The session, policy client, intent and expansion key of a capture occurrence: one of an
+    /// item-scoped intent of this command's `start`.
+    /// The guards a recorded call meets (B6) apply first: a stage halted by the records, or an
+    /// occurrence they hold, is refused before anything is reserved or rendered, and the refusal
+    /// fails the stage. (A capture is never answered from a record: repairs of v3 commands
+    /// aren't part of C5a.)
+    fn capture_context(&mut self, occurrence_id: &str) -> Result<CaptureContext, ProtectedCallError> {
+        let refuse = || ProtectedCallError::NotAdmitted(format!("capture {occurrence_id}"));
+        if self.mode != Mode::Present {
+            return Err(refuse());
+        }
+        let command = self.command.as_mut().ok_or_else(refuse)?;
+        let recorded = command
+            .recorded
+            .as_ref()
+            .is_some_and(|r| r.blocked.contains(occurrence_id) || r.completed.contains_key(occurrence_id));
+        if command.halted || recorded {
+            let error = ProtectedCallError::NotSelected(occurrence_id.to_owned());
+            command.halted = true;
+            command.record_refusals.push((error.reason().unwrap_or("refused").to_owned(), error.to_string()));
+            return Err(error);
+        }
+        let command = self.command.as_ref().ok_or_else(refuse)?;
+        let (intent_id, expansion_key) = match command.expansions.get(occurrence_id) {
+            Some((intent, key)) => (intent.clone(), Some(key.clone())),
+            None => (
+                command
+                    .intents
+                    .iter()
+                    .find(|i| !i.is_runtime() && i.occurrences.iter().any(|o| o == occurrence_id))
+                    .ok_or_else(refuse)?
+                    .id
+                    .clone(),
+                None,
+            ),
+        };
+        if !command.intents.iter().any(|i| i.id == intent_id && i.is_item_scoped()) {
+            return Err(refuse());
+        }
+        let session = self.identity.command_session.clone().ok_or(ProtectedCallError::NoSession)?;
+        let policy = self.grant.as_ref().and_then(|g| g.policy.clone()).ok_or(ProtectedCallError::NoClient)?;
+        Ok(CaptureContext { session, policy, intent_id, expansion_key })
+    }
+
     /// The occurrences this command stage performed, by intent: what the stage's answer lists.
     pub fn command_occurrences(&self) -> Option<&BTreeMap<String, Vec<String>>> {
         self.command.as_ref().map(|c| &c.performed)
@@ -618,6 +724,12 @@ impl ExecContext {
         };
         let intent = command.intents.iter().find(|i| i.id == intent_id)?;
         (intent.function == call.function && intent.op == call.op).then_some((intent_id, key))
+    }
+
+    /// Whether `call` is an occurrence of an item-scoped intent (C5).
+    fn intent_scoped_to_item(&self, call: &ProtectedCall) -> bool {
+        let Some((intent_id, _)) = self.intent_of(call) else { return false };
+        self.command.as_ref().is_some_and(|c| c.intents.iter().any(|i| i.id == intent_id && i.is_item_scoped()))
     }
 
     /// Whether this compile runs under an admitted plan.
@@ -687,6 +799,7 @@ impl ExecContext {
             },
             _ => Ok(None),
         };
+        let item_scoped = self.command.is_some() && self.intent_scoped_to_item(call);
         let outcome = match (bound, session) {
             (Err(error), _) => Err(error),
             (Ok(intent), Some(session)) => {
@@ -698,6 +811,14 @@ impl ExecContext {
             }
             (Ok(_), None) => Err(ProtectedCallError::NoSession),
         };
+        // A capture refused for now (C5): its bind, mint or execution couldn't be decided
+        // (item authority unavailable, an aborted run at the broker). The stage resumes later.
+        if let (true, Err(error)) = (item_scoped, &outcome)
+            && error.is_temporary()
+        {
+            let reason = error.reason().unwrap_or("unavailable").to_owned();
+            self.resume_later(reason);
+        }
         if is_write {
             self.effects.push(match &outcome {
                 Ok(outcome) => ProtectedEffect::of_outcome(call, outcome),
