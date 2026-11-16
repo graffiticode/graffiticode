@@ -26,6 +26,7 @@
 import { createLocalJWKSet } from "jose";
 import { verifyToken } from "@graffiticode/policy/tokens";
 import { HttpError } from "./errors/http.js";
+import { writesOutsideCommandControl } from "@graffiticode/common/protected-registry";
 
 export const RENDER_GRANT_HEADER = "graffiticode-render-grant";
 
@@ -110,18 +111,15 @@ export const buildRenderGrantVerifier = ({ jwks = null } = {}) => async token =>
   }
 };
 
-// Languages whose compile acts outside Policy and Broker: L0013's direct
-// uploader writes a thumbnail with its own credentials whenever a snap runs
-// outside a command. (Every other language's writes go through Policy, which
+// A grant's read is read-only (the owner's review of #408): no stage of its
+// chain may be in a language whose compile can write outside Policy and Broker
+// command control, as the registry marks it (`writesOutsideCommands`: L0013's
+// direct uploader). Every other language's writes go through Policy, which
 // refuses them without a connection or a command session, and a grant's read
-// has neither.) A grant's read never dispatches a stage in one of these: it is
-// refused before anything compiles (the owner's review of #408).
-export const UNGATED_EFFECT_LANGS = new Set(["0013"]);
-
+// has neither. Checked for every stage, before anything compiles.
 // Refuses a grant's read of a chain with any such stage.
 export const requireReadOnlyChain = tasks => {
-  const langs = tasks.flat().map(task => String(task?.lang ?? "").replace(/^L/i, ""));
-  if (langs.some(lang => UNGATED_EFFECT_LANGS.has(lang))) throw new RenderGrantRefused(403, "render-not-read-only");
+  if (tasks.flat().some(task => writesOutsideCommandControl(task?.lang))) throw new RenderGrantRefused(403, "render-not-read-only");
 };
 
 // Mounted before every route and before user authentication. A request with

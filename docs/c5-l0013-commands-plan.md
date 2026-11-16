@@ -529,13 +529,15 @@ It is **proven live** by a gate that creates the first v3 records. The rollback 
 ### Release order (C5a)
 
 1. **Decision 0** (#398), on its own.
-2. **The console route.** Nothing calls it yet.
+2. **The graffiticode-app releases.** Nothing calls either yet.
+   - The console's item-authority route (`console`: app#116).
+   - The app's form resolver accepting render grants (`app`: app#117). Until `app-run` may invoke Policy (IAM changes, below), it answers every grant 503.
 3. **Broker, at the floor commit.** It accepts v3 tokens and registry versions 8 and 9, and is configured with the gate bucket.
 4. **Policy, at the floor commit.** It accepts both versions, no api asks it for v3, and it lists and leases v3 commands only to `scopes` workers.
 5. **Compilers (slice 6).**
    - `l0013r` is released pinnable with `[3]`, inert: no api gives it a session.
    - `l0176r` is released reporting registry 9, with its declaration unchanged at `[1, 2]`.
-   - `l0185r` and `l0000r` are not released: they have no protected functions and keep reporting 0.
+   - No other Rust service is released for registry 9. `l0185r`, `l0000r` and the rest have no protected functions and keep reporting 0; each is released only for a change it independently requires.
    - Each release's approval record is checked in the revisions database. The window keeps 8, so v8 plans keep executing on their pinned revisions.
 6. **The api's `REGISTRY_VERSION` 9,** with `COMMANDS_L0013` absent. It doesn't declare `scopes`; that comes with C5d.
 7. **The live gate** (below), only after steps 3–5 are released with the floor in `deploy.json`, and `l0013r`'s release is approved with `[3]`.
@@ -547,6 +549,7 @@ Each is recorded in `docs/capability-policy-iam-review.md` as a new step and app
 - **`l0013r-run`:**
   - `run.invoker` on `policy` and `broker`;
   - their hosts added to `compilers-l0013`'s `network.allow`, with one proxy rollout verified by `verify-rollout.js`.
+- **`app-run@graffiticode-app`:** `run.invoker` on `policy`, so the app's resolver can fetch Policy's keys (`/v1/jwks`) to verify render grants.
 - **`policy-run`** may call the console route. The route checks the token's email itself. Read the app's ingress before granting anything there.
 - **The gate bucket `gs://graffiticode-c5a-gate`:** uniform and private, with `broker-run` as `objectUser`. It is deleted after the gate, as `gs://graffiticode-b6-drive` was.
 - **The staging bucket `gs://graffiticode-command-staging`** (decision 8): `policy-run` as `objectCreator` and `objectViewer`, `broker-run` as `objectViewer`, on that bucket only. It is created in C5a because `stage` is part of C5a's tested model.

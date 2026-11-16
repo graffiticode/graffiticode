@@ -9,7 +9,7 @@ import { createApp } from "./app.js";
 import { clearFirestore } from "./testing/firestore.js";
 import { TASK1, DATA1, TASK2, DATA2 } from "./testing/fixture.js";
 import { startLangApp } from "./testing/lang.js";
-import { buildPolicyJwks, buildRenderGrantVerifier, JWKS_REFETCH_MS, JWKS_TTL_MS, loggableHeaders, RENDER_GRANT_HEADER } from "./render-grant.js";
+import { buildPolicyJwks, buildRenderGrantVerifier, JWKS_REFETCH_MS, JWKS_TTL_MS, loggableHeaders, RENDER_GRANT_HEADER, requireReadOnlyChain } from "./render-grant.js";
 
 const OWNER = "1";
 const OTHER = "2";
@@ -156,6 +156,37 @@ describe("render grants", () => {
       expect(res.headers["cache-control"]).toBe("no-store");
     }
     expect(langApp.received().length).toBe(before);
+  });
+
+  // Registry 9: the refusal follows the registry's `writesOutsideCommands`,
+  // for every stage of the chain.
+  it("checks every stage against the registry's writes outside command control", () => {
+    for (const chain of [[[{ lang: "0013" }]], [[{ lang: "0000" }, { lang: "L0013" }]], [[{ lang: "0176" }], [{ lang: "13" }]]]) {
+      expect(() => requireReadOnlyChain(chain)).toThrow("render-not-read-only");
+    }
+    for (const chain of [[[{ lang: "0176" }]], [[{ lang: "0000" }, { lang: "0176" }]], [[{ lang: "0185" }]], []]) {
+      expect(() => requireReadOnlyChain(chain)).not.toThrow();
+    }
+  });
+
+  it("still renders an L0176 preview under a grant, compiled with no user token", async () => {
+    process.env.BASE_URL_L0176 = langApp.url;
+    try {
+      const task = { lang: "0176", code: TASK1.code };
+      langApp.setData(task.code, DATA1);
+      const id = await privateTask(task);
+      const before = langApp.received().length;
+      const res = await withGrant(request(app).get("/data").query({ id }), await grantFor(id)).expect(200);
+      expect(res.body.data).toEqual(DATA1);
+      expect(res.headers["cache-control"]).toBe("no-store");
+      const sent = langApp.received().slice(before);
+      expect(sent.length).toBeGreaterThan(0);
+      for (const { headers, body } of sent) {
+        expect(JSON.stringify({ headers, body })).not.toMatch(/access_token|Bearer ey/);
+      }
+    } finally {
+      delete process.env.BASE_URL_L0176;
+    }
   });
 
   // The owner's review of #408: Policy's JWKS route is private. Its keys are

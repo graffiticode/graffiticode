@@ -15,7 +15,8 @@ import {
   operationSteps,
   connectionBackends,
   credentialOf,
-  MAX_CONDITIONAL_ATTEMPTS
+  MAX_CONDITIONAL_ATTEMPTS,
+  writesOutsideCommandControl
 } from "./protected-registry.js";
 
 describe("protected-registry", () => {
@@ -266,6 +267,7 @@ describe("registry v9", () => {
       scope: "item",
       // Dated at C5d's activation; nothing executes under it before then.
       publicCapture: { since: null },
+      writesOutsideCommands: true,
     });
     expect(OPERATIONS["gcs.put-thumbnail"]).toMatchObject({ backend: "gcs", kind: "write", credential: "service" });
     expect(Object.isFrozen(PROTECTED_FUNCTIONS["0013"].snap.publicCapture)).toBe(true);
@@ -335,6 +337,20 @@ describe("registry v9", () => {
 
 // C5 plan decision 5: a conditional step may be authorized again after a
 // failed precondition, as numbered attempts; no other step may.
+// Registry 9: writes that can occur outside Policy/Broker command control.
+describe("writesOutsideCommands", () => {
+  it("marks snap, whose legacy path uploads by itself outside a command, and nothing else", () => {
+    const marked = Object.entries(PROTECTED_FUNCTIONS).flatMap(([lang, fns]) =>
+      Object.entries(fns).filter(([, spec]) => (spec as { writesOutsideCommands?: true }).writesOutsideCommands === true).map(([fn]) => `${lang}/${fn}`));
+    expect(marked).toEqual(["0013/snap"]);
+  });
+
+  it("answers per language, however its id is written", () => {
+    for (const lang of ["0013", "L0013", "13", "l0013"]) expect(writesOutsideCommandControl(lang)).toBe(true);
+    for (const lang of ["0176", "L0176", "0000", "0185", "9999", null, undefined]) expect(writesOutsideCommandControl(lang)).toBe(false);
+  });
+});
+
 describe("conditional steps", () => {
   const op = "gcs.put-thumbnail";
 
