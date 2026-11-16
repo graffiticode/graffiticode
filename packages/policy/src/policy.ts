@@ -1027,33 +1027,29 @@ export const createPolicy = ({
     if (typeof reservation.renderTask !== "string") return reservationAnswer(reservation);
     return grantIfCurrent({ session, occurrenceId, pinned: reservation, record });
   };
-  // The owner's review of #407: a grant is issued only while the command and
-  // the reservation it was decided for still stand, read again after every
-  // await that decided it (item authority, the audit): the command still
-  // pending and still owned by this session's generation, and the reservation
-  // still unstaged with the same pinned task. Nothing else is awaited between
-  // these reads and the signature.
+  // The owner's reviews of #407: a grant leaves Policy only once its issuance
+  // is recorded, in one fenced transaction (records.recordRenderGrant) that
+  // decides it against the command and reservation as they stand at commit:
+  // the command still pending and still owned by this session's generation,
+  // the reservation still unstaged with the same item and pinned task. The
+  // token is signed first, from the reservation's fixed fields, so its id can
+  // be recorded; a refused or staged decision discards it.
   const grantIfCurrent = async ({ session, occurrenceId, pinned, record }) => {
-    const command = await commands.get(session.cmd);
-    if (!command || command.status !== "pending") return deny("command-finished", record);
-    const fenced = ownerRefusal(command, { generation: session.fg, now: now() });
-    if (fenced) return deny(fenced, record);
-    const current = await commandRecords.getReservation(session.cmd, session.stg, occurrenceId);
-    if (!current) return deny("occurrence-not-reserved", record);
-    if (current.renderTask !== pinned.renderTask || current.item !== pinned.item) return deny("render-target-changed", record);
-    // Staged meanwhile: nothing is rendered again.
-    if (current.state === "staged") return reservationAnswer(current);
-    return reservationAnswer(current, await renderGrant({ session, command, reservation: current, record }));
+    const token = await issueToken(signer, "render", { sub: session.sub, itm: pinned.item, tsk: pinned.renderTask, cmd: session.cmd, fg: session.fg, stg: session.stg, occ: occurrenceId, cseq: pinned.captureSequence });
+    const { jti, exp } = decodeJwt(token);
+    let decided;
+    try {
+      decided = await commandRecords.recordRenderGrant({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, item: pinned.item, renderTask: pinned.renderTask, jti, exp });
+    } catch (e) {
+      return recordsDenied(e, record);
+    }
+    // Staged meanwhile: nothing is rendered again, and the token is dropped.
+    if (!decided.granted) return reservationAnswer(decided.reservation);
+    // The audit names the grant, never carries it.
+    await audit({ ...record, event: "render-grant", itemId: pinned.item, renderGrant: { jti, exp }, outcome: "allowed" });
+    return reservationAnswer(decided.reservation, { token, expiresAt: Number(exp) * 1000 });
   };
   const intentFn = (command, stage, intentId) => (command.admission.stages?.[stage]?.intents ?? []).find(i => i.id === intentId)?.fn;
-  // C5: a render grant for one reserved private capture (tokens.ts `render`).
-  // Its token is never logged: the audit records its id and expiry.
-  const renderGrant = async ({ session, command, reservation: r, record }) => {
-    const token = await issueToken(signer, "render", { sub: command.uid, itm: r.item, tsk: r.renderTask, cmd: session.cmd, fg: session.fg, stg: session.stg, occ: r.occurrenceId, cseq: r.captureSequence });
-    const { jti, exp } = decodeJwt(token);
-    await audit({ ...record, event: "render-grant", itemId: r.item, renderGrant: { jti, exp }, outcome: "allowed" });
-    return { token, expiresAt: exp * 1000 };
-  };
   const reservationAnswer = (r, grant = null) => ({
     item: r.item,
     captureSequence: r.captureSequence,

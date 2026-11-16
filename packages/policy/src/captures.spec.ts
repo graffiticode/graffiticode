@@ -48,6 +48,7 @@ const snapIntent = (scope: unknown = { kind: "item", id: PRIVATE }, occurrences 
 let policy;
 let deps;
 let commandStore;
+let commandBackend;
 let records;
 let items;
 let staging;
@@ -67,7 +68,8 @@ beforeEach(async () => {
   const leases = new Map();
   const invocations = createMemoryInvocationStore({ leases });
   commandStore = createMemoryCommandStore({ invocationStore: invocations });
-  records = createCommandRecords({ backend: createMemoryCommandBackend({ commandStore }), now: () => clock });
+  commandBackend = createMemoryCommandBackend({ commandStore });
+  records = createCommandRecords({ backend: commandBackend, now: () => clock });
   items = createMemoryItemAuthority({ [PRIVATE]: { ownerUid: OWNER, isPublic: false, taskId: PRIVATE_TASK }, [PUBLIC]: { ownerUid: OWNER, isPublic: true, taskId: "publicTask" } });
   staging = createMemoryStagingStore();
   deps = {
@@ -494,6 +496,54 @@ describe("render grants", () => {
     const e = await reserve(s).catch(err => err);
     expect(e).toBeInstanceOf(PolicyDenied);
     expect(["stale-generation", "lease-expired"]).toContain(e.reason);
+  });
+
+  // The owner's second review of #407: a takeover between the issuance
+  // decision's reads (the command, then the reservation) leaves the old
+  // worker nothing. The decision is one fenced transaction, decided on what
+  // stands at commit.
+  it("issues nothing to a worker taken over between the decision's own reads", async () => {
+    const c = await capture();
+    const s = await c.session();
+    await reserve(s);
+    let armed = true;
+    // The same documents, through a transaction that lets the command be taken
+    // over just as the decision reads the reservation, after the command.
+    const racing = createCommandRecords({
+      backend: {
+        transaction: fn => commandBackend.transaction(tx => {
+          let readCommand = false;
+          return fn({
+            ...tx,
+            get: async path => {
+              if (path[0] === "commands" && path.length === 2) readCommand = true;
+              if (armed && readCommand && path.includes("reservations")) {
+                armed = false;
+                clock += COMMAND_LEASE_MS + 1;
+                await commandStore.takeOver({ commandId: c.commandId, worker: "api-2", expectedGeneration: 1, now: clock, scopes: 1 });
+              }
+              return tx.get(path);
+            },
+          });
+        }),
+      },
+      now: () => clock,
+    });
+    build({ commandRecords: racing });
+    const e = await reserve(s).catch(err => err);
+    expect(e).toBeInstanceOf(PolicyDenied);
+    expect(["stale-generation", "lease-expired"]).toContain(e.reason);
+    expect(armed).toBe(false);
+    // Nothing was recorded as issued.
+    expect((await records.getReservation(c.commandId, "s0", "n0.0")).renderGrants ?? []).toHaveLength(1);
+  });
+
+  it("records each issued grant on its reservation", async () => {
+    const c = await capture();
+    const s = await c.session();
+    const first = await grantOf(await reserve(s));
+    const second = await grantOf(await reserve(s));
+    expect((await records.getReservation(c.commandId, "s0", "n0.0")).renderGrants.map(g => g.jti)).toEqual([first.jti, second.jti]);
   });
 
   it("issues a first grant only if the command still stands once the reservation is recorded", async () => {

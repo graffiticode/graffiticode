@@ -183,6 +183,9 @@ const sameCaptureArgs = (text, reservation) => {
     args.item === reservation.item && args.sha256 === reservation.sha256 && args.captureSequence === reservation.captureSequence;
 };
 
+// The render grants kept on a reservation (C5): the most recent issuances.
+const MAX_RECORDED_GRANTS = 10;
+
 export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
   const cmdPath = id => ["commands", id];
   const sub = (id, collection, docId) => ["commands", id, collection, docId];
@@ -537,6 +540,27 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       return staged;
     }),
 
+    // C5 render grants: the issuance decision, fenced to the owner and
+    // recorded with the grant's id, so no grant leaves Policy unless this
+    // committed with the command still pending and owned by `generation`,
+    // and the reservation still unstaged with the same item and pinned task.
+    // `granted: false` when it was staged meanwhile: nothing renders again.
+    // The last few issuances are kept on the reservation.
+    recordRenderGrant: ({ commandId, generation, stage, occurrenceId, item, renderTask, jti, exp }) => owned(commandId, generation, async (tx, command) => {
+      requireStage(stage);
+      if (typeof jti !== "string" || !jti || !Number.isFinite(exp)) throw new CommandRefused("bad-request");
+      if (command.status !== "pending") throw new CommandRefused("command-finished");
+      const path = sub(commandId, "reservations", docKey(stage, occurrenceId));
+      const reservation = await tx.get(path);
+      if (!reservation) throw new CommandRefused("occurrence-not-reserved");
+      if (reservation.item !== item || typeof reservation.renderTask !== "string" || reservation.renderTask !== renderTask) throw new CommandRefused("render-target-changed");
+      if (reservation.state === "staged") return { granted: false, reservation };
+      const issued = [...(reservation.renderGrants ?? []), { jti, exp, generation, at: new Date(now()).toISOString() }].slice(-MAX_RECORDED_GRANTS);
+      const next = { ...reservation, renderGrants: issued };
+      tx.set(path, next);
+      return { granted: true, reservation: next };
+    }),
+
     async getReservation(commandId, stage, occurrenceId) {
       return backend.transaction(tx => tx.get(sub(commandId, "reservations", docKey(stage, occurrenceId))));
     },
@@ -855,10 +879,19 @@ export const createMemoryCommandBackend = ({ commandStore }) => {
   return {
     docs,
     transaction(fn) {
-      const run = queue.then(async () => {
+      // As Firestore does: a transaction whose reads changed before it
+      // committed (a command taken over through the command store meanwhile)
+      // runs again, so a fenced check is decided on what stands at commit.
+      const attempt = async (left) => {
         const writes = new Map();
+        const seen = new Map();
         const tx = {
-          get: async path => structuredClone(writes.has(key(path)) ? writes.get(key(path)).doc : read(path)),
+          get: async path => {
+            if (writes.has(key(path))) return structuredClone(writes.get(key(path)).doc);
+            const doc = read(path);
+            if (!seen.has(key(path))) seen.set(key(path), { path, json: JSON.stringify(doc) });
+            return structuredClone(doc);
+          },
           set: (path, doc) => writes.set(key(path), { path, doc: structuredClone(doc) }),
           list: async path => {
             const prefix = `${key(path)}/`;
@@ -866,12 +899,18 @@ export const createMemoryCommandBackend = ({ commandStore }) => {
           },
         };
         const out = await fn(tx);
+        const changed = [...seen.values()].some(({ path, json }) => JSON.stringify(read(path)) !== json);
+        if (changed) {
+          if (left <= 1) throw new Error("transaction contention: its reads kept changing");
+          return attempt(left - 1);
+        }
         for (const { path, doc } of writes.values()) {
           if (path.length === 2 && path[0] === "commands") commandStore.commands.set(path[1], doc);
           else docs.set(key(path), doc);
         }
         return out;
-      });
+      };
+      const run = queue.then(() => attempt(5));
       queue = run.catch(() => {});
       return run;
     },
