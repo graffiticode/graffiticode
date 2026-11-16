@@ -4,7 +4,7 @@
 //     (the legacy lexicon.js request path is aliased to it by the API server.)
 //   - instructions.md: parent (L0000) instructions concatenated with L0182's.
 // The rest (spec.html, language-info.json, scope.json, schema.json, template.gc,
-// usage-guide.md) are L0182's own.
+// usage-guide.md, examples.md) are L0182's own.
 import { createRequire } from "module";
 import { mkdirSync, writeFileSync, copyFileSync, readFileSync, existsSync, rmSync } from "fs";
 import { dirname, join } from "path";
@@ -50,7 +50,11 @@ writeFileSync(join(outDir, "instructions.md"), `${parentInstructions}\n\n${ownIn
 // rather than inside it. They are what the compiler reads when a program names a survey, and
 // serving them would let whoever takes a survey read it — or a client render it — ahead of
 // taking it. `app.test.ts` asserts the 404.
-for (const f of ["usage-guide.md", "scope.json", "schema.json", "template.gc"]) {
+//
+// `examples.md` IS among them: it holds prompts, not surveys, and the console's corpus scripts
+// (create-items-from-prompts) read it from here — without it they can only read a local sibling
+// checkout, and an edited example never reaches the corpus.
+for (const f of ["usage-guide.md", "scope.json", "schema.json", "template.gc", "examples.md"]) {
   const src = join(specDir, f);
   if (existsSync(src)) copyFileSync(src, join(outDir, f));
 }
