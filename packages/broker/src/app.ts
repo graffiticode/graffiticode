@@ -7,6 +7,7 @@
 //   DELETE /v1/secrets/:conn    policy    delete it; the id is never reused
 //   GET    /v1/protected-execution  anyone  { enabled, source } (@graffiticode/policy maintenance.js)
 //   POST   /v1/receipts         policy    { invocationId, operationIds? }  read recorded receipts (B5 settlement)
+//   POST   /v1/reconcile        policy    { invocationId, decisionId, connectionId | scope: { kind: "item", id } }
 //
 // A refusal carries only its reason — never the token, payload or credential.
 
@@ -18,6 +19,7 @@ import { InvalidArgumentError, UnauthenticatedError, UnauthorizedError } from "@
 import { classify } from "@graffiticode/common/failures";
 import { requestContextMiddleware } from "@graffiticode/policy";
 import { BrokerRefused } from "./broker.js";
+import { scopeProblems } from "@graffiticode/common/contract";
 
 const CONNECTION_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
 
@@ -106,13 +108,22 @@ export const createBrokerApp = ({ broker, secrets, identifyCaller, audit, reconc
       await audit({ event: "reconcile", outcome: "denied", reason: "route-not-allowed-for-caller" });
       throw new UnauthorizedError("route not allowed for this caller");
     }
-    const { connectionId, invocationId, decisionId } = req.body ?? {};
-    if (!CONNECTION_ID_RE.test(connectionId ?? "") || !/^inv-[A-Za-z0-9-]{1,64}$/.test(invocationId ?? "") || !/^[A-Za-z0-9-]{8,64}$/.test(decisionId ?? "")) {
+    const { connectionId, scope, invocationId, decisionId } = req.body ?? {};
+    if (!/^inv-[A-Za-z0-9-]{1,64}$/.test(invocationId ?? "") || !/^[A-Za-z0-9-]{8,64}$/.test(decisionId ?? "")) {
       throw new InvalidArgumentError("connectionId, invocationId and decisionId are required");
+    }
+    // One scope (C5): a connection, as before, or an item.
+    let asked;
+    if (scope === undefined) {
+      if (!CONNECTION_ID_RE.test(connectionId ?? "")) throw new InvalidArgumentError("connectionId, invocationId and decisionId are required");
+      asked = { connectionId };
+    } else {
+      if (connectionId !== undefined || scopeProblems(scope).length || scope.kind !== "item") throw new InvalidArgumentError("scope must be one item scope, without a connectionId");
+      asked = { itemId: scope.id };
     }
     if (!reconcile) throw new Error("reconciliation is not configured");
     try {
-      sendSuccessResponse(res, await reconcile({ connectionId, invocationId, decisionId }));
+      sendSuccessResponse(res, await reconcile({ ...asked, invocationId, decisionId }));
     } catch (err) {
       if (err instanceof ReconcileRefused) {
         res.status(err.status).json({ status: "error", error: { code: err.status, message: "reconcile refused", reason: err.reason, category: classify(err.reason).category }, data: null });

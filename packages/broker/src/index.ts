@@ -10,4 +10,5 @@ export { createFirestoreOnceStore, createFirestoreReceiptStore, createFirestoreS
 export { createReconciler, ReconcileRefused, RECONCILE_GRACE_MS } from "./reconcile.js";
 export { createReceiptReader, ReceiptReadRefused, MAX_OPERATION_IDS } from "./receipts-read.js";
 export { parseFaults, PRODUCTION_SERVICE } from "./faults.js";
+export { buildGcsStorage, buildThumbnailOperations, parseThumbnailBuckets, PreconditionFailed, NotWritten, thumbnailEvidence, thumbnailResultFromEvidence, thumbnailUrl, stagedObjectName, objectName, publishedSequence, sha256Hex, THUMBNAIL_EVIDENCE_FORMAT, LEGACY_THUMBNAIL_BUCKET } from "./gcs.js";
 export { DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS, SLOT_RETENTION_MARGIN_S, MAX_EXECUTION_TOKEN_LIFETIME_S, parseSystemSessionMaxSignings, slotExpiresAt, systemSessionClaimsValid } from "./session-slots.js";

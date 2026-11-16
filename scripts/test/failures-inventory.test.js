@@ -25,6 +25,7 @@ const FORMS = [
   /\bartifactNotStored\(\{ error: "([a-z0-9-]+)"/g, // api: artifactNotStored({ error: "code", … })
   /\brefuseChain\([^;]*?, "([a-z0-9-]+)"/g, // api: refuseChain(message, "code", stage?) (chain admission, W4)
   /\bnew CommandRefused\("([a-z0-9-]+)"/g, // policy: command records (B5)
+  /\bnew NotWritten\("([a-z0-9-]+)"/g, // broker: a write that wrote nothing, with its reason (C5, gcs.js)
   /\brefused\(res, [^;]*?"([a-z0-9-]+)"(?: : "([a-z0-9-]+)")?\);/g, // api: refused(res, status, "reason") (/command, B5)
 ];
 // Reasons returned from a function rather than in one of the forms above.

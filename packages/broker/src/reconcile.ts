@@ -30,6 +30,15 @@
 // must agree; if they don't, the resolution records `"conflict"` and no
 // result. An operation that can't rebuild its result records `"unavailable"`.
 // Evidence Broker can't read never reaches here: it stays `unresolved`.
+//
+// C5 (docs/c5-l0013-commands-plan.md decisions 5 and 8): reconciliation is
+// asked for one scope, a connection (`connectionId`, as before) or an item
+// (`scope: { kind: "item", id }`). A connection's receipts are those bound to
+// it, by `connectionId` (v2) or by a connection scope (v3); an item's are
+// those bound to its item scope, which are service operations: no credential
+// is read, and each operation's own `observe` decides from what is published
+// (gcs.put-thumbnail: a published sequence at or above the capture's is
+// `applied`, anything else `unresolved`).
 
 import { randomUUID } from "node:crypto";
 import { observeRecord, EVIDENCE_FORMAT } from "./operations.js";
@@ -62,20 +71,33 @@ export class ReconcileRefused extends Error {
   }
 }
 
+// Is a claim's binding for this scope?
+const boundTo = (binding, { connectionId, itemId }) => {
+  if (itemId !== undefined) return binding?.scope?.kind === "item" && binding.scope.id === itemId;
+  return binding?.connectionId === connectionId || (binding?.scope?.kind === "connection" && binding.scope.id === connectionId);
+};
+
 export const createReconciler = ({ receipts, secrets, operations, limits, audit, now = Date.now, newId = randomUUID }) =>
-  async ({ connectionId, invocationId, decisionId }) => {
-    const record = { event: "reconcile", connectionId, invocationId, decisionId };
+  async ({ connectionId = undefined, itemId = undefined, invocationId, decisionId }) => {
+    if ((connectionId === undefined) === (itemId === undefined)) throw new Error("reconcile one scope: a connection or an item");
+    const record = { event: "reconcile", ...(itemId !== undefined ? { itemId } : { connectionId }), invocationId, decisionId };
     const refuse = async (reason, status = 403) => {
       await audit({ ...record, outcome: "denied", reason });
       throw new ReconcileRefused(reason, status);
     };
+    // A connection's receipts are its connection operations'; an item's, its
+    // service operations'.
+    const service = itemId !== undefined;
     const claims = (await receipts.listClaims(invocationId))
-      .filter(c => c.binding?.connectionId === connectionId && operations[c.binding?.op]?.kind === "write");
+      .filter(c => boundTo(c.binding, { connectionId, itemId }) && operations[c.binding?.op]?.kind === "write" && (operations[c.binding.op].credential === "service") === service);
     if (!claims.length) return refuse("receipt-not-found", 404);
-    const credential = await secrets.get(connectionId);
-    if (!credential) return refuse("no-credential");
-    // The credential must still be the one the writes ran with: same owner.
-    if (claims.some(c => credential.ownerUid !== c.binding.ownerUid)) return refuse("credential-binding-mismatch");
+    let credential = null;
+    if (!service) {
+      credential = await secrets.get(connectionId);
+      if (!credential) return refuse("no-credential");
+      // The credential must still be the one the writes ran with: same owner.
+      if (claims.some(c => credential.ownerUid !== c.binding.ownerUid)) return refuse("credential-binding-mismatch");
+    }
 
     const results = [];
     for (const claim of claims) {
@@ -87,12 +109,13 @@ export const createReconciler = ({ receipts, secrets, operations, limits, audit,
         continue;
       }
       const evidence = claim.evidence;
+      const operation = operations[claim.binding.op];
       const attempt = async (verdict, extra = {}) => {
         const attemptId = newId();
         await receipts.putAttempt(operationId, attemptId, { verdict, decisionId, ...extra });
         return attemptId;
       };
-      if (!evidence || evidence.format !== EVIDENCE_FORMAT) {
+      if (!evidence || (operation.observe ? !operation.readsEvidence?.(evidence) : evidence.format !== EVIDENCE_FORMAT)) {
         const reason = evidence ? "evidence-format-unknown" : "no-evidence";
         await attempt("unresolved", { reason });
         await audit({ ...opRecord, outcome: "allowed", reason });
@@ -104,23 +127,43 @@ export const createReconciler = ({ receipts, secrets, operations, limits, audit,
         results.push({ operationId, verdict: "too-early", retryAfter: new Date(readyAt).toISOString() });
         continue;
       }
-      let stored;
       const readAt = new Date(now()).toISOString();
-      try {
-        stored = await operations[claim.binding.op].readBack(evidence, credential, { timeoutMs: limits.providerCallMs });
-      } catch {
+      const readFailed = async () => {
         await attempt("unresolved", { reason: "read-failed", readAt });
         await audit({ ...opRecord, outcome: "allowed", reason: "read-failed" });
         results.push({ operationId, verdict: "unresolved", reason: "read-failed" });
-        continue;
+      };
+      // What was found: a provider's records (each landed or not), or an
+      // operation's own observation of its effect.
+      let verdict;
+      let found;
+      if (operation.observe) {
+        let seen;
+        try {
+          seen = await operation.observe(evidence, { timeoutMs: limits.providerCallMs });
+        } catch {
+          await readFailed();
+          continue;
+        }
+        verdict = seen.applied ? "applied" : "unresolved";
+        found = { observation: seen.observation };
+      } else {
+        let stored;
+        try {
+          stored = await operation.readBack(evidence, credential, { timeoutMs: limits.providerCallMs });
+        } catch {
+          await readFailed();
+          continue;
+        }
+        const records = evidence.records.map(r => ({ step: r.step, kind: r.kind, reference: r.reference, ...observeRecord(r, stored[r.kind]?.get(r.reference), operationId) }));
+        verdict = records.length > 0 && records.every(r => r.landed) ? "applied" : "unresolved";
+        found = { records };
       }
-      const records = evidence.records.map(r => ({ step: r.step, kind: r.kind, reference: r.reference, ...observeRecord(r, stored[r.kind]?.get(r.reference), operationId) }));
-      const verdict = records.length > 0 && records.every(r => r.landed) ? "applied" : "unresolved";
-      const attemptId = await attempt(verdict, { records, readAt });
+      const attemptId = await attempt(verdict, { ...found, readAt });
       let isFinal = false;
       let established = {};
       if (verdict === "applied") {
-        const output = await establishedResult({ operation: operations[claim.binding.op], evidence, outcome: await receipts.getOutcome(operationId) });
+        const output = await establishedResult({ operation, evidence, outcome: await receipts.getOutcome(operationId) });
         if (output.resultSource === "conflict") await audit({ ...opRecord, outcome: "allowed", reason: "result-conflict" });
         if (await receipts.createResolution(operationId, { verdict, attemptId, decisionId, ...output })) {
           isFinal = true;
@@ -133,7 +176,7 @@ export const createReconciler = ({ receipts, secrets, operations, limits, audit,
         }
       }
       await audit({ ...opRecord, outcome: "allowed", reason: verdict });
-      results.push({ operationId, verdict, final: isFinal, records, ...established });
+      results.push({ operationId, verdict, final: isFinal, ...found, ...established });
     }
     return { invocationId, operations: results };
   };

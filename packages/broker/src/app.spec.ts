@@ -311,6 +311,20 @@ describe("broker http: reconcile", () => {
     expect((await ask(SA.policy, { connectionId: "conn-1", invocationId: "../etc", decisionId: "decision-0001" })).status).toBe(400);
     expect(reconciled).toEqual([]);
   });
+
+  // C5: one item scope in place of the connection, never both.
+  it("passes on an item scope, and refuses a request with both scopes or a malformed one", async () => {
+    const base = { invocationId: "inv-0001", decisionId: "decision-0001" };
+    const send = body => ask(SA.policy, body as any);
+    expect((await send({ ...base, scope: { kind: "item", id: "item-1" } })).status).toBe(200);
+    expect(reconciled).toEqual([{ itemId: "item-1", ...base }]);
+    for (const scope of [{ kind: "connection", id: "conn-1" }, { kind: "item", id: "" }, { kind: "item", id: "x", extra: 1 }, "item:x"]) {
+      expect((await send({ ...base, scope })).status).toBe(400);
+    }
+    expect((await send({ ...base, connectionId: "conn-1", scope: { kind: "item", id: "item-1" } })).status).toBe(400);
+    expect((await send(base)).status).toBe(400);
+    expect(reconciled).toHaveLength(1);
+  });
 });
 
 // Receipt reads (B5 settlement): Policy only, with no token.

@@ -5,7 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { ConflictError } from "@graffiticode/common/errors";
-import { checkRotation, StepConflict } from "./stores.js";
+import { checkRotation, StepConflict, stepDetail, attemptRecord, checkAttempt } from "./stores.js";
 
 const ALREADY_EXISTS = 6;
 const isAlreadyExists = err => err?.code === ALREADY_EXISTS || /ALREADY_EXISTS/.test(String(err?.message));
@@ -61,16 +61,31 @@ export const createFirestoreReceiptStore = db => {
       const snap = await claimRef(operationId).get();
       return snap.exists ? snap.data() : null;
     },
-    async putStep(operationId, n, step) {
+    async putStep(operationId, n, step, detail = undefined) {
       if (!Number.isInteger(n) || n < 0) throw new Error(`step index must be a non-negative integer, not ${n}`);
       const ref = stepsRef(operationId).doc(String(n));
-      if (await createOnce(ref, { n, step, at: new Date().toISOString() })) return;
+      if (await createOnce(ref, { n, step, ...stepDetail(detail), at: new Date().toISOString() })) return;
       const snap = await ref.get();
       if (snap.data()?.step !== step) throw new StepConflict(`step ${n} already recorded`);
     },
     async getSteps(operationId) {
       const snap = await stepsRef(operationId).orderBy("n").get();
       return snap.docs.map(d => d.data().step);
+    },
+    async getStepRecords(operationId) {
+      const snap = await stepsRef(operationId).orderBy("n").get();
+      return snap.docs.map(d => d.data());
+    },
+    // A conditional step's attempts (C5 plan decision 5): `attempts/{k}`,
+    // each created once.
+    async putStepAttempt(operationId, k, attempt) {
+      checkAttempt(k, attempt);
+      const ref = claimRef(operationId).collection("attempts").doc(String(k));
+      if (!(await createOnce(ref, { k, ...attemptRecord(attempt), at: new Date().toISOString() }))) throw new Error(`attempt ${k} already recorded`);
+    },
+    async getStepAttempts(operationId) {
+      const snap = await claimRef(operationId).collection("attempts").orderBy("k").get();
+      return snap.docs.map(d => d.data());
     },
     async getOutcome(operationId) {
       const snap = await outcomeRef(operationId).get();

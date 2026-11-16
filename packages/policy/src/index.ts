@@ -1,5 +1,5 @@
 export { createPolicy, PolicyDenied, PolicyMaintenance, opidParts, ADMISSION_MAX_AGE_MS, COMMAND_SETTLE_GRACE_MS, MAX_INTENT_OCCURRENCES, modelIntents } from "./policy.js";
-export { SYSTEM_PREVIEW_SUBJECT, PROVENANCES, sessionProvenance, provenanceRefusal } from "./provenance.js";
+export { SYSTEM_PREVIEW_SUBJECT, ANONYMOUS_SUBJECT, PROVENANCES, sessionProvenance, provenanceRefusal } from "./provenance.js";
 export { createProtectedSwitch, createFirestoreFlagReader, parseHardDisable, admission, PROTECTED_EXECUTION_DOC, MAINTENANCE } from "./maintenance.js";
 export { createLocalSigner, issueToken, verifyToken, tokenParts, PROFILES, ISSUER, ALG, CLOCK_SKEW_SECONDS, RESERVED_CLAIMS } from "./tokens.js";
 export { createMemoryConnectionStore, connectionRefusal } from "./connections.js";

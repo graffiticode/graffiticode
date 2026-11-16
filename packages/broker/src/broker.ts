@@ -39,6 +39,23 @@
 //      (previewConnections), never the token's connection: its signature
 //      doesn't cover the request (AT-10 A3, registry v8). An Items preview, a
 //      write and a reconciliation use the token's connection.
+//   7b. A service operation (registry `credential: "service"`; C5's
+//      `gcs.put-thumbnail`) acts as Broker's own runtime identity, never a
+//      connection's. Its token selects an item scope (`scp`, contract v3) and
+//      no connection, and its payload names that same item; a connection
+//      operation's token selects no item. Either mismatch is refused
+//      `credential-scope-mismatch` before the receipt claim (C5 plan
+//      decision 5). A v3 write's receipt binding records the selected scope in
+//      place of the connection; a v2 binding is unchanged.
+//   7c. An operation that publishes staged bytes (`loadStaged`) reads and
+//      checks them before its receipt claim: missing or not matching the
+//      bound digest, with no claim, is refused `staging-unavailable`, and
+//      nothing was written. Once a claim exists, staging is never read again:
+//      the receipt answers (decision 9).
+//   7d. A conditional step (registry `conditional`, `attempts`) may be
+//      authorized again after a failed precondition, as attempt 2..n, each
+//      with its own decision and audit record, and each recorded on the
+//      receipt (`attempts/{k}`) before the next is authorized.
 //   8. A `sign` under a system preview session (provenance `system`) first
 //      claims one of the session's SYSTEM_SESSION_MAX_SIGNINGS slots
 //      (session-slots.js); with all taken it is refused `session-exhausted`
@@ -67,9 +84,9 @@
 // Every decision is audited (pseudonymous ids; no tokens, secrets or bodies).
 
 import { randomUUID } from "node:crypto";
-import { isOperationAllowed, isStepRegistered, viewSafeFunctionsForLang, REGISTRY_VERSION, REGISTRY_WINDOW, isAcceptedRegistryVersion } from "@graffiticode/common/protected-registry";
+import { isOperationAllowed, isStepRegistered, viewSafeFunctionsForLang, REGISTRY_VERSION, REGISTRY_WINDOW, isAcceptedRegistryVersion, OPERATIONS, credentialOf } from "@graffiticode/common/protected-registry";
 import { verifyToken, provenanceRefusal, opidParts, MAINTENANCE, admission } from "@graffiticode/policy";
-import { SUPPORTED_CONTRACT_VERSIONS } from "@graffiticode/common/contract";
+import { SUPPORTED_CONTRACT_VERSIONS, CONTRACT_VERSION_SCOPED } from "@graffiticode/common/contract";
 import { argsDigest } from "./canonical.js";
 import { DeadlineExceeded, PayloadRejected, ProviderRejected } from "./operations.js";
 import { DEFAULT_LIMITS, headroomMs, maxExecutionMs } from "./limits.js";
@@ -109,6 +126,23 @@ class StepNotPersisted extends Error {
   }
 }
 
+// An attempt of a conditional step couldn't be recorded: no next attempt may
+// be authorized. A failed precondition wrote nothing; any other attempt may
+// have, so the operation is uncertain.
+class AttemptNotPersisted extends Error {
+  declare step: string;
+  declare wrote: boolean;
+  constructor(step: string, observed: string, cause: any) {
+    super(`attempt of ${step} (${observed}) could not be recorded: ${String(cause?.message || cause)}`);
+    this.step = step;
+    this.wrote = observed !== "precondition-failed";
+  }
+}
+
+// The registry's word on an operation's credential: a definition here can't
+// change it.
+const registeredCredential = op => (Object.prototype.hasOwnProperty.call(OPERATIONS, op) ? credentialOf(OPERATIONS[op]) : null);
+
 export class BrokerRefused extends Error {
   declare reason: string;
   declare status: number;
@@ -124,8 +158,17 @@ export class BrokerRefused extends Error {
 // A receipt is bound to everything that authorized its write. A replay must
 // match all of it; one recorded under another registry version is refused
 // rather than reinterpreted.
+// A v3 binding carries `scope` ({ kind, id }) in place of `connectionId`.
 const BINDING_FIELDS = ["principal", "ownerUid", "connectionId", "lang", "fn", "op", "registryVersion", "argsDigest"];
-const sameBinding = (a, b) => BINDING_FIELDS.every(f => a[f] === b[f]);
+const scopeKeyOf = scope => (scope ? `${scope.kind}:${scope.id}` : null);
+const sameBinding = (a, b) => BINDING_FIELDS.every(f => a[f] === b[f]) && scopeKeyOf(a.scope) === scopeKeyOf(b.scope);
+
+// The scope a v3 token selects (decision 6): its item, or its connection.
+// Null for v1/v2, whose bindings keep `connectionId`.
+const selectedScope = claims => {
+  if (claims.cv !== CONTRACT_VERSION_SCOPED) return null;
+  return claims.scp ? { kind: "item", id: claims.scp.id } : { kind: "connection", id: claims.conn };
+};
 
 // The contract a token's claims meet (W4; spec RELEASE-01, TOKEN-01): a
 // version Broker doesn't support, or below its minimum, is refused; from
@@ -134,9 +177,15 @@ const sameBinding = (a, b) => BINDING_FIELDS.every(f => a[f] === b[f]);
 // and a bound token's stage must be its operation's.
 // Policy decides the plan itself at each authorization; these are the checks
 // Broker can make on the token alone, before anything is spent.
+// Broker accepts contract v3 tokens (C5 plan decision 6) before anything
+// issues them; compilers advertise it only from their own support (decision
+// 10), so SUPPORTED_CONTRACT_VERSIONS doesn't list it. A v3 token always rests
+// on an admitted plan.
+const BROKER_CONTRACT_VERSIONS: readonly number[] = [...SUPPORTED_CONTRACT_VERSIONS, CONTRACT_VERSION_SCOPED];
 export const contractRefusal = (claims, minContractVersion = 1) => {
   const cv = claims.cv ?? 1;
-  if (!SUPPORTED_CONTRACT_VERSIONS.includes(cv) || cv < minContractVersion) return "contract-version-unsupported";
+  if (!BROKER_CONTRACT_VERSIONS.includes(cv) || cv < minContractVersion) return "contract-version-unsupported";
+  if (cv === CONTRACT_VERSION_SCOPED && claims.pld === undefined) return "plan-required";
   if (claims.pld !== undefined || claims.stg !== undefined) {
     if (!claims.pld || !claims.stg || claims.stg !== opidParts(claims.opid).stage) return "plan-binding-mismatch";
   } else if (minContractVersion >= 2 && claims.prv === "user") {
@@ -187,7 +236,12 @@ export const createBroker = ({
   // B1 (registry v8): a write only creates records, under references its own
   // operation id derives; a write operation without the mapping isn't built.
   for (const [name, definition] of Object.entries(operations ?? {}) as [string, any][]) {
-    if (definition?.kind === "write" && typeof definition.references !== "function") throw new Error(`createBroker: write operation ${name} needs a references mapping`);
+    // A service operation writes no provider records, so has no references.
+    if (definition?.kind === "write" && definition.credential !== "service" && typeof definition.references !== "function") throw new Error(`createBroker: write operation ${name} needs a references mapping`);
+    // The definition and the registry agree on the credential (C5 decision 5).
+    if (definition && registeredCredential(name) !== null && (definition.credential === "service" ? "service" : "connection") !== registeredCredential(name)) {
+      throw new Error(`createBroker: operation ${name} disagrees with the registry about its credential`);
+    }
     // Which credential a signature uses is the operation's to say, never a
     // default: a Questions preview signed with an owner's consumer would hand
     // out a general session on it.
@@ -260,6 +314,7 @@ export const createBroker = ({
       provenance: claims.prv,
       callerRole: caller?.role,
       planDigest: claims.pld,
+      ...(claims.scp ? { itemId: claims.scp.id } : {}),
       ...opidParts(claims.opid),
     };
     const refuse = async (reason: string, status?: number, detail?: unknown) => {
@@ -302,16 +357,18 @@ export const createBroker = ({
       if (now() >= claims.exp * 1000) throw new AuthorizationDenied("token-expired");
     };
     let lastDispatch = null;
-    const authorizeStep = async (step, purpose) => {
+    // `attempt` only for a conditional step (7d): attempt k > 1 follows the
+    // step itself. Every other step's request is exactly as before.
+    const authorizeStep = async (step, purpose, attempt = undefined) => {
       const after = purpose === "dispatch" ? lastDispatch : null;
-      if (!isStepRegistered({ op, step, purpose, after })) throw new StepNotRegistered(`${op} has no ${purpose} step ${step} after ${after}`);
+      if (!isStepRegistered({ op, step, purpose, after, ...(attempt !== undefined ? { attempt } : {}) })) throw new StepNotRegistered(`${op} has no ${purpose} step ${step} after ${after}`);
       const waitMs = Math.min(limits.authorizeMs, deadline - now());
       if (waitMs <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed before authorizing ${step}`);
-      const { decisionId } = await decide({ executionToken: token, op, argsDigest: claims.argd, step, purpose, after }, waitMs);
+      const { decisionId } = await decide({ executionToken: token, op, argsDigest: claims.argd, step, purpose, after, ...(attempt !== undefined ? { attempt } : {}) }, waitMs);
       // Policy's decision, audited before the final checks: nothing awaited
       // may come between them and the effect. A step stopped by those checks
       // is reported in the operation's own outcome.
-      await audit({ ...record, event: "execute-step", jti: claims.jti, opid: claims.opid, step, purpose, decisionId, outcome: "allowed" });
+      await audit({ ...record, event: "execute-step", jti: claims.jti, opid: claims.opid, step, purpose, decisionId, ...(attempt !== undefined ? { attempt } : {}), outcome: "allowed" });
       inTime(step);
       if (purpose === "dispatch") lastDispatch = step;
       return decisionId;
@@ -330,6 +387,24 @@ export const createBroker = ({
       if (remaining <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed before ${step} was sent`);
       return Math.min(limits.providerCallMs, remaining);
     };
+    // A conditional step's attempt (7d): authorized like any provider request,
+    // with its decision returned so the attempt's record names it.
+    const attemptCall = async (step, attempt) => {
+      stepInProgress = step;
+      const decisionId = await authorizeStep(step, "dispatch", attempt);
+      const remaining = deadline - now();
+      if (remaining <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed before ${step} was sent`);
+      return { timeoutMs: Math.min(limits.providerCallMs, remaining), decisionId };
+    };
+    // Time left for a read before the claim (staging), never past the deadline.
+    const readTimeout = () => Math.min(limits.providerCallMs, deadline - now());
+    // Time left for an operation's own preparation before an authorization
+    // (a read, never an effect); none left is definite.
+    const timeLeft = () => {
+      const ms = readTimeout();
+      if (ms <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed while preparing ${stepInProgress ?? "the operation"}`);
+      return ms;
+    };
 
     // A write registers as active right after admission, before anything else
     // asynchronous, and under its own attempt key: a second request for the
@@ -339,7 +414,7 @@ export const createBroker = ({
     // failure to register propagates before any claim or provider request.
     const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
     if (operation?.kind !== "write") {
-      return executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep: () => stepInProgress });
+      return executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep: () => stepInProgress });
     }
     const attempt = `${claims.opid}#${randomUUID()}`;
     await activity.begin(attempt, startedAt + maxExecutionMs(limits));
@@ -355,14 +430,14 @@ export const createBroker = ({
       if (!admission(await protectedSwitch.state({ fresh: true }), { uid: claims.sub, connectionId: claims.conn })) {
         return await refuse(MAINTENANCE, 503);
       }
-      return await executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep: () => stepInProgress });
+      return await executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep: () => stepInProgress });
     } finally {
       // Best effort: an entry left behind expires on its own.
       await activity.end(attempt).catch(() => {});
     }
   };
 
-  const executeAdmitted = async ({ claims, replayOnly = false, op, operation, payload, record, refuse, providerCall, authorizeStep, inTime, failedStep }) => {
+  const executeAdmitted = async ({ claims, replayOnly = false, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep }) => {
     // A token is interpreted only under its own registry version or one the
     // window says keeps its meaning (P1b). The receipt binding below carries
     // the token's version, so a write under one version never matches a
@@ -375,7 +450,13 @@ export const createBroker = ({
       return refuse("registry-version-mismatch");
     }
     if (!operation || claims.op !== op) return refuse("operation-mismatch");
-    if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend })) {
+    // The credential the registry gives the operation decides the scope its
+    // token must select (7b), before anything is spent.
+    const service = registeredCredential(op) === "service";
+    if (service ? !(claims.scp?.kind === "item" && claims.conn === undefined) : claims.scp !== undefined) return refuse("credential-scope-mismatch");
+    // A service operation's backend is its own; a connection's comes from it.
+    const backend = service ? OPERATIONS[op].backend : claims.backend;
+    if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend })) {
       return refuse("operation-not-allowed");
     }
     try {
@@ -384,6 +465,10 @@ export const createBroker = ({
       if (e instanceof PayloadRejected) return refuse("payload-rejected", 400, e.message);
       throw e;
     }
+    // The payload acts on the token's item and no other.
+    if (service && payload.item !== claims.scp.id) return refuse("credential-scope-mismatch");
+    // Staged bytes are keyed by the command (7c).
+    if (operation.loadStaged && typeof claims.cmd !== "string") return refuse("command-claims-required");
     const digest = argsDigest(payload);
     if (digest !== claims.argd) return refuse("args-mismatch");
     if (!(await once.claim(claims.jti, claims.exp))) return refuse("token-replayed", 409);
@@ -394,7 +479,11 @@ export const createBroker = ({
     }
 
     let credential;
-    if (operation.signsWith === "preview-consumer") {
+    if (service) {
+      // Broker's own runtime identity: the operation's storage client holds
+      // it. No connection secret is read.
+      credential = null;
+    } else if (operation.signsWith === "preview-consumer") {
       // Signed with the preview consumer, whatever connection the
       // token names (AT-10 A3, registry v8). It adds no authority: a system
       // session signs the same preview with no connection at all. The token's
@@ -435,20 +524,24 @@ export const createBroker = ({
     }
 
     const binding = writeBinding(claims, op, digest);
-    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep, inTime, failedStep });
+    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep });
   };
 
-  // A write's binding, from its verified token and the payload's digest.
-  const writeBinding = (claims, op, digest) => ({
-    principal: claims.sub,
-    ownerUid: claims.own,
-    connectionId: claims.conn,
-    lang: claims.lang,
-    fn: claims.fn,
-    op,
-    registryVersion: claims.rv,
-    argsDigest: digest,
-  });
+  // A write's binding, from its verified token and the payload's digest. A v3
+  // token's names the scope it selected; a v1/v2 token's, its connection.
+  const writeBinding = (claims, op, digest) => {
+    const scope = selectedScope(claims);
+    return defined({
+      principal: claims.sub,
+      ownerUid: claims.own,
+      ...(scope ? { scope } : { connectionId: claims.conn }),
+      lang: claims.lang,
+      fn: claims.fn,
+      op,
+      registryVersion: claims.rv,
+      argsDigest: digest,
+    });
+  };
 
   // Returns the recorded outcome of a claimed write: a retry's answer. The
   // claim must have been made for the same binding, under the same registry
@@ -483,7 +576,7 @@ export const createBroker = ({
     return replayClaim({ claims, binding: writeBinding(claims, op, digest), recorded: claim.binding, record, refuse, authorizeStep, inTime });
   };
 
-  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, authorizeStep, inTime, failedStep }) => {
+  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep }) => {
     // A failure here (before any provider request) propagates: no claim, no
     // effects.
     // The receipt names its plan (W4), so retiring a revision can report the
@@ -495,21 +588,57 @@ export const createBroker = ({
     // requests and the returned references all come from this one value; the
     // binding keeps the args digest of the payload as sent, so a retry binds,
     // and maps, exactly as before.
-    const written = operation.references(payload, claims.opid);
-    const evidence = operation.evidence?.(written);
+    // 7c: staged bytes are read only while no claim exists. With a claim,
+    // the receipt answers and staging is never read again.
+    const context = { commandId: claims.cmd, operationId: claims.opid };
+    let staged;
+    if (operation.loadStaged) {
+      const existing = await receipts.getClaim(claims.opid);
+      if (existing) return replayClaim({ claims, binding, recorded: existing.binding, record, refuse, authorizeStep, inTime });
+      const timeoutMs = readTimeout();
+      if (timeoutMs <= 0) return refuse("deadline-exceeded", 503);
+      let unreadable = false;
+      try {
+        staged = await operation.loadStaged(payload, { ...context, timeoutMs });
+      } catch {
+        unreadable = true;
+      }
+      if (!staged) {
+        // A concurrent request for the same operation may have claimed (and
+        // even finished) it while this one read staging, which it may since
+        // have lost. Its receipt answers; only with still no claim is the
+        // refusal definite.
+        const raced = await receipts.getClaim(claims.opid);
+        if (raced) return replayClaim({ claims, binding, recorded: raced.binding, record, refuse, authorizeStep, inTime });
+        // Staging couldn't be read now (503), or isn't there or doesn't
+        // match (409); nothing was claimed or written either way.
+        return unreadable ? refuse("unavailable", 503) : refuse("staging-unavailable", 409);
+      }
+    }
+    const written = operation.references ? operation.references(payload, claims.opid) : payload;
+    const evidence = operation.evidence?.(written, context);
     const claimed = await receipts.claim(claims.opid, binding, { ...(claims.pld ? { pld: claims.pld } : {}), ...(evidence ? { evidence } : {}) });
     if (!claimed.created) return replayClaim({ claims, binding, recorded: claimed.claim.binding, record, refuse, authorizeStep, inTime });
 
     // `steps` are the provider steps known to have completed; each is durable
     // before the operation may make its next provider request.
     const steps = [];
-    const onStep = async step => {
+    // `detail` is what the step observed (a conditional step's `observed`).
+    const onStep = async (step, detail = undefined) => {
       try {
-        await receipts.putStep(claims.opid, steps.length, step);
+        await receipts.putStep(claims.opid, steps.length, step, detail);
       } catch (e) {
         throw new StepNotPersisted(step, e);
       }
       steps.push(step);
+    };
+    // 7d: each attempt is durable before the next can be authorized.
+    const onAttempt = async attempt => {
+      try {
+        await receipts.putStepAttempt(claims.opid, attempt.attempt, attempt);
+      } catch (e) {
+        throw new AttemptNotPersisted(attempt.step, attempt.observed, e);
+      }
     };
     let status = "failed";
     let result;
@@ -519,7 +648,7 @@ export const createBroker = ({
     try {
       // B6's drive's injected fault: refused before any provider request.
       if (faults?.failWrite && faults.principals.has(claims.sub)) throw new ProviderRejected("fault injected: the write was refused before any provider request");
-      result = await operation.run(written, credential, { onStep, providerCall, operationId: claims.opid });
+      result = await operation.run(written, credential, { onStep, providerCall, operationId: claims.opid, evidence, staged, attemptCall, onAttempt, timeLeft });
       status = "succeeded";
     } catch (e) {
       if (e instanceof StepNotPersisted) {
@@ -530,12 +659,22 @@ export const createBroker = ({
         error = e.message;
         reason = "step-not-persisted";
         stopped = e.step;
+      } else if (e instanceof AttemptNotPersisted) {
+        // A failed precondition wrote nothing, so stopping there is definite;
+        // any other attempt may have written.
+        status = e.wrote ? "uncertain" : steps.length > 0 ? "partial" : "failed";
+        if (e.wrote) steps.push(e.step);
+        error = e.message;
+        reason = "step-not-persisted";
+        stopped = e.step;
       } else if (e instanceof ProviderRejected || authorizationReason(e)) {
         // Definite: the provider refused, or the next request was never sent
-        // (deadline, or no authorization for it).
+        // (deadline, or no authorization for it), or the operation wrote
+        // nothing for a reason of its own (gcs.js NotWritten).
         status = steps.length > 0 ? "partial" : "failed";
         error = String(e?.message || e);
-        reason = authorizationReason(e) ? recordedReason(authorizationReason(e)) : "provider-rejected";
+        const own = typeof (e as any).reason === "string" ? (e as any).reason : null;
+        reason = authorizationReason(e) ? recordedReason(authorizationReason(e)) : own ? recordedReason(own) : "provider-rejected";
         stopped = failedStep() ?? undefined;
       } else {
         // A dispatched step whose response never resolved: the provider may

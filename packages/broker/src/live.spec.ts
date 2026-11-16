@@ -487,7 +487,13 @@ describe("contract v2 (RELEASE-01, TOKEN-01)", () => {
     const user = { prv: "user", opid: "inv-1/s1/n1.0" };
     expect(contractRefusal(user)).toBeNull();
     expect(contractRefusal({ ...user, cv: 1 }, 2)).toBe("contract-version-unsupported");
-    expect(contractRefusal({ ...user, cv: 3 })).toBe("contract-version-unsupported");
+    expect(contractRefusal({ ...user, cv: 4 })).toBe("contract-version-unsupported");
+    // Contract v3 (C5 decision 6): accepted, always on an admitted plan, even
+    // for a stored-artifact read.
+    expect(contractRefusal({ ...user, cv: 3 })).toBe("plan-required");
+    expect(contractRefusal({ ...user, cv: 3, pld: PLAN, stg: "s1" }, 2)).toBeNull();
+    expect(contractRefusal({ ...user, cv: 3, pld: PLAN, stg: "s0" }, 2)).toBe("plan-binding-mismatch");
+    expect(contractRefusal({ prv: "user", cv: 3, lang: "0176", fn: "init", opid: "inv-1/read/prog.0" }, 2)).toBe("plan-required");
     expect(contractRefusal({ ...user, cv: 2 }, 2)).toBe("plan-required");
     expect(contractRefusal({ ...user, cv: 2, pld: PLAN, stg: "s1" }, 2)).toBeNull();
     expect(contractRefusal({ ...user, cv: 2, pld: PLAN, stg: "s0" })).toBe("plan-binding-mismatch");
@@ -505,7 +511,7 @@ describe("contract v2 (RELEASE-01, TOKEN-01)", () => {
   });
 
   it("refuses a contract version it doesn't support before anything is spent", async () => {
-    const t = await token({ cv: 3 });
+    const t = await token({ cv: 4 });
     await refused(write(broker(), t), "contract-version-unsupported", 409);
     expect(routes).toEqual([]);
     expect(await receipts.getOutcome("inv-1/s0/n1.0")).toBeNull();

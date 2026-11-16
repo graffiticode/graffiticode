@@ -1,6 +1,7 @@
 import { generateKeyPair, exportJWK, SignJWT } from "jose";
 import {
   SYSTEM_PREVIEW_SUBJECT,
+  ANONYMOUS_SUBJECT,
   sessionProvenance,
   provenanceRefusal,
   createLocalSigner,
@@ -41,6 +42,24 @@ describe("provenanceRefusal", () => {
     ["a system token with a user subject", { prv: "system", sub: USER }, "bad-provenance"],
     ["a user with the system subject", { prv: "user", sub: SYSTEM_PREVIEW_SUBJECT }, "bad-provenance"],
     ["a publication with the system subject", { prv: "publication", pub: "pub-1", sub: SYSTEM_PREVIEW_SUBJECT }, "bad-provenance"],
+  ])("%s", (_name, claims, expected) => {
+    expect(provenanceRefusal(claims)).toBe(expected);
+  });
+
+  // C5 decision 4: an anonymous public capture, and nothing else anonymous.
+  const SNAP = { prv: "anonymous", sub: ANONYMOUS_SUBJECT, lang: "0013", fn: "snap", cv: 3, scp: { kind: "item", id: "item-1" } };
+  it.each([
+    ["an anonymous capture of one item", SNAP, null],
+    ["a user with the anonymous subject", { ...SNAP, prv: "user" }, "bad-provenance"],
+    ["anonymous with a user subject", { ...SNAP, sub: USER }, "bad-provenance"],
+    ["anonymous with a publication", { ...SNAP, pub: "pub-1" }, "bad-provenance"],
+    ["anonymous through a connection", { ...SNAP, scp: undefined, own: USER, conn: "conn-1", backend: "gcs" }, "bad-provenance"],
+    ["anonymous with an owner beside the item", { ...SNAP, own: USER }, "bad-provenance"],
+    ["anonymous without an item scope", { ...SNAP, scp: undefined }, "bad-provenance"],
+    ["anonymous under contract v2", { ...SNAP, cv: 2 }, "bad-provenance"],
+    ["an anonymous L0176 save", { ...SNAP, lang: "0176", fn: "save-to-itembank" }, "bad-provenance"],
+    ["an anonymous L0176 signature", { ...SNAP, lang: "0176", fn: "init", scp: undefined, own: USER, conn: "conn-1", backend: "learnosity" }, "bad-provenance"],
+    ["an anonymous unknown function", { ...SNAP, fn: "crop" }, "bad-provenance"],
   ])("%s", (_name, claims, expected) => {
     expect(provenanceRefusal(claims)).toBe(expected);
   });
