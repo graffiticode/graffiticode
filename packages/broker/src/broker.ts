@@ -102,7 +102,7 @@ import { DeadlineExceeded, PayloadRejected, ProviderRejected } from "./operation
 import { DEFAULT_LIMITS, headroomMs, maxExecutionMs } from "./limits.js";
 import { AuthorizationDenied, AuthorizationUnavailable } from "./authorizer.js";
 import { classify } from "@graffiticode/common/failures";
-import { createMemorySessionSlotStore, type SessionSlotStore } from "./stores.js";
+import { createMemorySessionSlotStore, RunFenced, type SessionSlotStore } from "./stores.js";
 import { DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS, slotExpiresAt, systemSessionClaimsValid } from "./session-slots.js";
 
 // Only defined fields: Firestore refuses undefined values in a receipt.
@@ -748,14 +748,19 @@ export const createBroker = ({
       }
     }
     // 7e: nothing was sent, for a temporary reason. The run is aborted, no
-    // outcome is written, and the caller retries with a fresh token. If the
-    // abort can't be recorded, the run ends as any other (failed).
+    // outcome is written, and the caller retries with a fresh token. An
+    // abort refused by the run's record (RunFenced) means this run is
+    // already aborted or superseded: as good as confirmed. An abort whose
+    // answer was lost may or may not have committed: the run then tries to
+    // end as any other (failed), fenced to itself, which the record refuses
+    // exactly when the abort did commit.
     if (abortReason !== null) {
-      let aborted = true;
+      let aborted;
       try {
         await receipts.abortRun(claims.opid, run, { reason: abortReason });
-      } catch {
-        aborted = false;
+        aborted = true;
+      } catch (e) {
+        aborted = e instanceof RunFenced ? true : null;
       }
       if (aborted) return refuse(abortReason, 503);
       status = "failed";
@@ -775,8 +780,14 @@ export const createBroker = ({
     // with the persisted steps, and the claim prevents any re-execution.
     let recorded = true;
     try {
-      await receipts.putOutcome(claims.opid, { status, steps, result: result ?? null, ...effects });
-    } catch {
+      // A run of an operation that reopens writes its outcome only while it
+      // is the open run (7e); every other write is as before.
+      if (reopens) await receipts.putOutcome(claims.opid, { status, steps, result: result ?? null, ...effects }, { run });
+      else await receipts.putOutcome(claims.opid, { status, steps, result: result ?? null, ...effects });
+    } catch (e) {
+      // Fenced: this run was aborted (an abort whose answer was lost), so
+      // it ended before any dispatch and wrote nothing.
+      if (e instanceof RunFenced && abortReason !== null) return refuse(abortReason, 503);
       recorded = false;
     }
     // The known prior effects (steps) go with the outcome, so a later failure

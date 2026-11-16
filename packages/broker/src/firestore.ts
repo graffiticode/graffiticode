@@ -5,7 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { ConflictError } from "@graffiticode/common/errors";
-import { checkRotation, StepConflict, stepDetail, attemptRecord, checkAttempt, checkRun } from "./stores.js";
+import { checkRotation, StepConflict, stepDetail, attemptRecord, checkAttempt, checkRun, RunFenced, currentRun } from "./stores.js";
 
 const ALREADY_EXISTS = 6;
 const isAlreadyExists = err => err?.code === ALREADY_EXISTS || /ALREADY_EXISTS/.test(String(err?.message));
@@ -48,6 +48,7 @@ export const createFirestoreSessionSlotStore = db => ({
 export const createFirestoreReceiptStore = db => {
   const claimRef = operationId => db.collection("receipts").doc(docId(operationId));
   const outcomeRef = operationId => claimRef(operationId).collection("outcome").doc("final");
+  const runRef = operationId => claimRef(operationId).collection("run").doc("state");
   const stepsRef = operationId => claimRef(operationId).collection("steps");
   return {
     async claim(operationId, binding, { pld = undefined, evidence = undefined } = {}) {
@@ -83,20 +84,32 @@ export const createFirestoreReceiptStore = db => {
       const ref = claimRef(operationId).collection("attempts").doc(String(k));
       if (!(await createOnce(ref, { k, ...attemptRecord(attempt), at: new Date().toISOString() }))) throw new Error(`attempt ${k} already recorded`);
     },
-    // C5: runs after an aborted one, each started once (stores.js).
+    // C5: the run's record and the outcome, read and written together in
+    // one transaction per transition (stores.js), so an abort and an outcome
+    // exclude each other and an outcome is fenced to its run.
     async startRun(operationId, run) {
       checkRun(run);
-      return createOnce(claimRef(operationId).collection("runs").doc(String(run)), { run, at: new Date().toISOString() });
+      return db.runTransaction(async tx => {
+        const [state, outcome] = await Promise.all([tx.get(runRef(operationId)), tx.get(outcomeRef(operationId))]);
+        const current = currentRun(state.exists ? state.data() : null);
+        if (outcome.exists || current.state !== "aborted" || current.run !== run - 1) return false;
+        tx.set(runRef(operationId), { run, state: "open", at: new Date().toISOString() });
+        return true;
+      });
     },
     async abortRun(operationId, run, { reason }) {
       checkRun(run);
-      if (!(await createOnce(claimRef(operationId).collection("aborted").doc(String(run)), { run, reason, at: new Date().toISOString() }))) throw new Error(`run ${run} already aborted`);
+      await db.runTransaction(async tx => {
+        const [state, outcome] = await Promise.all([tx.get(runRef(operationId)), tx.get(outcomeRef(operationId))]);
+        const current = currentRun(state.exists ? state.data() : null);
+        if (outcome.exists || current.state !== "open" || current.run !== run) throw new RunFenced(`run ${run} can't be aborted`);
+        tx.set(runRef(operationId), { run, state: "aborted", reason, at: new Date().toISOString() });
+      });
     },
     async getRunState(operationId) {
-      const started = (await claimRef(operationId).collection("runs").get()).docs.map(d => d.data().run);
-      const run = started.length ? Math.max(...started) : 0;
-      const abort = await claimRef(operationId).collection("aborted").doc(String(run)).get();
-      return { run, aborted: abort.exists };
+      const snap = await runRef(operationId).get();
+      const current = currentRun(snap.exists ? snap.data() : null);
+      return { run: current.run, aborted: current.state === "aborted" };
     },
     async getStepAttempts(operationId) {
       const snap = await claimRef(operationId).collection("attempts").orderBy("k").get();
@@ -106,9 +119,20 @@ export const createFirestoreReceiptStore = db => {
       const snap = await outcomeRef(operationId).get();
       return snap.exists ? snap.data() : null;
     },
-    async putOutcome(operationId, outcome) {
-      const created = await createOnce(outcomeRef(operationId), { ...outcome, at: new Date().toISOString() });
-      if (!created) throw new Error("outcome already recorded");
+    async putOutcome(operationId, outcome, { run = undefined }: { run?: number } = {}) {
+      if (run === undefined) {
+        const created = await createOnce(outcomeRef(operationId), { ...outcome, at: new Date().toISOString() });
+        if (!created) throw new Error("outcome already recorded");
+        return;
+      }
+      // Fenced to its run (C5): only while that run is the open one.
+      await db.runTransaction(async tx => {
+        const [state, existing] = await Promise.all([tx.get(runRef(operationId)), tx.get(outcomeRef(operationId))]);
+        if (existing.exists) throw new Error("outcome already recorded");
+        const current = currentRun(state.exists ? state.data() : null);
+        if (current.state !== "open" || current.run !== run) throw new RunFenced(`run ${run} may not record the outcome`);
+        tx.create(outcomeRef(operationId), { ...outcome, at: new Date().toISOString() });
+      });
     },
     // Reconciliation (WRITE-02, W5). An invocation's claims, by the operation
     // ids it issued (`<invocationId>/<stage>/<occurrence>`).

@@ -911,3 +911,78 @@ describe("reopening a run that stopped before dispatch (7e)", () => {
     expect(await env.receipts.getOutcome(`${INV}/s1/n1.0`)).toMatchObject({ status: "failed" });
   });
 });
+
+// The owner's re-review of #403: an abort and a run's outcome exclude each
+// other, and an outcome is fenced to its run, so an abort whose answer was
+// lost can't let its run record a failure over its successor's publish.
+describe("an abort whose acknowledgment was lost (7e)", () => {
+  it("never lets the older run record a failure while its successor publishes", async () => {
+    const env = makeEnv();
+    const bytes = png("lost abort ack");
+    stage(env, bytes);
+    const payload = thumbnail(bytes, 1);
+    let sawAbort;
+    let loseAck;
+    const aborted = new Promise(resolve => { sawAbort = resolve; });
+    const ackLost = new Promise(resolve => { loseAck = resolve; });
+    const abort = env.receipts.abortRun.bind(env.receipts);
+    env.receipts.abortRun = async (...args) => {
+      await abort(...args); // Committed; the answer is delayed, then lost.
+      sawAbort();
+      await ackLost;
+      throw new Error("abort acknowledgment lost");
+    };
+    env.unavailableWhen(() => true);
+    const original: Promise<{ value?: any, error?: any }> = snap(env, payload).then(value => ({ value }), error => ({ error }));
+    await aborted;
+    // A second request sees the committed abort and starts the next run.
+    env.unavailableWhen(null);
+    let atUpload;
+    let finishUpload;
+    const uploading = new Promise(resolve => { atUpload = resolve; });
+    const proceed = new Promise(resolve => { finishUpload = resolve; });
+    env.storage.beforeUpload = async () => { atUpload(); await proceed; };
+    const retry = snap(env, payload);
+    await uploading;
+    // The older run hears nothing back: its fenced failure is refused, which
+    // confirms its abort, and it is refused as temporary.
+    loseAck();
+    const old = await original;
+    expect(old.error).toBeInstanceOf(BrokerRefused);
+    expect(old.error).toMatchObject({ reason: "authorization-unavailable", status: 503 });
+    finishUpload();
+    expect((await retry).status).toBe("succeeded");
+    expect(env.storage.uploads).toHaveLength(1);
+    expect(env.storage.published()).not.toBeNull();
+    expect(await env.receipts.getOutcome(opid())).toMatchObject({ status: "succeeded" });
+  });
+
+  it("records the failure when the lost abort never committed", async () => {
+    const env = makeEnv();
+    const bytes = png("abort never landed");
+    stage(env, bytes);
+    env.receipts.abortRun = async () => { throw new Error("abort never reached the store"); };
+    env.unavailableWhen(() => true);
+    expect(await snap(env, thumbnail(bytes, 1))).toMatchObject({ status: "failed", reason: "authorization-unavailable" });
+    expect(await env.receipts.getRunState(opid())).toEqual({ run: 0, aborted: false });
+    expect(await env.receipts.getOutcome(opid())).toMatchObject({ status: "failed" });
+  });
+
+  it("makes abort, outcome and the next run exclude each other in the store", async () => {
+    const { createMemoryReceiptStore: fresh, RunFenced } = await import("./index.js");
+    const receipts = fresh();
+    const op = opid();
+    expect(await receipts.getRunState(op)).toEqual({ run: 0, aborted: false });
+    expect(await receipts.startRun(op, 1)).toBe(false);
+    await receipts.abortRun(op, 0, { reason: "authorization-unavailable" });
+    await expect(receipts.abortRun(op, 0, { reason: "again" })).rejects.toBeInstanceOf(RunFenced);
+    await expect(receipts.putOutcome(op, { status: "failed" }, { run: 0 })).rejects.toBeInstanceOf(RunFenced);
+    expect(await receipts.startRun(op, 2)).toBe(false);
+    expect(await receipts.startRun(op, 1)).toBe(true);
+    expect(await receipts.startRun(op, 1)).toBe(false);
+    await expect(receipts.putOutcome(op, { status: "failed" }, { run: 0 })).rejects.toBeInstanceOf(RunFenced);
+    await receipts.putOutcome(op, { status: "succeeded" }, { run: 1 });
+    await expect(receipts.abortRun(op, 1, { reason: "late" })).rejects.toBeInstanceOf(RunFenced);
+    expect(await receipts.getOutcome(op)).toMatchObject({ status: "succeeded" });
+  });
+});
