@@ -584,8 +584,9 @@ const history = {
 test("Policy's floor is B6 slice 4's merge: a rollback to slice 3's or slice 2's Policy is refused", async t => {
   const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
   const floors = raw.services.policy.baselines.filter(b => b.floor === true);
-  assert.deepEqual(floors.map(b => [b.milestone, b.commit]), [["B6-recording", RECORDING], ["B6-repairs", SLICE4]]);
-  const policyFloors = withBaselines(floors);
+  assert.deepEqual(floors.map(b => [b.milestone, b.commit]), [["B6-recording", RECORDING], ["B6-repairs", SLICE4], ["C5a-scopes", C5A]]);
+  // B6's floors alone here: C5a's is tested below.
+  const policyFloors = withBaselines(floors.filter(b => b.milestone !== "C5a-scopes"));
   for (const older of [SLICE3, SLICE2]) {
     const h = await harness(t);
     await release(context, { ...source, commit: older }, h.deps);
@@ -599,6 +600,79 @@ test("Policy's floor is B6 slice 4's merge: a rollback to slice 3's or slice 2's
   await release(context, { ...source, commit: SLICE4 }, h.deps);
   const latest = await release(context, { ...source, commit: SLICE4 }, h.deps);
   assert.equal((await rollback(policyFloors, latest, { ...h.deps, ...history })).status, "rolled-back");
+});
+
+// C5a slice 5 (docs/c5-l0013-commands-plan.md §3): once Policy and Broker
+// accept v3 tokens and records, neither may return to code that doesn't,
+// before the gate creates the first v3 record. The floor is slice 3's merge
+// (#404), for both. The commits are the real ones, in their real order.
+const C5A = "3ecebcb0d7c70ba73fd0e7d968fec14b9d60fc4a";
+const SLICE3B = "76175e79e3ea0cebcd9365bc56f1cfe63dbdff84";
+const SLICE3A = "e4a61e7d040cb28d6d22b6249f5137d2fc3c1b5f";
+const c5History = {
+  git: {
+    isAncestor: async (base, commit) => {
+      const parents = { [C5A]: SLICE3B, [SLICE3B]: SLICE3A, [SLICE3A]: SLICE4, [SLICE4]: SLICE3, [SLICE3]: SLICE2, [SLICE2]: RECORDING };
+      for (let at = commit; at; at = parents[at]) if (at === base) return true;
+      return false;
+    }
+  }
+};
+test("Policy's and Broker's floor is C5a slice 3's merge: rolling back, or releasing, below it is refused", async t => {
+  const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
+  for (const service of ["policy", "broker"]) {
+    const floor = raw.services[service].baselines.find(b => b.milestone === "C5a-scopes");
+    assert.deepEqual(floor, { milestone: "C5a-scopes", commit: C5A, floor: true }, service);
+    const floored = withBaselines(raw.services[service].baselines.filter(b => b.floor === true));
+    for (const older of [SLICE3B, SLICE3A]) {
+      // A rollback to Policy or Broker from before slice 3's merge.
+      const h = await harness(t);
+      await release(context, { ...source, commit: older }, h.deps);
+      const latest = await release(context, { ...source, commit: C5A }, h.deps);
+      for (const allowBelowBaseline of [false, true]) {
+        await assert.rejects(rollback(floored, latest, { ...h.deps, ...c5History, allowBelowBaseline, switchState: switchOff }), /below the C5a-scopes floor; refusing, with no override/);
+      }
+      // A release from that older commit, refused before anything is built.
+      const fresh = await harness(t);
+      await assert.rejects(release(floored, { ...source, commit: older }, { ...fresh.deps, ...c5History }), /below the C5a-scopes floor; refusing to release it, with no override.*Nothing built/);
+      assert.deepEqual(fresh.calls, []);
+    }
+    // At the floor, both work as before.
+    const h = await harness(t);
+    await release(floored, { ...source, commit: C5A }, { ...h.deps, ...c5History });
+    const latest = await release(floored, { ...source, commit: C5A }, { ...h.deps, ...c5History });
+    assert.equal((await rollback(floored, latest, { ...h.deps, ...c5History })).status, "rolled-back");
+  }
+});
+
+// The owner's review of #405: a floor governs promotion of a candidate staged
+// before it was added, by the candidate's own provenance; and a floored
+// service is never released dirty.
+test("a candidate staged below a floor installed since is never promoted", async t => {
+  const h = await harness(t);
+  const staged = await release(context, { ...source, commit: SLICE3B }, { ...h.deps, stage: true });
+  const floored = withBaselines([{ milestone: "C5a-scopes", commit: C5A, floor: true }]);
+  await assert.rejects(promote(floored, staged, stagedEvidence(staged), { ...h.deps, ...c5History }), /api-[^ ]+ is below the C5a-scopes floor; refusing, with no override. Not promoted/);
+  assert.equal(h.calls.filter(c => c.includes("update-traffic")).length, 0);
+  // A candidate at the floor promotes as before.
+  const ok = await harness(t);
+  const atFloor = await release(floored, { ...source, commit: C5A }, { ...ok.deps, ...c5History, stage: true });
+  assert.equal((await promote(floored, atFloor, stagedEvidence(atFloor), { ...ok.deps, ...c5History })).status, "released");
+});
+
+test("a floored service is released only from a clean commit, --allow-dirty or not", async t => {
+  const h = await harness(t);
+  const floored = withBaselines([{ milestone: "C5a-scopes", commit: C5A, floor: true }]);
+  await assert.rejects(release(floored, { ...source, commit: C5A, dirty: true }, { ...h.deps, ...c5History }), /released only from a clean commit.*Nothing built/);
+  assert.deepEqual(h.calls, []);
+  // A service without a floor may still release dirty, as before.
+  const free = await harness(t);
+  assert.ok((await release(context, { ...source, dirty: true }, free.deps)).revision);
+});
+
+test("a release of a floored service needs the Git history to check the floor", async t => {
+  const h = await harness(t);
+  await assert.rejects(release(withBaselines([{ milestone: "B5", commit: B, floor: true }]), source, h.deps), /needs the local Git history/);
 });
 
 test("a service that enforces the switch never rolls back below its first milestone", async t => {

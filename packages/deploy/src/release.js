@@ -249,6 +249,21 @@ export async function release(context, source, deps) {
   requireValue(!config.blocked, config.blocked);
   requireValue(!context.unresolved.length, `Set required variables: ${context.unresolved.join(", ")}`);
   requireValue(!config.verify || source.files.includes(config.verify.module), `Verify module ${config.verify?.module} is missing from the source snapshot`);
+  // A floor (`baselines` marked `floor: true`; B5's D2b, B6, C5a) is never
+  // released below, as it is never rolled back below: the source must be a
+  // clean commit, the floor's or a descendant of it, by the same provenance
+  // test a rollback target meets. No override, --allow-dirty included. The
+  // candidate is checked again, by its own provenance, before it is promoted
+  // (candidateChecks).
+  const floors = (config.baselines ?? []).filter(b => b.floor === true);
+  if (floors.length) {
+    requireValue(deps.git, "Checking the release floor needs the local Git history");
+    requireValue(!source.dirty, `${config.service} has a floor (${floors.map(f => f.milestone).join(", ")}): it is released only from a clean commit, never with --allow-dirty. Nothing built.`);
+    for (const { milestone, commit } of floors) {
+      requireValue(await meetsMilestone(deps.git, { commit: source.commit, dirty: "false" }, commit),
+        `Source ${source.commit} is below the ${milestone} floor; refusing to release it, with no override. Release from ${commit} or later. Nothing built.`);
+    }
+  }
   log("Checking existing service, identity, and secret versions…");
   const initial = await checkService(config, cloud);
   const { problems: flagProblems, unmanaged } = await releaseFlagProblems(config, initial, cloud);
@@ -351,6 +366,14 @@ const candidateUrl = (service, id) => (service.status?.traffic || []).find(entry
 // cross-service requirements both ways.
 async function candidateChecks(context, revision, deps) {
   const { cloud } = deps;
+  // Every current floor, by the candidate's own provenance (its commit-sha
+  // and gc-dirty labels): a candidate staged before a floor was added, or
+  // built dirty, is never promoted below it.
+  if ((context.config.baselines ?? []).some(b => b.floor === true)) {
+    requireValue(deps.git, "Checking the release floor needs the local Git history");
+    const below = await belowFloors(context, [revision], deps);
+    requireValue(below.length === 0, `Candidate ${below.map(f => `${f.revision} is below the ${f.milestone} floor`).join("; ")}; refusing, with no override. Not promoted.`);
+  }
   // ISOLATE-01: the candidate itself runs with the network's controls.
   const uncontrolled = await networkProblems(context, [revision], { cloud });
   requireValue(uncontrolled.length === 0, `Candidate ${describeNetwork(uncontrolled)} doesn't run with the network controls. Not promoted.`);
