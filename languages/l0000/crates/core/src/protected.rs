@@ -112,6 +112,20 @@ impl ProtectedCallError {
         }
     }
 
+    /// Whether this refusal is temporary (C5): policy or the broker couldn't decide now (429 or
+    /// 503, or an `unavailable` category), or no answer came before anything could act. A later
+    /// attempt may succeed, so a command stage that meets one resumes later rather than failing
+    /// ([`crate::ExecContext::resume_later`]). Never a refusal whose effect is unknown.
+    pub fn is_temporary(&self) -> bool {
+        match self {
+            Self::Rejected { status, category, effect_unknown: false, .. } => {
+                matches!(status, 429 | 503) || category.as_deref() == Some("unavailable")
+            }
+            Self::Unreachable { effect_unknown: false, .. } | Self::Unavailable(_) => true,
+            _ => false,
+        }
+    }
+
     /// Whether the broker was asked to act and its answer was lost, so the provider may have
     /// changed: an uncertain write, not a refusal.
     pub fn effect_unknown(&self) -> bool {

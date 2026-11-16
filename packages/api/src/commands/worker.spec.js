@@ -907,3 +907,32 @@ describe("the compile-to-command bridge", () => {
     expect(envelope.effects[0].status).toBe("uncertain");
   });
 });
+
+// C5 (the owner's review of #406): a stage that stopped for something
+// temporary (a capture's reservation, staging or publication refused for now)
+// answers `resume`. The worker closes nothing, leaves the command pending, and
+// recovery runs the stage again to completion.
+describe("a stage that resumes later", () => {
+  it("leaves the command pending with nothing closed, and recovery completes it", async () => {
+    const { commandId, generation } = await allocate();
+    let refusals = 1;
+    const resuming = {
+      ...language,
+      start: async args => {
+        if (refusals > 0) {
+          refusals--;
+          return { data: null, errors: [{ message: "snap failed: item authority unavailable" }], resume: { reason: "item-authority-unavailable" } };
+        }
+        return language.start(args);
+      },
+    };
+    expect(await workerAs("w1", resuming)({ commandId, generation })).toMatchObject({ status: "pending", resume: true });
+    const state = await policy.commandRead({ caller: GATEWAY, commandId, what: "state" });
+    expect(state.status).toBe("pending");
+    expect(state.stages.s0?.expansion ?? "open").toBe("open");
+    expect(provider).toHaveLength(0);
+    const taken = await takeOver(commandId, generation, "w2");
+    expect(await workerAs("w2", resuming)({ commandId, generation: taken.generation })).toMatchObject({ status: "completed" });
+    expect(provider).toHaveLength(1);
+  });
+});

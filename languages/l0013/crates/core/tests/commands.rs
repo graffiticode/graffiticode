@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use graffiticode_l0000::canonical::args_digest;
+use graffiticode_l0000::exec::{Recorded, runtime_occurrence_id};
 use graffiticode_l0000::{
     Compiler, Identity, OccurrenceBinding, PolicyClient, PolicySnapshot, ProtectedCall, ProtectedCallError,
     Reservation, ReserveRequest, RevisionIdentity, SnapshotRequest, Staged, StagedDigest,
@@ -46,6 +47,8 @@ struct Policy {
     binds: Arc<Mutex<Vec<OccurrenceBinding>>>,
     sequence: Arc<Mutex<u64>>,
     snapshots: Arc<Mutex<usize>>,
+    /// Reservations are refused for now (503), as item authority unavailable is.
+    unavailable: Arc<Mutex<bool>>,
 }
 
 #[async_trait]
@@ -65,6 +68,15 @@ impl PolicyClient for Policy {
 
     async fn reserve(&self, session: &str, request: &ReserveRequest) -> Result<Reservation, ProtectedCallError> {
         self.calls.lock().unwrap().push(format!("reserve {session}"));
+        if *self.unavailable.lock().unwrap() {
+            return Err(ProtectedCallError::Rejected {
+                path: "/v1/command-reservations".into(),
+                status: 503,
+                reason: Some("item-authority-unavailable".into()),
+                category: Some("unavailable".into()),
+                effect_unknown: false,
+            });
+        }
         self.reservations.lock().unwrap().push((session.to_owned(), request.clone()));
         let key = format!("{session}/{}", request.occurrence_id);
         let sequence = {
@@ -250,4 +262,30 @@ async fn outside_a_command_snap_is_unchanged_and_asks_policy_nothing_whatever_co
     assert!(camera.rendered.lock().unwrap().is_empty());
     assert_eq!(*policy.snapshots.lock().unwrap(), 0);
     assert!(policy.calls.lock().unwrap().is_empty());
+}
+
+// The owner's review of #406: a capture refused for now leaves the stage to resume later with
+// its expansion open, and a blocked capture is never reserved, rendered or staged.
+#[tokio::test]
+async fn a_capture_refused_for_now_resumes_later_with_nothing_closed() {
+    let (compiler, policy, camera, model) = setup(&literal()).await;
+    *policy.unavailable.lock().unwrap() = true;
+    let started = compiler.start(&model, &Json::Null, &Json::Null, command("session-s0")).await;
+    assert_eq!(started.resume.as_deref(), Some("item-authority-unavailable"));
+    assert_eq!(started.occurrences, None);
+    assert_eq!(compiler.envelope(&started)["resume"], json!({ "reason": "item-authority-unavailable" }));
+    assert!(camera.rendered.lock().unwrap().is_empty());
+    assert_eq!(*policy.calls.lock().unwrap(), ["reserve session-s0"]);
+}
+
+#[tokio::test]
+async fn a_blocked_capture_is_never_reserved_rendered_or_staged() {
+    let (compiler, policy, camera, model) = setup(&literal()).await;
+    let blocked = runtime_occurrence_id("snap:0", "0#0");
+    let recorded = Recorded::from_json(&json!({ "blocked": [blocked] })).unwrap();
+    let started = compiler.start_with(&model, &Json::Null, &Json::Null, command("session-s0"), Some(recorded)).await;
+    let errors = started.result.expect_err("the stage fails on the refusal");
+    assert!(errors.iter().any(|e| e.code.as_deref() == Some("not-selected")), "{errors:?}");
+    assert!(policy.calls.lock().unwrap().is_empty());
+    assert!(camera.rendered.lock().unwrap().is_empty());
 }

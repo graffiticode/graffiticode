@@ -10,6 +10,7 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use async_trait::async_trait;
 use graffiticode_l0000::canonical::args_digest;
+use graffiticode_l0000::exec::{Recorded, runtime_occurrence_id};
 use graffiticode_l0000::{
     Ast, Compiler, Dialect, Evaluator, Identity, Intent, IntentScope, Model, ModelKind, NodeId, OccurrenceBinding, Op,
     PolicyClient, PolicySnapshot, ProtectedCall, ProtectedCallError, ProtectedFunction, ProtectedKind, Reservation,
@@ -65,7 +66,7 @@ impl Dialect for Capturer {
             return Some(Value::from("direct"));
         }
         let outcome: Result<Json, ProtectedCallError> = async {
-            let occurrence = cx.exec().expand("capture", &format!("{id}#{n}"))?;
+            let occurrence = cx.exec().expand("capture", &n.to_string())?;
             let reserved = cx.exec().reserve_capture(&occurrence, &item).await?;
             let sha256 = match reserved.staged {
                 Some(staged) => staged.sha256,
@@ -109,6 +110,9 @@ impl Dialect for Capturer {
     }
 }
 
+/// A refusal the fake answers with, made afresh each time.
+type Refusal = Arc<dyn Fn() -> ProtectedCallError + Send + Sync>;
+
 /// Policy as a capture sees it: its session (with no connection), every reservation, staging,
 /// bind and mint in order, and what it has recorded.
 #[derive(Clone, Default)]
@@ -119,6 +123,8 @@ struct Policy {
     binds: Arc<Mutex<Vec<OccurrenceBinding>>>,
     staged: Arc<Mutex<Option<StagedDigest>>>,
     snapshots: Arc<Mutex<usize>>,
+    refuse_reserve: Arc<Mutex<Option<Refusal>>>,
+    refuse_invoke: Arc<Mutex<Option<Refusal>>>,
 }
 
 #[async_trait]
@@ -138,6 +144,9 @@ impl PolicyClient for Policy {
 
     async fn reserve(&self, _session: &str, request: &ReserveRequest) -> Result<Reservation, ProtectedCallError> {
         self.calls.lock().unwrap().push("reserve".into());
+        if let Some(refusal) = self.refuse_reserve.lock().unwrap().clone() {
+            return Err(refusal());
+        }
         self.reservations.lock().unwrap().push(request.clone());
         Ok(Reservation {
             item: request.item.clone(),
@@ -162,6 +171,9 @@ impl PolicyClient for Policy {
 
     async fn invoke(&self, _session: &str, call: &ProtectedCall) -> Result<Json, ProtectedCallError> {
         self.calls.lock().unwrap().push("mint".into());
+        if let Some(refusal) = self.refuse_invoke.lock().unwrap().clone() {
+            return Err(refusal());
+        }
         Ok(json!({ "status": "succeeded", "steps": ["publish"], "result": call.payload }))
     }
 }
@@ -272,4 +284,92 @@ async fn nothing_is_reserved_or_staged_outside_a_commands_start() {
     let mut exec = graffiticode_l0000::ExecContext::new(connectionless());
     assert!(matches!(exec.reserve_capture("x:1", "item-1").await, Err(ProtectedCallError::NotAdmitted(_))));
     assert!(matches!(exec.stage_capture("x:1", b"png").await, Err(ProtectedCallError::NotAdmitted(_))));
+}
+
+/// A refusal as policy or the broker answers it.
+fn refused(status: u16, reason: &str, category: &str) -> ProtectedCallError {
+    ProtectedCallError::Rejected {
+        path: "/v1/x".into(),
+        status,
+        reason: Some(reason.into()),
+        category: Some(category.into()),
+        effect_unknown: false,
+    }
+}
+
+// The owner's review of #406 (finding 1): a capture refused for now leaves the stage to resume
+// later, with nothing closed; a definite refusal fails it as before.
+#[tokio::test]
+async fn a_capture_refused_for_now_resumes_later_and_closes_nothing() {
+    let cases: Vec<(Refusal, bool)> = vec![
+        (Arc::new(|| refused(503, "item-authority-unavailable", "unavailable")), false),
+        (Arc::new(|| refused(429, "rate-limited", "unavailable")), false),
+        (
+            Arc::new(|| ProtectedCallError::Unreachable {
+                path: "/v1/command-reservations".into(),
+                effect_unknown: false,
+            }),
+            false,
+        ),
+        (Arc::new(|| refused(503, "authorization-unavailable", "unavailable")), true),
+    ];
+    for (make, at_invoke) in cases {
+        let refusal = make();
+        let (compiler, policy, model, _renders) = setup(None).await;
+        if at_invoke {
+            *policy.refuse_invoke.lock().unwrap() = Some(make);
+        } else {
+            *policy.refuse_reserve.lock().unwrap() = Some(make);
+        }
+        let run = compiler.start(&model, &Json::Null, &Json::Null, connectionless()).await;
+        assert_eq!(run.resume.as_deref(), Some(refusal.reason().unwrap_or("unavailable")), "{refusal:?}");
+        assert_eq!(run.occurrences, None, "nothing closes: {refusal:?}");
+        let envelope = compiler.envelope(&run);
+        assert_eq!(envelope["resume"]["reason"], json!(refusal.reason().unwrap_or("unavailable")));
+        assert!(envelope.get("occurrences").is_none());
+    }
+}
+
+#[tokio::test]
+async fn a_capture_refused_definitely_fails_and_closes_as_before() {
+    let (compiler, policy, model, _renders) = setup(None).await;
+    *policy.refuse_reserve.lock().unwrap() = Some(Arc::new(|| refused(403, "not-owner", "permission")));
+    let run = compiler.start(&model, &Json::Null, &Json::Null, connectionless()).await;
+    assert_eq!(run.resume, None);
+    assert!(run.occurrences.is_some());
+    assert!(compiler.envelope(&run).get("resume").is_none());
+}
+
+// The owner's review of #406 (finding 2): a capture meets the recorded-call guards before it is
+// prepared. A blocked occurrence reserves, renders and stages nothing, and once the stage is
+// halted no later capture reaches policy.
+#[tokio::test]
+async fn a_blocked_capture_prepares_nothing_and_halts_the_stage() {
+    let unbound = Compiler::new(Capturer::new(None)).with_revision(revision());
+    let src = "[save-it 1 save-it 2]..";
+    let manifest = unbound.preflight(program(src), "s0", &Json::Null).expect("a manifest");
+    let policy = Policy { bind: Some(json!(manifest)), ..Policy::default() };
+    let dialect = Capturer::new(None);
+    let renders = Arc::clone(&dialect.renders);
+    let compiler = Compiler::new(dialect).with_policy(policy.clone()).with_revision(revision());
+    let model = compiler.model(program(src), &Json::Null).await.expect("a model");
+    let blocked = runtime_occurrence_id("capture", "1");
+    let recorded = Recorded::from_json(&json!({ "blocked": [blocked] })).unwrap();
+    let run = compiler.start_with(&model, &Json::Null, &Json::Null, connectionless(), Some(recorded)).await;
+    let errors = run.result.expect_err("the stage fails on the refusal");
+    assert!(errors.iter().any(|e| e.code.as_deref() == Some("not-selected")), "{errors:?}");
+    assert!(policy.calls.lock().unwrap().is_empty(), "nothing reached policy: {:?}", policy.calls.lock().unwrap());
+    assert_eq!(*renders.lock().unwrap(), 0);
+}
+
+#[tokio::test]
+async fn a_recorded_capture_is_never_prepared_again() {
+    let (compiler, policy, model, renders) = setup(None).await;
+    let completed = runtime_occurrence_id("capture", "1");
+    let recorded =
+        Recorded::from_json(&json!({ "completed": { completed: { "argd": "a".repeat(64), "result": {} } } })).unwrap();
+    let run = compiler.start_with(&model, &Json::Null, &Json::Null, connectionless(), Some(recorded)).await;
+    assert!(run.result.is_err());
+    assert!(policy.calls.lock().unwrap().is_empty());
+    assert_eq!(*renders.lock().unwrap(), 0);
 }
