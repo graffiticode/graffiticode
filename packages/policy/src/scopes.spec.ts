@@ -29,6 +29,9 @@ import {
   validateAuditRecord,
   ANONYMOUS_SUBJECT,
   COMMAND_LEASE_MS,
+  verifyToken,
+  issueToken,
+  sessionProvenance,
 } from "./index.js";
 
 const OWNER = "0xowner";
@@ -478,5 +481,178 @@ describe("audit (§3 records)", () => {
   it("names the item an admission refused", async () => {
     await denied((await command({ langs: ["0013"], uid: OTHER, intents: { s0: [snapIntent()] } })).admit(), "not-owner");
     expect(audits.find(r => r.outcome === "denied" && r.reason === "not-owner")).toMatchObject({ itemId: PRIVATE, connectionId: null });
+  });
+});
+
+// C5a slice 3b (decisions 5 and 6): v3 command sessions, one scope per
+// execution token, live checks by scope kind, conditional attempts, and
+// reconciliation by item.
+describe("v3 execution (decisions 5 and 6)", () => {
+  const L0013 = { role: "compiler", lang: "0013" };
+  const L0176C = { role: "compiler", lang: "0176" };
+  const BROKER = { role: "broker" };
+  const ARGD = hex("a");
+  const SAVE_ARGD = hex("e");
+  const PUT = "gcs.put-thumbnail";
+  // An admitted command, its occurrences bound: s0's snap n0.0 and, in a
+  // mixed chain, s1's save n1.0.
+  const admitted = async (opts: Parameters<typeof command>[0]) => {
+    const c = await command(opts);
+    await c.admit();
+    const bind = (stage, occurrenceId, intentId, argd) => policy.commandWrite({ caller: GATEWAY, commandId: c.commandId, generation: 1, fn: "bindOccurrence", args: { stage, occurrenceId, intentId, args: "{}", argd } });
+    const session = async stage => (await policy.commandSession({ caller: GATEWAY, commandId: c.commandId, generation: 1, stage })).sessionToken;
+    return { ...c, bind, session };
+  };
+  const claimsOf = async (profile, token) => (await verifyToken(deps.jwks, profile, token)).claims;
+  const mintSnap = (sessionToken, over = {}) => policy.mint({ caller: L0013, sessionToken, fn: "snap", op: PUT, occurrenceId: "n0.0", argsDigest: ARGD, ...over });
+  const authorize = (executionToken, over = {}) => policy.authorizeExecution({ caller: BROKER, executionToken, op: PUT, argsDigest: ARGD, step: "publish", purpose: "dispatch", after: null, attempt: 1, ...over });
+
+  it("gives an item-only stage a session with no connection, bound to its plan", async () => {
+    const c = await admitted({ langs: ["0013"], intents: { s0: [snapIntent()] } });
+    const out = await policy.commandSession({ caller: GATEWAY, commandId: c.commandId, generation: 1, stage: "s0" });
+    expect(out.allowed).toEqual(["snap"]);
+    const session = await claimsOf("session", out.sessionToken);
+    expect(session).toMatchObject({ sub: OWNER, cv: 3, cmd: c.commandId, fg: 1, stg: "s0", fns: ["snap"] });
+    expect(session.pld).toEqual(expect.any(String));
+    for (const claim of ["conn", "own", "backend"]) expect(session).not.toHaveProperty(claim);
+  });
+
+  it("mints each token of a mixed chain for its own scope only", async () => {
+    const c = await admitted({ langs: ["0013", "0176"], connectionId: "conn-1", intents: { s0: [snapIntent()], s1: [SAVE_INTENT] } });
+    await c.bind("s0", "n0.0", "snap", ARGD);
+    await c.bind("s1", "n1.0", "save", SAVE_ARGD);
+    const snapSession = await claimsOf("session", await c.session("s0"));
+    expect(snapSession).not.toHaveProperty("conn");
+    const saveSession = await claimsOf("session", await c.session("s1"));
+    expect(saveSession).toMatchObject({ cv: 3, conn: "conn-1", own: OWNER, backend: "learnosity" });
+    const snap = await claimsOf("execution", (await mintSnap(await c.session("s0"))).executionToken);
+    expect(snap).toMatchObject({ cv: 3, scp: { kind: "item", id: PRIVATE }, prv: "user", fn: "snap", op: PUT });
+    for (const claim of ["conn", "own", "backend"]) expect(snap).not.toHaveProperty(claim);
+    const save = await claimsOf("execution", (await policy.mint({ caller: L0176C, sessionToken: await c.session("s1"), fn: "save-to-itembank", op: "learnosity.write-items", occurrenceId: "n1.0", argsDigest: SAVE_ARGD })).executionToken);
+    expect(save).toMatchObject({ cv: 3, conn: "conn-1", own: OWNER, backend: "learnosity" });
+    expect(save).not.toHaveProperty("scp");
+    // The same plan binds both.
+    expect(save.pld).toBe(snap.pld);
+  });
+
+  it("authorizes a capture's attempts as the registry allows them, each with its own decision", async () => {
+    const c = await admitted({ langs: ["0013"], intents: { s0: [snapIntent()] } });
+    await c.bind("s0", "n0.0", "snap", ARGD);
+    const { executionToken } = await mintSnap(await c.session("s0"));
+    const first = await authorize(executionToken);
+    const second = await authorize(executionToken, { attempt: 2, after: "publish" });
+    const fourth = await authorize(executionToken, { attempt: 4, after: "publish" });
+    expect(new Set([first.decisionId, second.decisionId, fourth.decisionId]).size).toBe(3);
+    // A fifth, an attempt after anything but the step itself, and a repeat
+    // of the first attempt's position are refused.
+    await denied(authorize(executionToken, { attempt: 5, after: "publish" }), "step-not-registered");
+    await denied(authorize(executionToken, { attempt: 2, after: null }), "step-not-registered");
+    await denied(authorize(executionToken, { attempt: 1, after: "publish" }), "step-not-registered");
+    await denied(authorize(executionToken, { attempt: 0 }), "step-not-registered");
+    // Absent, it is the first attempt.
+    await authorize(executionToken, { attempt: undefined });
+    expect(audits.filter(r => r.event === "authorize-execution" && r.outcome === "allowed").map(r => r.attempt)).toEqual([1, 2, 4, undefined]);
+    expect(audits.find(r => r.event === "authorize-execution" && r.outcome === "allowed")).toMatchObject({ itemId: PRIVATE, publicCapture: false });
+  });
+
+  it("refuses a second attempt of a step that isn't conditional", async () => {
+    const c = await admitted({ langs: ["0013", "0176"], connectionId: "conn-1", intents: { s0: [snapIntent()], s1: [SAVE_INTENT] } });
+    await c.bind("s1", "n1.0", "save", SAVE_ARGD);
+    const { executionToken } = await policy.mint({ caller: L0176C, sessionToken: await c.session("s1"), fn: "save-to-itembank", op: "learnosity.write-items", occurrenceId: "n1.0", argsDigest: SAVE_ARGD });
+    const ask = over => policy.authorizeExecution({ caller: BROKER, executionToken, op: "learnosity.write-items", argsDigest: SAVE_ARGD, purpose: "dispatch", ...over });
+    await ask({ step: "questions", after: null });
+    await denied(ask({ step: "questions", after: "questions", attempt: 2 }), "step-not-registered");
+    await denied(ask({ step: "items", after: "questions", attempt: 2 }), "step-not-registered");
+    await ask({ step: "items", after: "questions" });
+  });
+
+  it("refuses an owner's capture at authorize-execution once the item has changed owner", async () => {
+    const c = await admitted({ langs: ["0013"], intents: { s0: [snapIntent()] } });
+    await c.bind("s0", "n0.0", "snap", ARGD);
+    const { executionToken } = await mintSnap(await c.session("s0"));
+    items.state.items.set(PRIVATE, { ownerUid: OTHER, isPublic: false });
+    await denied(authorize(executionToken), "not-owner");
+    await denied(mintSnap(await c.session("s0"), { occurrenceId: "n0.0" }), "not-owner");
+  });
+
+  it("answers an item-authority outage at mint and authorize-execution as temporary, recording nothing", async () => {
+    const c = await admitted({ langs: ["0013"], intents: { s0: [snapIntent()] } });
+    await c.bind("s0", "n0.0", "snap", ARGD);
+    const sessionToken = await c.session("s0");
+    const { executionToken } = await mintSnap(sessionToken);
+    items.state.unavailable = true;
+    for (const promise of [mintSnap(sessionToken), authorize(executionToken)]) {
+      const e = await promise.catch(err => err);
+      expect(e).toBeInstanceOf(PolicyUnavailable);
+      expect(e.reason).toBe("item-authority-unavailable");
+    }
+    expect((await policy.commandRead({ caller: GATEWAY, commandId: c.commandId, what: "refusals" })).refusals).toEqual([]);
+  });
+
+  it("runs an anonymous capture of a public item as `anonymous`, and refuses it once the item is private", async () => {
+    const c = await admitted({ langs: ["0013"], anonymous: true, intents: { s0: [snapIntent({ kind: "item", id: PUBLIC })] } });
+    await c.bind("s0", "n0.0", "snap", ARGD);
+    const session = await claimsOf("session", await c.session("s0"));
+    expect(sessionProvenance(session)).toEqual({ provenance: "anonymous" });
+    const { executionToken } = await mintSnap(await c.session("s0"));
+    expect(await claimsOf("execution", executionToken)).toMatchObject({ sub: ANONYMOUS_SUBJECT, prv: "anonymous", scp: { kind: "item", id: PUBLIC } });
+    await authorize(executionToken);
+    expect(audits.filter(r => r.outcome === "allowed" && (r.event === "mint" || r.event === "authorize-execution")).map(r => [r.event, r.provenance, r.publicCapture])).toEqual([["mint", "anonymous", true], ["authorize-execution", "anonymous", true]]);
+    items.state.items.set(PUBLIC, { ownerUid: OWNER, isPublic: false });
+    await denied(authorize(executionToken), "not-owner");
+  });
+
+  it("refuses a bound item's mint until its occurrence is reserved", async () => {
+    const c = await admitted({ langs: ["0013"], intents: { s0: [snapIntent({ kind: "item" })] } });
+    await c.bind("s0", "n0.0", "snap", ARGD);
+    await denied(mintSnap(await c.session("s0")), "occurrence-not-reserved");
+  });
+
+  it("refuses a token selecting another scope than its occurrence's, and a v3 session that isn't a command's", async () => {
+    const c = await admitted({ langs: ["0013"], intents: { s0: [snapIntent()] } });
+    await c.bind("s0", "n0.0", "snap", ARGD);
+    const { executionToken } = await mintSnap(await c.session("s0"));
+    const { iss, aud, iat, exp, jti, ...claims } = await claimsOf("execution", executionToken);
+    const forged = await issueToken(deps.signer, "execution", { ...claims, scp: { kind: "item", id: PUBLIC } });
+    // Never logged, and another item: refused either way.
+    await expect(authorize(forged)).rejects.toBeInstanceOf(PolicyDenied);
+    const { iss: _i, aud: _a, iat: _t, exp: _e, jti: _j, cmd: _c, fg: _f, ...sessionClaims } = await claimsOf("session", await c.session("s0"));
+    const loose = await issueToken(deps.signer, "session", sessionClaims);
+    await denied(mintSnap(loose), "command-claims-required");
+  });
+
+  it("refuses an anonymous session that names a connection", () => {
+    expect(sessionProvenance({ sub: ANONYMOUS_SUBJECT, conn: "conn-1", own: OWNER })).toEqual({ refusal: "bad-session" });
+    expect(sessionProvenance({ sub: ANONYMOUS_SUBJECT, pub: "pub-1" })).toEqual({ refusal: "bad-session" });
+  });
+
+  it("reconciles a user's own captures of an item by its item scope", async () => {
+    const asked = [];
+    build({ brokerReconcile: async args => { asked.push(args); return { invocationId: args.invocationId, operations: [] }; } });
+    const c = await admitted({ langs: ["0013"], intents: { s0: [snapIntent()] } });
+    const CONSOLE = { role: "console" };
+    await policy.reconcile({ caller: CONSOLE, user: { uid: OWNER }, itemId: PRIVATE, invocationId: c.invocationId });
+    expect(asked).toEqual([{ scope: { kind: "item", id: PRIVATE }, invocationId: c.invocationId, decisionId: expect.any(String) }]);
+    await denied(policy.reconcile({ caller: CONSOLE, user: { uid: OTHER }, itemId: PRIVATE, invocationId: c.invocationId }), "invocation-not-found");
+    await denied(policy.reconcile({ caller: CONSOLE, user: { uid: OWNER }, itemId: PRIVATE, connectionId: "conn-1", invocationId: c.invocationId }), "bad-request");
+    expect(asked).toHaveLength(1);
+  });
+});
+
+describe("Broker's reconcile client (C5)", () => {
+  it("sends an item scope, or a connection, never both", async () => {
+    const { createBrokerAdminClient } = await import("./index.js");
+    const bodies = [];
+    const admin = createBrokerAdminClient({
+      brokerUrl: "https://broker.example",
+      idToken: async () => "token",
+      fetch: (async (_url, init) => { bodies.push(JSON.parse(init.body)); return new Response(JSON.stringify({ status: "success", data: { operations: [] } }), { status: 200 }); }) as any,
+    });
+    await admin.reconcile({ scope: { kind: "item", id: PRIVATE }, invocationId: "inv-1", decisionId: "decision-1" });
+    await admin.reconcile({ connectionId: "conn-1", invocationId: "inv-1", decisionId: "decision-1" });
+    expect(bodies).toEqual([
+      { scope: { kind: "item", id: PRIVATE }, invocationId: "inv-1", decisionId: "decision-1" },
+      { connectionId: "conn-1", invocationId: "inv-1", decisionId: "decision-1" },
+    ]);
   });
 });

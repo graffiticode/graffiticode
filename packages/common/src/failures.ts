@@ -157,6 +157,8 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   ...cat("permission", ["item-not-found"]),
   ...cat("conflict", ["item-ambiguous"]),
   ...cat("unavailable", ["item-authority-unavailable"]),
+  // C5 slice 3b: a bound item's occurrence minted before its reservation.
+  ...cat("conflict", ["occurrence-not-reserved"]),
   ...cat("conflict", ["staging-unavailable", "precondition-contention"]),
 ]));
 

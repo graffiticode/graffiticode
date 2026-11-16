@@ -29,12 +29,14 @@ export const createBrokerAdminClient = ({ brokerUrl, idToken, fetch: doFetch = f
   // Reconciliation (WRITE-02, W5): Broker reads the provider for evidence about
   // one invocation's writes and appends what it found. A refusal carries
   // Broker's reason.
-  const reconcile = async ({ connectionId, invocationId, decisionId }) => {
+  // C5: an item's captures are reconciled by their item scope, never a
+  // connection (Broker's /v1/reconcile takes exactly one).
+  const reconcile = async ({ connectionId = undefined, scope = undefined, invocationId, decisionId }: { connectionId?: string, scope?: { kind: "item", id: string }, invocationId: string, decisionId: string }) => {
     const [invoker, caller] = await Promise.all([idToken(brokerUrl), idToken("urn:graffiticode:broker")]);
     const res = await doFetch(`${brokerUrl}/v1/reconcile`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Serverless-Authorization": `Bearer ${invoker}`, "X-Caller-Identity": caller },
-      body: JSON.stringify({ connectionId, invocationId, decisionId })
+      body: JSON.stringify(scope ? { scope, invocationId, decisionId } : { connectionId, invocationId, decisionId })
     });
     let json: any = null;
     try { json = await res.json(); } catch { json = null; }
