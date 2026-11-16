@@ -5,7 +5,7 @@
 
 import { createHash } from "node:crypto";
 import { ConflictError } from "@graffiticode/common/errors";
-import { checkRotation, StepConflict, stepDetail, attemptRecord, checkAttempt } from "./stores.js";
+import { checkRotation, StepConflict, stepDetail, attemptRecord, checkAttempt, checkRun } from "./stores.js";
 
 const ALREADY_EXISTS = 6;
 const isAlreadyExists = err => err?.code === ALREADY_EXISTS || /ALREADY_EXISTS/.test(String(err?.message));
@@ -82,6 +82,21 @@ export const createFirestoreReceiptStore = db => {
       checkAttempt(k, attempt);
       const ref = claimRef(operationId).collection("attempts").doc(String(k));
       if (!(await createOnce(ref, { k, ...attemptRecord(attempt), at: new Date().toISOString() }))) throw new Error(`attempt ${k} already recorded`);
+    },
+    // C5: runs after an aborted one, each started once (stores.js).
+    async startRun(operationId, run) {
+      checkRun(run);
+      return createOnce(claimRef(operationId).collection("runs").doc(String(run)), { run, at: new Date().toISOString() });
+    },
+    async abortRun(operationId, run, { reason }) {
+      checkRun(run);
+      if (!(await createOnce(claimRef(operationId).collection("aborted").doc(String(run)), { run, reason, at: new Date().toISOString() }))) throw new Error(`run ${run} already aborted`);
+    },
+    async getRunState(operationId) {
+      const started = (await claimRef(operationId).collection("runs").get()).docs.map(d => d.data().run);
+      const run = started.length ? Math.max(...started) : 0;
+      const abort = await claimRef(operationId).collection("aborted").doc(String(run)).get();
+      return { run, aborted: abort.exists };
     },
     async getStepAttempts(operationId) {
       const snap = await claimRef(operationId).collection("attempts").orderBy("k").get();

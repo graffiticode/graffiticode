@@ -56,6 +56,16 @@
 //      authorized again after a failed precondition, as attempt 2..n, each
 //      with its own decision and audit record, and each recorded on the
 //      receipt (`attempts/{k}`) before the next is authorized.
+//   7e. An operation that reopens before dispatch (`reopensBeforeDispatch`,
+//      C5's gcs.put-thumbnail): a run that stops before any request was
+//      authorized for dispatch, for a temporary reason (authorization
+//      unavailable, the deadline, maintenance, a provider read that failed),
+//      wrote nothing. It is recorded aborted (receipts runs/aborted), no
+//      outcome is written, and the caller is refused 503, as before a claim.
+//      A later token for the same operation, with the same binding, starts
+//      the next run (created once), re-reading staging; receipt reads and
+//      reconciliation treat an aborted latest run as never claimed. Any run
+//      that authorized a dispatch ends with an outcome, as always.
 //   8. A `sign` under a system preview session (provenance `system`) first
 //      claims one of the session's SYSTEM_SESSION_MAX_SIGNINGS slots
 //      (session-slots.js); with all taken it is refused `session-exhausted`
@@ -138,6 +148,16 @@ class AttemptNotPersisted extends Error {
     this.wrote = observed !== "precondition-failed";
   }
 }
+
+// 7e: a reason a run stopped before any dispatch that a later run may not
+// meet: the caller may try again. Null for anything definite.
+const temporaryBeforeDispatch = e => {
+  if (e instanceof AuthorizationUnavailable) return "authorization-unavailable";
+  if (e instanceof DeadlineExceeded) return "deadline-exceeded";
+  if (e instanceof AuthorizationDenied && e.reason === MAINTENANCE) return `authorization-denied:${MAINTENANCE}`;
+  if (e instanceof ProviderRejected && (e as any).reason === "unavailable") return "unavailable";
+  return null;
+};
 
 // The registry's word on an operation's credential: a definition here can't
 // change it.
@@ -378,9 +398,13 @@ export const createBroker = ({
     // The step being authorized or sent: an operation that stops names it as
     // its `failedStep`.
     let stepInProgress = null;
+    // Requests authorized for dispatch so far (7e): with none, nothing was
+    // sent.
+    let authorizedDispatches = 0;
     const providerCall = async step => {
       stepInProgress = step;
       await authorizeStep(step, "dispatch");
+      authorizedDispatches += 1;
       // Never a zero or negative timeout: a request with no time left is not
       // sent, which is definite (failed, or partial after earlier steps).
       const remaining = deadline - now();
@@ -392,6 +416,7 @@ export const createBroker = ({
     const attemptCall = async (step, attempt) => {
       stepInProgress = step;
       const decisionId = await authorizeStep(step, "dispatch", attempt);
+      authorizedDispatches += 1;
       const remaining = deadline - now();
       if (remaining <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed before ${step} was sent`);
       return { timeoutMs: Math.min(limits.providerCallMs, remaining), decisionId };
@@ -414,7 +439,7 @@ export const createBroker = ({
     // failure to register propagates before any claim or provider request.
     const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
     if (operation?.kind !== "write") {
-      return executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep: () => stepInProgress });
+      return executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep: () => stepInProgress, dispatched: () => authorizedDispatches });
     }
     const attempt = `${claims.opid}#${randomUUID()}`;
     await activity.begin(attempt, startedAt + maxExecutionMs(limits));
@@ -430,14 +455,14 @@ export const createBroker = ({
       if (!admission(await protectedSwitch.state({ fresh: true }), { uid: claims.sub, connectionId: claims.conn })) {
         return await refuse(MAINTENANCE, 503);
       }
-      return await executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep: () => stepInProgress });
+      return await executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep: () => stepInProgress, dispatched: () => authorizedDispatches });
     } finally {
       // Best effort: an entry left behind expires on its own.
       await activity.end(attempt).catch(() => {});
     }
   };
 
-  const executeAdmitted = async ({ claims, replayOnly = false, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep }) => {
+  const executeAdmitted = async ({ claims, replayOnly = false, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep, dispatched }) => {
     // A token is interpreted only under its own registry version or one the
     // window says keeps its meaning (P1b). The receipt binding below carries
     // the token's version, so a write under one version never matches a
@@ -524,7 +549,7 @@ export const createBroker = ({
     }
 
     const binding = writeBinding(claims, op, digest);
-    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep });
+    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep, dispatched });
   };
 
   // A write's binding, from its verified token and the payload's digest. A v3
@@ -573,10 +598,12 @@ export const createBroker = ({
   const replayRecorded = async ({ claims, op, digest, record, refuse, authorizeStep, inTime }) => {
     const claim = await receipts.getClaim(claims.opid);
     if (!claim) return refuse("replay-not-found", 404);
+    // An aborted latest run (7e) recorded nothing to replay.
+    if (receipts.getRunState && !(await receipts.getOutcome(claims.opid)) && (await receipts.getRunState(claims.opid)).aborted) return refuse("replay-not-found", 404);
     return replayClaim({ claims, binding: writeBinding(claims, op, digest), recorded: claim.binding, record, refuse, authorizeStep, inTime });
   };
 
-  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep }) => {
+  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep, dispatched }) => {
     // A failure here (before any provider request) propagates: no claim, no
     // effects.
     // The receipt names its plan (W4), so retiring a revision can report the
@@ -591,10 +618,23 @@ export const createBroker = ({
     // 7c: staged bytes are read only while no claim exists. With a claim,
     // the receipt answers and staging is never read again.
     const context = { commandId: claims.cmd, operationId: claims.opid };
+    // 7e: the run this execution would start after an aborted one, or null.
+    const reopens = operation.reopensBeforeDispatch === true;
+    const reopenable = async claim => {
+      if (!reopens || claim.binding?.registryVersion !== binding.registryVersion || !sameBinding(claim.binding, binding)) return null;
+      if (await receipts.getOutcome(claims.opid)) return null;
+      const state = await receipts.getRunState(claims.opid);
+      return state.aborted ? state.run + 1 : null;
+    };
+    let run = 0;
+    let reopening = null;
     let staged;
     if (operation.loadStaged) {
       const existing = await receipts.getClaim(claims.opid);
-      if (existing) return replayClaim({ claims, binding, recorded: existing.binding, record, refuse, authorizeStep, inTime });
+      if (existing) {
+        reopening = await reopenable(existing);
+        if (reopening === null) return replayClaim({ claims, binding, recorded: existing.binding, record, refuse, authorizeStep, inTime });
+      }
       const timeoutMs = readTimeout();
       if (timeoutMs <= 0) return refuse("deadline-exceeded", 503);
       let unreadable = false;
@@ -609,16 +649,34 @@ export const createBroker = ({
         // have lost. Its receipt answers; only with still no claim is the
         // refusal definite.
         const raced = await receipts.getClaim(claims.opid);
-        if (raced) return replayClaim({ claims, binding, recorded: raced.binding, record, refuse, authorizeStep, inTime });
+        // An aborted claim wrote nothing: its staging is still needed.
+        if (raced && (await reopenable(raced)) === null) return replayClaim({ claims, binding, recorded: raced.binding, record, refuse, authorizeStep, inTime });
         // Staging couldn't be read now (503), or isn't there or doesn't
         // match (409); nothing was claimed or written either way.
         return unreadable ? refuse("unavailable", 503) : refuse("staging-unavailable", 409);
       }
     }
     const written = operation.references ? operation.references(payload, claims.opid) : payload;
-    const evidence = operation.evidence?.(written, context);
-    const claimed = await receipts.claim(claims.opid, binding, { ...(claims.pld ? { pld: claims.pld } : {}), ...(evidence ? { evidence } : {}) });
-    if (!claimed.created) return replayClaim({ claims, binding, recorded: claimed.claim.binding, record, refuse, authorizeStep, inTime });
+    let evidence;
+    if (reopening !== null) {
+      // The next run, once: a concurrent one that started it answers.
+      const existing = await receipts.getClaim(claims.opid);
+      if (!(await receipts.startRun(claims.opid, reopening))) return replayClaim({ claims, binding, recorded: existing.binding, record, refuse, authorizeStep, inTime });
+      run = reopening;
+      // The claim's own evidence, recorded with its binding.
+      evidence = existing.evidence;
+    } else {
+      evidence = operation.evidence?.(written, context);
+      const claimed = await receipts.claim(claims.opid, binding, { ...(claims.pld ? { pld: claims.pld } : {}), ...(evidence ? { evidence } : {}) });
+      if (!claimed.created) {
+        // A run that another request claimed and aborted can still reopen.
+        if (operation.loadStaged || (await reopenable(claimed.claim)) === null) return replayClaim({ claims, binding, recorded: claimed.claim.binding, record, refuse, authorizeStep, inTime });
+        const next = await reopenable(claimed.claim);
+        if (!(await receipts.startRun(claims.opid, next))) return replayClaim({ claims, binding, recorded: claimed.claim.binding, record, refuse, authorizeStep, inTime });
+        run = next;
+        evidence = claimed.claim.evidence;
+      }
+    }
 
     // `steps` are the provider steps known to have completed; each is durable
     // before the operation may make its next provider request.
@@ -645,6 +703,8 @@ export const createBroker = ({
     let error;
     let reason;
     let stopped;
+    // 7e: why a run stopped before any dispatch, for a temporary reason.
+    let abortReason = null;
     try {
       // B6's drive's injected fault: refused before any provider request.
       if (faults?.failWrite && faults.principals.has(claims.sub)) throw new ProviderRejected("fault injected: the write was refused before any provider request");
@@ -667,6 +727,8 @@ export const createBroker = ({
         error = e.message;
         reason = "step-not-persisted";
         stopped = e.step;
+      } else if (reopens && dispatched() === 0 && temporaryBeforeDispatch(e)) {
+        abortReason = temporaryBeforeDispatch(e);
       } else if (e instanceof ProviderRejected || authorizationReason(e)) {
         // Definite: the provider refused, or the next request was never sent
         // (deadline, or no authorization for it), or the operation wrote
@@ -684,6 +746,21 @@ export const createBroker = ({
         reason = "provider-response-lost";
         stopped = failedStep() ?? undefined;
       }
+    }
+    // 7e: nothing was sent, for a temporary reason. The run is aborted, no
+    // outcome is written, and the caller retries with a fresh token. If the
+    // abort can't be recorded, the run ends as any other (failed).
+    if (abortReason !== null) {
+      let aborted = true;
+      try {
+        await receipts.abortRun(claims.opid, run, { reason: abortReason });
+      } catch {
+        aborted = false;
+      }
+      if (aborted) return refuse(abortReason, 503);
+      status = "failed";
+      reason = recordedReason(abortReason);
+      error = `stopped before dispatch: ${abortReason}`;
     }
     // The C6 drive's injected fault: the write happened, its outcome isn't
     // recorded, and the caller hears nothing it can rely on.

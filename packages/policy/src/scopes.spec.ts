@@ -581,8 +581,9 @@ describe("v3 execution (decisions 5 and 6)", () => {
     const sessionToken = await c.session("s0");
     const { executionToken } = await mintSnap(sessionToken);
     items.state.unavailable = true;
-    for (const promise of [mintSnap(sessionToken), authorize(executionToken)]) {
-      const e = await promise.catch(err => err);
+    // One at a time: each refusal is handled as it is made.
+    for (const ask of [() => mintSnap(sessionToken), () => authorize(executionToken)]) {
+      const e = await ask().catch(err => err);
       expect(e).toBeInstanceOf(PolicyUnavailable);
       expect(e.reason).toBe("item-authority-unavailable");
     }

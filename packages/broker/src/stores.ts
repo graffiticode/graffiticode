@@ -22,6 +22,14 @@
 //                        authorized. putStepAttempt(id, k, attempt) creates it
 //                        once; getStepAttempts(id) lists them by k.
 //               outcome  { status, steps, result, at } — after the last
+//               runs/k, aborted/k  (C5, operations that reopen before
+//                        dispatch): run 0 is the claim's own; a run that
+//                        ended before any request was authorized for
+//                        dispatch, for a temporary reason, is aborted
+//                        (abortRun), and the next run k+1 starts only by
+//                        creating runs/{k+1} once (startRun). getRunState(id)
+//                        -> { run, aborted }: the latest run, and whether it
+//                        was aborted. An aborted latest run wrote nothing.
 //             A claim with no outcome is "uncertain": the broker may have
 //             crashed mid-call, so it is reported with its persisted steps,
 //             never blindly re-run.
@@ -105,6 +113,9 @@ const checkStepIndex = n => {
 export const stepDetail = detail => (detail && typeof detail.observed === "string" ? { observed: detail.observed } : {});
 // A conditional step's attempt record (C5 plan decision 5).
 export const attemptRecord = ({ step, attempt, decisionId, observed }) => ({ step, attempt, decisionId, observed });
+export const checkRun = run => {
+  if (!Number.isInteger(run) || run < 0) throw new Error(`run must be a non-negative integer, not ${run}`);
+};
 export const checkAttempt = (k, attempt) => {
   if (!Number.isInteger(k) || k < 1 || attempt?.attempt !== k) throw new Error(`attempt index must be the attempt's own positive integer, not ${k}`);
 };
@@ -112,6 +123,8 @@ export const checkAttempt = (k, attempt) => {
 export const createMemoryReceiptStore = () => {
   const claims = new Map();
   const stepAttempts = new Map();
+  const runs = new Map();
+  const aborted = new Map();
   const steps = new Map();
   const outcomes = new Map();
   const attempts = new Map();
@@ -151,6 +164,24 @@ export const createMemoryReceiptStore = () => {
       const key = `${operationId}#${k}`;
       if (stepAttempts.has(key)) throw new Error(`attempt ${k} of ${operationId} already recorded`);
       stepAttempts.set(key, { k, ...attemptRecord(attempt), at: new Date().toISOString() });
+    },
+    async startRun(operationId, run) {
+      checkRun(run);
+      const key = `${operationId}#${run}`;
+      if (runs.has(key)) return false;
+      runs.set(key, { run, at: new Date().toISOString() });
+      return true;
+    },
+    async abortRun(operationId, run, { reason }) {
+      checkRun(run);
+      const key = `${operationId}#${run}`;
+      if (aborted.has(key)) throw new Error(`run ${run} of ${operationId} already aborted`);
+      aborted.set(key, { run, reason, at: new Date().toISOString() });
+    },
+    async getRunState(operationId) {
+      const started = [...runs.entries()].filter(([key]) => key.startsWith(`${operationId}#`)).map(([, r]) => r.run);
+      const run = started.length ? Math.max(...started) : 0;
+      return { run, aborted: aborted.has(`${operationId}#${run}`) };
     },
     async getStepAttempts(operationId) {
       return [...stepAttempts.entries()].filter(([key]) => key.startsWith(`${operationId}#`)).map(([, a]) => ({ ...a })).sort((a, b) => a.k - b.k);

@@ -251,6 +251,19 @@ run("firestore broker stores", () => {
     expect(await receipts.getSteps(op)).toEqual(["questions", "items", racers[0].status === "fulfilled" ? "a" : "b"]);
   });
 
+  // C5 (broker.js 7e): runs after an aborted one, each started once.
+  it("aborts a run, and starts the next one exactly once under concurrency", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    const op = `${randomUUID()}/s0/o1`;
+    expect(await receipts.getRunState(op)).toEqual({ run: 0, aborted: false });
+    await receipts.abortRun(op, 0, { reason: "authorization-unavailable" });
+    await expect(receipts.abortRun(op, 0, { reason: "again" })).rejects.toThrow(/already aborted/);
+    expect(await receipts.getRunState(op)).toEqual({ run: 0, aborted: true });
+    const racers = await Promise.all(Array.from({ length: 8 }, () => receipts.startRun(op, 1)));
+    expect(racers.filter(Boolean)).toHaveLength(1);
+    expect(await receipts.getRunState(op)).toEqual({ run: 1, aborted: false });
+  });
+
   // C5 (decision 5): what a step observed, and a conditional step's attempts.
   it("keeps a step's observation, and each attempt of a conditional step once, in order", async () => {
     const receipts = createFirestoreReceiptStore(db);

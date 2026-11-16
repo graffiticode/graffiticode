@@ -103,6 +103,7 @@ const makeEnv = ({ faults = null }: { faults?: any } = {}) => {
   const records = [];
   const asks = [];
   let deny = null as null | ((ask) => boolean);
+  let unavailable = null as null | ((ask) => boolean);
   const audit = createAudit({ sink: r => records.push(r), pseudonymize: createPseudonymizer({ secret: "test-secret-0123456789" }) });
   const dataApiCalls = [];
   const operations = {
@@ -130,6 +131,10 @@ const makeEnv = ({ faults = null }: { faults?: any } = {}) => {
         const { AuthorizationDenied } = await import("./authorizer.js");
         throw new AuthorizationDenied("step-not-registered");
       }
+      if (unavailable?.(ask)) {
+        const { AuthorizationUnavailable } = await import("./authorizer.js");
+        throw new AuthorizationUnavailable("policy answered 503");
+      }
       return { decisionId: `decision-${String(asks.length).padStart(4, "0")}` };
     },
     audit,
@@ -138,7 +143,7 @@ const makeEnv = ({ faults = null }: { faults?: any } = {}) => {
   const broker = createBroker(deps);
   // Reconciliation, once the write's deadline and grace have passed.
   const reconcile = createReconciler({ receipts, secrets: deps.secrets, operations, limits: DEFAULT_LIMITS, audit, now: () => Date.now() + DEFAULT_LIMITS.executionMs + RECONCILE_GRACE_MS + 1000 });
-  return { storage, receipts, records, asks, broker, reconcile, operations, dataApiCalls, denyWhen: fn => { deny = fn; } };
+  return { storage, receipts, records, asks, broker, reconcile, operations, dataApiCalls, denyWhen: fn => { deny = fn; }, unavailableWhen: fn => { unavailable = fn; } };
 };
 
 const thumbnail = (bytes: Uint8Array, captureSequence: number, item = ITEM) => ({ item, sha256: sha256Hex(bytes), captureSequence });
@@ -682,9 +687,13 @@ describe("review of #401", () => {
       return head;
     };
     const payload = thumbnail(bytes, 1);
-    const out = await broker.execute({ caller: L0013, token: await snapToken(payload), op: "gcs.put-thumbnail", payload });
+    // Nothing was sent: the run is aborted (7e), refused as temporary.
+    const e = await broker.execute({ caller: L0013, token: await snapToken(payload), op: "gcs.put-thumbnail", payload }).catch(err => err);
     expect(env.storage.uploads).toHaveLength(0);
-    expect(out).toMatchObject({ status: "failed", reason: "deadline-exceeded" });
+    expect(e).toBeInstanceOf(BrokerRefused);
+    expect(e).toMatchObject({ reason: "deadline-exceeded", status: 503 });
+    expect(await env.receipts.getOutcome(opid())).toBeNull();
+    expect(await env.receipts.getRunState(opid())).toEqual({ run: 0, aborted: true });
   });
 
   it("refuses to prepare past the deadline, before any authorization", async () => {
@@ -710,10 +719,11 @@ describe("review of #401", () => {
     const claim = env.receipts.claim.bind(env.receipts);
     env.receipts.claim = async (...args) => { clock += 1500; return claim(...args); };
     const payload = thumbnail(bytes, 1);
-    const out = await broker.execute({ caller: L0013, token: await snapToken(payload), op: "gcs.put-thumbnail", payload });
-    expect(out).toMatchObject({ status: "failed", reason: "deadline-exceeded" });
+    const e = await broker.execute({ caller: L0013, token: await snapToken(payload), op: "gcs.put-thumbnail", payload }).catch(err => err);
+    expect(e).toMatchObject({ reason: "deadline-exceeded", status: 503 });
     expect(asks).toEqual([]);
     expect(env.storage.uploads).toHaveLength(0);
+    expect(await env.receipts.getRunState(opid())).toEqual({ run: 0, aborted: true });
   });
 
   it("runs a Policy-authorized anonymous public capture, and audits its provenance", async () => {
@@ -807,5 +817,97 @@ describe("review of #401", () => {
     const winner = await snap(env, payload);
     release();
     expect(await pending).toMatchObject({ status: "succeeded", replayed: true, result: winner.result });
+  });
+});
+
+// The owner's review of #403 (broker.js 7e): a run that stopped before any
+// dispatch, for a temporary reason, wrote nothing and is aborted, never a
+// recorded failure; a later token for the same operation runs again.
+describe("reopening a run that stopped before dispatch (7e)", () => {
+  it("aborts a run whose authorization was unavailable, and runs the operation again with a fresh token", async () => {
+    const env = makeEnv();
+    const bytes = png("outage");
+    stage(env, bytes);
+    const payload = thumbnail(bytes, 1);
+    env.unavailableWhen(() => true);
+    const e = await refused(snap(env, payload), "authorization-unavailable");
+    expect(e.status).toBe(503);
+    expect(env.storage.uploads).toEqual([]);
+    expect(await env.receipts.getOutcome(opid())).toBeNull();
+    expect(await env.receipts.getRunState(opid())).toEqual({ run: 0, aborted: true });
+    // It reads as never claimed: no receipt for settlement, none to reconcile
+    // or replay.
+    expect((await createReceiptReader({ receipts: env.receipts })({ invocationId: INV })).operations).toEqual([]);
+    await expect(env.reconcile({ itemId: ITEM, invocationId: INV, decisionId: "decision-recon-1" })).rejects.toMatchObject({ reason: "receipt-not-found" });
+    const replay = await issueToken(signer, "replay", { sub: OWNER, lang: "0013", fn: "snap", op: "gcs.put-thumbnail", sid: "session-1", opid: opid(), argd: argsDigest(payload), rv: REGISTRY_VERSION, prv: "user", cv: 3, scp: { kind: "item", id: ITEM }, pld: PLD, stg: "s0", cmd: CMD, fg: 1 });
+    await refused(env.broker.execute({ caller: L0013, token: replay, op: "gcs.put-thumbnail", payload }), "replay-not-found");
+    // Policy answers again: the next run publishes, once.
+    env.unavailableWhen(null);
+    const out = await snap(env, payload);
+    expect(out).toEqual({ status: "succeeded", steps: ["publish"], result: resultFor(bytes, 1) });
+    expect(env.storage.uploads).toHaveLength(1);
+    expect(await env.receipts.getRunState(opid())).toEqual({ run: 1, aborted: false });
+    expect((await createReceiptReader({ receipts: env.receipts })({ invocationId: INV })).operations).toEqual([expect.objectContaining({ status: "succeeded", recorded: true })]);
+    // And then answers from its receipt.
+    expect(await snap(env, payload)).toMatchObject({ status: "succeeded", replayed: true });
+    expect(env.storage.uploads).toHaveLength(1);
+  });
+
+  it("starts the next run once, when two requests reopen it together", async () => {
+    const env = makeEnv();
+    const bytes = png("race");
+    stage(env, bytes);
+    const payload = thumbnail(bytes, 1);
+    env.unavailableWhen(() => true);
+    await refused(snap(env, payload), "authorization-unavailable");
+    env.unavailableWhen(null);
+    const [a, b] = await Promise.all([snap(env, payload), snap(env, payload)]);
+    expect([a.replayed === true, b.replayed === true].sort()).toEqual([false, true]);
+    expect(env.storage.uploads).toHaveLength(1);
+  });
+
+  it("aborts a run whose metadata read failed, before any authorization", async () => {
+    const env = makeEnv();
+    const bytes = png("read failed");
+    stage(env, bytes);
+    const getMetadata = env.storage.getMetadata;
+    env.storage.getMetadata = async () => { throw new Error("503"); };
+    await refused(snap(env, thumbnail(bytes, 1)), "unavailable");
+    expect(env.asks).toEqual([]);
+    env.storage.getMetadata = getMetadata;
+    expect(await snap(env, thumbnail(bytes, 1))).toMatchObject({ status: "succeeded" });
+  });
+
+  it("refuses a reopened run whose staging has gone, definitely, starting no run", async () => {
+    const env = makeEnv();
+    const bytes = png("gone");
+    stage(env, bytes);
+    env.unavailableWhen(() => true);
+    await refused(snap(env, thumbnail(bytes, 1)), "authorization-unavailable");
+    env.unavailableWhen(null);
+    env.storage.objects.delete(`${STAGING}/${stagedObjectName({ commandId: CMD, operationId: opid() })}`);
+    await refused(snap(env, thumbnail(bytes, 1)), "staging-unavailable");
+    expect(await env.receipts.getRunState(opid())).toEqual({ run: 0, aborted: true });
+  });
+
+  it("records a failure, as always, once any request was authorized for dispatch", async () => {
+    const env = makeEnv();
+    env.storage.put(GATE, `${ITEM}.png`, png("four"), { captureSequence: "4" });
+    const b = png("B");
+    stage(env, b);
+    env.storage.beforeUpload = async ({ name }) => env.storage.put(GATE, name.slice(GATE.length + 1), png("older"), { captureSequence: "5" });
+    env.unavailableWhen(ask => ask.attempt === 2);
+    const out = await snap(env, thumbnail(b, 6));
+    expect(out).toMatchObject({ status: "failed", reason: "authorization-unavailable" });
+    expect(await env.receipts.getRunState(opid())).toEqual({ run: 0, aborted: false });
+  });
+
+  it("leaves a connection write's failure before dispatch recorded, as before", async () => {
+    const env = makeEnv();
+    env.unavailableWhen(() => true);
+    const save = { questionRecords: [{ type: "mcq", reference: "q-0", data: { type: "mcq" } }], itemRecords: [] };
+    const token = await issueToken(signer, "execution", { sub: OWNER, own: OWNER, conn: "conn-1", backend: "learnosity", lang: "0176", fn: "save-to-itembank", op: "learnosity.write-items", sid: "session-2", opid: `${INV}/s1/n1.0`, argd: argsDigest(save), rv: REGISTRY_VERSION, prv: "user", cv: 2, pld: PLD, stg: "s1" });
+    expect(await env.broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: save })).toMatchObject({ status: "failed", reason: "authorization-unavailable" });
+    expect(await env.receipts.getOutcome(`${INV}/s1/n1.0`)).toMatchObject({ status: "failed" });
   });
 });
