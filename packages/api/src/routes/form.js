@@ -2,6 +2,7 @@ import { Router } from "express";
 import { InvalidArgumentError, NotFoundError } from "../errors/http.js";
 import { allInGenerationLang, getActiveGeneration, getLanguageGenerations, languageGenerationSuffix, GENERATION_LANG } from "../generation.js";
 import { buildGetTasks } from "./tasks.js";
+import { renderReadAuth } from "../render-grant.js";
 import {
   buildHttpHandler,
   parseIdsFromRequest,
@@ -62,7 +63,9 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
         params.set("publication", publication);
         dataParams.set("publication", publication);
       }
-      const auth = req.auth.context;
+      // Under a render grant, the pinned chain's tasks are read under its
+      // subject's ACLs, and nothing else is (render-grant.js).
+      const auth = req.renderGrant ? renderReadAuth(req.renderGrant) : req.auth.context;
       // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
       const tasks = await getTasks({ auth, ids, req });
       lang = tasks[0].lang;

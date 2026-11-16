@@ -10,7 +10,8 @@
     "./audit": "./dist/audit.js",
     "./client": "./dist/client.js",
     "./records": "./dist/command-records.js",
-    "./revisions": "./dist/revisions.js"
+    "./revisions": "./dist/revisions.js",
+    "./tokens": "./dist/tokens.js"
   },
   "scripts": {
     "lint": "eslint --ext .js,.ts src/",
