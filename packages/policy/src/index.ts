@@ -1,4 +1,5 @@
-export { createPolicy, PolicyDenied, PolicyMaintenance, PolicyUnavailable, opidParts, ADMISSION_MAX_AGE_MS, COMMAND_SETTLE_GRACE_MS, MAX_INTENT_OCCURRENCES, modelIntents, intentScope, admittedScope } from "./policy.js";
+export { createPolicy, PolicyDenied, PolicyMaintenance, PolicyUnavailable, opidParts, ADMISSION_MAX_AGE_MS, COMMAND_SETTLE_GRACE_MS, MAX_INTENT_OCCURRENCES, modelIntents, intentScope, admittedScope, PUBLIC_CAPTURE_LIMIT } from "./policy.js";
+export { buildStagingStore, createMemoryStagingStore, MAX_STAGED_BYTES, stagedName, isPng } from "./staging.js";
 export { buildItemAuthority, createMemoryItemAuthority, itemAccess, ItemAuthorityUnavailable, ITEM_ID_RE, ITEM_AUTHORITY_TIMEOUT_MS } from "./item-authority.js";
 export { SYSTEM_PREVIEW_SUBJECT, ANONYMOUS_SUBJECT, PROVENANCES, sessionProvenance, provenanceRefusal } from "./provenance.js";
 export { createProtectedSwitch, createFirestoreFlagReader, parseHardDisable, admission, PROTECTED_EXECUTION_DOC, MAINTENANCE } from "./maintenance.js";

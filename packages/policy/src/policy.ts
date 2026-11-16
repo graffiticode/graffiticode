@@ -56,6 +56,7 @@ import {
 } from "@graffiticode/common/protected-registry";
 import { CONTRACT_VERSION_SCOPED, canonicalScopes, scopeProblems, CONTRACT_VERSION, SUPPORTED_CONTRACT_VERSIONS, manifestProblems, pinnedStage, planDigest as digestOf, stageBinding, sameStage } from "@graffiticode/common/contract";
 import { itemAccess, ITEM_ID_RE } from "./item-authority.js";
+import { MAX_STAGED_BYTES, isPng, sha256Hex, stagedName } from "./staging.js";
 import { createHash, randomUUID } from "node:crypto";
 import { decodeJwt } from "jose";
 import { decodeChainId } from "@graffiticode/common/chain";
@@ -68,6 +69,10 @@ import { newPublicationId } from "./publications.js";
 import { MAINTENANCE, admission } from "./maintenance.js";
 import { SYSTEM_PREVIEW_SUBJECT, ANONYMOUS_SUBJECT, sessionProvenance, provenanceRefusal } from "./provenance.js";
 import { DEFAULT_SYSTEM_SIGNING, createTokenBucket } from "./rate-limit.js";
+
+// Decision 4: at most 12 captures of one item an hour under the public-capture
+// exception, across every non-owner caller. Owners have no per-item limit.
+export const PUBLIC_CAPTURE_LIMIT = Object.freeze({ perWindow: 12, windowMs: 60 * 60 * 1000 });
 
 // At most this many occurrences in one repair's selection (B6): its claim is
 // one transaction, within Firestore's write limit.
@@ -215,6 +220,10 @@ export const createPolicy = ({
   // buildItemAuthority). Without it, every item scope is refused
   // `item-authority-unavailable`.
   itemAuthority = null,
+  // C5 (decision 9): the command staging bucket (staging.js), and the
+  // public-capture limit: `perWindow` captures of one item in `windowMs`
+  // across every non-owner caller (decision 4: 12 an hour).
+  staging = null, publicCaptureLimit = PUBLIC_CAPTURE_LIMIT,
 }) => {
   const acceptedRegistry = v => isAcceptedRegistryVersion(v, { current: registryVersion, window: registryWindow });
   // No default: a policy built without the switch would run ungated.
@@ -841,7 +850,9 @@ export const createPolicy = ({
     if (declared?.kind === "item") {
       const itemId = declared.id ?? occurrence.item ?? null;
       if (!itemId) return { refusal: "occurrence-not-reserved", command, occurrence };
-      scope = { kind: "item", id: itemId };
+      // `reservedPublic`: whether the reservation counted it under the
+      // public-capture exception (3c), absent before a reservation.
+      scope = { kind: "item", id: itemId, ...(typeof occurrence.publicCapture === "boolean" ? { reservedPublic: occurrence.publicCapture } : {}) };
     } else {
       if (declared && declared.id !== claims.conn) return { refusal: "intent-mismatch", definite: true, command, occurrence };
       if (claims.conn === undefined) return { refusal: "plan-binding-mismatch", command, occurrence };
@@ -911,6 +922,122 @@ export const createPolicy = ({
       throw e;
     }
   };
+  // C5 (decision 9): a capture's reservation and staging, by the stage's
+  // compiler under its v3 command session, before it binds and invokes.
+  //   reserve(occurrenceId, intentId, expansionKey?, item?) -> { item,
+  //     captureSequence, publicCapture, staged: { sha256, size } | null }
+  //     An item-scoped intent's occurrence. A static item is the intent's; a
+  //     bound one arrives here and is authorized now (decision 1): a definite
+  //     refusal is recorded on the occurrence. The reservation takes the
+  //     item's next capture sequence and, for a public capture by anyone but
+  //     the owner, its place in the hourly limit (`rate-limited`, 429, with
+  //     when to retry). A repeat answers the reservation as it stands.
+  //   stage(occurrenceId, png) -> { item, captureSequence, sha256, size }
+  //     The rendered bytes, created once in the staging bucket at the
+  //     operation id's own name; if they are already there (a lost
+  //     acknowledgment, or a stale worker that won the race), those bytes are
+  //     adopted. Then reserved -> staged, once, fenced to the owner.
+  const reservationClaims = async ({ caller, sessionToken, record }) => {
+    const { session } = await commandSessionClaims({ caller, sessionToken, record });
+    if (session.cv !== CONTRACT_VERSION_SCOPED) return { refusal: await deny("plan-binding-mismatch", record) };
+    const command = await commands.get(session.cmd);
+    if (!command || command.invocationId !== session.inv || command.uid !== session.sub || command.phase !== "admitted" || command.admission?.planDigest !== session.pld) {
+      return { refusal: await deny("plan-binding-mismatch", record) };
+    }
+    // Fenced at every call, a repeat included: a stale worker is refused,
+    // and the new owner continues from the recorded state.
+    const fenced = ownerRefusal(command, { generation: session.fg, now: now() });
+    if (fenced) return { refusal: await deny(fenced, { ...record, commandId: session.cmd }) };
+    return { session, command };
+  };
+  const recordsDenied = (e, record) => {
+    if (e instanceof CommandRefused) {
+      const retryAfter = typeof e.detail?.retryAfter === "number" ? e.detail.retryAfter : undefined;
+      return deny(e.reason, record, { retryAfter });
+    }
+    throw e;
+  };
+  const commandReserve = async ({ caller, sessionToken, occurrenceId, intentId, expansionKey = null, item = null }) => {
+    const record = { event: "command-reserve", callerRole: caller?.role };
+    const { session, command } = await reservationClaims({ caller, sessionToken, record });
+    Object.assign(record, { commandId: session.cmd });
+    if (typeof occurrenceId !== "string" || typeof intentId !== "string") return deny("bad-request", record);
+    const existing = await commandRecords.getReservation(session.cmd, session.stg, occurrenceId);
+    if (existing) {
+      if (existing.intentId !== intentId || (item !== null && existing.item !== item)) return deny("binding-mismatch", record);
+      return reservationAnswer(existing);
+    }
+    const intent = (command.admission.stages?.[session.stg]?.intents ?? []).find(i => i.id === intentId);
+    const scope = admittedScope(intent);
+    if (!intent || scope?.kind !== "item") return deny("intent-mismatch", record);
+    if (scope.id !== undefined && item !== null && item !== scope.id) return deny("intent-mismatch", record);
+    const itemId = scope.id ?? item;
+    if (typeof itemId !== "string" || !ITEM_ID_RE.test(itemId)) return deny("bad-request", record);
+    Object.assign(record, { itemId });
+    const access = await itemAccess(itemAuthority, { itemId, uid: command.uid, lang: session.lang, fn: intent.fn });
+    if (access.refusal === "item-authority-unavailable") return unavailable(access.refusal, record);
+    if (access.refusal) {
+      // Definite: the occurrence fails, as a refused bind does.
+      await commandRecords.recordRefusal({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, reason: access.refusal }).catch(() => {});
+      return deny(access.refusal, record);
+    }
+    const publicCapture = access.publicCapture === true;
+    let reservation;
+    try {
+      reservation = await commandRecords.reserve({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, intentId, expansionKey, item: itemId, publicCapture, limit: publicCaptureLimit.perWindow, windowMs: publicCaptureLimit.windowMs });
+    } catch (e) {
+      return recordsDenied(e, { ...record, publicCapture });
+    }
+    if (!reservation.reused) await audit({ ...record, publicCapture, provenance: command.uid === ANONYMOUS_SUBJECT ? "anonymous" : "user", outcome: "allowed" });
+    return reservationAnswer(reservation);
+  };
+  const reservationAnswer = r => ({
+    item: r.item,
+    captureSequence: r.captureSequence,
+    publicCapture: r.publicCapture === true,
+    staged: r.state === "staged" ? { sha256: r.sha256, size: r.size } : null,
+  });
+  const commandStage = async ({ caller, sessionToken, occurrenceId, png }) => {
+    const record = { event: "command-stage", callerRole: caller?.role };
+    const { session } = await reservationClaims({ caller, sessionToken, record });
+    Object.assign(record, { commandId: session.cmd });
+    if (!staging) return unavailable("unavailable", record);
+    if (typeof occurrenceId !== "string" || typeof png !== "string") return deny("bad-request", record);
+    const reservation = await commandRecords.getReservation(session.cmd, session.stg, occurrenceId);
+    if (!reservation) return deny("occurrence-not-reserved", record);
+    Object.assign(record, { itemId: reservation.item });
+    if (reservation.state === "staged") return stagedAnswer(reservation);
+    const rendered = new Uint8Array(Buffer.from(png, "base64"));
+    if (rendered.length === 0 || rendered.length > MAX_STAGED_BYTES || !isPng(rendered)) return deny("payload-rejected", record);
+    const name = stagedName({ commandId: session.cmd, stage: session.stg, occurrenceId });
+    // Create once; whatever is already there was staged first, and stands.
+    let bytes = rendered;
+    let created;
+    try {
+      created = await staging.create(name, rendered);
+    } catch {
+      created = { created: false };
+    }
+    if (!created.created) {
+      let existing;
+      try {
+        existing = await staging.read(name);
+      } catch {
+        existing = null;
+      }
+      if (!existing) return unavailable("unavailable", record);
+      bytes = existing;
+    }
+    let staged;
+    try {
+      staged = await commandRecords.markStaged({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, sha256: sha256Hex(bytes), size: bytes.length, object: name });
+    } catch (e) {
+      return recordsDenied(e, record);
+    }
+    await audit({ ...record, outcome: "allowed" });
+    return stagedAnswer(staged);
+  };
+  const stagedAnswer = r => ({ item: r.item, captureSequence: r.captureSequence, sha256: r.sha256, size: r.size });
   const commandObserve = async ({ caller, sessionToken, key, text = undefined }) => {
     const record = { event: "command-observe", callerRole: caller?.role };
     const { session } = await commandSessionClaims({ caller, sessionToken, record });
@@ -1274,7 +1401,12 @@ export const createPolicy = ({
     if (scope?.kind === "item") {
       if (authority.provenance !== "user" && authority.provenance !== "anonymous") return { refusal: "bad-provenance" };
       const access = await itemAccess(itemAuthority, { itemId: scope.id, uid: authority.sub, lang: authority.lang, fn });
-      return access.refusal ? { refusal: access.refusal } : { publicCapture: access.publicCapture === true };
+      if (access.refusal) return { refusal: access.refusal };
+      // A capture reserved as the owner's, now only possible under the
+      // exception, was never counted by the rate limit: the authority it was
+      // reserved under is gone (decision 9).
+      if (access.publicCapture && scope.reservedPublic === false) return { refusal: "not-owner" };
+      return { publicCapture: access.publicCapture === true };
     }
     // Nothing anonymous reaches a connection.
     if (authority.provenance === "anonymous") return { refusal: "bad-provenance" };
@@ -1543,6 +1675,7 @@ export const createPolicy = ({
     if (contractRefusal) return deny(contractRefusal, { ...record, planDigest: claims.pld });
     // A command's step (B5): the owner is still current, the occurrence still
     // the bound one, and this token one Policy logged for it.
+    let operationScope = null;
     if (claims.cmd !== undefined) {
       const occurrenceId = String(claims.opid).split("/")[2];
       const checked = await commandOperation({ claims: { ...claims, inv: opInvocation }, stage: opStage, occurrenceId, fn: claims.fn, op, argsDigest });
@@ -1551,11 +1684,12 @@ export const createPolicy = ({
       // The token selects the occurrence's own scope (C5 decision 6).
       const item = checked.scope.kind === "item";
       if (item ? claims.scp?.id !== checked.scope.id : claims.scp !== undefined) return deny("intent-mismatch", { ...record, commandId: claims.cmd });
+      operationScope = item ? checked.scope : null;
     } else if ((claims.prv === "user" && await isCommandInvocation(opInvocation)) || claims.prv === "anonymous" || claims.cv === CONTRACT_VERSION_SCOPED) {
       return deny("command-claims-required", record);
     }
     // The same live checks as mint, re-read now.
-    const checked = await liveCheck({ ...claims, provenance: claims.prv }, claims.fn, claims.scp ? { kind: "item", id: claims.scp.id } : null);
+    const checked = await liveCheck({ ...claims, provenance: claims.prv }, claims.fn, operationScope ?? (claims.scp ? { kind: "item", id: claims.scp.id } : null));
     if (checked.refusal === "item-authority-unavailable") return unavailable(checked.refusal, record);
     if (checked.refusal) return deny(checked.refusal, record);
     const decisionId = randomUUID();
@@ -1932,5 +2066,5 @@ export const createPolicy = ({
     return { enabled, source };
   };
 
-  return { allocateInvocation, allocateCommand, allocateRepair, leaseCommand, getCommand, commandWrite, settleCommand, commandRead, transitionCommand, admitCommand, commandSession, commandBind, commandObserve, dueCommands, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
+  return { allocateInvocation, allocateCommand, allocateRepair, leaseCommand, getCommand, commandWrite, settleCommand, commandRead, transitionCommand, admitCommand, commandSession, commandBind, commandObserve, commandReserve, commandStage, dueCommands, createPublication, deletePublication, authorizeView, snapshot, previewSession, mint, authorizeExecution, planLookup, admit, reconcile, protectedExecution };
 };

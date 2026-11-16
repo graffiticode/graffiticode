@@ -20,6 +20,7 @@ import {
   createCommandRecords,
   createProtectedSwitch,
   createMemoryItemAuthority,
+  createMemoryStagingStore,
   buildItemAuthority,
   PolicyUnavailable,
   declaresItemScope,
@@ -103,6 +104,7 @@ beforeEach(async () => {
     approvals,
     fence: createMemoryLeaseFence({ leases, now: () => clock }),
     itemAuthority: items,
+    staging: createMemoryStagingStore(),
     now: () => clock,
   };
   build();
@@ -499,7 +501,19 @@ describe("v3 execution (decisions 5 and 6)", () => {
   const admitted = async (opts: Parameters<typeof command>[0]) => {
     const c = await command(opts);
     await c.admit();
-    const bind = (stage, occurrenceId, intentId, argd) => policy.commandWrite({ caller: GATEWAY, commandId: c.commandId, generation: 1, fn: "bindOccurrence", args: { stage, occurrenceId, intentId, args: "{}", argd } });
+    // A capture binds as its compiler does (3c): reserved, staged, then
+    // bound with exactly those arguments. Anything else binds as before.
+    const bind = async (stage, occurrenceId, intentId, argd) => {
+      let args = "{}";
+      if (intentId === "snap") {
+        const sessionToken = (await policy.commandSession({ caller: GATEWAY, commandId: c.commandId, generation: 1, stage })).sessionToken;
+        const reserved = await policy.commandReserve({ caller: { role: "compiler", lang: "0013" }, sessionToken, occurrenceId, intentId });
+        const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(occurrenceId)]);
+        const staged = await policy.commandStage({ caller: { role: "compiler", lang: "0013" }, sessionToken, occurrenceId, png: png.toString("base64") });
+        args = JSON.stringify({ item: reserved.item, sha256: staged.sha256, captureSequence: reserved.captureSequence });
+      }
+      return policy.commandWrite({ caller: GATEWAY, commandId: c.commandId, generation: 1, fn: "bindOccurrence", args: { stage, occurrenceId, intentId, args, argd } });
+    };
     const session = async stage => (await policy.commandSession({ caller: GATEWAY, commandId: c.commandId, generation: 1, stage })).sessionToken;
     return { ...c, bind, session };
   };
@@ -603,10 +617,10 @@ describe("v3 execution (decisions 5 and 6)", () => {
     await denied(authorize(executionToken), "not-owner");
   });
 
-  it("refuses a bound item's mint until its occurrence is reserved", async () => {
+  it("refuses a bound item's bind, and so its mint, until its occurrence is reserved", async () => {
     const c = await admitted({ langs: ["0013"], intents: { s0: [snapIntent({ kind: "item" })] } });
-    await c.bind("s0", "n0.0", "snap", ARGD);
-    await denied(mintSnap(await c.session("s0")), "occurrence-not-reserved");
+    await denied(policy.commandWrite({ caller: GATEWAY, commandId: c.commandId, generation: 1, fn: "bindOccurrence", args: { stage: "s0", occurrenceId: "n0.0", intentId: "snap", args: "{}", argd: ARGD } }), "occurrence-not-reserved");
+    await denied(mintSnap(await c.session("s0")), "occurrence-not-bound");
   });
 
   it("refuses a token selecting another scope than its occurrence's, and a v3 session that isn't a command's", async () => {

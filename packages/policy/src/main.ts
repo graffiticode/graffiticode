@@ -15,6 +15,10 @@
 //                           item-authority.js), asked as this service's account with
 //                           an ID token for ITEM_AUTHORITY_AUDIENCE (default: the URL).
 //                           Absent: every item scope is refused item-authority-unavailable.
+//   COMMAND_STAGING_BUCKET  optional; the bucket a capture's rendered PNG is staged in
+//                           (C5 decision 9, staging.js), written as this service's
+//                           account (objectCreator and objectViewer there only).
+//                           Absent: staging is refused unavailable.
 //   PROTECTED_EXECUTION     optional; "disabled" hard-disables protected execution.
 //                           Otherwise controls/protected-execution in this database
 //                           decides, and a missing flag means off (see maintenance.js)
@@ -27,6 +31,7 @@ import { importSPKI, exportJWK } from "jose";
 import { createClient as createAuthClient } from "@graffiticode/auth/client";
 import { cacheVerifications } from "@graffiticode/common/verified-tokens";
 import { buildItemAuthority } from "./item-authority.js";
+import { buildStagingStore } from "./staging.js";
 import {
   createPolicy,
   createPolicyApp,
@@ -90,8 +95,20 @@ const brokerAdmin = createBrokerAdminClient({ brokerUrl, idToken });
 const itemAuthority = env.ITEM_AUTHORITY_URL
   ? buildItemAuthority({ url: env.ITEM_AUTHORITY_URL, audience: env.ITEM_AUTHORITY_AUDIENCE || env.ITEM_AUTHORITY_URL, idToken })
   : null;
+const storageAuth = new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/devstorage.read_write"] });
+const staging = env.COMMAND_STAGING_BUCKET
+  ? buildStagingStore({
+    bucket: env.COMMAND_STAGING_BUCKET,
+    accessToken: async () => {
+      const token = await storageAuth.getAccessToken();
+      if (!token) throw new Error("no access token for Cloud Storage");
+      return token;
+    },
+  })
+  : null;
 const policy = createPolicy({
   itemAuthority,
+  staging,
   brokerReconcile: brokerAdmin.reconcile,
   signer,
   jwks: publicJwks,

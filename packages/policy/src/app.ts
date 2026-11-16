@@ -288,6 +288,20 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
     const { sessionToken, occurrenceId, intentId, expansionKey = null, args, argd, observations = [] } = body(req);
     await decide(res, () => policy.commandBind({ caller, sessionToken, occurrenceId, intentId, expansionKey, args, argd, observations }));
   }));
+  // C5 (decision 9): a capture's reservation and staging, by the stage's
+  // compiler under its command session.
+  router.post("/command-reservations", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("command-compiler")(req);
+    res.set("Cache-Control", "no-store");
+    const { sessionToken, occurrenceId, intentId, expansionKey = null, item = null } = body(req);
+    await decide(res, () => policy.commandReserve({ caller, sessionToken, occurrenceId, intentId, expansionKey, item }));
+  }));
+  router.post("/command-stagings", buildHttpHandler(async (req, res) => {
+    const caller = await authorize("command-compiler")(req);
+    res.set("Cache-Control", "no-store");
+    const { sessionToken, occurrenceId, png } = body(req);
+    await decide(res, () => policy.commandStage({ caller, sessionToken, occurrenceId, png }));
+  }));
   router.post("/command-observations", buildHttpHandler(async (req, res) => {
     const caller = await authorize("command-compiler")(req);
     res.set("Cache-Control", "no-store");

@@ -124,6 +124,37 @@ run("command records in Firestore", () => {
   };
   const bind = (command, n) => records.bindOccurrence({ commandId: command.commandId, generation: 1, stage: "s0", occurrenceId: runtimeOccurrenceId("batch", `b${n}`), intentId: "batch", expansionKey: `b${n}`, args: `{"n":${n}}` });
 
+  // C5 slice 3c (decision 9): reservations take an item's sequence and its
+  // public-capture limit in real transactions.
+  const capturing = async key => {
+    const { command } = await allocate({ idempotencyKey: `${key}-${uid}` });
+    await db.collection("commands").doc(command.commandId).update({
+      phase: "admitted",
+      admission: { planDigest: digest("plan"), contractVersion: 3, stages: { s0: { modelDigest: digest("m"), intents: [{ id: "snap", fn: "snap", op: "gcs.put-thumbnail", occurrences: ["n0.0"], scope: { kind: "item" }, bounds: { maxOccurrences: 1 } }] } } },
+    });
+    return command;
+  };
+  const reserveIn = (command, item, publicCapture) => records.reserve({ commandId: command.commandId, generation: 1, stage: "s0", occurrenceId: "n0.0", intentId: "snap", item, publicCapture, limit: 3, windowMs: 3_600_000 });
+
+  it("gives concurrent reservations of one item distinct sequences, and holds the public limit", async () => {
+    const item = `item-${uid.slice(3, 15)}`;
+    const commandsFor = await Promise.all([0, 1, 2, 3, 4].map(i => capturing(`cap-${i}`)));
+    const results = await Promise.allSettled(commandsFor.map(c => reserveIn(c, item, true)));
+    const reserved = results.filter(r => r.status === "fulfilled").map(r => (r as PromiseFulfilledResult<any>).value);
+    expect(reserved).toHaveLength(3);
+    expect(results.filter(r => r.status === "rejected").map(r => (r as PromiseRejectedResult).reason.reason)).toEqual(["rate-limited", "rate-limited"]);
+    expect(reserved.map(r => r.captureSequence).sort()).toEqual([1, 2, 3]);
+    // The owner's isn't limited; a repeat counts nothing.
+    const owners = await capturing("cap-owner");
+    expect((await reserveIn(owners, item, false)).captureSequence).toBe(4);
+    expect(await reserveIn(owners, item, false)).toMatchObject({ captureSequence: 4, reused: true });
+    expect(await records.getItemCaptures(item)).toMatchObject({ nextCaptureSequence: 5 });
+    expect((await records.getItemCaptures(item)).publicCaptures).toHaveLength(3);
+    // Staged once; the first staging stands.
+    await records.markStaged({ commandId: owners.commandId, generation: 1, stage: "s0", occurrenceId: "n0.0", sha256: digest("a"), size: 10, object: "o" });
+    expect(await records.markStaged({ commandId: owners.commandId, generation: 1, stage: "s0", occurrenceId: "n0.0", sha256: digest("b"), size: 10, object: "o" })).toMatchObject({ sha256: digest("a") });
+  }, 30_000);
+
   it("binds no more than the bound under concurrent binds", async () => {
     const command = await admitted();
     const results = await Promise.all([1, 2, 3, 4].map(n => bind(command, n)));

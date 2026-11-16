@@ -201,9 +201,11 @@ export const createFirestoreCommandStore = (db, { duePage = DUE_PAGE } = {}) => 
 
 // The transaction interface command-records.js is written against, over
 // `commands/{id}` and its subcollections.
+// C5: also `item-captures/{item}`, an item's capture sequence and hourly
+// public captures.
 export const createFirestoreCommandBackend = db => {
   const ref = path => (path.length === 2
-    ? db.collection("commands").doc(path[1])
+    ? db.collection(path[0] === "item-captures" ? "item-captures" : "commands").doc(path[1])
     : db.collection("commands").doc(path[1]).collection(path[2]).doc(path[3]));
   return {
     transaction: fn => db.runTransaction(async t => fn({
