@@ -44,6 +44,7 @@
 import { createHash } from "node:crypto";
 import { CommandRefused, MAX_PAYLOAD_BYTES, ownerRefusal } from "./commands.js";
 import { protectedFunctionsForLang, credentialOf } from "@graffiticode/common/protected-registry";
+import { canonicalDigest } from "@graffiticode/common/canonical";
 import { aggregateStatus, outcomeFromReceipt } from "./command-outcomes.js";
 
 export const sha256 = text => createHash("sha256").update(text, "utf8").digest("hex");
@@ -166,6 +167,9 @@ export const declaresItemScope = text => {
 // C5: an intent whose scope is an item (stored normalized at admission).
 const ITEM_RE = /^[A-Za-z0-9_:.-]{1,200}$/;
 const isItemScoped = intent => Boolean(intent?.scope && typeof intent.scope === "object" && intent.scope.kind === "item");
+// The digest of the payload Broker publishes for a reserved and staged
+// capture (its argsDigest: @graffiticode/common/canonical).
+export const capturePayloadDigest = reservation => canonicalDigest({ item: reservation.item, sha256: reservation.sha256, captureSequence: reservation.captureSequence });
 // A capture's bound arguments are exactly what was reserved and staged.
 const sameCaptureArgs = (text, reservation) => {
   let args;
@@ -409,12 +413,15 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       }
       // C5 (decision 9): an item-scoped occurrence binds only after it was
       // reserved and staged, and only with exactly those arguments:
-      // { item, sha256, captureSequence }.
+      // { item, sha256, captureSequence }. Broker's payload digest (`argd`),
+      // which mint and authorize-execution hold its token to, must be the
+      // canonical digest of exactly that payload, so no other payload (a
+      // higher sequence, another item) can be published under this binding.
       let captured = null;
       if (isItemScoped(intent)) {
         const reservation = await tx.get(sub(commandId, "reservations", key));
         if (!reservation) return refuse("occurrence-not-reserved");
-        if (reservation.state !== "staged" || !sameCaptureArgs(args, reservation)) return refuse("binding-mismatch");
+        if (reservation.state !== "staged" || !sameCaptureArgs(args, reservation) || argd !== capturePayloadDigest(reservation)) return refuse("binding-mismatch");
         captured = { item: reservation.item, publicCapture: reservation.publicCapture === true };
       }
       const argsDigest = sha256(args);

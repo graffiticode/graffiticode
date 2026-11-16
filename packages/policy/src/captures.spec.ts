@@ -27,6 +27,7 @@ import {
   PUBLIC_CAPTURE_LIMIT,
 } from "./index.js";
 import { createHash } from "node:crypto";
+import { canonicalDigest } from "@graffiticode/common/canonical";
 
 const OWNER = "0xowner";
 const OTHER = "0xother";
@@ -117,7 +118,9 @@ const capture = async ({ uid = OWNER, anonymous = false, intents = [snapIntent()
 };
 const reserve = (sessionToken, over = {}) => policy.commandReserve({ caller: L0013, sessionToken, occurrenceId: "n0.0", intentId: "snap", ...over });
 const stage = (sessionToken, label, over = {}) => policy.commandStage({ caller: L0013, sessionToken, occurrenceId: "n0.0", png: b64(label), ...over });
-const bind = (c, args, { stage: stg = "s0", generation = 1 } = {}) => policy.commandWrite({ caller: GATEWAY, commandId: c.commandId, generation, fn: "bindOccurrence", args: { stage: stg, occurrenceId: "n0.0", intentId: "snap", args: JSON.stringify(args), argd: hex("a") } });
+// Bound with the digest of the payload its arguments name, as the compiler
+// binds it, unless the test says otherwise.
+const bind = (c, args, { stage: stg = "s0", generation = 1, argd = canonicalDigest(args) } = {}) => policy.commandWrite({ caller: GATEWAY, commandId: c.commandId, generation, fn: "bindOccurrence", args: { stage: stg, occurrenceId: "n0.0", intentId: "snap", args: JSON.stringify(args), argd } });
 const outcomes = async c => (await policy.commandRead({ caller: GATEWAY, commandId: c.commandId, what: "outcomes" })).outcomes;
 
 describe("reserve, stage and bind (decision 9)", () => {
@@ -137,7 +140,7 @@ describe("reserve, stage and bind (decision 9)", () => {
     const args = { item: PRIVATE, sha256: sha("first"), captureSequence: 1 };
     expect(await bind(c, args)).toMatchObject({ bound: true });
     // The occurrence names its item, which its token selects.
-    const { executionToken } = await policy.mint({ caller: L0013, sessionToken: s, fn: "snap", op: PUT, occurrenceId: "n0.0", argsDigest: hex("a") });
+    const { executionToken } = await policy.mint({ caller: L0013, sessionToken: s, fn: "snap", op: PUT, occurrenceId: "n0.0", argsDigest: canonicalDigest(args) });
     expect((await verifyToken(deps.jwks, "execution", executionToken)).claims.scp).toEqual({ kind: "item", id: PRIVATE });
   });
 
@@ -172,6 +175,38 @@ describe("reserve, stage and bind (decision 9)", () => {
       await stage(u, "x");
       await denied(bind(fresh, args), "binding-mismatch");
     }
+  });
+
+  // The owner's review of #404: Broker's payload digest is bound too, to
+  // exactly the reserved and staged payload, so no other payload (a higher
+  // sequence) can be published under a valid binding.
+  it("binds only the digest of exactly the reserved and staged payload", async () => {
+    for (const payload of [
+      { item: PRIVATE, sha256: sha("x"), captureSequence: 1000001 },
+      { item: PUBLIC, sha256: sha("x"), captureSequence: 1 },
+      { item: PRIVATE, sha256: sha("y"), captureSequence: 1 },
+      { item: PRIVATE, sha256: sha("x"), captureSequence: 1, extra: true },
+    ]) {
+      const c = await capture();
+      const s = await c.session();
+      const reserved = await reserve(s);
+      await stage(s, "x");
+      const args = { item: PRIVATE, sha256: sha("x"), captureSequence: reserved.captureSequence };
+      await denied(bind(c, args, { argd: canonicalDigest({ ...payload, captureSequence: payload.captureSequence === 1 ? reserved.captureSequence : payload.captureSequence }) }), "binding-mismatch");
+      await denied(bind(c, args, { argd: null }), "binding-mismatch");
+      // The recorded refusal stands: the occurrence failed, nothing minted.
+      expect((await outcomes(c)).map(o => [o.outcome, o.reason])).toEqual([]);
+      expect((await policy.commandRead({ caller: GATEWAY, commandId: c.commandId, what: "refusals" })).refusals.map(r => r.reason)).toEqual(["binding-mismatch"]);
+      await denied(policy.mint({ caller: L0013, sessionToken: s, fn: "snap", op: PUT, occurrenceId: "n0.0", argsDigest: canonicalDigest(payload) }), "occurrence-not-bound");
+    }
+    // The control: exactly the reserved payload's digest binds, and mints.
+    const c = await capture();
+    const s = await c.session();
+    const reserved = await reserve(s);
+    await stage(s, "x");
+    const payload = { item: PRIVATE, sha256: sha("x"), captureSequence: reserved.captureSequence };
+    expect(await bind(c, payload)).toMatchObject({ bound: true });
+    expect(await policy.mint({ caller: L0013, sessionToken: s, fn: "snap", op: PUT, occurrenceId: "n0.0", argsDigest: canonicalDigest(payload) })).toMatchObject({ operationId: expect.any(String) });
   });
 
   it("refuses a bind with no reservation", async () => {
@@ -329,9 +364,10 @@ describe("the live check against the reservation (decision 9)", () => {
     const s = await c.session();
     await reserve(s);
     await stage(s, "x");
-    await bind(c, { item: PUBLIC, sha256: sha("x"), captureSequence: 1 });
-    const { executionToken } = await policy.mint({ caller: L0013, sessionToken: s, fn: "snap", op: PUT, occurrenceId: "n0.0", argsDigest: hex("a") });
-    const authorize = () => policy.authorizeExecution({ caller: BROKER, executionToken, op: PUT, argsDigest: hex("a"), step: "publish", purpose: "dispatch", after: null, attempt: 1 });
+    const args = { item: PUBLIC, sha256: sha("x"), captureSequence: 1 };
+    await bind(c, args);
+    const { executionToken } = await policy.mint({ caller: L0013, sessionToken: s, fn: "snap", op: PUT, occurrenceId: "n0.0", argsDigest: canonicalDigest(args) });
+    const authorize = () => policy.authorizeExecution({ caller: BROKER, executionToken, op: PUT, argsDigest: canonicalDigest(args), step: "publish", purpose: "dispatch", after: null, attempt: 1 });
     await authorize();
     // The item changes owner; it is still public, but this capture was never
     // counted under the exception.

@@ -5,6 +5,7 @@
 import { generateKeyPair, exportJWK } from "jose";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { planDigest } from "@graffiticode/common/contract";
+import { canonicalDigest } from "@graffiticode/common/canonical";
 import { encodeChainId } from "@graffiticode/common/chain";
 import {
   createPolicy,
@@ -495,6 +496,9 @@ describe("v3 execution (decisions 5 and 6)", () => {
   const BROKER = { role: "broker" };
   const ARGD = hex("a");
   const SAVE_ARGD = hex("e");
+  // A capture's payload digest, as its bind records it (3c): set by each
+  // snap bind, and what its mints and authorizations are held to.
+  let snapArgd = ARGD;
   const PUT = "gcs.put-thumbnail";
   // An admitted command, its occurrences bound: s0's snap n0.0 and, in a
   // mixed chain, s1's save n1.0.
@@ -510,7 +514,10 @@ describe("v3 execution (decisions 5 and 6)", () => {
         const reserved = await policy.commandReserve({ caller: { role: "compiler", lang: "0013" }, sessionToken, occurrenceId, intentId });
         const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(occurrenceId)]);
         const staged = await policy.commandStage({ caller: { role: "compiler", lang: "0013" }, sessionToken, occurrenceId, png: png.toString("base64") });
-        args = JSON.stringify({ item: reserved.item, sha256: staged.sha256, captureSequence: reserved.captureSequence });
+        const payload = { item: reserved.item, sha256: staged.sha256, captureSequence: reserved.captureSequence };
+        args = JSON.stringify(payload);
+        snapArgd = canonicalDigest(payload);
+        return policy.commandWrite({ caller: GATEWAY, commandId: c.commandId, generation: 1, fn: "bindOccurrence", args: { stage, occurrenceId, intentId, args, argd: snapArgd } });
       }
       return policy.commandWrite({ caller: GATEWAY, commandId: c.commandId, generation: 1, fn: "bindOccurrence", args: { stage, occurrenceId, intentId, args, argd } });
     };
@@ -518,8 +525,8 @@ describe("v3 execution (decisions 5 and 6)", () => {
     return { ...c, bind, session };
   };
   const claimsOf = async (profile, token) => (await verifyToken(deps.jwks, profile, token)).claims;
-  const mintSnap = (sessionToken, over = {}) => policy.mint({ caller: L0013, sessionToken, fn: "snap", op: PUT, occurrenceId: "n0.0", argsDigest: ARGD, ...over });
-  const authorize = (executionToken, over = {}) => policy.authorizeExecution({ caller: BROKER, executionToken, op: PUT, argsDigest: ARGD, step: "publish", purpose: "dispatch", after: null, attempt: 1, ...over });
+  const mintSnap = (sessionToken, over = {}) => policy.mint({ caller: L0013, sessionToken, fn: "snap", op: PUT, occurrenceId: "n0.0", argsDigest: snapArgd, ...over });
+  const authorize = (executionToken, over = {}) => policy.authorizeExecution({ caller: BROKER, executionToken, op: PUT, argsDigest: snapArgd, step: "publish", purpose: "dispatch", after: null, attempt: 1, ...over });
 
   it("gives an item-only stage a session with no connection, bound to its plan", async () => {
     const c = await admitted({ langs: ["0013"], intents: { s0: [snapIntent()] } });
