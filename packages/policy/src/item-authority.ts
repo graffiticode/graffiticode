@@ -85,7 +85,15 @@ export const createMemoryItemAuthority = (items: Record<string, unknown> = {}) =
 // Only an owner acts on a private item; a public one is open to anyone else
 // only under the function's public-capture exception. Anonymous callers are
 // never owners.
-export const itemAccess = async (lookup, { itemId, uid, lang, fn }) => {
+export type ItemAccess = {
+  refusal?: string;
+  owner?: boolean;
+  publicCapture?: boolean;
+  ownerUid?: string;
+  isPublic?: boolean;
+  taskId?: string | null;
+};
+export const itemAccess = async (lookup, { itemId, uid, lang, fn }): Promise<ItemAccess> => {
   if (!lookup) return { refusal: "item-authority-unavailable" };
   let answer;
   try {
@@ -95,8 +103,11 @@ export const itemAccess = async (lookup, { itemId, uid, lang, fn }) => {
   }
   if (answer.ambiguous) return { refusal: "item-ambiguous" };
   if (!answer.exists) return { refusal: "item-not-found" };
-  if (uid !== ANONYMOUS_SUBJECT && answer.ownerUid === uid) return { owner: true, ownerUid: answer.ownerUid };
+  // The item's publicity and task as the authority answered them: a private
+  // capture's render grant pins that task (C5, render grants).
+  const item = { ownerUid: answer.ownerUid, isPublic: answer.isPublic === true, taskId: typeof answer.taskId === "string" ? answer.taskId : null };
+  if (uid !== ANONYMOUS_SUBJECT && answer.ownerUid === uid) return { owner: true, ...item };
   const exception = protectedFunctionsForLang(lang)?.[fn]?.publicCapture;
-  if (answer.isPublic && exception) return { publicCapture: true, ownerUid: answer.ownerUid };
+  if (answer.isPublic && exception) return { publicCapture: true, ...item };
   return { refusal: "not-owner" };
 };

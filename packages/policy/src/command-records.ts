@@ -489,9 +489,12 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
     // (`limit` within `windowMs`, across all non-owner callers; the
     // (limit+1)th is refused `rate-limited`, with when to retry). A repeat
     // returns the reservation as it stands, counting nothing again.
-    reserve: ({ commandId, generation, stage, occurrenceId, intentId, expansionKey = null, item, publicCapture, limit, windowMs }) => owned(commandId, generation, async (tx, command) => {
+    // `renderTask`: a private capture's task chain, pinned here once; a repeat
+    // never changes it.
+    reserve: ({ commandId, generation, stage, occurrenceId, intentId, expansionKey = null, item, publicCapture, renderTask = null, limit, windowMs }) => owned(commandId, generation, async (tx, command) => {
       requireStage(stage);
       if (typeof occurrenceId !== "string" || !OCC_RE.test(occurrenceId) || typeof intentId !== "string" || !intentId || typeof item !== "string" || !ITEM_RE.test(item) || typeof publicCapture !== "boolean") throw new CommandRefused("bad-request");
+      if (renderTask !== null && (typeof renderTask !== "string" || !renderTask || publicCapture)) throw new CommandRefused("bad-request");
       const intents = admittedIntents(command, stage);
       if (!intents) throw new CommandRefused("not-admitted");
       const intent = intents.find(i => i.id === intentId);
@@ -515,7 +518,7 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       }
       const captureSequence = captures.nextCaptureSequence;
       tx.set(capturesPath, { item, nextCaptureSequence: captureSequence + 1, publicCaptures: publicCapture ? [...recent, at] : recent, updatedAt: new Date(at).toISOString() });
-      const reservation = { stage, occurrenceId, intentId, expansionKey, item, captureSequence, publicCapture, state: "reserved", reservedAt: new Date(at).toISOString(), generation };
+      const reservation = { stage, occurrenceId, intentId, expansionKey, item, captureSequence, publicCapture, renderTask, state: "reserved", reservedAt: new Date(at).toISOString(), generation };
       tx.set(path, reservation);
       return { ...reservation, reused: false };
     }),

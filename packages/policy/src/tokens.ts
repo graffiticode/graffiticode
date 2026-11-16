@@ -151,6 +151,20 @@ export const PROFILES = Object.freeze({
     optional: { own: STRING, conn: STRING, backend: STRING, scp: OBJECT, cv: NUMBER, pld: STRING, stg: STRING, cmd: STRING, fg: NUMBER },
     rule: oneScope,
   }),
+  // C5: a render grant. Lets L0013's camera render exactly one private item's
+  // pinned task for one reserved capture, as the command's subject (`sub`),
+  // never as that user in general. Its own typ and audience, so it is never
+  // read as any other token; accepted only by the console's form resolver and
+  // the API's /form and /data reads, which check `sub`'s access to exactly
+  // `tsk`. Bound to the item (`itm`), the task chain its reservation pinned
+  // (`tsk`), and the capture: command, owner generation, stage, occurrence and
+  // capture sequence. Five minutes at most; recovery asks for a fresh one.
+  render: profile({
+    typ: "gc-render+jwt",
+    audience: "urn:graffiticode:render",
+    ttlSeconds: 5 * 60,
+    required: { sub: STRING, itm: STRING, tsk: STRING, cmd: STRING, fg: NUMBER, stg: STRING, occ: STRING, cseq: NUMBER },
+  }),
   // One admitted plan for one invocation (W4): issued to the gateway by
   // admission, and presented with each stage's snapshot. Policy's audience.
   admission: profile({

@@ -965,6 +965,29 @@ export const createPolicy = ({
     const existing = await commandRecords.getReservation(session.cmd, session.stg, occurrenceId);
     if (existing) {
       if (existing.intentId !== intentId || (item !== null && existing.item !== item)) return deny("binding-mismatch", record);
+      // Recovery's render grant: fresh, and only after the item is checked
+      // again (the owner and fencing were just checked by reservationClaims),
+      // against the task this reservation pinned, never a new one.
+      if (typeof existing.renderTask === "string" && existing.state !== "staged") {
+        Object.assign(record, { itemId: existing.item });
+        const access = await itemAccess(itemAuthority, { itemId: existing.item, uid: command.uid, lang: session.lang, fn: intentFn(command, session.stg, intentId) });
+        if (access.refusal === "item-authority-unavailable") return unavailable(access.refusal, record);
+        // Definite: the occurrence fails, as a refused bind does.
+        const failOccurrence = reason => commandRecords.recordRefusal({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, reason }).catch(() => {});
+        if (access.refusal) {
+          await failOccurrence(access.refusal);
+          return deny(access.refusal, record);
+        }
+        if (!access.owner) {
+          await failOccurrence("not-owner");
+          return deny("not-owner", record);
+        }
+        if (access.taskId !== existing.renderTask) {
+          await failOccurrence("render-target-changed");
+          return deny("render-target-changed", record);
+        }
+        return reservationAnswer(existing, await renderGrant({ session, command, reservation: existing, record }));
+      }
       return reservationAnswer(existing);
     }
     const intent = (command.admission.stages?.[session.stg]?.intents ?? []).find(i => i.id === intentId);
@@ -982,20 +1005,41 @@ export const createPolicy = ({
       return deny(access.refusal, record);
     }
     const publicCapture = access.publicCapture === true;
+    // A private item (only its owner reaches here with one) is rendered under
+    // a grant pinned to the task the authority resolved now. A public item
+    // renders without one.
+    const renderTask = access.owner && !access.isPublic ? access.taskId : null;
+    if (access.owner && !access.isPublic && !renderTask) {
+      await commandRecords.recordRefusal({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, reason: "render-target-missing" }).catch(() => {});
+      return deny("render-target-missing", record);
+    }
     let reservation;
     try {
-      reservation = await commandRecords.reserve({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, intentId, expansionKey, item: itemId, publicCapture, limit: publicCaptureLimit.perWindow, windowMs: publicCaptureLimit.windowMs });
+      reservation = await commandRecords.reserve({ commandId: session.cmd, generation: session.fg, stage: session.stg, occurrenceId, intentId, expansionKey, item: itemId, publicCapture, renderTask, limit: publicCaptureLimit.perWindow, windowMs: publicCaptureLimit.windowMs });
     } catch (e) {
       return recordsDenied(e, { ...record, publicCapture });
     }
-    if (!reservation.reused) await audit({ ...record, publicCapture, provenance: command.uid === ANONYMOUS_SUBJECT ? "anonymous" : "user", outcome: "allowed" });
-    return reservationAnswer(reservation);
+    // A concurrent reservation won: it is answered as a repeat is.
+    if (reservation.reused) return commandReserve({ caller, sessionToken, occurrenceId, intentId, expansionKey, item });
+    await audit({ ...record, publicCapture, provenance: command.uid === ANONYMOUS_SUBJECT ? "anonymous" : "user", outcome: "allowed" });
+    const grant = typeof reservation.renderTask === "string" ? await renderGrant({ session, command, reservation, record }) : null;
+    return reservationAnswer(reservation, grant);
   };
-  const reservationAnswer = r => ({
+  const intentFn = (command, stage, intentId) => (command.admission.stages?.[stage]?.intents ?? []).find(i => i.id === intentId)?.fn;
+  // C5: a render grant for one reserved private capture (tokens.ts `render`).
+  // Its token is never logged: the audit records its id and expiry.
+  const renderGrant = async ({ session, command, reservation: r, record }) => {
+    const token = await issueToken(signer, "render", { sub: command.uid, itm: r.item, tsk: r.renderTask, cmd: session.cmd, fg: session.fg, stg: session.stg, occ: r.occurrenceId, cseq: r.captureSequence });
+    const { jti, exp } = decodeJwt(token);
+    await audit({ ...record, event: "render-grant", itemId: r.item, renderGrant: { jti, exp }, outcome: "allowed" });
+    return { token, expiresAt: exp * 1000 };
+  };
+  const reservationAnswer = (r, grant = null) => ({
     item: r.item,
     captureSequence: r.captureSequence,
     publicCapture: r.publicCapture === true,
     staged: r.state === "staged" ? { sha256: r.sha256, size: r.size } : null,
+    ...(grant ? { renderGrant: grant } : {}),
   });
   const commandStage = async ({ caller, sessionToken, occurrenceId, png }) => {
     const record = { event: "command-stage", callerRole: caller?.role };

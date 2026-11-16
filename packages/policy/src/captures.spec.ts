@@ -36,6 +36,7 @@ const L0013 = { role: "compiler", lang: "0013" };
 const BROKER = { role: "broker" };
 const PRIVATE = "privateItem00000001";
 const PUBLIC = "publicItem000000001";
+const PRIVATE_TASK = "privateTask";
 const hex = c => c.repeat(64);
 const IMAGE = `sha256:${hex("3")}`;
 const PUT = "gcs.put-thumbnail";
@@ -67,7 +68,7 @@ beforeEach(async () => {
   const invocations = createMemoryInvocationStore({ leases });
   commandStore = createMemoryCommandStore({ invocationStore: invocations });
   records = createCommandRecords({ backend: createMemoryCommandBackend({ commandStore }), now: () => clock });
-  items = createMemoryItemAuthority({ [PRIVATE]: { ownerUid: OWNER, isPublic: false }, [PUBLIC]: { ownerUid: OWNER, isPublic: true } });
+  items = createMemoryItemAuthority({ [PRIVATE]: { ownerUid: OWNER, isPublic: false, taskId: PRIVATE_TASK }, [PUBLIC]: { ownerUid: OWNER, isPublic: true, taskId: "publicTask" } });
   staging = createMemoryStagingStore();
   deps = {
     signer,
@@ -127,13 +128,15 @@ describe("reserve, stage and bind (decision 9)", () => {
   it("run in order, each once: a repeat answers what is recorded", async () => {
     const c = await capture();
     const s = await c.session();
-    const reserved = await reserve(s);
+    const { renderGrant, ...reserved } = await reserve(s);
     expect(reserved).toEqual({ item: PRIVATE, captureSequence: 1, publicCapture: false, staged: null });
-    expect(await reserve(s)).toEqual(reserved);
+    expect(renderGrant).toMatchObject({ token: expect.any(String) });
+    expect(await reserve(s)).toMatchObject(reserved);
     const staged = await stage(s, "first");
     expect(staged).toEqual({ item: PRIVATE, captureSequence: 1, sha256: sha("first"), size: pngOf("first").length });
     expect([...staging.state.objects.keys()]).toEqual([stagedName({ commandId: c.commandId, stage: "s0", occurrenceId: "n0.0" })]);
-    // After staging, a retry renders nothing: reserve answers the staged digest.
+    // After staging, a retry renders nothing: reserve answers the staged
+    // digest, and no grant.
     expect(await reserve(s)).toEqual({ ...reserved, staged: { sha256: sha("first"), size: pngOf("first").length } });
     expect(await stage(s, "second")).toEqual(staged);
     expect(staging.state.creates).toHaveLength(1);
@@ -373,6 +376,106 @@ describe("the live check against the reservation (decision 9)", () => {
     // counted under the exception.
     items.state.items.set(PUBLIC, { ownerUid: OTHER, isPublic: true });
     await denied(authorize(), "not-owner");
+  });
+});
+
+// C5 render grants: a private capture renders under a short-lived grant for
+// exactly its reserved item and the task chain its reservation pinned, as the
+// command's subject. Public captures get none.
+describe("render grants", () => {
+  const grantOf = async answer => (await verifyToken(deps.jwks, "render", answer.renderGrant.token)).claims;
+
+  it("grants a private capture its pinned task, bound to the capture, for five minutes at most", async () => {
+    const audits = [];
+    build({ audit: async r => { audits.push(r); } });
+    const c = await capture();
+    const s = await c.session();
+    const answer = await reserve(s);
+    const claims = await grantOf(answer);
+    expect(claims).toMatchObject({ sub: OWNER, itm: PRIVATE, tsk: PRIVATE_TASK, cmd: c.commandId, fg: 1, stg: "s0", occ: "n0.0", cseq: 1, aud: "urn:graffiticode:render", iss: "urn:graffiticode:policy" });
+    expect(claims.exp - claims.iat).toBeLessThanOrEqual(300);
+    expect(answer.renderGrant.expiresAt).toBe(claims.exp * 1000);
+    expect((await records.getReservation(c.commandId, "s0", "n0.0")).renderTask).toBe(PRIVATE_TASK);
+    // Never read as any other token.
+    for (const other of ["session", "execution", "invocation", "admission", "replay"]) {
+      await expect(verifyToken(deps.jwks, other, answer.renderGrant.token)).rejects.toThrow();
+    }
+    // The audit names the grant, never carries it.
+    const text = JSON.stringify(audits);
+    expect(text).not.toContain(answer.renderGrant.token);
+    expect(audits.find(a => a.event === "render-grant")).toMatchObject({ itemId: PRIVATE, renderGrant: { jti: claims.jti, exp: claims.exp } });
+  });
+
+  it("grants nothing for a public item, the owner's or anyone else's", async () => {
+    const own = await capture({ intents: [snapIntent({ kind: "item", id: PUBLIC })] });
+    expect(await reserve(await own.session())).not.toHaveProperty("renderGrant");
+    const other = await capture({ uid: OTHER, intents: [snapIntent({ kind: "item", id: PUBLIC })] });
+    expect(await reserve(await other.session())).not.toHaveProperty("renderGrant");
+    expect((await records.getReservation(other.commandId, "s0", "n0.0")).renderTask).toBeNull();
+  });
+
+  it("refuses a private item with no task to render, recorded on the occurrence", async () => {
+    items.state.items.set(PRIVATE, { ownerUid: OWNER, isPublic: false });
+    const c = await capture();
+    await denied(reserve(await c.session()), "render-target-missing");
+    expect((await outcomes(c)).map(o => [o.outcome, o.reason])).toEqual([["failed", "render-target-missing"]]);
+    expect(await records.getReservation(c.commandId, "s0", "n0.0")).toBeNull();
+  });
+
+  it("renews on recovery after checking the item again, for the same pinned task", async () => {
+    const c = await capture();
+    const first = await grantOf(await reserve(await c.session()));
+    const lookups = items.state.lookups.length;
+    // A takeover: the new owner's generation, a fresh grant.
+    clock += COMMAND_LEASE_MS + 1;
+    const taken = await policy.leaseCommand({ caller: GATEWAY, commandId: c.commandId, worker: "api-2", generation: 1, takeOver: true, scopes: 1 });
+    const renewed = await grantOf(await reserve(await c.session("s0", taken.generation)));
+    expect(items.state.lookups.length).toBe(lookups + 1);
+    expect(renewed).toMatchObject({ tsk: PRIVATE_TASK, itm: PRIVATE, cseq: first.cseq, fg: taken.generation });
+    expect(renewed.jti).not.toBe(first.jti);
+  });
+
+  it("never retargets: an item now naming another task is refused, recorded", async () => {
+    const c = await capture();
+    const s = await c.session();
+    await reserve(s);
+    items.state.items.set(PRIVATE, { ownerUid: OWNER, isPublic: false, taskId: "anotherTask" });
+    await denied(reserve(s), "render-target-changed");
+    expect((await outcomes(c)).map(o => [o.outcome, o.reason])).toEqual([["failed", "render-target-changed"]]);
+    expect((await records.getReservation(c.commandId, "s0", "n0.0")).renderTask).toBe(PRIVATE_TASK);
+  });
+
+  it("refuses renewal once the item changed owner, and a stale worker's at all", async () => {
+    const c = await capture();
+    const s = await c.session();
+    await reserve(s);
+    clock += COMMAND_LEASE_MS + 1;
+    const taken = await policy.leaseCommand({ caller: GATEWAY, commandId: c.commandId, worker: "api-2", generation: 1, takeOver: true, scopes: 1 });
+    // The fenced-out owner gets nothing, and the item isn't asked.
+    const lookups = items.state.lookups.length;
+    await expect(reserve(s)).rejects.toBeInstanceOf(PolicyDenied);
+    expect(items.state.lookups.length).toBe(lookups);
+    items.state.items.set(PRIVATE, { ownerUid: OTHER, isPublic: false, taskId: PRIVATE_TASK });
+    await denied(reserve(await c.session("s0", taken.generation)), "not-owner");
+  });
+
+  it("answers an item-authority outage at renewal as temporary, recording nothing", async () => {
+    const c = await capture();
+    const s = await c.session();
+    await reserve(s);
+    items.state.unavailable = true;
+    expect(await reserve(s).catch(e => e)).toBeInstanceOf(PolicyUnavailable);
+    expect(await outcomes(c)).toEqual([]);
+  });
+
+  it("grants nothing once the capture is staged: nothing is rendered again", async () => {
+    const c = await capture();
+    const s = await c.session();
+    await reserve(s);
+    await stage(s, "x");
+    const lookups = items.state.lookups.length;
+    expect(await reserve(s)).not.toHaveProperty("renderGrant");
+    expect(items.state.lookups.length).toBe(lookups);
   });
 });
 
