@@ -24,7 +24,9 @@ export class AuthorizationDenied extends Error {
 
 export class AuthorizationUnavailable extends Error {}
 
-const requestBody = ({ executionToken, op, argsDigest, step, purpose, after }) => ({ executionToken, op, argsDigest, step, purpose, after });
+// `attempt` only for a conditional step's attempts (C5 plan decision 5);
+// every other request is exactly as before.
+const requestBody = ({ executionToken, op, argsDigest, step, purpose, after, attempt = undefined }) => ({ executionToken, op, argsDigest, step, purpose, after, ...(attempt !== undefined ? { attempt } : {}) });
 
 // Over HTTP, as Broker's own service account (the `broker` caller role).
 export const buildPolicyAuthorizer = ({ policyUrl, idToken, fetch: doFetch = fetch }) => {

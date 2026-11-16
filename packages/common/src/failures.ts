@@ -143,6 +143,13 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // fed another stage, or its compiler returned no model.
   ...cat("conflict", ["no-store-intermediate"]),
   ...cat("unavailable", ["model-unavailable"]),
+  // C5 (docs/c5-l0013-commands-plan.md): a token whose scope doesn't match
+  // its operation's credential, or whose item isn't the payload's (decision
+  // 5); a publish whose staged bytes are missing or don't match, with no
+  // claim, so nothing was written (decision 9); and a publish whose every
+  // attempt found the object changed, so nothing was written (decision 8).
+  ...cat("permission", ["credential-scope-mismatch"]),
+  ...cat("conflict", ["staging-unavailable", "precondition-contention"]),
 ]));
 
 // Broker wraps Policy's reason (`authorization-denied:<reason>`); the category

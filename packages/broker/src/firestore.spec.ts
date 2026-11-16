@@ -251,6 +251,23 @@ run("firestore broker stores", () => {
     expect(await receipts.getSteps(op)).toEqual(["questions", "items", racers[0].status === "fulfilled" ? "a" : "b"]);
   });
 
+  // C5 (decision 5): what a step observed, and a conditional step's attempts.
+  it("keeps a step's observation, and each attempt of a conditional step once, in order", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    const op = `${randomUUID()}/s0/o1`;
+    await receipts.putStepAttempt(op, 2, { step: "publish", attempt: 2, decisionId: "decision-0002", observed: "published" });
+    await receipts.putStepAttempt(op, 1, { step: "publish", attempt: 1, decisionId: "decision-0001", observed: "precondition-failed" });
+    await expect(receipts.putStepAttempt(op, 1, { step: "publish", attempt: 1, decisionId: "decision-0009", observed: "published" })).rejects.toThrow(/already recorded/);
+    await expect(receipts.putStepAttempt(op, 3, { step: "publish", attempt: 2, decisionId: "decision-0003", observed: "published" })).rejects.toThrow(/attempt index/);
+    expect((await receipts.getStepAttempts(op)).map(({ k, step, attempt, decisionId, observed }) => ({ k, step, attempt, decisionId, observed }))).toEqual([
+      { k: 1, step: "publish", attempt: 1, decisionId: "decision-0001", observed: "precondition-failed" },
+      { k: 2, step: "publish", attempt: 2, decisionId: "decision-0002", observed: "published" },
+    ]);
+    await receipts.putStep(op, 0, "publish", { observed: "published", other: "dropped" });
+    expect(await receipts.getSteps(op)).toEqual(["publish"]);
+    expect((await receipts.getStepRecords(op)).map(({ n, step, observed, other }) => ({ n, step, observed, other }))).toEqual([{ n: 0, step: "publish", observed: "published", other: undefined }]);
+  });
+
   it("claims a session's slots once each, in order, under concurrency, and refuses past the allowance", async () => {
     const slots = createFirestoreSessionSlotStore(db);
     const sid = randomUUID();

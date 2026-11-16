@@ -11,7 +11,7 @@
 
 import { createHmac, randomUUID } from "node:crypto";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { OPERATIONS, operationSteps, protectedFunctionsForLang } from "@graffiticode/common/protected-registry";
+import { OPERATIONS, operationSteps, protectedFunctionsForLang, MAX_CONDITIONAL_ATTEMPTS } from "@graffiticode/common/protected-registry";
 import { REASON_CATEGORIES, FAILURE_CATEGORIES, underlyingReason, classify } from "@graffiticode/common/failures";
 
 // One JSON line on stdout per record. On Cloud Run that is the
@@ -89,6 +89,10 @@ const VALIDATORS = {
   planDigest: match(/^[a-f0-9]{64}$/),
   // Commands (B5): `c:` and a key digest, never the key itself.
   commandId: match(/^c:[a-f0-9]{64}$/),
+  // C5: the item an item-scoped execution acts on, and which attempt of a
+  // conditional step a decision is for (decision 5).
+  itemId: v => notAnAddress(match(/^[A-Za-z0-9_:.-]{1,200}$/)(v)),
+  attempt: v => (Number.isInteger(v) && v >= 1 && v <= MAX_CONDITIONAL_ATTEMPTS ? v : INVALID),
 };
 // `fn` and `step` need the record's lang and op to be checked.
 const fnFor = (fn, lang) => (typeof fn === "string" && Object.prototype.hasOwnProperty.call(protectedFunctionsForLang(lang) || {}, fn) ? fn : INVALID);

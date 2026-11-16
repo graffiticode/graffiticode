@@ -9,11 +9,18 @@
 //             outlive the token, and storage TTL is just eventual cleanup.
 //   receipts  per operation id, documents each created once:
 //               claim    { binding, pld?, evidence?, claimedAt } — before the provider call; evidence (writes, W5) names each record, its digest and the mark
-//               steps/n  { n, step, at }              — after each provider
+//               steps/n  { n, step, observed?, at }   — after each provider
 //                        step completes, before the next one starts (spec
-//                        WRITE-01). putStep(id, n, step) acknowledges an
+//                        WRITE-01). putStep(id, n, step, detail?) acknowledges an
 //                        identical repeat and rejects different content with
-//                        StepConflict; getSteps(id) lists them in order.
+//                        StepConflict; getSteps(id) lists the step names in
+//                        order, getStepRecords(id) the records. `detail` is
+//                        what the step observed ({ observed }, a conditional
+//                        step's; C5 plan decision 5).
+//               attempts/k  { step, attempt, decisionId, observed, at } — each
+//                        attempt of a conditional step, before the next is
+//                        authorized. putStepAttempt(id, k, attempt) creates it
+//                        once; getStepAttempts(id) lists them by k.
 //               outcome  { status, steps, result, at } — after the last
 //             A claim with no outcome is "uncertain": the broker may have
 //             crashed mid-call, so it is reported with its persisted steps,
@@ -94,8 +101,17 @@ const checkStepIndex = n => {
   if (!Number.isInteger(n) || n < 0) throw new Error(`step index must be a non-negative integer, not ${n}`);
 };
 
+// What a step record keeps of its detail: only `observed`.
+export const stepDetail = detail => (detail && typeof detail.observed === "string" ? { observed: detail.observed } : {});
+// A conditional step's attempt record (C5 plan decision 5).
+export const attemptRecord = ({ step, attempt, decisionId, observed }) => ({ step, attempt, decisionId, observed });
+export const checkAttempt = (k, attempt) => {
+  if (!Number.isInteger(k) || k < 1 || attempt?.attempt !== k) throw new Error(`attempt index must be the attempt's own positive integer, not ${k}`);
+};
+
 export const createMemoryReceiptStore = () => {
   const claims = new Map();
+  const stepAttempts = new Map();
   const steps = new Map();
   const outcomes = new Map();
   const attempts = new Map();
@@ -114,18 +130,30 @@ export const createMemoryReceiptStore = () => {
     async getClaim(operationId) {
       return claims.get(operationId) ?? null;
     },
-    async putStep(operationId, n, step) {
+    async putStep(operationId, n, step, detail = undefined) {
       checkStepIndex(n);
       const recorded = steps.get(operationId) ?? new Map();
       if (recorded.has(n)) {
         if (recorded.get(n).step !== step) throw new StepConflict(`step ${n} of ${operationId} already recorded`);
         return;
       }
-      recorded.set(n, { n, step, at: new Date().toISOString() });
+      recorded.set(n, { n, step, ...stepDetail(detail), at: new Date().toISOString() });
       steps.set(operationId, recorded);
     },
     async getSteps(operationId) {
       return [...(steps.get(operationId) ?? new Map()).values()].sort((a, b) => a.n - b.n).map(s => s.step);
+    },
+    async getStepRecords(operationId) {
+      return [...(steps.get(operationId) ?? new Map()).values()].sort((a, b) => a.n - b.n).map(s => ({ ...s }));
+    },
+    async putStepAttempt(operationId, k, attempt) {
+      checkAttempt(k, attempt);
+      const key = `${operationId}#${k}`;
+      if (stepAttempts.has(key)) throw new Error(`attempt ${k} of ${operationId} already recorded`);
+      stepAttempts.set(key, { k, ...attemptRecord(attempt), at: new Date().toISOString() });
+    },
+    async getStepAttempts(operationId) {
+      return [...stepAttempts.entries()].filter(([key]) => key.startsWith(`${operationId}#`)).map(([, a]) => ({ ...a })).sort((a, b) => a.k - b.k);
     },
     async getOutcome(operationId) {
       return outcomes.get(operationId) ?? null;

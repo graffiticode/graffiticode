@@ -20,6 +20,14 @@
 //                           connection). Absent: Questions previews are refused.
 //   SYSTEM_SESSION_MAX_SIGNINGS  optional; signatures one system preview session may
 //                           make (session-slots.js; default 4, at most 100)
+//   THUMBNAIL_BUCKET, COMMAND_STAGING_BUCKET
+//                           optional, set together: L0013's thumbnail publish
+//                           (gcs.put-thumbnail, docs/c5-l0013-commands-plan.md)
+//                           reads staged PNGs from the staging bucket and publishes
+//                           to the thumbnail bucket, as Broker's own identity (ADC).
+//                           Absent: the operation isn't built and snap tokens are
+//                           refused. The legacy bucket graffiticode.appspot.com is
+//                           refused.
 //   PROTECTED_EXECUTION     optional; "disabled" hard-disables execution. Otherwise
 //                           controls/protected-execution in this database decides, and
 //                           a missing flag means off (@graffiticode/policy maintenance.js)
@@ -65,6 +73,8 @@ import {
   buildPolicyAuthorizer
 } from "./index.js";
 import { parseFaults } from "./faults.js";
+import { buildGcsStorage, buildThumbnailOperations, parseThumbnailBuckets } from "./gcs.js";
+import { OPERATIONS, MAX_CONDITIONAL_ATTEMPTS } from "@graffiticode/common/protected-registry";
 import { buildLearnosityDataApi } from "./learnosity.js";
 
 const env = process.env;
@@ -88,12 +98,29 @@ const secrets = createFirestoreSecretStore(db, { box });
 const receipts = createFirestoreReceiptStore(db);
 const limits = parseLimits(env);
 const systemSessionMaxSignings = parseSystemSessionMaxSignings(env);
-const operations = buildOperations({
-  sdk: new LearnositySDK(),
-  domain,
-  previewExpiresMinutes: parsePositiveInt(env, "BROKER_PREVIEW_EXPIRES_MINUTES", DEFAULT_PREVIEW_EXPIRES_MINUTES, 60),
-  dataApi: buildLearnosityDataApi({ baseUrl: env.LEARNOSITY_DATA_API || "https://data.learnosity.com/v2025.2.LTS" })
-});
+const thumbnailBuckets = parseThumbnailBuckets(env);
+const storageAuth = new GoogleAuth({ scopes: ["https://www.googleapis.com/auth/devstorage.read_write"] });
+const operations = {
+  ...buildOperations({
+    sdk: new LearnositySDK(),
+    domain,
+    previewExpiresMinutes: parsePositiveInt(env, "BROKER_PREVIEW_EXPIRES_MINUTES", DEFAULT_PREVIEW_EXPIRES_MINUTES, 60),
+    dataApi: buildLearnosityDataApi({ baseUrl: env.LEARNOSITY_DATA_API || "https://data.learnosity.com/v2025.2.LTS" })
+  }),
+  ...(thumbnailBuckets
+    ? buildThumbnailOperations({
+      buckets: thumbnailBuckets,
+      attempts: OPERATIONS["gcs.put-thumbnail"].steps.find(s => s.id === "publish")?.attempts ?? MAX_CONDITIONAL_ATTEMPTS,
+      storage: buildGcsStorage({
+        accessToken: async () => {
+          const token = await storageAuth.getAccessToken();
+          if (!token) throw new Error("no access token for Cloud Storage");
+          return token;
+        }
+      })
+    })
+    : {})
+};
 // C6's drive only, and never on the production service (faults.js).
 const faults = parseFaults(env);
 const broker = createBroker({
