@@ -216,8 +216,8 @@ describe("the scopes worker capability (§3)", () => {
   // recovery window, so no older sweeper ever lists or leases a command it
   // would fail at admission.
   it("marks a connection command when an installed model declares an item-scoped intent, before admission", async () => {
-    const c = await command({ langs: ["0013", "0176"], connectionId: "conn-1", intents: { s0: [snapIntent()], s1: [SAVE_INTENT] }, scopes: 0 });
-    expect(commandStore.commands.get(c.commandId)).toMatchObject({ scopes: 1, phase: "initializing" });
+    const c = await command({ langs: ["0013", "0176"], connectionId: "conn-1", intents: { s0: [snapIntent()], s1: [SAVE_INTENT] }, scopes: 1 });
+    expect(commandStore.commands.get(c.commandId)).toMatchObject({ scopes: 1, phase: "initializing", owner: { generation: 1, scopes: 1, leaseExpiresAt: clock + COMMAND_LEASE_MS } });
     // Its worker dies before admission: an older sweeper neither lists nor takes it.
     clock += COMMAND_LEASE_MS + 1;
     expect((await policy.dueCommands({ caller: GATEWAY, recording: 1, repairs: 1 })).commands.map(d => d.commandId)).not.toContain(c.commandId);
@@ -225,6 +225,31 @@ describe("the scopes worker capability (§3)", () => {
     await policy.leaseCommand({ caller: GATEWAY, commandId: c.commandId, worker: "new-api", generation: 1, takeOver: true, recording: 1, repairs: 1, scopes: 1 });
     await policy.admitCommand({ caller: GATEWAY, commandId: c.commandId, generation: 2, taskIds: c.taskIds, stages: c.stages, scopes: 1 });
     expect(commandStore.commands.get(c.commandId).phase).toBe("admitted");
+  });
+
+  // The owner's re-review of #402: an older worker that owns a command when
+  // it becomes v3 must never finish it. Its lease ends in the same write.
+  it("ends an older owner's lease when the command becomes v3, so it can't finish it", async () => {
+    const args = { caller: GATEWAY, user: { uid: OWNER }, connectionId: "conn-1", taskId: encodeChainId(["t0", "t1"]), inputDigest: hex("9"), lang: "0013", request: "{}", worker: "old-api", idempotencyKey: "old-1" };
+    const { commandId } = await policy.allocateCommand(args);
+    expect(commandStore.commands.get(commandId).owner).not.toHaveProperty("scopes");
+    const write = (fn, a) => policy.commandWrite({ caller: GATEWAY, commandId, generation: 1, fn, args: a });
+    await write("installModel", { stage: "s0", text: model("0013", [snapIntent()]) });
+    expect(commandStore.commands.get(commandId)).toMatchObject({ scopes: 1, status: "pending", owner: { generation: 1, leaseExpiresAt: clock } });
+    // Its next request, whichever, is refused as lost ownership.
+    await denied(write("installModel", { stage: "s1", text: model("0176", [SAVE_INTENT]) }), "lease-expired");
+    await denied(write("finish", { result: null }), "lease-expired");
+    expect(commandStore.commands.get(commandId).status).toBe("pending");
+    // A worker that runs v3 commands takes it over at once; an older one can't.
+    await denied(policy.leaseCommand({ caller: GATEWAY, commandId, worker: "old-api-2", generation: 1, takeOver: true, recording: 1, repairs: 1 }), "worker-unsupported");
+    expect(await policy.leaseCommand({ caller: GATEWAY, commandId, worker: "new-api", generation: 1, takeOver: true, recording: 1, repairs: 1, scopes: 1 })).toMatchObject({ generation: 2 });
+    expect(commandStore.commands.get(commandId).owner).toMatchObject({ worker: "new-api", scopes: 1 });
+  });
+
+  it("keeps a v3 owner's lease when its command becomes v3", async () => {
+    const c = await command({ langs: ["0013"], connectionId: "conn-1", intents: { s0: [snapIntent()] }, scopes: 1 });
+    expect(commandStore.commands.get(c.commandId).owner.leaseExpiresAt).toBe(clock + COMMAND_LEASE_MS);
+    await c.admit();
   });
 
   it("leaves a connection command whose models declare no item scope to any worker", async () => {
@@ -245,9 +270,11 @@ describe("the scopes worker capability (§3)", () => {
     expect(e).toBeInstanceOf(PolicyUnavailable);
     expect(e.reason).toBe("worker-unsupported");
     const state = commandStore.commands.get(c.commandId);
-    expect(state).toMatchObject({ status: "pending", scopes: 1 });
+    expect(state).toMatchObject({ status: "pending", scopes: 1, owner: { leaseExpiresAt: clock } });
     expect(state).not.toHaveProperty("admissionRefusal");
     expect(plans()).toEqual([]);
+    // Whatever its client makes of the 503, its finish is refused.
+    await denied(policy.commandWrite({ caller: GATEWAY, commandId: c.commandId, generation: 1, fn: "finish", args: { result: null } }), "lease-expired");
   });
 
   it("reads a model's item-scoped intents for the mark", () => {

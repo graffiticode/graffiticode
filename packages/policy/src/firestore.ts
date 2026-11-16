@@ -125,7 +125,7 @@ export const createFirestoreCommandStore = (db, { duePage = DUE_PAGE } = {}) => 
     return next;
   });
   return {
-    async allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now, leaseMs = COMMAND_LEASE_MS, create = true, repair = null }) {
+    async allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now, leaseMs = COMMAND_LEASE_MS, create = true, repair = null, scopes = 0 }) {
       const binding = { connectionId, taskId, inputDigest };
       const keyRef = db.collection("idempotency-keys").doc(hashId([uid, idempotencyKey]));
       const seqRef = db.collection("invocation-sequences").doc(hashId([uid, taskId, connectionId]));
@@ -144,7 +144,7 @@ export const createFirestoreCommandStore = (db, { duePage = DUE_PAGE } = {}) => 
         const invocationId = newInvocationId();
         const commandId = commandIdFor(uid, idempotencyKey);
         const at = new Date(now).toISOString();
-        const command = newCommandRecord({ commandId, uid, idempotencyKey, invocationId, seq, lang, connectionId, taskId, inputDigest, worker, now, leaseMs, repair });
+        const command = newCommandRecord({ commandId, uid, idempotencyKey, invocationId, seq, lang, connectionId, taskId, inputDigest, worker, now, leaseMs, repair, scopes });
         tx.set(seqRef, { seq, updatedAt: at });
         tx.set(db.collection("invocations").doc(invocationId), { uid, ...binding, seq, contract: 2, protocol: "command", commandId, createdAt: at });
         tx.set(keyRef, { binding, invocationId, seq, protocol: "command", commandId, createdAt: at });

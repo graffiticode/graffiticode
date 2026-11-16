@@ -183,6 +183,14 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
     tx.set(path, doc);
     return { installed: doc, created: true };
   };
+  // The command marked v3 (`scopes: 1`). An owner whose lease didn't declare
+  // `scopes` loses the lease now, in the same write: its next request is
+  // refused `lease-expired`, so it stops without finishing the command, and a
+  // worker that runs v3 commands takes it over.
+  const requiringScopes = command => ({
+    scopes: 1,
+    ...(command.owner?.scopes === 1 ? {} : { owner: { ...command.owner, leaseExpiresAt: now() } }),
+  });
   const stageOf = (command, stage) => command.stages?.[stage] ?? { state: "pending", expansion: "open", pinnedInput: null };
   const admittedIntents = (command, stage) => command.admission?.stages?.[stage]?.intents ?? null;
   const at = () => new Date(now()).toISOString();
@@ -233,7 +241,7 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
       if (command.phase === "admitted") throw new CommandRefused("command-admitted");
       const { installed } = await installOnce(tx, sub(commandId, "models", stage), { stage, text, digest: sha256(text), revision: revision ?? null, tagUrl: tagUrl ?? null });
       const scoped = command.scopes !== 1 && declaresItemScope(installed.text);
-      if (command.phase === "allocated" || scoped) touch(tx, command, { ...(command.phase === "allocated" ? { phase: "initializing" } : {}), ...(scoped ? { scopes: 1 } : {}) });
+      if (command.phase === "allocated" || scoped) touch(tx, command, { ...(command.phase === "allocated" ? { phase: "initializing" } : {}), ...(scoped ? requiringScopes(command) : {}) });
       return { stage, digest: installed.digest, revision: installed.revision, tagUrl: installed.tagUrl };
     }),
 
@@ -241,7 +249,7 @@ export const createCommandRecords = ({ backend, now = () => Date.now() }) => {
     // marked when one that doesn't was refused its admission.
     requireScopes: ({ commandId, generation }) => owned(commandId, generation, async (tx, command) => {
       if (command.scopes === 1) return command;
-      return touch(tx, command, { scopes: 1 });
+      return touch(tx, command, requiringScopes(command));
     }),
 
     // §6 step 2: admission recorded on the command, once. A retry of the same

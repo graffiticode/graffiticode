@@ -46,7 +46,11 @@
 // connection at all. Such a command (`scopes: 1` on its record, set at
 // allocation when it has no connection, or at admission when its plan is v3)
 // is owned only by such a worker: one from before C5 would run it as a
-// connection command (`worker-unsupported`).
+// connection command (`worker-unsupported`). A lease records whether its owner
+// declared `scopes` (`owner.scopes: 1`): when a command becomes v3 under an
+// owner that didn't, its lease ends at once (command-records.js), so that
+// owner's next request is refused `lease-expired`, which every worker,
+// however old, takes as lost ownership, and it never finishes the command.
 //   listDue({ now, limit, recording, repairs, scopes }) -> [command]   the commands recovery takes over (§7):
 //     pending with an expired lease, or with a publication due and an expired lease,
 //     that a worker with these capabilities may own (ownableBy), chosen before the limit
@@ -102,7 +106,10 @@ export const ownerRefusal = (command, { generation, now }) => {
   return null;
 };
 
-export const newCommandRecord = ({ commandId, uid, idempotencyKey, invocationId, seq, lang, connectionId, taskId, inputDigest, worker, now, leaseMs, repair = null }) => ({
+// The lease's owner, and whether it runs v3 commands (only when it does).
+const ownerOf = ({ worker, generation, leaseExpiresAt, scopes = 0 }) => ({ worker, generation, leaseExpiresAt, ...(scopes === 1 ? { scopes: 1 } : {}) });
+
+export const newCommandRecord = ({ commandId, uid, idempotencyKey, invocationId, seq, lang, connectionId, taskId, inputDigest, worker, now, leaseMs, repair = null, scopes = 0 }) => ({
   schema: COMMAND_SCHEMA,
   commandId,
   // B6 (decision 3): an original command, or a repair of one.
@@ -122,7 +129,7 @@ export const newCommandRecord = ({ commandId, uid, idempotencyKey, invocationId,
   ...(connectionId === null ? { scopes: 1 } : {}),
   phase: "allocated",
   admission: null,
-  owner: { worker, generation: 1, leaseExpiresAt: now + leaseMs },
+  owner: ownerOf({ worker, generation: 1, leaseExpiresAt: now + leaseMs, scopes }),
   status: "pending",
   result: { state: "none", digest: null },
   publication: { state: "none", resultDigest: null },
@@ -154,7 +161,7 @@ export const renewedLease = (command, { worker, generation, now, leaseMs, record
   if (command.owner.worker !== worker) throw new CommandRefused("stale-generation");
   if (command.status !== "pending") throw new CommandRefused("command-finished");
   requireCapableWorker(command, { recording, repairs, scopes });
-  return { ...command, owner: { worker, generation, leaseExpiresAt: now + leaseMs }, updatedAt: new Date(now).toISOString() };
+  return { ...command, owner: ownerOf({ worker, generation, leaseExpiresAt: now + leaseMs, scopes }), updatedAt: new Date(now).toISOString() };
 };
 
 // Ownership taken over once the lease has expired: the next generation.
@@ -166,7 +173,7 @@ export const takenOverLease = (command, { worker, expectedGeneration, now, lease
   // due has nothing to own.
   if (command.status !== "pending" && command.publication?.state !== "due") throw new CommandRefused("command-finished");
   requireCapableWorker(command, { recording, repairs, scopes });
-  return { ...command, owner: { worker, generation: expectedGeneration + 1, leaseExpiresAt: now + leaseMs }, updatedAt: new Date(now).toISOString() };
+  return { ...command, owner: ownerOf({ worker, generation: expectedGeneration + 1, leaseExpiresAt: now + leaseMs, scopes }), updatedAt: new Date(now).toISOString() };
 };
 
 // What a caller sees: never the request payload.
@@ -203,7 +210,7 @@ export const createMemoryCommandStore = ({ invocationStore }) => {
   };
   return {
     commands,
-    async allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now, leaseMs = COMMAND_LEASE_MS, create = true, repair = null }) {
+    async allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now, leaseMs = COMMAND_LEASE_MS, create = true, repair = null, scopes = 0 }) {
       const binding = { connectionId, taskId, inputDigest };
       const hit = invocationStore.keyRecord(uid, idempotencyKey);
       if (!hit && !create) return { protocol: "none" };
@@ -214,7 +221,7 @@ export const createMemoryCommandStore = ({ invocationStore }) => {
       }
       const commandId = commandIdFor(uid, idempotencyKey);
       const { invocationId, seq } = invocationStore.createInvocation({ uid, binding, protocol: "command", commandId, idempotencyKey });
-      const command = newCommandRecord({ commandId, uid, idempotencyKey, invocationId, seq, lang, connectionId, taskId, inputDigest, worker, now, leaseMs, repair });
+      const command = newCommandRecord({ commandId, uid, idempotencyKey, invocationId, seq, lang, connectionId, taskId, inputDigest, worker, now, leaseMs, repair, scopes });
       commands.set(commandId, command);
       requests.set(commandId, request);
       return { protocol: "command", reused: false, command: structuredClone(command) };

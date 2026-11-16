@@ -356,7 +356,7 @@ export const createPolicy = ({
     }
     let allocated;
     try {
-      allocated = await commands.allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now: now(), create });
+      allocated = await commands.allocate({ uid, connectionId, taskId, inputDigest, idempotencyKey, lang, request, worker, now: now(), create, scopes });
     } catch (e) {
       if (e instanceof InvocationConflict) return deny("idempotency-key-reused", record);
       throw e;

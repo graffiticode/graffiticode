@@ -83,13 +83,15 @@ const allocate = async ({ langs, uid = OWNER, connectionId = "conn-1", scopes = 
 };
 
 // The worker, as an api that declares `scopes` (or not), with Policy's
-// refusals mapped as the HTTP client maps them.
-const runWorker = (c, { generation, scopes, worker = "api" }) => {
+// refusals mapped as its HTTP client maps them. An api from before C5
+// (`oldClient`) knows no retryable refusal: every refusal with a reason is a
+// PolicyRefused.
+const runWorker = (c, { generation, scopes, worker = "api", oldClient = false }) => {
   const asHttp = fn => async args => {
     try {
       return await fn(args);
     } catch (e) {
-      if (e instanceof PolicyCantDecide) throw new PolicyUnavailable(e.reason);
+      if (e instanceof PolicyCantDecide && !oldClient) throw new PolicyUnavailable(e.reason);
       if (e instanceof PolicyDenied) throw new PolicyRefused(e.reason);
       throw e;
     }
@@ -123,18 +125,42 @@ const runWorker = (c, { generation, scopes, worker = "api" }) => {
 const due = async scopes => (await policy.dueCommands({ caller: GATEWAY, recording: 1, repairs: 1, scopes })).commands.map(d => d.commandId);
 
 describe("a command an older worker can't own never reaches it", () => {
-  it("leaves a mixed command pending, out of older sweepers' reach, when an older worker owned it from before its models", async () => {
-    // An older worker holds a connection command from before its models.
-    const c = await allocate({ langs: ["0013", "0176"] });
-    await expect(runWorker(c, { generation: 1, scopes: 0, worker: "old-api" })).rejects.toBeInstanceOf(PolicyUnavailable);
+  // The owner's re-review of #402: the older sweeper runs the actual older
+  // client, which turns any refusal into PolicyRefused.
+  it("leaves a mixed command pending when an older sweeper took it over before its models, with the older client", async () => {
+    // A new worker allocates it and dies before installing any model; an
+    // older sweeper, which still sees it, takes it over.
+    const c = await allocate({ langs: ["0013", "0176"], scopes: 1 });
+    clock += COMMAND_LEASE_MS + 1;
+    expect(await due(0)).toContain(c.commandId);
+    await policy.leaseCommand({ caller: GATEWAY, commandId: c.commandId, worker: "old-api", generation: 1, takeOver: true, recording: 1, repairs: 1 });
+    // Installing the snap model ends its lease; it stops as having lost it.
+    expect(await runWorker(c, { generation: 2, scopes: 0, worker: "old-api", oldClient: true })).toMatchObject({ status: "pending", lost: "lease-expired" });
     const state = commandStore.commands.get(c.commandId);
     expect(state).toMatchObject({ status: "pending", phase: "initializing", scopes: 1 });
     expect(state).not.toHaveProperty("admissionRefusal");
-    clock += COMMAND_LEASE_MS + 1;
+    // Its lease ended when the command became v3: the next sweep lists it,
+    // but only to a worker that runs v3 commands.
+    clock += 1;
     expect(await due(0)).not.toContain(c.commandId);
     expect(await due(1)).toContain(c.commandId);
     // A worker that runs v3 commands takes it over.
-    expect(await policy.leaseCommand({ caller: GATEWAY, commandId: c.commandId, worker: "new-api", generation: 1, takeOver: true, recording: 1, repairs: 1, scopes: 1 })).toMatchObject({ generation: 2, status: "pending" });
+    expect(await policy.leaseCommand({ caller: GATEWAY, commandId: c.commandId, worker: "new-api", generation: 2, takeOver: true, recording: 1, repairs: 1, scopes: 1 })).toMatchObject({ generation: 3, status: "pending" });
+  });
+
+  it("never lets an older owner finish a command whose admission found it v3, with the older client", async () => {
+    // A connection command over a manifest needing `snap` whose model
+    // declares no intent for it: only admission can tell.
+    const c = await allocate({ langs: ["0013"] });
+    INTENTS["0013"] = [];
+    try {
+      expect(await runWorker(c, { generation: 1, scopes: 0, worker: "old-api", oldClient: true })).toMatchObject({ status: "pending", lost: "lease-expired" });
+    } finally {
+      INTENTS["0013"] = [SNAP];
+    }
+    const state = commandStore.commands.get(c.commandId);
+    expect(state).toMatchObject({ status: "pending", scopes: 1 });
+    expect(state).not.toHaveProperty("admissionRefusal");
   });
 
   it("never lists a mixed command to an older sweeper once its models are installed", async () => {

@@ -259,6 +259,20 @@ run("command records in Firestore", () => {
     expect((await commands.listDue({ now, limit: 50 })).map(c => c.commandId)).not.toContain(command.commandId);
     expect((await commands.listDue({ now, limit: 50, recording: 1, repairs: 1, scopes: 1 })).map(c => c.commandId)).toContain(command.commandId);
     await expect(commands.takeOver({ commandId: command.commandId, worker: "api-2", expectedGeneration: 1, now })).rejects.toMatchObject({ reason: "worker-unsupported" });
-    expect(await commands.takeOver({ commandId: command.commandId, worker: "api-2", expectedGeneration: 1, now, scopes: 1 })).toMatchObject({ owner: { generation: 2 } });
+    expect(await commands.takeOver({ commandId: command.commandId, worker: "api-2", expectedGeneration: 1, now, scopes: 1 })).toMatchObject({ owner: { generation: 2, scopes: 1 } });
+  });
+
+  // The owner's re-review of #402: a lease records whether its owner runs v3
+  // commands, and an older owner's lease ends when its command becomes v3.
+  it("records the owner's capability on the lease, and ends an older owner's lease when its command becomes v3", async () => {
+    const { command: scoped } = await allocate({ idempotencyKey: `cap-1-${uid}`, scopes: 1 });
+    expect(scoped.owner).toMatchObject({ generation: 1, scopes: 1 });
+    const { command } = await allocate({ idempotencyKey: `cap-2-${uid}` });
+    expect(command.owner).not.toHaveProperty("scopes");
+    const text = JSON.stringify({ lang: "0013", intents: [{ id: "snap", fn: "snap", op: "gcs.put-thumbnail", occurrences: ["n0.0"], scope: { kind: "item", id: "item-1" } }] });
+    await records.installModel({ commandId: command.commandId, generation: 1, stage: "s0", text });
+    const marked = await commands.get(command.commandId);
+    expect(marked).toMatchObject({ scopes: 1, status: "pending", owner: { generation: 1, leaseExpiresAt: T0 + 1000 } });
+    await expect(records.installModel({ commandId: command.commandId, generation: 1, stage: "s1", text })).rejects.toMatchObject({ reason: "lease-expired" });
   });
 });
