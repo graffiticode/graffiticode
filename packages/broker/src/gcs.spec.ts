@@ -62,6 +62,12 @@ const makeStorage = () => {
       storage.reads.push(key(bucket, name));
       return objects.get(key(bucket, name))?.bytes ?? null;
     },
+    // As the real client: preparation first, then a send that dispatches.
+    async prepareUpload(bucket, name, bytes, options) {
+      storage.prepared += 1;
+      return { send: async timeoutMs => storage.upload(bucket, name, bytes, { ...options, timeoutMs }) };
+    },
+    prepared: 0,
     async upload(bucket, name, bytes, { ifGenerationMatch, metadata }) {
       storage.uploads.push({ name: key(bucket, name), ifGenerationMatch: String(ifGenerationMatch), metadata });
       if (storage.beforeUpload) await storage.beforeUpload({ name: key(bucket, name), metadata });
@@ -596,8 +602,9 @@ describe("the Cloud Storage client", () => {
   it("uploads with the generation precondition, and tells a 412, a refusal and an unknown failure apart", async () => {
     let status = 200;
     const { storage, calls } = client(() => respond(status, { generation: "18" }));
-    const upload = () => storage.upload("b", "x.png", new Uint8Array([1, 2]), { ifGenerationMatch: "17", metadata: { captureSequence: "4" }, contentType: "image/png", cacheControl: "no-cache", timeoutMs: 1000 });
+    const upload = async () => (await storage.prepareUpload("b", "x.png", new Uint8Array([1, 2]), { ifGenerationMatch: "17", metadata: { captureSequence: "4" }, contentType: "image/png", cacheControl: "no-cache" })).send(1000);
     expect(await upload()).toEqual({ generation: "18" });
+    expect(calls[0].init.headers.Authorization).toBe("Bearer access-token");
     expect(calls[0].url).toContain("ifGenerationMatch=17");
     expect(Buffer.from(calls[0].init.body).toString()).toContain("\"captureSequence\":\"4\"");
     status = 412;
@@ -609,5 +616,196 @@ describe("the Cloud Storage client", () => {
       expect(e).not.toBeInstanceOf(ProviderRejected);
       expect(e).not.toBeInstanceOf(PreconditionFailed);
     }
+  });
+
+  it("does everything asynchronous while preparing: send calls fetch before awaiting anything", async () => {
+    let tokens = 0;
+    const calls = [];
+    const storage = buildGcsStorage({
+      accessToken: async () => { tokens += 1; return "access-token"; },
+      fetch: (async (url, init) => { calls.push({ url: String(url), init }); return respond(200, { generation: "18" }); }) as any,
+    });
+    const request = await storage.prepareUpload("b", "x.png", new Uint8Array([1]), { ifGenerationMatch: "0", metadata: {}, contentType: "image/png", cacheControl: "no-cache" });
+    expect(tokens).toBe(1);
+    expect(calls).toHaveLength(0);
+    const sent = request.send(1000);
+    // Dispatched synchronously, before the returned promise is awaited.
+    expect(calls).toHaveLength(1);
+    expect(tokens).toBe(1);
+    await sent;
+  });
+});
+
+// The owner's review of #401: authorization comes after all preparation,
+// anonymous public captures run on their narrow terms, and a staging failure
+// never hides a concurrent receipt.
+describe("review of #401", () => {
+  it("doesn't publish when authority is revoked while the attempt is prepared", async () => {
+    const env = makeEnv();
+    const bytes = png("revoked-during-read");
+    stage(env, bytes);
+    const read = env.storage.getMetadata.bind(env.storage);
+    env.storage.getMetadata = async (...args) => {
+      const head = await read(...args);
+      env.denyWhen(() => true);
+      return head;
+    };
+    const out = await snap(env, thumbnail(bytes, 1));
+    expect(env.storage.uploads).toHaveLength(0);
+    expect(out).toMatchObject({ status: "failed", reason: "authorization-denied:step-not-registered" });
+    // The upload was prepared, then refused: authorization came last.
+    expect(env.storage.prepared).toBe(1);
+  });
+
+  it("doesn't start an upload once preparation has used up the deadline", async () => {
+    const env = makeEnv();
+    let clock = Date.now();
+    const broker = createBroker({
+      jwks,
+      operations: env.operations,
+      receipts: env.receipts,
+      secrets: createMemorySecretStore({}),
+      once: createMemoryOnceStore(),
+      activity: createMemoryActivityStore(),
+      protectedSwitch: PROTECTED_ON,
+      authorize: async () => ({ decisionId: "decision-0001" }),
+      audit: async () => {},
+      now: () => clock,
+      limits: { providerCallMs: 500, executionMs: 1000, authorizeMs: 100 } as any,
+    });
+    const bytes = png("late-metadata");
+    stage(env, bytes);
+    const read = env.storage.getMetadata.bind(env.storage);
+    env.storage.getMetadata = async (...args) => {
+      const head = await read(...args);
+      clock += 1500;
+      return head;
+    };
+    const payload = thumbnail(bytes, 1);
+    const out = await broker.execute({ caller: L0013, token: await snapToken(payload), op: "gcs.put-thumbnail", payload });
+    expect(env.storage.uploads).toHaveLength(0);
+    expect(out).toMatchObject({ status: "failed", reason: "deadline-exceeded" });
+  });
+
+  it("refuses to prepare past the deadline, before any authorization", async () => {
+    const env = makeEnv();
+    let clock = Date.now();
+    const asks = [];
+    const broker = createBroker({
+      jwks,
+      operations: env.operations,
+      receipts: env.receipts,
+      secrets: createMemorySecretStore({}),
+      once: createMemoryOnceStore(),
+      activity: createMemoryActivityStore(),
+      protectedSwitch: PROTECTED_ON,
+      authorize: async ask => { asks.push(ask); return { decisionId: "decision-0001" }; },
+      audit: async () => {},
+      now: () => clock,
+      limits: { providerCallMs: 500, executionMs: 1000, authorizeMs: 100 } as any,
+    });
+    const bytes = png("late-claim");
+    stage(env, bytes);
+    // The claim itself is slow: no time is left to read the object.
+    const claim = env.receipts.claim.bind(env.receipts);
+    env.receipts.claim = async (...args) => { clock += 1500; return claim(...args); };
+    const payload = thumbnail(bytes, 1);
+    const out = await broker.execute({ caller: L0013, token: await snapToken(payload), op: "gcs.put-thumbnail", payload });
+    expect(out).toMatchObject({ status: "failed", reason: "deadline-exceeded" });
+    expect(asks).toEqual([]);
+    expect(env.storage.uploads).toHaveLength(0);
+  });
+
+  it("runs a Policy-authorized anonymous public capture, and audits its provenance", async () => {
+    const env = makeEnv();
+    const bytes = png("anonymous-public-capture");
+    stage(env, bytes);
+    const out = await snap(env, thumbnail(bytes, 1), { sub: "anonymous", prv: "anonymous" });
+    expect(out.status).toBe("succeeded");
+    expect(env.records.find(r => r.event === "execute" && r.outcome === "allowed")).toMatchObject({ provenance: "anonymous", itemId: ITEM });
+    expect((await env.receipts.getClaim(opid())).binding).toMatchObject({ principal: "anonymous", scope: { kind: "item", id: ITEM } });
+  });
+
+  it("keeps anonymous to its narrow terms: never L0176, never a connection, never a user's subject", async () => {
+    const env = makeEnv();
+    const bytes = png("a");
+    stage(env, bytes);
+    const payload = thumbnail(bytes, 1);
+    // A user's provenance with the anonymous subject, and the reverse.
+    await refused(snap(env, payload, { sub: "anonymous" }), "bad-provenance");
+    await refused(snap(env, payload, { prv: "anonymous" }), "bad-provenance");
+    // An anonymous L0176 save, through a connection or naming an item.
+    const save = { questionRecords: [{ type: "mcq", reference: "q-0", data: { type: "mcq" } }], itemRecords: [] };
+    const base = { sub: "anonymous", prv: "anonymous", lang: "0176", fn: "save-to-itembank", op: "learnosity.write-items", sid: "session-2", opid: `${INV}/s1/n1.0`, argd: argsDigest(save), rv: REGISTRY_VERSION, cv: 3, pld: PLD, stg: "s1" };
+    for (const scope of [{ own: OWNER, conn: "conn-1", backend: "learnosity" }, { scp: { kind: "item", id: ITEM } }]) {
+      const token = await issueToken(signer, "execution", { ...base, ...scope });
+      await refused(env.broker.execute({ caller: L0176, token, op: "learnosity.write-items", payload: save }), "bad-provenance");
+    }
+    // An anonymous L0176 signature, too.
+    const preview = { id: "t", name: "T", questions: [{ response_id: "r-0", type: "mcq" }] };
+    const sign = await issueToken(signer, "execution", { ...base, fn: "init", op: "learnosity.sign-items-preview", argd: argsDigest(preview), own: OWNER, conn: "conn-1", backend: "learnosity" });
+    await refused(env.broker.execute({ caller: L0176, token: sign, op: "learnosity.sign-items-preview", payload: preview }), "bad-provenance");
+    // Not under contract v2.
+    await refused(snap(env, payload, { sub: "anonymous", prv: "anonymous", cv: 2, scp: undefined, own: OWNER, conn: "conn-1", backend: "gcs" }), "bad-provenance");
+    expect(env.storage.uploads).toEqual([]);
+    expect(env.dataApiCalls).toEqual([]);
+  });
+
+  it("replays a concurrent winner when staging disappears while this request reads it", async () => {
+    const env = makeEnv();
+    const bytes = png("concurrent-staging-expiry");
+    stage(env, bytes);
+    const payload = thumbnail(bytes, 1);
+    const read = env.storage.read.bind(env.storage);
+    let entered;
+    let release;
+    const reading = new Promise(resolve => { entered = resolve; });
+    const held = new Promise(resolve => { release = resolve; });
+    let first = true;
+    env.storage.read = async (...args) => {
+      if (first) {
+        first = false;
+        entered();
+        await held;
+      }
+      return read(...args);
+    };
+    const pending = snap(env, payload).then(value => ({ value, error: null }), error => ({ value: null, error }));
+    await reading;
+    const winner = await snap(env, payload);
+    env.storage.objects.delete(`${STAGING}/${stagedObjectName({ commandId: CMD, operationId: opid() })}`);
+    release();
+    const retry = await pending;
+    expect(winner.status).toBe("succeeded");
+    expect(retry.error).toBeNull();
+    expect(retry.value).toMatchObject({ status: "succeeded", replayed: true, result: winner.result });
+    expect(env.storage.uploads).toHaveLength(1);
+  });
+
+  it("replays a concurrent claim too when staging can't be read now", async () => {
+    const env = makeEnv();
+    const bytes = png("concurrent-unreadable");
+    stage(env, bytes);
+    const payload = thumbnail(bytes, 1);
+    const read = env.storage.read.bind(env.storage);
+    let entered;
+    let release;
+    const reading = new Promise(resolve => { entered = resolve; });
+    const held = new Promise(resolve => { release = resolve; });
+    let first = true;
+    env.storage.read = async (...args) => {
+      if (first) {
+        first = false;
+        entered();
+        await held;
+        throw new Error("503");
+      }
+      return read(...args);
+    };
+    const pending = snap(env, payload);
+    await reading;
+    const winner = await snap(env, payload);
+    release();
+    expect(await pending).toMatchObject({ status: "succeeded", replayed: true, result: winner.result });
   });
 });

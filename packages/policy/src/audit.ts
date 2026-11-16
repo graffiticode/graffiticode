@@ -83,7 +83,7 @@ const VALIDATORS = {
   publicationId: v => notAnAddress(match(/^pub-[A-Za-z0-9_-]{1,120}$/)(v)),
   requestId: match(UUIDISH),
   attemptId: match(UUIDISH),
-  provenance: oneOf(["user", "publication", "system"]),
+  provenance: oneOf(["user", "publication", "system", "anonymous"]),
   callerRole: oneOf(["broker", "compiler", "console", "gateway", "policy"]),
   // Contract v2 (W4): the admitted plan, by its digest.
   planDigest: match(/^[a-f0-9]{64}$/),

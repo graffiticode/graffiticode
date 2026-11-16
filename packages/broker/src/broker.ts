@@ -398,6 +398,13 @@ export const createBroker = ({
     };
     // Time left for a read before the claim (staging), never past the deadline.
     const readTimeout = () => Math.min(limits.providerCallMs, deadline - now());
+    // Time left for an operation's own preparation before an authorization
+    // (a read, never an effect); none left is definite.
+    const timeLeft = () => {
+      const ms = readTimeout();
+      if (ms <= 0) throw new DeadlineExceeded(`operation deadline of ${limits.executionMs} ms passed while preparing ${stepInProgress ?? "the operation"}`);
+      return ms;
+    };
 
     // A write registers as active right after admission, before anything else
     // asynchronous, and under its own attempt key: a second request for the
@@ -407,7 +414,7 @@ export const createBroker = ({
     // failure to register propagates before any claim or provider request.
     const operation = Object.prototype.hasOwnProperty.call(operations, op) ? operations[op] : null;
     if (operation?.kind !== "write") {
-      return executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, authorizeStep, inTime, failedStep: () => stepInProgress });
+      return executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep: () => stepInProgress });
     }
     const attempt = `${claims.opid}#${randomUUID()}`;
     await activity.begin(attempt, startedAt + maxExecutionMs(limits));
@@ -423,14 +430,14 @@ export const createBroker = ({
       if (!admission(await protectedSwitch.state({ fresh: true }), { uid: claims.sub, connectionId: claims.conn })) {
         return await refuse(MAINTENANCE, 503);
       }
-      return await executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, authorizeStep, inTime, failedStep: () => stepInProgress });
+      return await executeAdmitted({ claims, replayOnly, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep: () => stepInProgress });
     } finally {
       // Best effort: an entry left behind expires on its own.
       await activity.end(attempt).catch(() => {});
     }
   };
 
-  const executeAdmitted = async ({ claims, replayOnly = false, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, authorizeStep, inTime, failedStep }) => {
+  const executeAdmitted = async ({ claims, replayOnly = false, op, operation, payload, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep }) => {
     // A token is interpreted only under its own registry version or one the
     // window says keeps its meaning (P1b). The receipt binding below carries
     // the token's version, so a write under one version never matches a
@@ -517,7 +524,7 @@ export const createBroker = ({
     }
 
     const binding = writeBinding(claims, op, digest);
-    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, authorizeStep, inTime, failedStep });
+    return executeWrite({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep });
   };
 
   // A write's binding, from its verified token and the payload's digest. A v3
@@ -569,7 +576,7 @@ export const createBroker = ({
     return replayClaim({ claims, binding: writeBinding(claims, op, digest), recorded: claim.binding, record, refuse, authorizeStep, inTime });
   };
 
-  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, authorizeStep, inTime, failedStep }) => {
+  const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep }) => {
     // A failure here (before any provider request) propagates: no claim, no
     // effects.
     // The receipt names its plan (W4), so retiring a revision can report the
@@ -590,13 +597,23 @@ export const createBroker = ({
       if (existing) return replayClaim({ claims, binding, recorded: existing.binding, record, refuse, authorizeStep, inTime });
       const timeoutMs = readTimeout();
       if (timeoutMs <= 0) return refuse("deadline-exceeded", 503);
+      let unreadable = false;
       try {
         staged = await operation.loadStaged(payload, { ...context, timeoutMs });
       } catch {
-        // Staging couldn't be read now; nothing was claimed or written.
-        return refuse("unavailable", 503);
+        unreadable = true;
       }
-      if (!staged) return refuse("staging-unavailable", 409);
+      if (!staged) {
+        // A concurrent request for the same operation may have claimed (and
+        // even finished) it while this one read staging, which it may since
+        // have lost. Its receipt answers; only with still no claim is the
+        // refusal definite.
+        const raced = await receipts.getClaim(claims.opid);
+        if (raced) return replayClaim({ claims, binding, recorded: raced.binding, record, refuse, authorizeStep, inTime });
+        // Staging couldn't be read now (503), or isn't there or doesn't
+        // match (409); nothing was claimed or written either way.
+        return unreadable ? refuse("unavailable", 503) : refuse("staging-unavailable", 409);
+      }
     }
     const written = operation.references ? operation.references(payload, claims.opid) : payload;
     const evidence = operation.evidence?.(written, context);
@@ -631,7 +648,7 @@ export const createBroker = ({
     try {
       // B6's drive's injected fault: refused before any provider request.
       if (faults?.failWrite && faults.principals.has(claims.sub)) throw new ProviderRejected("fault injected: the write was refused before any provider request");
-      result = await operation.run(written, credential, { onStep, providerCall, operationId: claims.opid, evidence, staged, attemptCall, onAttempt });
+      result = await operation.run(written, credential, { onStep, providerCall, operationId: claims.opid, evidence, staged, attemptCall, onAttempt, timeLeft });
       status = "succeeded";
     } catch (e) {
       if (e instanceof StepNotPersisted) {

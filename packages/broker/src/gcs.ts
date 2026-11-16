@@ -14,7 +14,11 @@
 //     2. a sequence at or above this capture's: the effect ("the item's
 //        published captureSequence is at least this one's") already holds;
 //        nothing is written, observed `newer-present`
-//     3. otherwise upload with ifGenerationMatch (0 when absent):
+//     3. otherwise prepare the upload (its credential and body), then ask
+//        Policy, then send it with ifGenerationMatch (0 when absent). Every
+//        asynchronous preparation comes before the authorization: between
+//        the decision and the request nothing is awaited but the decision's
+//        own audit and the deadline check (broker.js authorizeStep):
 //        written      observed `published`
 //        412          observed `precondition-failed`, nothing written; the
 //                     next attempt is authorized fresh
@@ -144,9 +148,12 @@ export const publishedSequence = head => {
 // upload.
 //   getMetadata -> { generation, metadata } | null (absent)
 //   read        -> Uint8Array | null (absent)
-//   upload      -> { generation }; throws PreconditionFailed on 412,
-//                  ProviderRejected on any other definite refusal, and any
-//                  other error when the write may have happened
+//   prepareUpload -> { send(timeoutMs) -> { generation } }: everything
+//                  asynchronous (the access token, the body) happens in
+//                  prepareUpload; send dispatches at once. send throws
+//                  PreconditionFailed on 412, ProviderRejected on any other
+//                  definite refusal, and any other error when the write may
+//                  have happened
 export const buildGcsStorage = ({ accessToken, fetch: doFetch = fetch, baseUrl = PUBLIC_STORAGE_URL }: { accessToken: () => Promise<string>, fetch?: typeof fetch, baseUrl?: string }) => {
   const object = (bucket, name) => `${baseUrl}/storage/v1/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(name)}`;
   const send = async (url, init, timeoutMs) => {
@@ -167,7 +174,7 @@ export const buildGcsStorage = ({ accessToken, fetch: doFetch = fetch, baseUrl =
       if (!res.ok) throw new Error(`storage read failed (${res.status})`);
       return new Uint8Array(await res.arrayBuffer());
     },
-    async upload(bucket, name, bytes, { ifGenerationMatch, metadata, contentType, cacheControl, timeoutMs }) {
+    async prepareUpload(bucket, name, bytes, { ifGenerationMatch, metadata, contentType, cacheControl }) {
       const boundary = `gc-${createHash("sha256").update(bytes).digest("hex").slice(0, 24)}`;
       const head = JSON.stringify({ name, contentType, cacheControl, metadata });
       const body = Buffer.concat([
@@ -176,14 +183,20 @@ export const buildGcsStorage = ({ accessToken, fetch: doFetch = fetch, baseUrl =
         Buffer.from(`\r\n--${boundary}--\r\n`),
       ]);
       const url = `${baseUrl}/upload/storage/v1/b/${encodeURIComponent(bucket)}/o?uploadType=multipart&ifGenerationMatch=${encodeURIComponent(String(ifGenerationMatch))}&fields=generation`;
-      const res = await send(url, { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body }, timeoutMs);
-      if (res.status === 412) throw new PreconditionFailed("the object changed since it was read");
-      // A refusal of the request itself wrote nothing. A timeout, throttling
-      // or a server error may have, so it propagates as uncertain.
-      if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) throw new ProviderRejected(`storage upload refused (${res.status})`);
-      if (!res.ok) throw new Error(`storage upload failed (${res.status})`);
-      const out = (await res.json()) as any;
-      return { generation: String(out.generation) };
+      const headers = { "Content-Type": `multipart/related; boundary=${boundary}`, Authorization: `Bearer ${await accessToken()}` };
+      return {
+        // Dispatches synchronously: fetch is called before anything is awaited.
+        send: async (timeoutMs: number) => {
+          const res = await doFetch(url, { method: "POST", headers, body, signal: AbortSignal.timeout(timeoutMs) });
+          if (res.status === 412) throw new PreconditionFailed("the object changed since it was read");
+          // A refusal of the request itself wrote nothing. A timeout, throttling
+          // or a server error may have, so it propagates as uncertain.
+          if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) throw new ProviderRejected(`storage upload refused (${res.status})`);
+          if (!res.ok) throw new Error(`storage upload failed (${res.status})`);
+          const out = (await res.json()) as any;
+          return { generation: String(out.generation) };
+        },
+      };
     },
   };
 };
@@ -216,33 +229,45 @@ export const buildThumbnailOperations = ({ storage, buckets, attempts }: { stora
         const sequence = publishedSequence(head);
         return { applied: head !== null && sequence >= evidence.captureSequence, observation: { found: head !== null, captureSequence: sequence } };
       },
-      run: async (payload, _credential, { evidence, staged, attemptCall, onAttempt, onStep }) => {
+      run: async (payload, _credential, { evidence, staged, attemptCall, onAttempt, onStep, timeLeft }) => {
         if (!(staged instanceof Uint8Array) || sha256Hex(staged) !== payload.sha256) throw new Error("a publish needs its checked staged bytes");
         const result = thumbnailResultFromEvidence(evidence);
         if (!result) throw new Error("a publish needs its evidence");
         const { bucket, object, item, captureSequence, sha256, commandId } = evidence;
         for (let attempt = 1; attempt <= attempts; attempt++) {
-          const { timeoutMs, decisionId } = await attemptCall("publish", attempt);
+          // Preparation, before the attempt is authorized. Nothing here
+          // writes, so a failure is definite.
+          const readMs = timeLeft();
           let head;
           try {
-            head = await storage.getMetadata(bucket, object, { timeoutMs });
+            head = await storage.getMetadata(bucket, object, { timeoutMs: readMs });
           } catch (e) {
-            // Nothing was written: the read comes before any write.
             throw new NotWritten("unavailable", `the published object couldn't be read: ${String(e?.message || e)}`);
           }
-          if (head !== null && publishedSequence(head) >= captureSequence) {
+          const newer = head !== null && publishedSequence(head) >= captureSequence;
+          let request = null;
+          if (!newer) {
+            try {
+              request = await storage.prepareUpload(bucket, object, staged, {
+                ifGenerationMatch: head === null ? "0" : head.generation,
+                metadata: { captureSequence: String(captureSequence), commandId, sha256, item },
+                contentType: "image/png",
+                cacheControl: "no-cache",
+              });
+            } catch (e) {
+              throw new NotWritten("unavailable", `the upload couldn't be prepared: ${String(e?.message || e)}`);
+            }
+          }
+          // Authorized immediately before the effect, with the time left
+          // computed after the decision.
+          const { timeoutMs, decisionId } = await attemptCall("publish", attempt);
+          if (newer) {
             await onAttempt({ step: "publish", attempt, decisionId, observed: "newer-present" });
             await onStep("publish", { observed: "newer-present" });
             return result;
           }
           try {
-            await storage.upload(bucket, object, staged, {
-              ifGenerationMatch: head === null ? "0" : head.generation,
-              metadata: { captureSequence: String(captureSequence), commandId, sha256, item },
-              contentType: "image/png",
-              cacheControl: "no-cache",
-              timeoutMs,
-            });
+            await request.send(timeoutMs);
           } catch (e) {
             if (!(e instanceof PreconditionFailed)) throw e;
             await onAttempt({ step: "publish", attempt, decisionId, observed: "precondition-failed" });
