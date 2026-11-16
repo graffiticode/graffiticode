@@ -204,12 +204,14 @@ export const createMemoryReceiptStore = () => {
       return outcomes.get(operationId) ?? null;
     },
     async putOutcome(operationId, outcome, { run = undefined }: { run?: number } = {}) {
-      if (outcomes.has(operationId)) {
-        throw new Error(`outcome already recorded for ${operationId}`);
-      }
+      // The fence first: a run that was aborted or superseded is told so,
+      // even when its successor has already recorded the outcome.
       if (run !== undefined) {
         const current = currentRun(runStates.get(operationId));
         if (current.state !== "open" || current.run !== run) throw new RunFenced(`run ${run} of ${operationId} may not record the outcome`);
+      }
+      if (outcomes.has(operationId)) {
+        throw new Error(`outcome already recorded for ${operationId}`);
       }
       outcomes.set(operationId, { ...outcome, at: new Date().toISOString() });
     },

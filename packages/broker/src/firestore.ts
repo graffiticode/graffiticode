@@ -128,9 +128,11 @@ export const createFirestoreReceiptStore = db => {
       // Fenced to its run (C5): only while that run is the open one.
       await db.runTransaction(async tx => {
         const [state, existing] = await Promise.all([tx.get(runRef(operationId)), tx.get(outcomeRef(operationId))]);
-        if (existing.exists) throw new Error("outcome already recorded");
+        // The fence first: a run that was aborted or superseded is told so,
+        // even when its successor has already recorded the outcome.
         const current = currentRun(state.exists ? state.data() : null);
         if (current.state !== "open" || current.run !== run) throw new RunFenced(`run ${run} may not record the outcome`);
+        if (existing.exists) throw new Error("outcome already recorded");
         tx.create(outcomeRef(operationId), { ...outcome, at: new Date().toISOString() });
       });
     },

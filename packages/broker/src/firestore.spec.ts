@@ -272,6 +272,8 @@ run("firestore broker stores", () => {
     expect(race.filter(r => r.status === "fulfilled")).toHaveLength(1);
     const outcome = await receipts.getOutcome(op);
     expect(Boolean(outcome) !== (await receipts.getRunState(op)).aborted).toBe(true);
+    // A superseded run is fenced first, whatever was recorded since.
+    await expect(receipts.putOutcome(op, { status: "failed" }, { run: 0 })).rejects.toBeInstanceOf(RunFenced);
   }, 30_000);
 
   // C5 (decision 5): what a step observed, and a conditional step's attempts.

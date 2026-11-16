@@ -957,6 +957,38 @@ describe("an abort whose acknowledgment was lost (7e)", () => {
     expect(await env.receipts.getOutcome(opid())).toMatchObject({ status: "succeeded" });
   });
 
+  // The owner's review at 3e618850: the successor finishes first, then the
+  // older run's abort answer is lost. The fence is checked before the
+  // recorded outcome, so the older request is refused as temporary.
+  it("refuses the older run as temporary when its successor already finished", async () => {
+    const env = makeEnv();
+    const bytes = png("successor first");
+    stage(env, bytes);
+    const payload = thumbnail(bytes, 1);
+    let sawAbort;
+    let loseAck;
+    const aborted = new Promise(resolve => { sawAbort = resolve; });
+    const ackLost = new Promise(resolve => { loseAck = resolve; });
+    const abort = env.receipts.abortRun.bind(env.receipts);
+    env.receipts.abortRun = async (...args) => {
+      await abort(...args);
+      sawAbort();
+      await ackLost;
+      throw new Error("abort acknowledgment lost");
+    };
+    env.unavailableWhen(() => true);
+    const original: Promise<{ value?: any, error?: any }> = snap(env, payload).then(value => ({ value }), error => ({ error }));
+    await aborted;
+    env.unavailableWhen(null);
+    expect((await snap(env, payload)).status).toBe("succeeded");
+    loseAck();
+    const old = await original;
+    expect(old.error).toBeInstanceOf(BrokerRefused);
+    expect(old.error).toMatchObject({ reason: "authorization-unavailable", status: 503 });
+    expect(env.storage.uploads).toHaveLength(1);
+    expect(await env.receipts.getOutcome(opid())).toMatchObject({ status: "succeeded" });
+  });
+
   it("records the failure when the lost abort never committed", async () => {
     const env = makeEnv();
     const bytes = png("abort never landed");
@@ -983,6 +1015,8 @@ describe("an abort whose acknowledgment was lost (7e)", () => {
     await expect(receipts.putOutcome(op, { status: "failed" }, { run: 0 })).rejects.toBeInstanceOf(RunFenced);
     await receipts.putOutcome(op, { status: "succeeded" }, { run: 1 });
     await expect(receipts.abortRun(op, 1, { reason: "late" })).rejects.toBeInstanceOf(RunFenced);
+    // A superseded run is fenced even once the outcome exists.
+    await expect(receipts.putOutcome(op, { status: "failed" }, { run: 0 })).rejects.toBeInstanceOf(RunFenced);
     expect(await receipts.getOutcome(op)).toMatchObject({ status: "succeeded" });
   });
 });
