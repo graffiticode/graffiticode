@@ -23,8 +23,9 @@
 // - Every answer under a grant is no-store, and the grant is never logged:
 //   only its id (`jti`).
 
-import { createRemoteJWKSet } from "jose";
+import { createLocalJWKSet } from "jose";
 import { verifyToken } from "@graffiticode/policy/tokens";
+import { HttpError } from "./errors/http.js";
 
 export const RENDER_GRANT_HEADER = "graffiticode-render-grant";
 
@@ -35,32 +36,81 @@ const ALLOWED_PARAMS = {
   "/data": new Set(["id", "generation", "generations"]),
 };
 
-export class RenderGrantRefused extends Error {
-  /** @param {number} status @param {string} reason */
-  constructor(status, reason) {
-    super(reason);
+// An HttpError, so a refusal thrown inside a route is answered (no-store) by
+// the API's own error handler; the middleware answers its own.
+export class RenderGrantRefused extends HttpError {
+  /** @param {number} status @param {string} grantReason */
+  constructor(status, grantReason) {
+    super({ code: status, message: grantReason });
     this.status = status;
-    this.reason = reason;
+    this.grantReason = grantReason;
   }
 }
 
-// Policy's keys, from its JWKS route, cached by jose. Without Policy, every
-// grant is refused as unavailable.
-export const buildRenderGrantVerifier = ({ policyUrl = null, jwks = null } = {}) => {
-  const keys = jwks ?? (policyUrl ? createRemoteJWKSet(new URL("/v1/jwks", policyUrl)) : null);
-  return async token => {
-    if (!keys) throw new RenderGrantRefused(503, "render-grants-unavailable");
+// Policy's keys could not be had: temporary, never the grant's fault.
+export class KeysUnavailable extends Error {}
+
+export const JWKS_TTL_MS = 10 * 60 * 1000;
+export const JWKS_REFETCH_MS = 30 * 1000;
+
+// Policy's public keys, from its private JWKS route (`GET /v1/jwks`), fetched
+// with this service's own Google ID token for Policy's audience, as every
+// Policy call is (the owner's review of #408: the route is behind Cloud Run
+// IAM). Held for JWKS_TTL_MS; an unknown key id fetches again, at most every
+// JWKS_REFETCH_MS. Any failure to fetch is KeysUnavailable, and keys past
+// their time are never used.
+/** @param {{ policyUrl: string, idToken: (audience: string) => Promise<string>, fetch?: any, now?: () => number }} options */
+export const buildPolicyJwks = ({ policyUrl, idToken, fetch: doFetch = fetch, now = () => Date.now() }) => {
+  const url = new URL("/v1/jwks", policyUrl).toString();
+  let held = null;
+  let fetchedAt = -Infinity;
+  const load = async () => {
+    fetchedAt = now();
+    /** @type {any} */
+    let body;
     try {
-      return (await verifyToken(keys, "render", token)).claims;
+      const token = await idToken(policyUrl);
+      const res = await doFetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`jwks answered ${res.status}`);
+      body = await res.json();
     } catch (e) {
-      // The key set couldn't be fetched: temporary, not the grant's fault.
-      const code = String(e?.code ?? "");
-      if (code.startsWith("ERR_JWKS") && code !== "ERR_JWKS_NO_MATCHING_KEY" && code !== "ERR_JWKS_MULTIPLE_MATCHING_KEYS") {
-        throw new RenderGrantRefused(503, "render-grants-unavailable");
-      }
-      throw new RenderGrantRefused(401, "bad-render-grant");
+      throw new KeysUnavailable(`policy jwks: ${e?.message ?? e}`);
     }
+    if (!Array.isArray(body?.keys)) throw new KeysUnavailable("policy jwks: no keys");
+    held = { at: now(), kids: new Set(body.keys.map(k => k.kid)), keys: createLocalJWKSet(body) };
   };
+  return async (header, token) => {
+    const fresh = held && now() - held.at < JWKS_TTL_MS;
+    if (!fresh || (!held.kids.has(header?.kid) && now() - fetchedAt >= JWKS_REFETCH_MS)) await load();
+    return held.keys(header, token);
+  };
+};
+
+// Verifies a grant as exactly Policy's `render` profile. `jwks` is a key set
+// (tests) or a key function (buildPolicyJwks). Without one, every grant is
+// refused as unavailable.
+export const buildRenderGrantVerifier = ({ jwks = null } = {}) => async token => {
+  if (!jwks) throw new RenderGrantRefused(503, "render-grants-unavailable");
+  try {
+    return (await verifyToken(jwks, "render", token)).claims;
+  } catch (e) {
+    if (e instanceof KeysUnavailable) throw new RenderGrantRefused(503, "render-grants-unavailable");
+    throw new RenderGrantRefused(401, "bad-render-grant");
+  }
+};
+
+// Languages whose compile acts outside Policy and Broker: L0013's direct
+// uploader writes a thumbnail with its own credentials whenever a snap runs
+// outside a command. (Every other language's writes go through Policy, which
+// refuses them without a connection or a command session, and a grant's read
+// has neither.) A grant's read never dispatches a stage in one of these: it is
+// refused before anything compiles (the owner's review of #408).
+export const UNGATED_EFFECT_LANGS = new Set(["0013"]);
+
+// Refuses a grant's read of a chain with any such stage.
+export const requireReadOnlyChain = tasks => {
+  const langs = tasks.flat().map(task => String(task?.lang ?? "").replace(/^L/i, ""));
+  if (langs.some(lang => UNGATED_EFFECT_LANGS.has(lang))) throw new RenderGrantRefused(403, "render-not-read-only");
 };
 
 // Mounted before every route and before user authentication. A request with
@@ -70,8 +120,8 @@ export const renderGrantMiddleware = ({ verify, log = line => console.log(line) 
   if (header === undefined) return next();
   res.set("Cache-Control", "no-store");
   const refuse = (/** @type {RenderGrantRefused} */ e) => {
-    log(`render grant refused: ${e.reason} ${req.method} ${req.path}`);
-    res.status(e.status).json({ status: "error", error: { code: e.status, message: e.reason }, data: null });
+    log(`render grant refused: ${e.grantReason} ${req.method} ${req.path}`);
+    res.status(e.status).json({ status: "error", error: { code: e.status, message: e.grantReason }, data: null });
   };
   try {
     const allowed = req.method === "GET" ? ALLOWED_PARAMS[req.path] : undefined;

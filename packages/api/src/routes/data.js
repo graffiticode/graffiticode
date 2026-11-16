@@ -13,7 +13,7 @@ import {
   setImmutableCacheHeaders,
   setNoStoreCacheHeaders
 } from "./utils.js";
-import { renderReadAuth } from "../render-grant.js";
+import { renderReadAuth, requireReadOnlyChain } from "../render-grant.js";
 
 export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   // `action` is an out-param the caller can supply to learn about the compile
@@ -148,6 +148,8 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimite
     const ids = parseIdsFromRequest(req);
     const readAuth = renderReadAuth(req.renderGrant);
     const preloadedTasks = await Promise.all(ids.map(id => taskStorer.get({ id, auth: readAuth })));
+    // Read-only: no stage that could act outside Policy is ever dispatched.
+    requireReadOnlyChain(preloadedTasks);
     if (signingLimiter) await signingLimiter.charge(req, preloadedTasks.reduce((n, tasks) => n + countSigningStages(tasks), 0));
     const generation = parseGenerationParam(req.query.generation);
     const namedGenerations = parseGenerationsParam(req.query.generations);

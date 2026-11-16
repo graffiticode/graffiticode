@@ -1,4 +1,4 @@
-import { buildRenderGrantVerifier, loggableHeaders, renderGrantMiddleware } from "./render-grant.js";
+import { buildPolicyJwks, buildRenderGrantVerifier, loggableHeaders, renderGrantMiddleware } from "./render-grant.js";
 import EventEmitter from "events";
 import errorHandler from "errorhandler";
 import express from "express";
@@ -156,7 +156,9 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   app.use(methodOverride());
   // C5 render grants (render-grant.js): before every route and before user
   // authentication, so a grant reaches only GET /form and GET /data.
-  app.use(renderGrantMiddleware({ verify: givenRenderGrantVerifier ?? buildRenderGrantVerifier({ policyUrl }) }));
+  app.use(renderGrantMiddleware({
+    verify: givenRenderGrantVerifier ?? buildRenderGrantVerifier({ jwks: policyUrl && idToken ? buildPolicyJwks({ policyUrl, idToken }) : null }),
+  }));
 
   // The command worker (B5): its Policy client, its run, and this instance's
   // name in leases. Only with Policy.

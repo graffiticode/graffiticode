@@ -9,7 +9,7 @@ import { createApp } from "./app.js";
 import { clearFirestore } from "./testing/firestore.js";
 import { TASK1, DATA1, TASK2, DATA2 } from "./testing/fixture.js";
 import { startLangApp } from "./testing/lang.js";
-import { buildRenderGrantVerifier, loggableHeaders, RENDER_GRANT_HEADER } from "./render-grant.js";
+import { buildPolicyJwks, buildRenderGrantVerifier, JWKS_REFETCH_MS, JWKS_TTL_MS, loggableHeaders, RENDER_GRANT_HEADER } from "./render-grant.js";
 
 const OWNER = "1";
 const OTHER = "2";
@@ -141,6 +141,82 @@ describe("render grants", () => {
     const id = await privateTask();
     const unconfigured = createApp({ authUrl: authApp.url, renderGrantVerifier: buildRenderGrantVerifier({}) });
     await withGrant(request(unconfigured).get("/data").query({ id }), await grantFor(id)).expect(503);
+  });
+
+  // The owner's review of #408: a grant's read is read-only. A chain with a
+  // stage that could act outside Policy (L0013's direct uploader) is refused
+  // before anything compiles.
+  it("refuses a chain with a stage that could upload, before anything compiles", async () => {
+    const id = await privateTask({ lang: "0013", code: TASK1.code });
+    const grant = await grantFor(id);
+    const before = langApp.received().length;
+    for (const path of ["/data", "/form"]) {
+      const res = await withGrant(request(app).get(path).query({ id }), grant).expect(403);
+      expect(res.body.error.message).toBe("render-not-read-only");
+      expect(res.headers["cache-control"]).toBe("no-store");
+    }
+    expect(langApp.received().length).toBe(before);
+  });
+
+  // The owner's review of #408: Policy's JWKS route is private. Its keys are
+  // fetched with this service's ID token, and a key-service failure is
+  // temporary.
+  describe("Policy's keys", () => {
+    const POLICY = "https://policy.example";
+    const keysServer = ({ fail = false } = {}) => {
+      const asked = [];
+      const fetch = async (url, { headers }) => {
+        asked.push({ url, authorization: headers.Authorization });
+        if (fail || headers.Authorization !== `Bearer id-for-${POLICY}`) return { ok: false, status: 403, json: async () => ({}) };
+        return { ok: true, status: 200, json: async () => jwks };
+      };
+      return { asked, fetch };
+    };
+
+    it("are fetched with an ID token for Policy, and verify a grant", async () => {
+      const id = await privateTask();
+      const server = keysServer();
+      const keyed = createApp({ authUrl: authApp.url, renderGrantVerifier: buildRenderGrantVerifier({ jwks: buildPolicyJwks({ policyUrl: POLICY, idToken: async aud => `id-for-${aud}`, fetch: server.fetch }) }) });
+      await withGrant(request(keyed).get("/data").query({ id }), await grantFor(id)).expect(200);
+      await withGrant(request(keyed).get("/data").query({ id }), await grantFor(id)).expect(200);
+      expect(server.asked).toEqual([{ url: `${POLICY}/v1/jwks`, authorization: `Bearer id-for-${POLICY}` }]);
+    });
+
+    it("answer 503 when they can't be fetched: refused, unreachable, or no ID token", async () => {
+      const id = await privateTask();
+      for (const verifier of [
+        buildPolicyJwks({ policyUrl: POLICY, idToken: async aud => `id-for-${aud}`, fetch: keysServer({ fail: true }).fetch }),
+        buildPolicyJwks({ policyUrl: POLICY, idToken: async () => "not-policy's", fetch: keysServer().fetch }),
+        buildPolicyJwks({ policyUrl: POLICY, idToken: async aud => `id-for-${aud}`, fetch: async () => { throw new Error("unreachable"); } }),
+        buildPolicyJwks({ policyUrl: POLICY, idToken: async () => { throw new Error("no metadata server"); }, fetch: keysServer().fetch }),
+      ]) {
+        const keyed = createApp({ authUrl: authApp.url, renderGrantVerifier: buildRenderGrantVerifier({ jwks: verifier }) });
+        const res = await withGrant(request(keyed).get("/data").query({ id }), await grantFor(id)).expect(503);
+        expect(res.body.error.message).toBe("render-grants-unavailable");
+      }
+    });
+
+    it("are held for a while, fetched again for an unknown key at most every 30 s, and never used stale", async () => {
+      let now = 0;
+      const server = keysServer();
+      let fail = false;
+      const fetch = async (url, init) => (fail ? { ok: false, status: 500, json: async () => ({}) } : server.fetch(url, init));
+      const keys = buildPolicyJwks({ policyUrl: POLICY, idToken: async aud => `id-for-${aud}`, fetch, now: () => now });
+      const verify = buildRenderGrantVerifier({ jwks: keys });
+      const id = "task-x";
+      await verify(await grantFor(id));
+      // An unknown kid: refused, without a fetch inside the cooldown.
+      const stranger = await createLocalSigner({ privateJwk: await exportJWK((await generateKeyPair("ES256", { extractable: true })).privateKey), kid: "k9" });
+      await expect(verify(await grantFor(id, {}, stranger))).rejects.toMatchObject({ status: 401 });
+      expect(server.asked).toHaveLength(1);
+      now += JWKS_REFETCH_MS;
+      await expect(verify(await grantFor(id, {}, stranger))).rejects.toMatchObject({ status: 401 });
+      expect(server.asked).toHaveLength(2);
+      // Past their time, keys that can't be fetched again are not used.
+      now += JWKS_TTL_MS;
+      fail = true;
+      await expect(verify(await grantFor(id))).rejects.toMatchObject({ status: 503 });
+    });
   });
 
   it("never logs a credential's value", () => {

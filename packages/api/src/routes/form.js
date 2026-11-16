@@ -2,7 +2,7 @@ import { Router } from "express";
 import { InvalidArgumentError, NotFoundError } from "../errors/http.js";
 import { allInGenerationLang, getActiveGeneration, getLanguageGenerations, languageGenerationSuffix, GENERATION_LANG } from "../generation.js";
 import { buildGetTasks } from "./tasks.js";
-import { renderReadAuth } from "../render-grant.js";
+import { renderReadAuth, requireReadOnlyChain } from "../render-grant.js";
 import {
   buildHttpHandler,
   parseIdsFromRequest,
@@ -68,6 +68,7 @@ const buildGetFormHandler = ({ pingLang, getBaseUrlForLanguage }) => ({ taskStor
       const auth = req.renderGrant ? renderReadAuth(req.renderGrant) : req.auth.context;
       // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
       const tasks = await getTasks({ auth, ids, req });
+      if (req.renderGrant) requireReadOnlyChain(tasks);
       lang = tasks[0].lang;
       // With a compile generation active, an L0158 item renders in L0176's
       // View, which signs its preview through Broker for L0176's host, and
