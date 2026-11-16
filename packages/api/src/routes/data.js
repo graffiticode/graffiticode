@@ -13,6 +13,7 @@ import {
   setImmutableCacheHeaders,
   setNoStoreCacheHeaders
 } from "./utils.js";
+import { renderReadAuth, requireReadOnlyChain } from "../render-grant.js";
 
 export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   // `action` is an out-param the caller can supply to learn about the compile
@@ -61,6 +62,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
 const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) => {
   const getData = buildGetData({ taskStorer, compileStorer, dataApi });
   return buildHttpHandler(async (req, res) => {
+    if (req.renderGrant) return renderData(req, res);
     const auth = req.auth.context;
     const authToken = parseAuthTokenFromRequest(req);
     const ids = parseIdsFromRequest(req);
@@ -137,6 +139,28 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimite
     }
     res.status(200).json(body);
   });
+
+  // Under a render grant (render-grant.js): the pinned chain only, its tasks
+  // read under the grant's subject's ACLs, compiled with no user context or
+  // token, never refreshed, through no connection or publication, and never
+  // stored anywhere.
+  async function renderData(req, res) {
+    const ids = parseIdsFromRequest(req);
+    const readAuth = renderReadAuth(req.renderGrant);
+    const preloadedTasks = await Promise.all(ids.map(id => taskStorer.get({ id, auth: readAuth })));
+    // Read-only: no stage that could act outside Policy is ever dispatched.
+    requireReadOnlyChain(preloadedTasks);
+    if (signingLimiter) await signingLimiter.charge(req, preloadedTasks.reduce((n, tasks) => n + countSigningStages(tasks), 0));
+    const generation = parseGenerationParam(req.query.generation);
+    const namedGenerations = parseGenerationsParam(req.query.generations);
+    const action = {};
+    const data = await getData({ auth: null, authToken: null, ids, action, read: true, generation, namedGenerations, preloadedTasks });
+    const body = action.expiresAt !== undefined
+      ? { ...createSuccessResponse({ data }), refreshAt: new Date(action.expiresAt).toISOString() }
+      : createSuccessResponse({ data });
+    setNoStoreCacheHeaders(res);
+    res.status(200).json(body);
+  }
 };
 
 // `signingLimiter` (signing-limit.js), when given, charges each request's

@@ -21,8 +21,8 @@ use serde_json::{Value as Json, json};
 
 use crate::canonical::args_digest;
 use crate::protected::{
-    OccurrenceBinding, PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError, Reservation,
-    ReserveRequest, SnapshotRequest, Staged, StagedDigest,
+    OccurrenceBinding, PolicyClient, PolicySnapshot, PreviewSession, ProtectedCall, ProtectedCallError, RenderGrant,
+    Reservation, ReserveRequest, SnapshotRequest, Staged, StagedDigest,
 };
 
 pub const POLICY_AUDIENCE: &str = "urn:graffiticode:policy";
@@ -354,11 +354,20 @@ pub fn reservation(json: &Json) -> Option<Reservation> {
         Json::Null => None,
         staged => Some(staged_digest(staged)?),
     };
+    // A render grant, when there is one, exactly: a token and its expiry.
+    let render_grant = match json.get("renderGrant") {
+        None => None,
+        Some(grant) => Some(RenderGrant::new(
+            grant["token"].as_str().filter(|s| !s.is_empty())?.to_owned(),
+            grant["expiresAt"].as_u64()?,
+        )),
+    };
     Some(Reservation {
         item: json["item"].as_str().filter(|s| !s.is_empty())?.to_owned(),
         capture_sequence: json["captureSequence"].as_u64().filter(|n| *n >= 1)?,
         public_capture: json["publicCapture"].as_bool()?,
         staged,
+        render_grant,
     })
 }
 

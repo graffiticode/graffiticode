@@ -18,6 +18,14 @@ const isPublicRead = req =>
 export default ({ validateToken }) => buildHttpHandler(async (req, res, next) => {
   req.auth = {};
 
+  // A render grant (render-grant.js) is a render context, not a user: the
+  // request is anonymous here, and only /form and /data read the grant.
+  if (req.renderGrant) {
+    req.auth.token = null;
+    req.auth.context = null;
+    return next();
+  }
+
   const token = parseAuthTokenFromRequest(req);
   req.auth.token = token;
 

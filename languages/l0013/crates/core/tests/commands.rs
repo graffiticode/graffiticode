@@ -12,14 +12,19 @@ use graffiticode_l0000::canonical::args_digest;
 use graffiticode_l0000::exec::{Recorded, runtime_occurrence_id};
 use graffiticode_l0000::{
     Compiler, Identity, OccurrenceBinding, PolicyClient, PolicySnapshot, ProtectedCall, ProtectedCallError,
-    Reservation, ReserveRequest, RevisionIdentity, SnapshotRequest, Staged, StagedDigest,
+    RenderGrant, Reservation, ReserveRequest, RevisionIdentity, SnapshotRequest, Staged, StagedDigest,
 };
 use graffiticode_l0013::{Camera, CameraError, L0013, REGISTRY_VERSION, SnapRequest, Snapshot};
 use serde_json::{Value as Json, json};
 
+/// What a render was given: (user token, render grant token).
+type Credentials = (Option<String>, Option<String>);
+
 #[derive(Clone, Default)]
 struct FakeCamera {
     rendered: Arc<Mutex<Vec<String>>>,
+    /// What each render was given to render with: (user token, render grant token).
+    credentials: Arc<Mutex<Vec<Credentials>>>,
     snapped: Arc<Mutex<Vec<String>>>,
 }
 
@@ -32,6 +37,8 @@ impl Camera for FakeCamera {
 
     async fn render(&self, request: SnapRequest) -> Result<Vec<u8>, CameraError> {
         self.rendered.lock().unwrap().push(request.item.clone());
+        let grant = request.render_grant.as_ref().map(|g| g.token().to_owned());
+        self.credentials.lock().unwrap().push((request.token.clone(), grant));
         Ok(format!("\u{89}PNG {}", request.item).into_bytes())
     }
 }
@@ -84,11 +91,15 @@ impl PolicyClient for Policy {
             *next += 1;
             *next
         };
+        let staged = self.staged.lock().unwrap().get(&key).cloned();
+        // A private item's grant while it is still to be rendered, as Policy answers.
+        let render_grant = staged.is_none().then(|| RenderGrant::new(format!("grant-{sequence}"), 1));
         Ok(Reservation {
             item: request.item.clone(),
             capture_sequence: sequence,
             public_capture: false,
-            staged: self.staged.lock().unwrap().get(&key).cloned(),
+            staged,
+            render_grant,
         })
     }
 
@@ -288,4 +299,17 @@ async fn a_blocked_capture_is_never_reserved_rendered_or_staged() {
     assert!(errors.iter().any(|e| e.code.as_deref() == Some("not-selected")), "{errors:?}");
     assert!(policy.calls.lock().unwrap().is_empty());
     assert!(camera.rendered.lock().unwrap().is_empty());
+}
+
+// C5 render grants: a command's render uses the grant Policy gave its reservation, never a user
+// token, even when the identity carries one; and the grant's token never prints.
+#[tokio::test]
+async fn a_command_renders_under_its_reservations_grant_never_a_user_token() {
+    let (compiler, _policy, camera, model) = setup(&literal()).await;
+    let identity = Identity { user_token: Some("a-user-token".into()), ..command("session-s0") };
+    let started = compiler.start(&model, &Json::Null, &Json::Null, identity).await;
+    started.result.expect("the capture ran");
+    assert_eq!(*camera.credentials.lock().unwrap(), [(None, Some("grant-1".to_owned()))]);
+    let grant = RenderGrant::new("secret-grant".into(), 7);
+    assert!(!format!("{grant:?}").contains("secret-grant"));
 }

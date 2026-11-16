@@ -522,7 +522,13 @@ mod captures {
         let reserved = client.reserve("session", &request).await.unwrap();
         assert_eq!(
             reserved,
-            Reservation { item: "item-1".into(), capture_sequence: 3, public_capture: false, staged: None }
+            Reservation {
+                item: "item-1".into(),
+                capture_sequence: 3,
+                public_capture: false,
+                staged: None,
+                render_grant: None
+            }
         );
         assert_eq!(
             fake.sent("/v1/command-reservations")[0].0,
@@ -554,9 +560,32 @@ mod captures {
             json!({ "item": "item-1", "captureSequence": 0, "publicCapture": false, "staged": null }),
             json!({ "item": "item-1", "captureSequence": 3, "staged": null }),
             json!({ "item": "item-1", "captureSequence": 3, "publicCapture": false, "staged": { "sha256": "x" } }),
+            // A render grant, when given, is exactly a token and its expiry.
+            json!({ "item": "item-1", "captureSequence": 3, "publicCapture": false, "staged": null, "renderGrant": { "token": "" , "expiresAt": 1 } }),
+            json!({ "item": "item-1", "captureSequence": 3, "publicCapture": false, "staged": null, "renderGrant": { "token": "g" } }),
+            json!({ "item": "item-1", "captureSequence": 3, "publicCapture": false, "staged": null, "renderGrant": "g" }),
         ] {
             fake.execute.lock().unwrap().push(success(answer));
             assert_eq!(client.reserve("session", &request).await.unwrap_err().reason(), Some("malformed"));
         }
+    }
+
+    // C5 render grants: a private capture's reservation carries Policy's grant, read exactly, and
+    // its token never prints.
+    #[tokio::test]
+    async fn a_reservation_carries_its_render_grant_which_never_prints() {
+        let (fake, url, _key) = served().await;
+        let client = client(&url, Some(&url));
+        let request = ReserveRequest {
+            occurrence_id: "x:1".into(),
+            intent_id: "snap:0".into(),
+            expansion_key: Some("0#0".into()),
+            item: "item-1".into(),
+        };
+        fake.execute.lock().unwrap().push(success(json!({ "item": "item-1", "captureSequence": 3, "publicCapture": false, "staged": null, "renderGrant": { "token": "secret-grant", "expiresAt": 1_800_000_000_000_u64 } })));
+        let reserved = client.reserve("session", &request).await.unwrap();
+        let grant = reserved.render_grant.clone().expect("a grant");
+        assert_eq!((grant.token(), grant.expires_at), ("secret-grant", 1_800_000_000_000));
+        assert!(!format!("{reserved:?}").contains("secret-grant"));
     }
 }

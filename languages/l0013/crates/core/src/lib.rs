@@ -36,6 +36,9 @@ use graffiticode_l0000::{
 };
 use serde_json::json;
 
+/// A Policy render grant (C5), as a command's capture renders a private item under it.
+pub use graffiticode_l0000::RenderGrant;
+
 /// The words L0013 adds to the base lexicon. Generated from the TypeScript package by
 /// `tests/conformance/generate.mjs`.
 const ADDITIONS_JSON: &str = include_str!("lexicon-additions.json");
@@ -90,6 +93,9 @@ pub struct SnapRequest {
     pub height: Option<f64>,
     /// The caller's verified access token, for rendering a form that is not public.
     pub token: Option<String>,
+    /// Under a command (C5): Policy's render grant for a private item's capture, in place of any
+    /// user token. Never sent with one.
+    pub render_grant: Option<RenderGrant>,
 }
 
 /// A photograph that has been taken and stored.
@@ -258,6 +264,7 @@ impl L0013 {
             height: options.get(&Key::tag("height")).and_then(number),
             // Only a token the server verified reaches the camera.
             token: cx.exec().user_token().map(str::to_owned),
+            render_grant: None,
         };
         if cx.exec().is_command() {
             return self.capture(cx, id, request).await;
@@ -290,6 +297,9 @@ impl L0013 {
             let sha256 = match reserved.staged {
                 Some(staged) => staged.sha256,
                 None => {
+                    // A command carries no user token: a private item renders under the grant
+                    // Policy gave this reservation, a public one under nothing.
+                    let request = SnapRequest { token: None, render_grant: reserved.render_grant.clone(), ..request };
                     let png = self.camera.render(request).await.map_err(|e| e.to_string())?;
                     cx.exec().stage_capture(&occurrence, &png).await.map_err(|e| e.to_string())?.sha256
                 }

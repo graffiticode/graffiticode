@@ -1,3 +1,4 @@
+import { buildPolicyJwks, buildRenderGrantVerifier, loggableHeaders, renderGrantMiddleware } from "./render-grant.js";
 import EventEmitter from "events";
 import errorHandler from "errorhandler";
 import express from "express";
@@ -52,7 +53,7 @@ const env = process.env.NODE_ENV || "development";
 // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
 // Tests may supply `validateToken`, `callerIdToken` (the api's ID-token
 // minter for compiles, caller-identity.js), `audit` and `signingLimiter`.
-export const createApp = ({ authUrl, validateToken: givenValidateToken, callerIdToken, audit: givenAudit, signingLimiter: givenLimiter } = {}) => {
+export const createApp = ({ authUrl, validateToken: givenValidateToken, callerIdToken, audit: givenAudit, signingLimiter: givenLimiter, renderGrantVerifier: givenRenderGrantVerifier } = {}) => {
   const { taskStorer, compileStorer, langOverrideStorer, artifactStorer, stageResultStorer } = createStorers();
   const { compile: langCompile, validateOutput, getBaseUrlForLanguage, getPublicBaseUrlForLanguage, getLangAsset, pingLang } = buildLang({ langOverrideStorer });
   // POLICY_URL (the policy service's run.app URL) enables compiles through a
@@ -121,7 +122,7 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   app.all("*", (req, res, next) => {
     if (req.headers.host.match(/^localhost/) === null) {
       if (req.headers["x-forwarded-proto"] !== "https" && env === "production") {
-        console.log("app.all redirecting headers=" + JSON.stringify(req.headers, null, 2) + " url=" + req.url);
+        console.log("app.all redirecting headers=" + JSON.stringify(loggableHeaders(req.headers), null, 2) + " url=" + req.url);
         res.redirect(["https://", req.headers.host, req.url].join(""));
       } else {
         next();
@@ -153,6 +154,11 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   // Every audit record written while handling a request names it.
   app.use(requestContextMiddleware);
   app.use(methodOverride());
+  // C5 render grants (render-grant.js): before every route and before user
+  // authentication, so a grant reaches only GET /form and GET /data.
+  app.use(renderGrantMiddleware({
+    verify: givenRenderGrantVerifier ?? buildRenderGrantVerifier({ jwks: policyUrl && idToken ? buildPolicyJwks({ policyUrl, idToken }) : null }),
+  }));
 
   // The command worker (B5): its Policy client, its run, and this instance's
   // name in leases. Only with Policy.
