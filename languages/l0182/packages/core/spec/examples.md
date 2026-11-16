@@ -218,7 +218,7 @@ see which.
     **Turn 2** — Take it, and prefer not to say wherever the survey lets me.
 67. **Turn 1** — Take `course-feedback`.
     **Turn 2** — Take it, and add a comment asking for more worked examples.
-68. **Turn 1** — Take `workplace-pulse`.
+68. **Turn 1** — Take version 2 of `workplace-pulse`, the one asking where to focus next.
     **Turn 2** — Take it, and if it asks for a comment, say what would make the biggest difference.
 69. **Turn 1** — Take `course-feedback`.
     **Turn 2** — Take it as a student who missed half the lectures, and say so in the comment.
