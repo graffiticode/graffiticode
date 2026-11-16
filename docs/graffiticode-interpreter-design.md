@@ -585,6 +585,8 @@ A workflow engine such as Temporal could implement durable orchestration behind 
 
 ### Execution observation contracts (proposed)
 
+*The order of work, and the decisions on reusing existing code (D-1 to D-6), are in the [execution observation plan](execution-observation-plan.md).*
+
 Graffiticode owns the contracts for work, execution, outputs and observation. Protocol adapters (A2A, the MCP Tasks extension) translate these contracts. Frontend service jobs coordinate requested outcomes using them, and own their domain completion criteria. These contracts give generation jobs, durable read-only computation and effectful runs one observable lifecycle. Each job or run keeps its own authoritative record.
 
 The first release defines the event identities, the outbox, interrupts, errors, the minimal artifact identity and the capability declarations. It delivers by polling. Replay streams and webhooks follow without changing the records.
@@ -636,25 +638,21 @@ Three cursors answer different questions and are never interchanged:
 - a page token continues a listing;
 - an event cursor replays one run's events.
 
-**Errors.** Every API, Policy, Broker and interpreter error comes from one registry. Each has:
-- a stable code;
-- a category:
-  - `authentication`;
-  - `authorization`;
-  - `validation`;
-  - `resource`: a requested run, artifact, item or target is missing or inaccessible;
-  - `state`: an invalid transition;
-  - `dependency`: an execution prerequisite is unavailable;
-  - `system`;
-- typed details;
-- recovery guidance: retry with the same key, needs new admission, resolve an interrupt, reset from the supplied snapshot, or none.
-
-The three cases from §13 are separate codes:
-- `event-not-understood` (validation): the language declares no such operation or event;
-- `policy-refused` (authorization): Policy decided the event is not permitted. It is used only for Policy decisions;
-- `event-not-applicable` (state): the event exists, but the run's current state doesn't accept it.
-
-`cursor-expired` (state) carries a fresh snapshot and its sequence boundary. Its recovery guidance is to reset from that snapshot and resume reading after its boundary.
+**Errors.** The error registry is the existing, enforced FAIL-01 registry: `REASON_CATEGORIES` in `packages/common/src/failures.ts`, checked by `scripts/test/failures-inventory.test.js`. These contracts extend it. They don't replace it.
+- **Categories.** The five existing categories stay unchanged: `authentication`, `permission`, `malformed`, `conflict`, `unavailable`.
+  - Existing reasons keep their current classifications. Missing-resource reasons are deliberately classified differently, for example `command-not-found` is `permission` and `artifact-not-found` is `malformed`.
+  - A new wire category, such as `not-found`, would need its own compatibility and information-disclosure review, and is deferred.
+  - There is no second classification axis. Reason codes, typed details and interrupt kinds supply the precision.
+- **New reasons** are registered under the inventory test:
+  - `event-not-understood` (`malformed`): the language declares no such operation or event;
+  - `event-not-applicable` (`conflict`): the event exists, but the run's current state doesn't accept it;
+  - `cursor-expired` (`conflict`): carries a fresh snapshot and its sequence boundary;
+  - reasons for an unsupported contract version and a stale interrupt revision, classified the same way.
+- **Policy refusals** carry Policy's own registered reason (for example from `CommandRefused`). They are never flattened into one generic denial.
+- **Every reason has typed details and recovery guidance:** retry with the same key, needs new admission, resolve an interrupt, reset from the supplied snapshot, or none.
+  - Guidance takes the execution context and the recorded outcome into account. The same reason can call for a same-key retry before settlement and for reconciliation after an `uncertain` one.
+  - **A category alone never authorizes a retry.**
+- **Adapters** consume the native categories and reasons, and translate them only at the protocol boundary.
 
 **Errors never manufacture or overwrite outcomes.**
 - Command outcomes are settled only by B5's authoritative path: Broker receipts and Policy settlement, written under the current fencing generation.
@@ -680,7 +678,7 @@ The three cases from §13 are separate codes:
 - **Preflight for new work.** The API rejects an undeclared new operation or event with `event-not-understood` before allocating a command or invocation, so no idempotency key is consumed.
 - **Existing keys resolve as recorded.** An existing key is served from its recorded bindings and pinned contracts, whatever the current manifest or activation flags say (B5 §6).
 - **Applicability is checked at runtime.** A static declaration only says that an event exists. Whether it applies to the run's current state is checked atomically with the transition.
-- **Versions.** New interfaces carry an explicit contract version. A request for an unsupported version is refused (`validation`), never silently downgraded. Existing callers that send no version have a documented default and compatibility path.
+- **Versions.** New interfaces carry an explicit contract version. A request for an unsupported version is refused with a registered `malformed` reason, never silently downgraded. Existing callers that send no version have a documented default and compatibility path.
 
 **Representation is not mode.**
 - **Mode** (`evaluate` or `present`, §5) controls pipeline behavior.
@@ -938,9 +936,9 @@ Open questions for durable executions (plan Track E; see also the L0188 doc's "D
 - Whether to publish a full projection or only invalidate.
 - Authorization and revocation for queued effects.
 - How long execution state is kept.
-- How errors and partial failures reach forms and agents. Proposed in §9: one error registry. Errors never replace recorded outcomes, and blocked progress is a typed interrupt.
+- How errors and partial failures reach forms and agents. Proposed in §9: the existing FAIL-01 registry, extended. Errors never replace recorded outcomes, and blocked progress is a typed interrupt.
 - How an interpreter answers a message it has no transition for. Proposed: treat every interpreter as a state machine, with a fixed-state interpreter as the one-state case whose only transition is the identity. Then `start`, and `dispatch` with any event, sent to a fixed-state interpreter, and `dispatch` with an event the language never defines, return a **message not understood** error. Proposed in §9:
-  - `event-not-understood`, `policy-refused` and `event-not-applicable` are separate codes.
+  - `event-not-understood` and `event-not-applicable` are separate reasons in the FAIL-01 registry. A Policy refusal carries Policy's own registered reason.
   - The API decides `event-not-understood` from the manifest's declarations before allocating anything. Existing keys still resolve through their recorded bindings.
   - Still open: the exact wire shape.
 
@@ -1001,7 +999,7 @@ Open questions for durable executions (plan Track E; see also the L0188 doc's "D
   - lifecycle classes: active, interrupted, terminal;
   - typed interrupts, with a resolver and a revision;
   - a per-run event sequence, separate from `stateVersion`;
-  - one error registry, in which errors never manufacture or overwrite outcomes settled by Policy and the Broker;
+  - the existing FAIL-01 registry (`failures.ts`), extended with new reasons, typed details and context-aware recovery guidance, keeping its five categories. Errors never manufacture or overwrite outcomes settled by Policy and the Broker;
   - presentation refresh ordered per audience, independent of the run lease;
   - artifacts made of immutable chunks with stable ordinals, behind a versioned, sealed manifest whose appends are idempotent;
   - capability preflight that keeps replay of existing keys;
