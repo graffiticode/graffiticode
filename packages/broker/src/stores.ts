@@ -22,6 +22,23 @@
 //                        authorized. putStepAttempt(id, k, attempt) creates it
 //                        once; getStepAttempts(id) lists them by k.
 //               outcome  { status, steps, result, at } — after the last
+//               run/state  { run, state, reason? }  (C5, operations that
+//                        reopen before dispatch): one record of the current
+//                        run, `open` or `aborted` (absent: run 0, open). Run 0
+//                        is the claim's own. Every transition reads it and the
+//                        outcome in one transaction, so they exclude each
+//                        other:
+//                          abortRun(id, k)       only run k, open, with no
+//                                                outcome -> aborted
+//                          startRun(id, k)       only after run k-1 was
+//                                                aborted, with no outcome ->
+//                                                run k, open; false otherwise
+//                          putOutcome(id, o, { run: k })  only while run k is
+//                                                open
+//                        Anything else throws RunFenced, and changes nothing.
+//                        getRunState(id) -> { run, aborted }. An aborted
+//                        latest run wrote nothing. putOutcome without `run`
+//                        (every other operation) is unchanged.
 //             A claim with no outcome is "uncertain": the broker may have
 //             crashed mid-call, so it is reported with its persisted steps,
 //             never blindly re-run.
@@ -105,6 +122,15 @@ const checkStepIndex = n => {
 export const stepDetail = detail => (detail && typeof detail.observed === "string" ? { observed: detail.observed } : {});
 // A conditional step's attempt record (C5 plan decision 5).
 export const attemptRecord = ({ step, attempt, decisionId, observed }) => ({ step, attempt, decisionId, observed });
+// A run transition refused by the run's record: the run was aborted,
+// superseded, or already has its outcome. Nothing changed.
+export class RunFenced extends Error {}
+// The current run, as its record says (absent: run 0, open).
+export const currentRun = state => state ?? { run: 0, state: "open" };
+
+export const checkRun = run => {
+  if (!Number.isInteger(run) || run < 0) throw new Error(`run must be a non-negative integer, not ${run}`);
+};
 export const checkAttempt = (k, attempt) => {
   if (!Number.isInteger(k) || k < 1 || attempt?.attempt !== k) throw new Error(`attempt index must be the attempt's own positive integer, not ${k}`);
 };
@@ -112,6 +138,7 @@ export const checkAttempt = (k, attempt) => {
 export const createMemoryReceiptStore = () => {
   const claims = new Map();
   const stepAttempts = new Map();
+  const runStates = new Map();
   const steps = new Map();
   const outcomes = new Map();
   const attempts = new Map();
@@ -152,13 +179,37 @@ export const createMemoryReceiptStore = () => {
       if (stepAttempts.has(key)) throw new Error(`attempt ${k} of ${operationId} already recorded`);
       stepAttempts.set(key, { k, ...attemptRecord(attempt), at: new Date().toISOString() });
     },
+    // Each transition reads and writes with no await in between: atomic here.
+    async startRun(operationId, run) {
+      checkRun(run);
+      const current = currentRun(runStates.get(operationId));
+      if (outcomes.has(operationId) || current.state !== "aborted" || current.run !== run - 1) return false;
+      runStates.set(operationId, { run, state: "open", at: new Date().toISOString() });
+      return true;
+    },
+    async abortRun(operationId, run, { reason }) {
+      checkRun(run);
+      const current = currentRun(runStates.get(operationId));
+      if (outcomes.has(operationId) || current.state !== "open" || current.run !== run) throw new RunFenced(`run ${run} of ${operationId} can't be aborted`);
+      runStates.set(operationId, { run, state: "aborted", reason, at: new Date().toISOString() });
+    },
+    async getRunState(operationId) {
+      const current = currentRun(runStates.get(operationId));
+      return { run: current.run, aborted: current.state === "aborted" };
+    },
     async getStepAttempts(operationId) {
       return [...stepAttempts.entries()].filter(([key]) => key.startsWith(`${operationId}#`)).map(([, a]) => ({ ...a })).sort((a, b) => a.k - b.k);
     },
     async getOutcome(operationId) {
       return outcomes.get(operationId) ?? null;
     },
-    async putOutcome(operationId, outcome) {
+    async putOutcome(operationId, outcome, { run = undefined }: { run?: number } = {}) {
+      // The fence first: a run that was aborted or superseded is told so,
+      // even when its successor has already recorded the outcome.
+      if (run !== undefined) {
+        const current = currentRun(runStates.get(operationId));
+        if (current.state !== "open" || current.run !== run) throw new RunFenced(`run ${run} of ${operationId} may not record the outcome`);
+      }
       if (outcomes.has(operationId)) {
         throw new Error(`outcome already recorded for ${operationId}`);
       }

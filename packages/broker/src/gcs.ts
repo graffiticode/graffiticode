@@ -209,6 +209,9 @@ export const buildThumbnailOperations = ({ storage, buckets, attempts }: { stora
     "gcs.put-thumbnail": {
       kind: "write",
       credential: "service",
+      // broker.js 7e: a run that stopped before any dispatch, for a
+      // temporary reason, wrote nothing and may run again.
+      reopensBeforeDispatch: true,
       validate: validateThumbnail,
       // Read before the claim (broker.js): the staged bytes, only if they
       // hash to the bound digest. Null when missing or mismatched;

@@ -51,6 +51,9 @@ export const createReceiptReader = ({ receipts }) =>
     const operations = [];
     for (const claim of claims) {
       const outcome = await receipts.getOutcome(claim.operationId);
+      // C5 (broker.js 7e): an aborted latest run wrote nothing; it reads as
+      // never claimed.
+      if (!outcome && receipts.getRunState && (await receipts.getRunState(claim.operationId)).aborted) continue;
       const final = await receipts.getResolution(claim.operationId);
       const resolution = final && "resultSource" in final
         ? { resolution: { verdict: final.verdict, result: final.result ?? null, resultSource: final.resultSource } }

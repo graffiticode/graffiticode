@@ -29,7 +29,8 @@ import {
   MAX_EXECUTION_TOKEN_LIFETIME_S,
   SLOT_RETENTION_MARGIN_S,
   createSecretBox,
-  StepConflict
+  StepConflict,
+  RunFenced
 } from "./index.js";
 
 const run = process.env.FIRESTORE_EMULATOR_HOST ? describe : describe.skip;
@@ -250,6 +251,30 @@ run("firestore broker stores", () => {
     expect(racers.filter(r => r.status === "fulfilled")).toHaveLength(1);
     expect(await receipts.getSteps(op)).toEqual(["questions", "items", racers[0].status === "fulfilled" ? "a" : "b"]);
   });
+
+  // C5 (broker.js 7e): one run record, read and written with the outcome in
+  // one transaction, so an abort, the outcome and the next run exclude each
+  // other, and an outcome is fenced to its run.
+  it("aborts a run, starts the next one exactly once, and fences outcomes to their run", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    const op = `${randomUUID()}/s0/o1`;
+    expect(await receipts.getRunState(op)).toEqual({ run: 0, aborted: false });
+    expect(await receipts.startRun(op, 1)).toBe(false);
+    await receipts.abortRun(op, 0, { reason: "authorization-unavailable" });
+    await expect(receipts.abortRun(op, 0, { reason: "again" })).rejects.toBeInstanceOf(RunFenced);
+    await expect(receipts.putOutcome(op, { status: "failed" }, { run: 0 })).rejects.toBeInstanceOf(RunFenced);
+    expect(await receipts.getRunState(op)).toEqual({ run: 0, aborted: true });
+    const racers = await Promise.all(Array.from({ length: 4 }, () => receipts.startRun(op, 1)));
+    expect(racers.filter(Boolean)).toHaveLength(1);
+    expect(await receipts.getRunState(op)).toEqual({ run: 1, aborted: false });
+    // An abort and an outcome racing on the open run: exactly one lands.
+    const race = await Promise.allSettled([receipts.abortRun(op, 1, { reason: "late" }), receipts.putOutcome(op, { status: "succeeded" }, { run: 1 })]);
+    expect(race.filter(r => r.status === "fulfilled")).toHaveLength(1);
+    const outcome = await receipts.getOutcome(op);
+    expect(Boolean(outcome) !== (await receipts.getRunState(op)).aborted).toBe(true);
+    // A superseded run is fenced first, whatever was recorded since.
+    await expect(receipts.putOutcome(op, { status: "failed" }, { run: 0 })).rejects.toBeInstanceOf(RunFenced);
+  }, 30_000);
 
   // C5 (decision 5): what a step observed, and a conditional step's attempts.
   it("keeps a step's observation, and each attempt of a conditional step once, in order", async () => {

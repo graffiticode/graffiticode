@@ -457,10 +457,11 @@ describe("mint and authorize-execution under a plan", () => {
     policy = build({ minContractVersion: 2 });
     await denied(mint(legacy.sessionToken, { occurrenceId: "n1.1" }), "contract-version-unsupported");
     await denied(authorize(executionToken), "contract-version-unsupported");
-    // A contract version no one supports is refused at any minimum.
+    // A contract version no one supports is refused at any minimum. (C5:
+    // Policy accepts 3, which is refused here only as unbound.)
     policy = build();
     const { iss, aud, iat, exp, jti, ...rest } = await claimsOf("execution", executionToken);
-    await denied(authorize(await issueToken(signer, "execution", { ...rest, cv: 3 })), "contract-version-unsupported");
+    await denied(authorize(await issueToken(signer, "execution", { ...rest, cv: 4 })), "contract-version-unsupported");
   });
 
   it("issues system preview sessions at v2 by their own authority, so they mint at minimum version 2", async () => {

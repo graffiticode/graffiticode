@@ -48,6 +48,12 @@ export const sessionProvenance = (session): { provenance?: string, refusal?: str
     return { provenance: "system" };
   }
   if (session.sys !== undefined || session.sub === SYSTEM_PREVIEW_SUBJECT) return { refusal: "bad-session" };
+  // An anonymous capture's command session (C5 decision 4): never a
+  // publication, never a connection.
+  if (session.sub === ANONYMOUS_SUBJECT) {
+    if (session.pub || session.conn !== undefined || session.own !== undefined) return { refusal: "bad-session" };
+    return { provenance: "anonymous" };
+  }
   return { provenance: session.pub ? "publication" : "user" };
 };
 

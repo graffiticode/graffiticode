@@ -744,6 +744,11 @@ export const createPolicy = ({
     if (!pinned || !command.admission.stages[stage]) return deny("plan-binding-mismatch", record);
     if (!acceptedRegistry(plan.registryVersion)) return deny("registry-version-changed", record);
     if (!(await revisionAvailable(pinned.lang, pinned.revision))) return deny("pinned-revision-unavailable", record);
+    // C5: a stage of a v3 plan (decision 6). Its session binds the plan; it
+    // names the connection only when the stage requires a connection
+    // function, and carries the stage's item-scoped functions, each
+    // authorized per occurrence at mint.
+    if (command.admission.contractVersion === CONTRACT_VERSION_SCOPED) return scopedSession({ record, command, commandId, generation, stage, plan, pinned });
     const connection = await connections.get(command.connectionId);
     const access = await accessFor(connection, command.uid);
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
@@ -768,6 +773,39 @@ export const createPolicy = ({
     await audit({ ...record, lang: pinned.lang, ownerUid: connection.ownerUid, planDigest: command.admission.planDigest, outcome: "allowed" });
     return { allowed, sessionToken, lang: pinned.lang, tagUrl: command.admission.stages[stage].tagUrl };
   };
+  const scopedSession = async ({ record, command, commandId, generation, stage, plan, pinned }) => {
+    const registered = protectedFunctionsForLang(pinned.lang) || {};
+    const connectionFns = pinned.requiredFunctions.filter(fn => credentialFor(pinned.lang, fn) === "connection");
+    const serviceFns = pinned.requiredFunctions.filter(fn => credentialFor(pinned.lang, fn) === "service");
+    let claims: Record<string, unknown> = {};
+    let allowed = [...serviceFns];
+    let ownerUid = null;
+    if (connectionFns.length) {
+      if (!plan.connectionId || plan.connectionId !== command.connectionId) return deny("plan-binding-mismatch", record);
+      const connection = await connections.get(command.connectionId);
+      const access = await accessFor(connection, command.uid);
+      if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
+      allowed = [...connectionFns.filter(fn => registered[fn].backend === connection.backend && mayUse(access, pinned.lang, fn)), ...serviceFns];
+      claims = { own: connection.ownerUid, conn: command.connectionId, backend: connection.backend };
+      ownerUid = connection.ownerUid;
+    }
+    const sessionToken = await issueToken(signer, "session", {
+      sub: command.uid,
+      ...claims,
+      lang: pinned.lang,
+      inv: command.invocationId,
+      stg: stage,
+      rv: plan.registryVersion,
+      fns: allowed,
+      cv: CONTRACT_VERSION_SCOPED,
+      pld: command.admission.planDigest,
+      bind: stageBinding(pinned),
+      cmd: commandId,
+      fg: generation,
+    });
+    await audit({ ...record, lang: pinned.lang, ...(ownerUid ? { ownerUid } : {}), planDigest: command.admission.planDigest, outcome: "allowed" });
+    return { allowed, sessionToken, lang: pinned.lang, tagUrl: command.admission.stages[stage].tagUrl };
+  };
 
   // A command's operation, checked at mint and at every step (B5 §4, §7): the
   // claims name this command, its invocation, principal and an admitted
@@ -775,10 +813,17 @@ export const createPolicy = ({
   // occurrence is bound, its arguments are the bound ones, and it is an
   // admitted intent's, for that intent's function, operation and scope.
   // Returns { refusal, definite? } or { command, occurrence }.
+  // C5: under a v3 plan the claims name a connection only for a connection
+  // scope, and it must be the command's; the occurrence's scope is the
+  // intent's, static, or the item reserved for it (bound). The result names
+  // the scope the token selects (`scope`).
   const commandOperation = async ({ claims, stage, occurrenceId, fn, op, argsDigest }) => {
     if (!commands || !commandRecords) return { refusal: "unavailable" };
     const command = typeof claims.cmd === "string" && COMMAND_ID_RE.test(claims.cmd) ? await commands.get(claims.cmd) : null;
-    if (!command || command.invocationId !== claims.inv || command.uid !== claims.sub || command.connectionId !== claims.conn) return { refusal: "plan-binding-mismatch" };
+    const v3 = claims.cv === CONTRACT_VERSION_SCOPED;
+    const sameConnection = v3 ? (claims.conn === undefined || command?.connectionId === claims.conn) : command?.connectionId === claims.conn;
+    if (!command || command.invocationId !== claims.inv || command.uid !== claims.sub || !sameConnection) return { refusal: "plan-binding-mismatch" };
+    if (v3 !== (command.admission?.contractVersion === CONTRACT_VERSION_SCOPED)) return { refusal: "plan-binding-mismatch" };
     const fenced = ownerRefusal(command, { generation: claims.fg, now: now() });
     if (fenced) return { refusal: fenced };
     const admitted = command.admission?.stages?.[stage];
@@ -789,7 +834,19 @@ export const createPolicy = ({
     const runtime = occurrenceId.startsWith(RUNTIME_PREFIX);
     const encoded = runtime ? occurrenceId === runtimeOccurrenceId(occurrence.intentId, occurrence.expansionKey) : (intent?.occurrences ?? []).includes(occurrenceId);
     if (!intent || !encoded) return { refusal: "occurrence-mismatch", definite: true, command, occurrence };
-    if (intent.fn !== fn || intent.op !== op || (intent.scope !== undefined && intent.scope !== claims.conn)) return { refusal: "intent-mismatch", definite: true, command, occurrence };
+    if (intent.fn !== fn || intent.op !== op) return { refusal: "intent-mismatch", definite: true, command, occurrence };
+    // The scope this occurrence acts on.
+    const declared = admittedScope(intent);
+    let scope;
+    if (declared?.kind === "item") {
+      const itemId = declared.id ?? occurrence.item ?? null;
+      if (!itemId) return { refusal: "occurrence-not-reserved", command, occurrence };
+      scope = { kind: "item", id: itemId };
+    } else {
+      if (declared && declared.id !== claims.conn) return { refusal: "intent-mismatch", definite: true, command, occurrence };
+      if (claims.conn === undefined) return { refusal: "plan-binding-mismatch", command, occurrence };
+      scope = { kind: "connection", id: claims.conn };
+    }
     if (occurrence.argd !== argsDigest) return { refusal: "args-mismatch", definite: true, command, occurrence };
     // A repair's token, only while it holds the occurrence's ledger entry
     // (B6 decision 4): one claim, one repair's mints.
@@ -797,7 +854,7 @@ export const createPolicy = ({
       const entry = (await commandRecords.listLedger(command.repairOf)).find(e => e.stage === stage && e.occurrenceId === occurrenceId);
       if (entry?.status !== "pending" || entry.repairId !== command.commandId) return { refusal: "occurrence-not-claimed", command, occurrence };
     }
-    return { command, occurrence };
+    return { command, occurrence, scope };
   };
 
   // A definite refusal of a command's occurrence, from its current owner, is
@@ -1209,6 +1266,21 @@ export const createPolicy = ({
   // Returns a refusal reason, or null.
   // Mint calls it before issuing an execution token; W2's
   // authorize-execution will call it before each effect.
+  // C5 (decision 6): an item-scoped execution is re-checked by its item
+  // instead, as item authority answers now (decision 3), for the token's
+  // subject: the owner of a private item, or anyone under the public-capture
+  // exception. Returns { refusal } or { publicCapture }.
+  const liveCheck = async (authority, fn, scope = null) => {
+    if (scope?.kind === "item") {
+      if (authority.provenance !== "user" && authority.provenance !== "anonymous") return { refusal: "bad-provenance" };
+      const access = await itemAccess(itemAuthority, { itemId: scope.id, uid: authority.sub, lang: authority.lang, fn });
+      return access.refusal ? { refusal: access.refusal } : { publicCapture: access.publicCapture === true };
+    }
+    // Nothing anonymous reaches a connection.
+    if (authority.provenance === "anonymous") return { refusal: "bad-provenance" };
+    const refusal = await liveRefusal(authority, fn);
+    return refusal ? { refusal } : {};
+  };
   const liveRefusal = async (authority, fn) => {
     // A system preview session has no user and no grant: it reaches only the
     // language's system-preview functions, through the connection still
@@ -1272,7 +1344,7 @@ export const createPolicy = ({
       return deny("registry-version-changed", record);
     }
     if (!Array.isArray(session.fns) || !session.fns.includes(fn)) return deny("fn-not-in-session", record);
-    if (!isOperationAllowed({ lang: session.lang, fn, op, backend: session.backend })) {
+    if (!isOperationAllowed({ lang: session.lang, fn, op, backend: backendFor(session.lang, fn, session.backend) })) {
       return deny("operation-not-allowed", record);
     }
     if (!isId(occurrenceId) || typeof argsDigest !== "string" || !DIGEST_RE.test(argsDigest)) {
@@ -1301,14 +1373,20 @@ export const createPolicy = ({
         if (commandOp.definite) await settleRefusal({ command: commandOp.command, generation: session.fg, stage: session.stg, occurrenceId, occurrence: commandOp.occurrence, reason: commandOp.refusal });
         return deny(commandOp.refusal, { ...live, commandId: session.cmd });
       }
-    } else if (provenance === "user" && await isCommandInvocation(session.inv)) {
+    } else if ((provenance === "user" && await isCommandInvocation(session.inv)) || provenance === "anonymous" || session.cv === CONTRACT_VERSION_SCOPED) {
+      // C5: a v3 or anonymous session is only ever a command's.
       return deny("command-claims-required", live);
     }
-    const refusal = await liveRefusal({ ...session, provenance }, fn);
-    if (refusal) {
-      if (commandOp) await settleRefusal({ command: commandOp.command, generation: session.fg, stage: session.stg, occurrenceId, occurrence: commandOp.occurrence, reason: refusal });
-      return deny(refusal, live);
+    const scope = commandOp?.scope ?? null;
+    if (scope?.kind === "item") Object.assign(live, { itemId: scope.id });
+    const liveNow = await liveCheck({ ...session, provenance }, fn, scope);
+    // Item authority that can't be asked now never fails the occurrence.
+    if (liveNow.refusal === "item-authority-unavailable") return unavailable(liveNow.refusal, live);
+    if (liveNow.refusal) {
+      if (commandOp) await settleRefusal({ command: commandOp.command, generation: session.fg, stage: session.stg, occurrenceId, occurrence: commandOp.occurrence, reason: liveNow.refusal });
+      return deny(liveNow.refusal, live);
     }
+    if (liveNow.publicCapture !== undefined) Object.assign(live, { publicCapture: liveNow.publicCapture });
     return issueExecution({ session, provenance, fn, op, argsDigest, occurrenceId, replayOnly, record: { ...live, planDigest: session.pld }, commandOp });
   };
 
@@ -1329,11 +1407,15 @@ export const createPolicy = ({
     if (repair?.kind !== "repair" || repair.invocationId !== invocationId) return false;
     return (await commands.get(repair.repairOf))?.invocationId === planInvocationId;
   };
+  // C5: Policy accepts contract v3 (decision 6); an anonymous token is bound
+  // to its plan as a user's is.
+  const POLICY_CONTRACT_VERSIONS: readonly number[] = [...SUPPORTED_CONTRACT_VERSIONS, CONTRACT_VERSION_SCOPED];
   const contractRefusalFor = async ({ claims, provenance, fn, invocationId, stage, lang }) => {
     const cv = claims.cv ?? 1;
-    if (!SUPPORTED_CONTRACT_VERSIONS.includes(cv)) return "contract-version-unsupported";
+    if (!POLICY_CONTRACT_VERSIONS.includes(cv)) return "contract-version-unsupported";
     if (cv < minContractVersion) return "contract-version-unsupported";
-    if (provenance !== "user") return null;
+    if (cv === CONTRACT_VERSION_SCOPED && !claims.pld) return "plan-required";
+    if (provenance !== "user" && provenance !== "anonymous") return null;
     if (!claims.pld) {
       if (stage === "read" && viewSafeFunctionsForLang(lang).includes(fn)) return null;
       return planRefusal(invocationId);
@@ -1354,11 +1436,12 @@ export const createPolicy = ({
     const operationId = `${session.inv}/${session.stg}/${occurrenceId}`;
     // A replay-only session's token is a replay token: same claims, its own
     // typ, good only for returning a recorded receipt (P1b).
+    // C5 (decision 6): a v3 token selects exactly one scope: its item, or
+    // the session's connection. Every other token is as before.
+    const itemScope = commandOp?.scope?.kind === "item" ? commandOp.scope : null;
     const executionToken = await issueToken(signer, replayOnly ? "replay" : "execution", {
       sub: session.sub,
-      own: session.own,
-      conn: session.conn,
-      backend: session.backend,
+      ...(itemScope ? { scp: { kind: "item", id: itemScope.id } } : { own: session.own, conn: session.conn, backend: session.backend }),
       lang: session.lang,
       fn,
       op,
@@ -1397,10 +1480,13 @@ export const createPolicy = ({
   // it. `step`, `purpose` and `after` (the dispatch step taken before, or
   // null) come from Broker's own operation definition. The token is verified
   // with its execution profile (Broker's audience) on this route only.
-  const authorizeExecution = async ({ caller, executionToken, op, argsDigest, step, purpose, after = null }) => {
+  // `attempt` (C5 decision 5) names which attempt of a conditional step this
+  // is: attempt k > 1 only of a step the registry marks conditional, k at
+  // most its `attempts`, after the step itself. Absent, the first.
+  const authorizeExecution = async ({ caller, executionToken, op, argsDigest, step, purpose, after = null, attempt = undefined }) => {
     // `op`, `step` and `purpose` are the request's until the token verifies;
     // the audit validators record them only if the registry knows them.
-    const base = { event: "authorize-execution", op, step, purpose, callerRole: caller?.role };
+    const base = { event: "authorize-execution", op, step, purpose, ...(attempt !== undefined ? { attempt } : {}), callerRole: caller?.role };
     if (caller?.role !== "broker") return deny("caller-not-broker", base);
     let claims;
     let replayOnly = false;
@@ -1427,6 +1513,7 @@ export const createPolicy = ({
       jti: claims.jti,
       opid: claims.opid,
       provenance: claims.prv,
+      ...(claims.scp ? { itemId: claims.scp.id } : {}),
       // Invocation and stage, from the verified operation id.
       ...opidParts(claims.opid),
     };
@@ -1441,13 +1528,13 @@ export const createPolicy = ({
     } else if (!acceptedRegistry(claims.rv)) {
       return deny("registry-version-changed", record);
     }
-    if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: claims.backend })) {
+    if (!isOperationAllowed({ lang: claims.lang, fn: claims.fn, op, backend: backendFor(claims.lang, claims.fn, claims.backend) })) {
       return deny("operation-not-allowed", record);
     }
     // Checked here whatever the shared token schema still tolerates.
     const badProvenance = provenanceRefusal(claims);
     if (badProvenance) return deny(badProvenance, record);
-    if (!isStepRegistered({ op, step, purpose, after })) return deny("step-not-registered", record);
+    if (!isStepRegistered({ op, step, purpose, after, ...(attempt !== undefined ? { attempt } : {}) })) return deny("step-not-registered", record);
     // The plan, resolved from the token's own digest (W4): its invocation and
     // stage must agree with the operation id the receipt hangs off.
     const { invocationId: opInvocation, stage: opStage } = opidParts(claims.opid) as { invocationId?: string, stage?: string };
@@ -1461,14 +1548,18 @@ export const createPolicy = ({
       const checked = await commandOperation({ claims: { ...claims, inv: opInvocation }, stage: opStage, occurrenceId, fn: claims.fn, op, argsDigest });
       if (checked.refusal) return deny(checked.refusal, { ...record, commandId: claims.cmd });
       if (!(checked.occurrence.minted ?? []).some(m => m.jti === claims.jti)) return deny("token-not-logged", { ...record, commandId: claims.cmd });
-    } else if (claims.prv === "user" && await isCommandInvocation(opInvocation)) {
+      // The token selects the occurrence's own scope (C5 decision 6).
+      const item = checked.scope.kind === "item";
+      if (item ? claims.scp?.id !== checked.scope.id : claims.scp !== undefined) return deny("intent-mismatch", { ...record, commandId: claims.cmd });
+    } else if ((claims.prv === "user" && await isCommandInvocation(opInvocation)) || claims.prv === "anonymous" || claims.cv === CONTRACT_VERSION_SCOPED) {
       return deny("command-claims-required", record);
     }
     // The same live checks as mint, re-read now.
-    const refusal = await liveRefusal({ ...claims, provenance: claims.prv }, claims.fn);
-    if (refusal) return deny(refusal, record);
+    const checked = await liveCheck({ ...claims, provenance: claims.prv }, claims.fn, claims.scp ? { kind: "item", id: claims.scp.id } : null);
+    if (checked.refusal === "item-authority-unavailable") return unavailable(checked.refusal, record);
+    if (checked.refusal) return deny(checked.refusal, record);
     const decisionId = randomUUID();
-    await audit({ ...record, decisionId, outcome: "allowed", planDigest: claims.pld });
+    await audit({ ...record, decisionId, outcome: "allowed", planDigest: claims.pld, ...(checked.publicCapture !== undefined ? { publicCapture: checked.publicCapture } : {}) });
     return { decisionId };
   };
 
@@ -1631,6 +1722,9 @@ export const createPolicy = ({
   };
 
   const credentialFor = (lang, fn) => credentialOf((protectedFunctionsForLang(lang) || {})[fn]);
+  // The backend an operation of `fn` runs against: its own for a service
+  // function (C5), the connection's otherwise.
+  const backendFor = (lang, fn, connectionBackend) => (credentialFor(lang, fn) === "service" ? protectedFunctionsForLang(lang)[fn].backend : connectionBackend);
 
   // The fence's lease, and every stage's pinned revision read at its time:
   // approved for its language, the image the stage reported, and declaring a
@@ -1782,13 +1876,14 @@ export const createPolicy = ({
       }
     }
   };
-  const reconcile = async ({ caller, user, connectionId, idempotencyKey = null, invocationId = null }) => {
+  const reconcile = async ({ caller, user, connectionId, itemId = null, idempotencyKey = null, invocationId = null }) => {
     const record = { event: "reconcile-request", uid: user?.uid, connectionId, callerRole: caller?.role };
     if (caller?.role !== "console") return deny("caller-not-entry-point", record);
     if (!user?.uid) return deny("no-user", record);
     if (!brokerReconcile) return deny("unavailable", record);
     if ((idempotencyKey === null) === (invocationId === null)) return deny("bad-request", record);
     if (idempotencyKey !== null && (typeof idempotencyKey !== "string" || idempotencyKey.length === 0 || idempotencyKey.length > 256)) return deny("bad-request", record);
+    if (itemId !== null) return reconcileItem({ record, user, itemId, connectionId, idempotencyKey, invocationId });
     const connection = typeof connectionId === "string" ? await connections.get(connectionId) : null;
     const access = await accessFor(connection, user.uid);
     if (access.refusal) return deny(access.refusal, { ...record, ownerUid: connection?.ownerUid });
@@ -1800,6 +1895,28 @@ export const createPolicy = ({
     let result;
     try {
       result = await brokerReconcile({ connectionId, invocationId: invocation.invocationId, decisionId });
+    } catch (e) {
+      return deny(typeof e?.reason === "string" ? e.reason : "unavailable", live);
+    }
+    await audit({ ...live, outcome: "allowed" });
+    await ledgerFromReconciliation({ invocation, result, record: live });
+    return result;
+  };
+
+  // C5 (decision 5): one user's own captures of one item, reconciled by the
+  // item scope. Only the user whose invocation it is may ask; Broker reads the
+  // published object, and nothing is written or re-executed.
+  const reconcileItem = async ({ record, user, itemId, connectionId, idempotencyKey, invocationId }) => {
+    Object.assign(record, { itemId });
+    if (connectionId !== undefined && connectionId !== null) return deny("bad-request", record);
+    if (typeof itemId !== "string" || !ITEM_ID_RE.test(itemId)) return deny("bad-request", record);
+    const invocation = idempotencyKey !== null ? await invocations.findByKey(user.uid, idempotencyKey) : await invocations.get(invocationId);
+    if (!invocation || invocation.uid !== user.uid) return deny("invocation-not-found", record);
+    const decisionId = randomUUID();
+    const live = { ...record, invocationId: invocation.invocationId, decisionId };
+    let result;
+    try {
+      result = await brokerReconcile({ scope: { kind: "item", id: itemId }, invocationId: invocation.invocationId, decisionId });
     } catch (e) {
       return deny(typeof e?.reason === "string" ? e.reason : "unavailable", live);
     }

@@ -88,8 +88,14 @@ export const createReconciler = ({ receipts, secrets, operations, limits, audit,
     // A connection's receipts are its connection operations'; an item's, its
     // service operations'.
     const service = itemId !== undefined;
-    const claims = (await receipts.listClaims(invocationId))
+    const bound = (await receipts.listClaims(invocationId))
       .filter(c => boundTo(c.binding, { connectionId, itemId }) && operations[c.binding?.op]?.kind === "write" && (operations[c.binding.op].credential === "service") === service);
+    // An aborted latest run (broker.js 7e) wrote nothing: never claimed.
+    const claims = [];
+    for (const c of bound) {
+      if (receipts.getRunState && !(await receipts.getOutcome(c.operationId)) && (await receipts.getRunState(c.operationId)).aborted) continue;
+      claims.push(c);
+    }
     if (!claims.length) return refuse("receipt-not-found", 404);
     let credential = null;
     if (!service) {
