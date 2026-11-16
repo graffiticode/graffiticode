@@ -219,6 +219,57 @@ describe("render grants", () => {
     });
   });
 
+  // The owner's second review of #408: a key rotation seen by two requests at
+  // once. The first starts the refresh; the second waits for it rather than
+  // deciding on the keys being replaced; a failed refresh is both's 503.
+  it("shares one refresh between concurrent requests, and its failure", async () => {
+    const POLICY = "https://policy.example";
+    const rotated = await generateKeyPair("ES256", { extractable: true });
+    const rotatedSigner = await createLocalSigner({ privateJwk: await exportJWK(rotated.privateKey), kid: "k2" });
+    const rotatedJwks = { keys: [...jwks.keys, { ...(await exportJWK(rotated.publicKey)), kid: "k2", alg: "ES256", use: "sig" }] };
+    let now = 0;
+    let served = jwks;
+    // Each refresh after the first waits at a gate the test opens.
+    const gate = () => {
+      let open = () => {};
+      const shut = new Promise(resolve => { open = () => resolve(undefined); });
+      return { shut, open };
+    };
+    let current = gate();
+    const release = () => current.open();
+    let fail = false;
+    const fetches = [];
+    const fetch = async () => {
+      fetches.push(now);
+      if (fetches.length > 1) await current.shut;
+      if (fail) return { ok: false, status: 500, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => served };
+    };
+    const verify = buildRenderGrantVerifier({ jwks: buildPolicyJwks({ policyUrl: POLICY, idToken: async aud => `id-for-${aud}`, fetch, now: () => now }) });
+    await verify(await grantFor("t"));
+    // Policy rotates; two grants under the new key arrive together.
+    served = rotatedJwks;
+    now += JWKS_REFETCH_MS;
+    const [r1, r2] = [await grantFor("t", {}, rotatedSigner), await grantFor("t", {}, rotatedSigner)];
+    const both = Promise.all([verify(r1), verify(r2)]);
+    await new Promise(resolve => setImmediate(resolve));
+    release();
+    const claims = await both;
+    expect(claims.map(c => c.tsk)).toEqual(["t", "t"]);
+    expect(fetches).toHaveLength(2);
+    // A refresh that fails is every waiter's 503.
+    now += JWKS_TTL_MS;
+    fail = true;
+    current = gate();
+    const [g1, g2] = [await grantFor("t"), await grantFor("t")];
+    const failing = Promise.allSettled([verify(g1), verify(g2)]);
+    await new Promise(resolve => setImmediate(resolve));
+    release();
+    const outcomes = await failing;
+    expect(outcomes.map(o => o.status === "rejected" && o.reason.status)).toEqual([503, 503]);
+    expect(fetches).toHaveLength(3);
+  });
+
   it("never logs a credential's value", () => {
     expect(loggableHeaders({ Authorization: "Bearer t", [RENDER_GRANT_HEADER]: "g", Cookie: "c", host: "h" })).toEqual({ Authorization: "[redacted]", [RENDER_GRANT_HEADER]: "[redacted]", Cookie: "[redacted]", host: "h" });
   });

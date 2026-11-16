@@ -64,6 +64,16 @@ export const buildPolicyJwks = ({ policyUrl, idToken, fetch: doFetch = fetch, no
   const url = new URL("/v1/jwks", policyUrl).toString();
   let held = null;
   let fetchedAt = -Infinity;
+  // One refresh at a time, shared: every request that arrives while it runs
+  // waits for it (the owner's second review of #408), so none is decided on
+  // the keys it is replacing. Its failure is every waiter's 503.
+  let inflight = null;
+  const refresh = () => {
+    inflight ??= load().finally(() => {
+      inflight = null;
+    });
+    return inflight;
+  };
   const load = async () => {
     fetchedAt = now();
     /** @type {any} */
@@ -80,8 +90,9 @@ export const buildPolicyJwks = ({ policyUrl, idToken, fetch: doFetch = fetch, no
     held = { at: now(), kids: new Set(body.keys.map(k => k.kid)), keys: createLocalJWKSet(body) };
   };
   return async (header, token) => {
+    if (inflight) await inflight;
     const fresh = held && now() - held.at < JWKS_TTL_MS;
-    if (!fresh || (!held.kids.has(header?.kid) && now() - fetchedAt >= JWKS_REFETCH_MS)) await load();
+    if (!fresh || (!held.kids.has(header?.kid) && now() - fetchedAt >= JWKS_REFETCH_MS)) await refresh();
     return held.keys(header, token);
   };
 };
