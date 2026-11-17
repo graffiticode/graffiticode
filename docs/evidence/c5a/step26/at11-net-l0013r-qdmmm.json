@@ -1,0 +1,2574 @@
+{
+ "probe": "net",
+ "class": "compilers-l0013",
+ "subject": "l0013r-run",
+ "nonce": "b2493b5b6cb396e2",
+ "execution": "at11-net-l0013r-qdmmm",
+ "at": "2026-11-17T18:25:30.298Z",
+ "kind": "lang",
+ "verdict": "pending",
+ "passed": false,
+ "rows": [
+  {
+   "id": "direct",
+   "title": "a direct connection, bypassing the proxy",
+   "expected": "refused:firewall",
+   "state": "passed",
+   "results": [
+    {
+     "target": "1.1.1.1:443",
+     "observation": {
+      "via": "direct",
+      "error": "timeout"
+     },
+     "result": {
+      "outcome": "refused:firewall"
+     }
+    }
+   ]
+  },
+  {
+   "id": "listed",
+   "title": "a listed Graffiticode host, through the proxy",
+   "expected": "succeeds",
+   "state": "passed",
+   "results": [
+    {
+     "target": "api.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-1-20f659",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "etag": "W/\"2-nOO9QiTIwXgNtWtBJezz8kv3SLc\"",
+       "server": "envoy",
+       "x-cloud-trace-context": "e46742666a3aeba688f3002b9a26fd10/1817398683417195981;o=1",
+       "traceparent": "00-e46742666a3aeba688f3002b9a26fd10-1938b2793c5835cd-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=40,cfOrigin;dur=56",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=EA1bCpYmf8jkB1YvYePK2BdGE9FyECckheG30GZwHEfmina28oXZA%2FfNG4WhccgIWsH23PZuJMCpDRhvUrKv6xZ5QP3Fy6mfDO%2BfnmhEv7DmP3dk%2BjMUa3W%2FetjKo62ekt5yL%2FC8oQ%3D%3D\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c802f968e58e-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "423",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "app.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-2-339dde",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/html; charset=utf-8",
+       "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding",
+       "x-nextjs-cache": "HIT",
+       "x-nextjs-prerender": "1",
+       "x-nextjs-stale-time": "300",
+       "x-powered-by": "Next.js",
+       "cache-control": "s-maxage=31536000",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=UUHHaJsq6AWV6o6Ewbl02oDTeLnp0DHtdIzbuJ%2Fgu2kNHXA9%2FelB6wMViD8tfspOZ1wsYIK3PtsewbaW7d1QrjVwze%2FI%2Bx0x1bGXTvkVCq5kgjMQXhY0oXl%2F6Zkes631UlB%2BE68frw%3D%3D\"}]}",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=56,cfOrigin;dur=65",
+       "cf-ray": "a5c0c801efdf4572-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "263",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2000\r\n<!DOCTYPE html><!--L77HD3Ctj8IL9iIVFyL_G--><html lang=\"en\" class=\"h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"stylesheet\" href=\"/_next/static/css/db313412392617a8.css\" data-precedence=\"next\"/><link rel=\"preload\" as=\"script\" fetchPriority=\"low\" href=\"/_next/static/chunks/webpack-fd6b2537268c94cb.js\"/><script src=\"/_next/static/chunks/4bd1b696-182b6b13bdad92e3.js\" async=\"\"></script><script src=\"/_next/static/chunks/1255-1285f5ebdd2cb258.js\" async=\"\"></script><script src=\"/_next/static/chunks/main-app-f10e4242967057b9.js\" async=\"\"></script><script src=\"/_next/static/chunks/bc9e92e6-620af1090ddc3bec.js\" async=\"\"></script><script src=\"/_next/static/chunks/457b8330-92288bcba2e72fb8.js\" async=\"\"></script><script src=\"/_next/static/chunks/36546cfe-feb6b3390b7c5569.js\" async=\"\"></script><script src=\"/_next/static/chunks/c16f53c3-409df1246fc2628c.js\" async=\"\"></script><script src=\"/_next/static/chunks/7263-e607f5738f6373b7.js\" async=\"\"></script><script src=\"/_next/static/chunks/app/layout-2670886499b8a3dd.js\" async=\"\"></script><script src=\"/_next/static/chunks/2619-04bc32f026a0d946.js\" async=\"\"></script><script src=\"/_next/static/chunks/app/page-8a96116dc2d54bfe.js\" async=\"\"></script><title>Graffiticode</title><meta name=\"description\" content=\"Render Graffiticode items and tasks as forms — created via the Graffiticode MCP server at mcp.graffiticode.org/mcp\"/><meta name=\"mcp-server\" content=\"https://mcp.graffiticode.org/mcp\"/><link rel=\"icon\" href=\"/icon.png?81b0bb65a7ae0648\" type=\"image/png\" sizes=\"384x384\"/><script src=\"/_next/static/chunks/polyfills-42372ed130431b0a.js\" noModule=\"\"></script></head><body class=\"h-full\"><div hidden=\"\"><!--$--><!--/$--></div><div class=\"flex min-h-full items-center justify-center\"><div class=\"h-8 w-8 animate-spin rounded-full border-b-2 border-gray-900\"></div></div><script src=\"/_next/static/chunks/webpack-fd6b2537268c94cb.js\" id=\"_R_\" async=\"\"></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,\"1:\\\"$Sreact.fragment\\\"\\n2:I[36300,[\\\"2992\\\",\\\"static/chunks/bc9e92e6-620af1090ddc3bec.js\\\",\\\"9507\\\",\\\"static/chunks/457b8330-92288bcba2e72fb8.js\\\",\\\"93\\\",\\\"static/chunks/36546cfe-feb6b3390b7c5569.js\\\",\\\"2545\\\",\\\"static/chunks/c16f53c3-409df1246fc2628c.js\\\",\\\"7263\\\",\\\"static/chunks/7263-e607f5738f6373b7.js\\\",\\\"7177\\\",\\\"static/chunks/app/layout-2670886499b8a3dd.js\\\"],\\\"Providers\\\"]\\n3:I[9766,[],\\\"\\\"]\\n4:I[98924,[],\\\"\\\"]\\n5:I[52619,[\\\"2992\\\",\\\"static/chunks/bc9e92e6-620af1090ddc3bec.js\\\",\\\"9507\\\",\\\"static/chunks/457b8330-92288bcba2e72fb8.js\\\",\\\"93\\\",\\\"static/chunks/36546cfe-feb6b3390b7c5569.js\\\",\\\"2545\\\",\\\"static/chunks/c16f53c3-409df1246fc2628c.js\\\",\\\"7263\\\",\\\"static/chunks/7263-e607f5738f6373b7.js\\\",\\\"2619\\\",\\\"static/chunks/2619-04bc32f026a0d946.js\\\",\\\"8974\\\",\\\"static/chunks/app/page-8a96116dc2d54bfe.js\\\"],\\\"\\\"]\\n6:I[37091,[\\\"2992\\\",\\\"static/chunks/bc9e92e6-620af1090ddc3bec.js\\\",\\\"9507\\\",\\\"static/chunks/457b8330-92288bcba2e72fb8.js\\\",\\\"93\\\",\\\"static/chunks/36546cfe-feb6b3390b7c5569.js\\\",\\\"2545\\\",\\\"static/chunks/c16f53c3-409df1246fc2628c.js\\\",\\\"7263\\\",\\\"static/chunks/7263-e607f5738f6373b7.js\\\",\\\"2619\\\",\\\"static/chunks/2619-04bc32f026a0d946.js\\\",\\\"8974\\\",\\\"static/chunks/app/page-8a96116dc2d54bfe.js\\\"],\\\"AuthLink\\\"]\\n7:I[24431,[],\\\"OutletBoundary\\\"]\\n9:I[15278,[],\\\"AsyncMetadataOutlet\\\"]\\nb:I[24431,[],\\\"ViewportBoundary\\\"]\\nd:I[24431,[],\\\"MetadataBoundary\\\"]\\ne:\\\"$Sreact.suspense\\\"\\n10:I[57150,[],\\\"\\\"]\\n:HL[\\\"/_next/static/css/db313412392617a8.css\\\",\\\"style\\\"]\\n\"])</script><script>self.__next_f.push([1,\"0:{\\\"P\\\":null,\\\"b\\\":\\\"L77HD3Ctj8IL9iIVFyL-G\\\",\\\"p\\\":\\\"\\\",\\\"c\\\":[\\\"\\\",\\\"\\\"],\\\"i\\\":false,\\\"f\\\":[[[\\\"\\\",{\\\"children\\\":[\\\"__PAGE__\\\",{}]},\\\"$undefined\\\",\\\"$undefined\\\",true],[\\\"\\\",[\\\"$\\\",\\\"$1\\\",\\\"c\\\",{\\\"children\\\":[[[\\\"$\\\",\\\"link\\\",\\\"0\\\",{\\\"rel\\\":\\\"stylesheet\\\",\\\"href\\\":\\\"/_next/static/css/db313412392617a8.css\\\",\\\"precedence\\\":\\\"next\\\",\\\"crossOrigin\\\":\\\"$undefined\\\",\\\"nonce\\\":\\\"$undefined\\\"}]],[\\\"$\\\",\\\"html\\\",null,{\\\"lang\\\":\\\"en\\\",\\\"className\\\":\\\"h-full\\\",\\\"children\\\":[\\\"$\\\",\\\"body\\\",null,{\\\"className\\\":\\\"h-full\\\",\\\"children\\\":[\\\"$\\\",\\\"$L2\\\",null,{\\\"children\\\":[\\\"$\\\",\\\"$L3\\\",null,{\\\"parallelRouterKey\\\":\\\"children\\\",\\\"error\\\":\\\"$undefined\\\",\\\"errorStyles\\\":\\\"$undefined\\\",\\\"errorScripts\\\":\\\"$undefined\\\",\\\"template\\\":[\\\"$\\\",\\\"$L4\\\",null,{}],\\\"templateStyles\\\":\\\"$undefined\\\",\\\"templateScripts\\\":\\\"$undefined\\\",\\\"notFound\\\":[[[\\\"$\\\",\\\"title\\\",null,{\\\"children\\\":\\\"404: This page could not be found.\\\"}],[\\\"$\\\",\\\"div\\\",null,{\\\"style\\\":{\\\"fontFamily\\\":\\\"system-ui,\\\\\\\"Segoe UI\\\\\\\",Roboto,Helvetica,Arial,sans-serif,\\\\\\\"Apple Color Emoji\\\\\\\",\\\\\\\"Segoe UI Emoji\\\\\\\"\\\",\\\"height\\\":\\\"100vh\\\",\\\"textAlign\\\":\\\"center\\\",\\\"display\\\":\\\"flex\\\",\\\"flexDirection\\\":\\\"column\\\",\\\"alignItems\\\":\\\"center\\\",\\\"justifyContent\\\":\\\"center\\\"},\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"children\\\":[[\\\"$\\\",\\\"style\\\",null,{\\\"dangerouslySetInnerHTML\\\":{\\\"__html\\\":\\\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\\\"}}],[\\\"$\\\",\\\"h1\\\",null,{\\\"className\\\":\\\"next-error-h1\\\",\\\"style\\\":{\\\"display\\\":\\\"inline-block\\\",\\\"margin\\\":\\\"0 20px 0 0\\\",\\\"padding\\\":\\\"0 23px 0 0\\\",\\\"fontSize\\\":24,\\\"fontWeight\\\":500,\\\"verticalAlign\\\":\\\"top\\\",\\\"lineHeight\\\":\\\"49px\\\"},\\\"children\\\":404}],[\\\"$\\\",\\\"div\\\",null,{\\\"style\\\":{\\\"display\\\":\\\"inline-block\\\"},\\\"children\\\":[\\\"$\\\",\\\"h2\\\",null,{\\\"style\\\":{\\\"fontSize\\\":14,\\\"fontWeight\\\":400,\\\"lineHeight\\\":\\\"49px\\\",\\\"margin\\\":0},\\\"children\\\":\\\"This page could not be found.\\\"}]}]]}]}]],[]],\\\"forbidden\\\":\\\"$undefined\\\",\\\"unauthorized\\\":\\\"$undefined\\\"}]}]}]}]]}],{\\\"children\\\":[\\\"__PAGE__\\\",[\\\"$\\\",\\\"$1\\\",\\\"c\\\",{\\\"children\\\":[[\\\"$\\\",\\\"main\\\",null,{\\\"className\\\":\\\"flex min-h-full flex-col items-center justify-center gap-4 p-8 text-center\\\",\\\"children\\\":[[\\\"$\\\",\\\"h1\\\",null,{\\\"className\\\":\\\"text-2xl font-semibold\\\",\\\"children\\\":\\\"Graffiticode\\\"}],[\\\"$\\\",\\\"p\\\",null,{\\\"className\\\":\\\"max-w-md text-gray-600\\\",\\\"children\\\":[\\\"This is where Graffiticode artifacts are rendered. Open one at\\\",\\\" \\\",[\\\"$\\\",\\\"code\\\",null,{\\\"className\\\":\\\"rounded bg-gray-100 px-1.5 py-0.5\\\",\\\"children\\\":\\\"/form/\\u003cid\\u003e\\\"}],\\\", where\\\",\\\" \\\",[\\\"$\\\",\\\"code\\\",null,{\\\"className\\\":\\\"rounded bg-gray-100 px-1.5 py-0.5\\\",\\\"children\\\":\\\"\\u003cid\\u003e\\\"}],\\\" is a task or item id.\\\"]}],[\\\"$\\\",\\\"p\\\",null,{\\\"className\\\":\\\"max-w-md text-gray-600\\\",\\\"children\\\":[\\\"Made with Graffiticode. Agents create and update these artifacts through the Graffiticode MCP server at\\\",\\\" \\\",[\\\"$\\\",\\\"a\\\",null,{\\\"href\\\":\\\"https://mcp.graffiticode.org/mcp\\\",\\\"className\\\":\\\"text-blue-600 underline\\\",\\\"children\\\":\\\"mcp.graffiticode.org/mcp\\\"}],\\\". Learn more at\\\",\\\" \\\",[\\\"$\\\",\\\"a\\\",null,{\\\"href\\\":\\\"https://graffiticode.org\\\",\\\"className\\\":\\\"text-blue-600 underline\\\",\\\"children\\\":\\\"graffiticode.org\\\"}],\\\" \\\",\\\"or the\\\",\\\" \\\",[\\\"$\\\",\\\"a\\\",null,{\\\"href\\\":\\\"https://forum.graffiticode.org\\\",\\\"className\\\":\\\"text-blue-600 underline\\\",\\\"children\\\":\\\"community forum\\\"}],\\\".\\\"]}],[\\\"$\\\",\\\"div\\\",null,{\\\"className\\\":\\\"flex flex-wrap items-center justify-center gap-4\\\",\\\"children\\\":[[\\\"$\\\",\\\"$L5\\\",null,{\\\"href\\\":\\\"/form\\\",\\\"className\\\":\\\"text-blue-600 underline\\\",\\\"children\\\":\\\"Open form view\\\"}],[\\\"$\\\",\\\"$L6\\\",null,{\\\"className\\\":\\\"text-blue-600 underline\\\"}]]}]]}],null,[\\\"$\\\",\\\"$L7\\\",null,{\\\"children\\\":[\\\"$L8\\\",[\\\"$\\\",\\\"$L9\\\",null,{\\\"promise\\\":\\\"$@a\\\"}]]}]]}],{},null,false]},null,false],[\\\"$\\\",\\\"$1\\\",\\\"h\\\",{\\\"children\\\":[null,[[\\\"$\\\",\\\"$Lb\\\",null,{\\\"children\\\":\\\"$Lc\\\"}],null],[\\\"$\\\",\\\"$Ld\\\",null,{\\\"children\\\":[\\\"$\\\",\\\"div\\\",null,{\\\"hidden\\\":true,\\\"children\\\":[\\\"$\\\",\\\"$e\\\",null,{\\\"fallback\\\":null,\\\"children\\\":\\\"$Lf\\\"}]}]}]]}],false]],\\\"m\\\":\\\"$undefined\\\",\\\"G\\\":[\\\"$10\\\",[]],\\\"s\\\":false,\\\"S\\\":true}\\n\"])</script><script>self.__next_f.push([1,\"c:[[\\\"$\\\",\\\"meta\\\",\\\"0\\\",{\\\"charSet\\\":\\\"utf-8\\\"}],[\\\"$\\\",\\\"meta\\\",\\\"1\\\",{\\\"name\\\":\\\"viewport\\\",\\\"content\\\":\\\"width=device-width, initial-scale=1\\\"}]]\\n8:null\\n\"])</script><script>self.__next_f.push([1,\"11:I[80622,[],\\\"IconMark\\\"]\\na:{\\\"metadata\\\":[[\\\"$\\\",\\\"title\\\",\\\"0\\\",{\\\"children\\\":\\\"Graffiticode\\\"}],[\\\"$\\\",\\\"meta\\\",\\\"1\\\r\n391\r\n\",{\\\"name\\\":\\\"description\\\",\\\"content\\\":\\\"Render Graffiticode items and tasks as forms — created via the Graffiticode MCP server at mcp.graffiticode.org/mcp\\\"}],[\\\"$\\\",\\\"meta\\\",\\\"2\\\",{\\\"name\\\":\\\"mcp-server\\\",\\\"content\\\":\\\"https://mcp.graffiticode.org/mcp\\\"}],[\\\"$\\\",\\\"link\\\",\\\"3\\\",{\\\"rel\\\":\\\"icon\\\",\\\"href\\\":\\\"/icon.png?81b0bb65a7ae0648\\\",\\\"type\\\":\\\"image/png\\\",\\\"sizes\\\":\\\"384x384\\\"}],[\\\"$\\\",\\\"$L11\\\",\\\"4\\\",{}]],\\\"error\\\":null,\\\"digest\\\":\\\"$undefined\\\"}\\n\"])</script><script>self.__next_f.push([1,\"f:\\\"$a:metadata\\\"\\n\"])</script><script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body></html>\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "auth.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-3-cddd35",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "etag": "W/\"2-nOO9QiTIwXgNtWtBJezz8kv3SLc\"",
+       "server": "envoy",
+       "traceparent": "00-33253ac0e7ac129be69b3bde135f9a39-c39680cb733baa50-01",
+       "x-cloud-trace-context": "33253ac0e7ac129be69b3bde135f9a39/14093593695202552400;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=15,cfOrigin;dur=190",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=a5AV1OxOST8VndO7p68SIVpR6wUZkjr%2BHFWxonFiEKxTuyyDCmyTdBWcvsMH%2ByuUsy0i2SgtQjWYJNjuW06knNrVcKSF22kseWR6wJwiZh0ejnJiWv%2FjMpHVKL0sapzI656D4U4dB2M%3D\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c80218502520-BOS",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "368",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0000.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-4-f43cb5",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "server": "envoy",
+       "traceparent": "00-a44a3a5302fd4b696a7cc1241d2c55dd-049b6cc2090d8456-01",
+       "x-cloud-trace-context": "a44a3a5302fd4b696a7cc1241d2c55dd/331978578173199446;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=38,cfOrigin;dur=54",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=hVzQbmStEW4lF7cMRAZlLKQxBW5qwPrr0I6mnGOOJIBe3slGI8xBOjIM%2FO2Ckeu90yt6XmJMIQkPdWS1r8MPb1LQTFXIf9dup%2BoLXW8vA39YlyHRIMiLFznGiRGvwCr7WLNF1i%2BkkHJ7\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c801bc3a53b5-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "234",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0001.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-5-b32c78",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:01 GMT",
+       "content-type": "text/html; charset=utf-8",
+       "x-powered-by": "Next.js",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "vary": "Accept-Encoding",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=CIgIyePBzlenV3aBcV2Ce6dnNojhjIRGFCCkCbUkwN1nMvY%2FhP6Y%2BszyIH17dTSOF9ZQRnycoKtKSmxiS%2FHVAQPINE8L3GG%2FhDXql8F%2FUkZu8xwiy%2BjkOD5R8P1ztv4CNHMaKKG0R3BY\"}]}",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=104,cfOrigin;dur=93",
+       "cf-ray": "a5c0c8030c0f06d1-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "519",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "683\r\n<!DOCTYPE html><html><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width\"/><meta name=\"next-head-count\" content=\"2\"/><link rel=\"preload\" href=\"/_next/static/css/a1f7506710f34eee.css\" as=\"style\"/><link rel=\"stylesheet\" href=\"/_next/static/css/a1f7506710f34eee.css\" data-n-g=\"\"/><noscript data-n-css=\"\"></noscript><script defer=\"\" nomodule=\"\" src=\"/_next/static/chunks/polyfills-c67a75d1b6f99dc8.js\"></script><script src=\"/_next/static/chunks/webpack-b8f8d6679aaa5f42.js\" defer=\"\"></script><script src=\"/_next/static/chunks/framework-f62daa56174d3a31.js\" defer=\"\"></script><script src=\"/_next/static/chunks/main-12cd92bd0079b229.js\" defer=\"\"></script><script src=\"/_next/static/chunks/pages/_app-fda4a1013dcfb8cc.js\" defer=\"\"></script><script src=\"/_next/static/chunks/pages/index-f422d4f0c75e89fe.js\" defer=\"\"></script><script src=\"/_next/static/tz-h_VLxkJo1ALZh6hZcK/_buildManifest.js\" defer=\"\"></script><script src=\"/_next/static/tz-h_VLxkJo1ALZh6hZcK/_ssgManifest.js\" defer=\"\"></script></head><body><div id=\"__next\"><p>Hello, l0001!</p></div><script id=\"__NEXT_DATA__\" type=\"application/json\">{\"props\":{\"pageProps\":{}},\"page\":\"/\",\"query\":{},\"buildId\":\"tz-h_VLxkJo1ALZh6hZcK\",\"nextExport\":true,\"autoExport\":true,\"isFallback\":false,\"scriptLoader\":[]}</script><script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body></html>\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0002.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-6-0c9da4",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 18:18:08 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "x-cloud-trace-context": "2e3b425e2f1359252a5610522fd79891/6436352475172438006;o=1",
+       "traceparent": "00-2e3b425e2f1359252a5610522fd79891-5952847993dbfff6-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=23,cfOrigin;dur=75",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=0WL388ML3FLm7U6nFV1YGacR0bYwmxF4lj5xJmg1ub6QWKnc4H%2FeFpuJuwBbefaaj4S%2Fm8g9Zle3Yvo5JFLQE7ViCdatFbEideJtQCZTF2JCusPBlzfvs6wA5bhsmGsVUwPLntA5kk87\"}]}",
+       "cf-ray": "a5c0c801df9cb0c7-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "242",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0002</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-C_8rpXkl.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-CEvBzyAM.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0003.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-7-9ac6e8",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:02 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "x-cloud-trace-context": "95e8f742ab11b79f095b0edaf6a93601;o=1",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=47,cfOrigin;dur=1164",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=KSXfx0%2FxPqm6IFaWxA2wNbWPn545ge1xc2sjjyTWrpngeT2tDbcjIs2oqRjjCaNlbMZZwBkcxXDGMVjpBlH7JoiClbAo7LinGgAR9%2FkxJOa1YgXNZNe%2BS40TwPfFAaPlI5kZP%2F%2FcKya0\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c8030edce006-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "1560",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0010.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-8-ec4ae2",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:02 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "server": "envoy",
+       "traceparent": "00-88e3e7cffd3e5dcf5f82aac3047ce917-03de899fe8cd04a6-01",
+       "x-cloud-trace-context": "88e3e7cffd3e5dcf5f82aac3047ce917/278811546842104998;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=29,cfOrigin;dur=1459",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=S2ITznED29%2BLP%2Bidyc%2BbsetOokTAGTQSNEXUkF0KGIQgIpySJFF5LEcmjKjXBFUe%2BFrWFEKaV4IPU01EybPTdN%2F26zdhPghWIF3RsgQzaugSDzXcu8FuVuj7q%2BFkMOiV6iLBFpqspSpF\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c802fe10bc17-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "1818",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0011.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-9-67cb4e",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:10 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 19:29:33 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "traceparent": "00-7846782f2f069cd5bfea0733beb8a572-e53f46a1b0d72ed8-01",
+       "x-cloud-trace-context": "7846782f2f069cd5bfea0733beb8a572/16518999618488839896;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=26,cfOrigin;dur=9384",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=CxsIxk4SeglAEq4PqBAxjMeRt8wpitXn7cGgvckQQKIHKT%2FbYRRYUwSjSlKcXrXOgIfr07UI7Xu61ScZp2xpyJ1X58%2BtLjN%2Bv1bh7P0NBktQw9B%2BilxQ7vjFgz11Sim93XRu3eIVXq94\"}]}",
+       "cf-ray": "a5c0c801e9162a40-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "9549",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0002</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-DnoSKl3K.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-FHPvYPpe.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0012.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-10-54fb08",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:15 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 18:24:41 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "x-cloud-trace-context": "ea05e02ba716dbfe86b64b4138e8c507;o=1",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=50,cfOrigin;dur=14480",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=QMlF53KUP7wAI%2FG6sdTmD8qUtIxked8HR2V%2F2hPM4O6Cpmf8aaFY0gOOhgfBiMCdN%2F1I5P%2B0oHPWAS8M%2BJdWzzY0NlCNTpTK%2FiByYgz%2F8kSUW%2F%2FTPn2dsgu1OdIUtrHh7GbnBifHnzzE\"}]}",
+       "cf-ray": "a5c0c801cdc35fa7-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "14693",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0012</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-BG3oD0lA.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-DXCifdtJ.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0013.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-11-27bc2b",
+      "status": 200,
+      "headers": {
+       "content-type": "text/plain; charset=utf-8",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "content-length": "2",
+       "date": "Tue, 17 Nov 2026 18:26:02 GMT",
+       "server": "envoy",
+       "x-cloud-trace-context": "95b10011199582f7fd0b3ef0aa9c4b4b/9798403183468847596;o=1",
+       "traceparent": "00-95b10011199582f7fd0b3ef0aa9c4b4b-87faebc7fcb7a1ec-01",
+       "x-envoy-upstream-service-time": "1611",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0014.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-12-a567a0",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:02 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "x-cloud-trace-context": "ffb102997af5b3e20a54030a539f8ef8;o=1",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=28,cfOrigin;dur=1775",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=SUrVb6NaN0sai2rY7Zes7E%2BtXDR25zRY%2BkfLn2MgiG%2BYr4SjOkTSM1YwbcaulW8TIPfUQQRNnrIuRYYlDyO1%2BWEZhGkesMWPg2l1RLUd0oXbXWM5zaJ3qBM6kVP69ONswwL5X%2F3Ld1EO\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c8020aaf231a-BOS",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "1965",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0137.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-13-ed44cc",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 19:12:30 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "traceparent": "00-c1e112be1e7e0283a32e5de4c0612fa5-bced6623f1e42989-01",
+       "x-cloud-trace-context": "c1e112be1e7e0283a32e5de4c0612fa5/13613649553179027849;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=48,cfOrigin;dur=97",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=3Nez%2BE12g0o7yVyiEuxGioT%2FXpGvjalaKoQePes9z3TkdCi8zR3%2Bg2%2FN5WFSZlsyGCZ7OilQBxHhcPiV%2FOgZWiGNkf%2BNWTorBRC7BdqEZqiaeMMs61PBzTbPMi%2BmFSX98s05kiWwIGwW\"}]}",
+       "cf-ray": "a5c0c801b9a8591f-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "285",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0137</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-Cyh9wt1U.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-DXCifdtJ.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0151.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-14-606b2c",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 19:12:01 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "x-cloud-trace-context": "4306d00fad5298624b7d4f4c4492792c;o=1",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=24,cfOrigin;dur=15384",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=7id2A9iv8M5lWabmWsBdCIbYSsUisuCJs%2BPUhBhxrrlsXWUWPS4XPyyRMf3KuCjZ%2B6XfAaoF0Sa7MaFU4SiqlCFLV5G5xwbCFz5%2BmYcAoXnRe7Hm2Hms9Vt0kh43DpxWEghycKEk4pba\"}]}",
+       "cf-ray": "a5c0c801db867a0b-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "15564",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0151</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-B5TXXSq3.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-ChPEaSbh.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0152.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-15-41a3c9",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:06 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 19:12:35 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "traceparent": "00-5240ccbc06127621cb6f26dcbc902a55-0e9b7d51fb5f8a3b-01",
+       "x-cloud-trace-context": "5240ccbc06127621cb6f26dcbc902a55/1052572728984308283;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=35,cfOrigin;dur=6065",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=o1ArT05Jels2L4jo4I1C5JVQTp%2BkNAj0KANr1ia0G%2Bi30xFK%2BR90IJ2aPcm7d6lu2tI72KNwMm9QZHtGC8FipOpYe29gnNCcZihUZ3DSouCow%2BVrxcxd4BjOernDUTULdCZbgXaX2i8K\"}]}",
+       "cf-ray": "a5c0c801ebe93465-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "6246",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0002</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-DAnAbzrr.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-C-zwF3ht.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0153.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-16-6e9c8c",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:09 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 19:11:44 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "x-cloud-trace-context": "51bfbbcb239a4b5e178cd9e15a358dea/2469863318764638788;o=1",
+       "traceparent": "00-51bfbbcb239a4b5e178cd9e15a358dea-2246b79a3ebbd244-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=19,cfOrigin;dur=8661",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=LcWoGZK1L1e7eJ9trQzsmmg6jdmXtKkkLi0CNHfXgRgbnvEvfk0m3ktBG3t5jN6G%2FPWdl4Jkcd058ZHQWT7Vef9%2BCdVJR84oeKFSpFrpInQpfu5rucuEZaPaV4lxrGe98xze%2Fm9G4wu3\"}]}",
+       "cf-ray": "a5c0c801fee14f7f-BOS",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "8851",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0153</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-DRTzh-RQ.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-CgsFados.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0154.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-17-847ab4",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:09 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 18:23:58 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "x-cloud-trace-context": "25a22af6771bc91951b7fef18d0b4abe;o=1",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=51,cfOrigin;dur=8624",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=L%2BUBOavj1fKXLuNiGM%2F2Tly7t1jyqvz3flsCzfnv9G1s0sQlVDOEpsPoEu3%2FCNgQItWvjQ99RdzRy38lRsL30ehMlVzbhc9vXdhongPoJIbh0Q0Fmf0361OW1O3idD0uztl1L2QhZjwT\"}]}",
+       "cf-ray": "a5c0c801c8c3da62-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "8817",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0154</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-ChqYlJSE.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-i9IsaCty.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0155.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-18-2416d6",
+      "status": 525,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=UTF-8",
+       "content-length": "16",
+       "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+       "expires": "Thu, 01 Jan 1970 00:00:01 GMT",
+       "referrer-policy": "same-origin",
+       "server-timing": "cfEdge;dur=46,cfOrigin;dur=0",
+       "x-frame-options": "SAMEORIGIN",
+       "server": "envoy",
+       "cf-ray": "a5c0c801faa66867-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "209",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "error code: 525\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 525
+     }
+    },
+    {
+     "target": "l0156.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-19-ac98f2",
+      "status": 525,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=UTF-8",
+       "content-length": "16",
+       "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+       "expires": "Thu, 01 Jan 1970 00:00:01 GMT",
+       "referrer-policy": "same-origin",
+       "server-timing": "cfEdge;dur=55,cfOrigin;dur=0",
+       "x-frame-options": "SAMEORIGIN",
+       "server": "envoy",
+       "cf-ray": "a5c0c801dc24f454-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "200",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "error code: 525\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 525
+     }
+    },
+    {
+     "target": "l0157.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-20-7b5ebe",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:09 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 19:16:33 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "traceparent": "00-e619206420ea23d01be20b8b849bccaf-c2e3a620a8ee8e5a-01",
+       "x-cloud-trace-context": "e619206420ea23d01be20b8b849bccaf/14043250722274709082;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=25,cfOrigin;dur=8527",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=wAl%2FErMtRu%2F0gO9WLlfI2bZRRMAm%2B%2FA5b0eTZfcbjxOZWjN6lsCtaSHz0LwJi1onn0TYuV%2FoyZRTF9tBLqATs8aoK9%2BshvNUO2aD6Zh0Xw0gsMYmMhN4AK1BtxWqicDPyDGVWxNe8P5m\"}]}",
+       "cf-ray": "a5c0c802098b1c72-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "8735",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0157</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-BebFKeDB.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-Dz9wUqJy.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0158.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-21-e7cb73",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 18:24:38 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "x-cloud-trace-context": "bbd0bdd61dcf9f0e500677a37cfcabc1/14964428203728211132;o=1",
+       "traceparent": "00-bbd0bdd61dcf9f0e500677a37cfcabc1-cfac542a960e8cbc-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=35,cfOrigin;dur=16520",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=HOpYMgkxF8snNC7Q%2BPXaIXsYipaJdaoF0riS4Y1ZPHqRpJni6V1sS1ZrOloMCNa8DqB6oCv7TaEnrwzYSepFB4ocpzrf0aKiUQdZkKPgjCJLPe6Fupz4jvX0YVKpmkt%2BOnekWwLtJR%2BT\"}]}",
+       "cf-ray": "a5c0c801de1fa684-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "16694",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0158</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-DwizqzTt.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-CXbJHdRT.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0159.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-22-05c2ee",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:09 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 19:29:45 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "x-cloud-trace-context": "37d44ac5d33ade8458654053f1d734c2/1134852308376514827;o=1",
+       "traceparent": "00-37d44ac5d33ade8458654053f1d734c2-0fbfce296950710b-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=32,cfOrigin;dur=8583",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=jyFhGXa1Hu3FCWxudzIts3XDGng7Dtn9cjfYlatr9qbYxYgMzoVXiSfVeo3wsr8p5OrW5zLAIO9gc4%2Fmtzc%2BSsLANnEzk3CZpyvR52Hi6Xrb%2FMqh7OKSix2a41wl7tuqL7YOQuPhBBp3\"}]}",
+       "cf-ray": "a5c0c801dbafc178-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "8755",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0159</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-BNwIVtqE.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-CajEEVym.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0160.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-23-3aa5ad",
+      "status": 525,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=UTF-8",
+       "content-length": "16",
+       "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+       "expires": "Thu, 01 Jan 1970 00:00:01 GMT",
+       "referrer-policy": "same-origin",
+       "server-timing": "cfEdge;dur=138,cfOrigin;dur=0",
+       "x-frame-options": "SAMEORIGIN",
+       "server": "envoy",
+       "cf-ray": "a5c0c8021d8f8f9f-BOS",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "317",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "error code: 525\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 525
+     }
+    },
+    {
+     "target": "l0161.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-24-33f250",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:07 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 19:19:24 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "traceparent": "00-a29b12c6af7fe51564ca749d77c9db03-68fa563366b463da-01",
+       "x-cloud-trace-context": "a29b12c6af7fe51564ca749d77c9db03/7564453302888588250;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=45,cfOrigin;dur=7196",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=WccGPiAVWEYELO2w1T2Pgzl2YRbu1EByi8fP9oe1VNeI1PK3315UxTmH82GxArUpAPkTZx3EpmXPqrbCfExfODxUAjXcK8TkXp8c6NGocH%2BFgagj%2B1c63kv1tWv0brjXGnu6YeYtM7ef\"}]}",
+       "cf-ray": "a5c0c801c9e6875e-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "7384",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0161</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-Rg9U6A1H.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-Cdhz7H0Y.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0163.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-25-a67177",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 19:19:23 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "x-cloud-trace-context": "ed98c8869eae33341fe771bae55e9813/9200794497888057903;o=1",
+       "traceparent": "00-ed98c8869eae33341fe771bae55e9813-7fafc9d911fc7a2f-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=29,cfOrigin;dur=72",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=TniyEihKG0CKOLxw5WNmqiomQYtUdSXs1rPShDlAdAJxcazYR1e36Vm9JB2oeZAgDjl0s4iiGvhOlGK0mau9TxlLt6qy6kTSpH2F3oZ03%2F1vEXG5BDxmUBEjknwjqNO%2Bu9gv6DR0bDrh\"}]}",
+       "cf-ray": "a5c0c801ebc46af4-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "245",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0163</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-BRJao7sj.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-CVDFRph_.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0166.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-26-b1578c",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:09 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 18:12:47 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "x-cloud-trace-context": "4e41d2bc1b2a68723c0d163d73caf82f/12359284937804341078;o=1",
+       "traceparent": "00-4e41d2bc1b2a68723c0d163d73caf82f-ab85002b2ba9df56-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=59,cfOrigin;dur=8454",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=ns1eQcl1O6dlsD4iX4nKtJrwgGusWppb%2FanGeaYLmjFYi5dB7SMIlhW%2FEmzp9wk10%2Bk5KlEeU4XKb7GnrutuCvd9c43IuMHRabDnypRtPY3fDQMpg8e1E6b%2F%2BRnUVphePqyIiaItXjQa\"}]}",
+       "cf-ray": "a5c0c801ba4aa38b-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "8652",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0166</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-gI6364ir.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-BB9mNkN0.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0169.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-27-5a2172",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:11 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 18:24:39 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "traceparent": "00-cfd700705e12943ba34d6604aa445d24-9cd51407e92806d7-01",
+       "x-cloud-trace-context": "cfd700705e12943ba34d6604aa445d24/11300960864165168855;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=41,cfOrigin;dur=10173",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=xnuGWXuK2O%2BWT%2BwI9C1iQGNLI%2BPPa5I8AHJ3%2Fzu6Dv886kkVqR0%2FIN4i1%2Bhw90oYrjKCeFmyCqtR9cdmMa3HFls2I4sRBq8UGu2tyOv9C1E%2B%2FYL%2FtVVFaMsnTkrTZp28TDDIDkbmBSrh\"}]}",
+       "cf-ray": "a5c0c8031e3c6769-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "10554",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0169</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-C8sVMAQX.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-MFUirZ4R.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0170.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-28-b6298d",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:09 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 18:24:13 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "traceparent": "00-d1a0cef54a33e7cfe4ba9437374a4596-711be511fea960ad-01",
+       "x-cloud-trace-context": "d1a0cef54a33e7cfe4ba9437374a4596/8150359816106762413;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=40,cfOrigin;dur=8597",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=xP6fdrSLN%2F1je9B50X%2B1HJnQdpxPWNrngsSNQsascjzSQTPRNn8KplIx0ng3n%2B8fXbv2oV3jOQ4dgJtRoMUI%2BgRrVW15h5FdARoc3DXQIVxyDa1uaYJs%2BFPlRNRXQy1vZWpttsp%2FskT2\"}]}",
+       "cf-ray": "a5c0c801ce0b191d-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "8783",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0002</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-Bmxin1vf.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-CK7CKy7b.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0171.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-29-b8dcf6",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:14 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 19:24:34 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "x-cloud-trace-context": "8dbdef2fecc0846c0e89528a1186248e/9444060558124738278;o=1",
+       "traceparent": "00-8dbdef2fecc0846c0e89528a1186248e-83100b0a744d66e6-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=67,cfOrigin;dur=13553",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=3%2Bcg6mTIjeOADlTK9bHwwyFYffhKvL4ALcHFTA0dRlp%2FdLm6sTRYpuVPq9lks5TT%2FhSMoP18AtJl6fwqUDfSg%2FzigGZ%2Bk76fuah9lEp3ZNc3RHP5kYsidp1lovwylri9IdUgbxNt7Kcq\"}]}",
+       "cf-ray": "a5c0c801d950b03a-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "13758",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0171</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-Do86fzyE.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-gr-qYJmH.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0172.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-30-33a900",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:09 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 18:28:00 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "server": "envoy",
+       "traceparent": "00-d46751b31ec7c4c09a17f95c2012f2c9-913520e1af53b590-01",
+       "x-cloud-trace-context": "d46751b31ec7c4c09a17f95c2012f2c9/10463305462946444688;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=42,cfOrigin;dur=9001",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=fOZ9HumicG6plCBKdAkiyGmHIXOLBPO3MpNXnoWwk1IHGTFLraBvP2S01tOuis5ExLC6Bd%2F4Yb0vOBHbT%2FRY%2B7NYzRsYlJZodMlfy4BD9Z0y7o3sWDSJtuoQ8EtNLY8evc09h03Veuy9\"}]}",
+       "cf-ray": "a5c0c801c995068f-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "9197",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0002</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-8xpudAqa.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-CZb_u4Nd.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0173.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-31-06d640",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:11 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "cross-origin-resource-policy": "cross-origin",
+       "accept-ranges": "bytes",
+       "cache-control": "public, max-age=0",
+       "last-modified": "Mon, 02 Nov 2026 18:19:13 GMT",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "x-cloud-trace-context": "666fef8fa5000a1319a35419110654a7;o=1",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=23,cfOrigin;dur=11351",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=nJ7MOAKnz5dz9LSkDYnxzZyXZjcYAl9tw1%2BdLqLPcnPhJLgRXDNyvT7WzicuY%2Bd7PoZMDgcmZpcfjW7WlrFFc%2FnivViMxExODFWgYT4vVf5rqUatgZojDESyRprIfJ80MLUAUHwEFw1i\"}]}",
+       "cf-ray": "a5c0c801d8aa714b-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "11528",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close",
+       "transfer-encoding": "chunked"
+      },
+      "body": "2f5\r\n<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n    <title>L0173</title>\n    <script type=\"module\" crossorigin src=\"/assets/index-CgLJWJg1.js\"></script>\n    <link rel=\"stylesheet\" crossorigin href=\"/assets/index-DySApBCm.css\">\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  <script type=\"module\" src=\"https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092\" integrity=\"sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==\" data-cf-beacon='{\"version\":\"2024.11.0\",\"token\":\"65394c0d866047de952ce95da8beeb75\",\"r\":1,\"spa\":2}' crossorigin=\"anonymous\"></script>\n</body>\n</html>\n\r\n0\r\n\r\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0174.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-32-150a7d",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:01 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "server": "envoy",
+       "x-cloud-trace-context": "b4c476d4c9ced2f7e656f9e58e9b8674/1939329114520441428;o=1",
+       "traceparent": "00-b4c476d4c9ced2f7e656f9e58e9b8674-1ae9e18dfd905254-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=31,cfOrigin;dur=1085",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=8jZV4UPRstVdXxTSTkD6anIYxx%2Bx7yZk43ZevFp0XtuNHquv%2B7iCGGpj9sAqh%2BX0xznuzloceHtft61sykEtO1MEt9jG%2F2yBSOCqA%2FfgPTs8Y6nDtUhjum4%2BUN80jUKPq1zkgyMqGPQm\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c802dbab4a31-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "1442",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0175.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-33-3727c7",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "server": "envoy",
+       "x-cloud-trace-context": "069ffb26dc566ad1bda6ae75d6cf3369/4941613625524885636;o=1",
+       "traceparent": "00-069ffb26dc566ad1bda6ae75d6cf3369-449423691ea41884-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=29,cfOrigin;dur=57",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=o0CokW4aQpbwtbRq%2B9fGq4WKBqXm11UmiHutQFNf3pDKsK9AY3JPh3F2NU78jlEuRN7%2Fmhh5RqfAa8p5cG53UFPWikY7leMxLTRGwnSMHRDEAV3G6QoO2BosGkQ90qk5%2FQzdsHKNOlW9\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c8031e146739-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "419",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0176.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-34-6ea148",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "x-cloud-trace-context": "21413da75e3bacbe93aa2e1faab46480;o=1",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=81,cfOrigin;dur=55",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=NZ%2B%2BhVEPw5tk2ngsaBxmE1h3lo%2F5xmqZkq%2FRiQUngmqbjMHzrV1eKgRULH%2FxY1U5m33P%2FD07PLsl8zhgwleIgr1dWObKZhltlWcQzcOXYHLKvr1882vgqh8dm6RD65KHHS%2BpWmYSWyEZ\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c801de9fbd2d-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "280",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0177.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-35-4bac16",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "server": "envoy",
+       "x-cloud-trace-context": "80d1913b097d3bcd7212edf167c109e7/699737928632170346;o=1",
+       "traceparent": "00-80d1913b097d3bcd7212edf167c109e7-09b5f7f04ffcf76a-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=28,cfOrigin;dur=50",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=8DbH8ZB5H1gjo2%2BTbx3nUxP%2BWuXIyY7tBd4nIqseIzE2EdZ3QEyutgabbh%2Buqx7WBusB00imO2pvxM8mEvyiY%2BO10OMxRZ4d0Tzphgrngkf8VADkm1zIsCGXVsCRNLXG08%2F%2F6R7txvHz\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c801e85e1dfb-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "239",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0178.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-36-4ee0ab",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "server": "envoy",
+       "traceparent": "00-07db9927cee23fac154167e99fbd1e26-02a3234a4f1295e8-01",
+       "x-cloud-trace-context": "07db9927cee23fac154167e99fbd1e26/190034411340862952;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=21,cfOrigin;dur=178",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=%2BKAmiEQntf9mJInKVn0tXYxnK3qaBiA3Uvo%2Fq865ne5nHCvz6Et8ZL3noWtEgYa%2FksDog7Z8NqHU%2B1BS1EUXN20uV65Eotfi9FHgawXzl%2BADnnpwR%2FngcJEDbUdvpKHaVo6vf71aW%2FDN\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c801f92f8120-BOS",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "363",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0179.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-37-22c179",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "x-cloud-trace-context": "43364b8567b6ec6ab89465dbd1be6a04;o=1",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=126,cfOrigin;dur=85",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=7gHOuU%2Fs94BReu8wsgrsrY5ZrF4jGWtEscH66oconVKqgK7jYKL%2BPh%2BO3l1ODmUqpvQBt0xEFjtSzcnn0Q2Siur6fjfu%2F5N1QnP9KUSUn3BOxEVMvJ2zYldC0MJSfCpXdoBtURT7PHyI\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c801a8ebc027-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "345",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0180.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-38-d8c1c5",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "x-cloud-trace-context": "638fc6cc83d1dfe124d0910f0c2279c2;o=1",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=36,cfOrigin;dur=60",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=ZH58346%2BeKA5IwOj55TmG5WJUhUOiyDsy%2FSoPSea18d6wOGYT9qLX26FDf7V9Iw0T9iBF5yU%2FWODDLv6isMPhNPvJ5ZT12TXTk5%2BC07t7bMgML5LuC%2FhwxXUoVeRFOogN40jhf3hrDgH\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c801fe5420b5-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "259",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0181.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-39-5565d7",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "server": "envoy",
+       "traceparent": "00-3b04b508bf7e5c3dc1ecbf8b3fe6d331-976af219ed195277-01",
+       "x-cloud-trace-context": "3b04b508bf7e5c3dc1ecbf8b3fe6d331/10910799240424411767;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=30,cfOrigin;dur=54",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=24harN%2FHbcIWT%2BuwkdomjXfH65nGcPv6lUCrUCjW0DFxBXX9TxfVPTacj%2BSoHFQCKAlCadn6ktjsu8RvUmpZ6d8dNsJXAZCq%2Fd1IkZOWBlerXd4nf2Cy0nfZ1o2dLyGbLWDfCqftuBYX\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c8022a5cb1be-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "265",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0182.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-40-5a1609",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:01 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "server": "envoy",
+       "x-cloud-trace-context": "1007ae4be511be89aee5a038027ad486/31677140700498004;o=1",
+       "traceparent": "00-1007ae4be511be89aee5a038027ad486-00708a310ef40854-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=44,cfOrigin;dur=1199",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=XRqzNdcfCPpAngJ%2BEfowO8Jw4AQc11M6Flne2IbKIoAep3XFh%2F9NKl2ceBJaxJC%2FDbQsC%2Fev1lajhqZ%2B78SyFeCINKs0pJlrB3mAb89kyjqN7ki3VYW8%2Fgv4oaNLA%2B82zfzcHM7OApo9\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c801ca159871-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "1383",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0183.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-41-aab57e",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "x-cloud-trace-context": "aeffd7808126512141a28bd1550846b0;o=1",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=54,cfOrigin;dur=56",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=MRvQWk6c2McawCMnDd7iMHfGciy8wmRsNhATL9fiQzrmC64CXMsGABe8gNHtlfBLkUvXwWS4jiV8Z48KI6iuWM3N1koUdNpikNN5skbyD7vMPZpXMZW2nG3VXuLze5j8SrhBuDWlTYE2\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c801cec0453b-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "251",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0184.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-42-844821",
+      "status": 200,
+      "headers": {
+       "content-type": "text/plain; charset=utf-8",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "content-length": "2",
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "server": "envoy",
+       "x-cloud-trace-context": "604b3bafeec21d1b780bfcb4f8e0937e/16617172682869667769;o=1",
+       "traceparent": "00-604b3bafeec21d1b780bfcb4f8e0937e-e69c0e8375c577b9-01",
+       "x-envoy-upstream-service-time": "37",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0185.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-43-88aac2",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "server": "envoy",
+       "traceparent": "00-99aef1025086546bdba4e9425b3ac571-8aa692136a2e6c3a-01",
+       "x-cloud-trace-context": "99aef1025086546bdba4e9425b3ac571/9990833435451485242;o=1",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=19,cfOrigin;dur=180",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=IFeKWP2H8T8%2FZHJl%2BfhY7NnDyKcI1B9SAve3nJHjPcHU37ZnlJDXNgo0K1SxXhNzOA90c7E7FKxTtm%2Fo2DgZP4a%2BzH5%2BV9bgvposvi3u8DegXb9skuw5lLL5JlnEieaTRNJWKGqOJ%2B85\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c8020a98896f-BOS",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "370",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "l0186.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-44-5f5ce4",
+      "status": 200,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/plain; charset=utf-8",
+       "content-length": "2",
+       "cross-origin-resource-policy": "cross-origin",
+       "access-control-expose-headers": "*",
+       "access-control-allow-origin": "*",
+       "x-cloud-trace-context": "228cc5212b05e73d985851bec03fa7c0;o=1",
+       "server": "envoy",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=38,cfOrigin;dur=62",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=mlyvW%2BCHnGMBDDZWHLq0Cr%2BAimYSbXIfrbzKj514iaBk96EDtezYKVqsYFsbZqDJbP8IT5owTKLj%2B%2F3FXNb9n2VL0LYiZEiY9GBJXl6hzzi6pmtfJOTmS8wQNJZz561v%2FivVsKGw1LaK\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0c801bdc7b030-ATL",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "240",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "OK"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 200
+     }
+    },
+    {
+     "target": "policy-sja7fatcta-uc.a.run.app",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-45-224051",
+      "status": 403,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:26:00 GMT",
+       "content-type": "text/html; charset=UTF-8",
+       "server": "envoy",
+       "content-length": "295",
+       "x-envoy-upstream-service-time": "115",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "\n<html><head>\n<meta http-equiv=\"content-type\" content=\"text/html;charset=utf-8\">\n<title>403 Forbidden</title>\n</head>\n<body text=#000000 bgcolor=#ffffff>\n<h1>Error: Forbidden</h1>\n<h2>Your client does not have permission to get URL <code>/</code> from this server.</h2>\n<h2></h2>\n</body></html>\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 403
+     }
+    }
+   ]
+  },
+  {
+   "id": "external",
+   "title": "a listed external host",
+   "expected": "succeeds",
+   "state": "passed",
+   "results": [
+    {
+     "target": "storage.googleapis.com",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-46-38d6aa",
+      "status": 400,
+      "headers": {
+       "content-type": "application/xml; charset=UTF-8",
+       "x-guploader-uploadid": "AFy3sg0zQnMtC3uWWMOtHzH8KuQe1WpulgvQCS8ejYZqd-Q69UsBCsVXK_J5NJtibx3eyMckg4s-oIw",
+       "content-length": "181",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "expires": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "cache-control": "private, max-age=0",
+       "server": "envoy",
+       "x-envoy-upstream-service-time": "16",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "<?xml version='1.0' encoding='UTF-8'?><Error><Code>MissingSecurityHeader</Code><Message>Your request was missing a required header.</Message><Details>Authorization</Details></Error>"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 400
+     }
+    },
+    {
+     "target": "www.googleapis.com",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-47-fa2428",
+      "status": 404,
+      "headers": {
+       "content-type": "text/html; charset=UTF-8",
+       "referrer-policy": "no-referrer",
+       "content-length": "1561",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "x-envoy-upstream-service-time": "106",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "body": "<!DOCTYPE html>\n<html lang=en>\n  <meta charset=utf-8>\n  <meta name=viewport content=\"initial-scale=1, minimum-scale=1, width=device-width\">\n  <title>Error 404 (Not Found)!!1</title>\n  <style>\n    *{margin:0;padding:0}html,code{font:15px/22px arial,sans-serif}html{background:#fff;color:#222;padding:15px}body{margin:7% auto 0;max-width:390px;min-height:180px;padding:30px 0 15px}* > body{background:url(//www.google.com/images/errors/robot.png) 100% 5px no-repeat;padding-right:205px}p{margin:11px 0 22px;overflow:hidden}ins{color:#777;text-decoration:none}a img{border:0}@media screen and (max-width:772px){body{background:none;margin-top:0;max-width:none;padding-right:0}}#logo{background:url(//www.google.com/images/branding/googlelogo/1x/googlelogo_color_150x54dp.png) no-repeat;margin-left:-5px}@media only screen and (min-resolution:192dpi){#logo{background:url(//www.google.com/images/branding/googlelogo/2x/googlelogo_color_150x54dp.png) no-repeat 0% 0%/100% 100%;-moz-border-image:url(//www.google.com/images/branding/googlelogo/2x/googlelogo_color_150x54dp.png) 0}}@media only screen and (-webkit-min-device-pixel-ratio:2){#logo{background:url(//www.google.com/images/branding/googlelogo/2x/googlelogo_color_150x54dp.png) no-repeat;-webkit-background-size:100% 100%}}#logo{display:inline-block;height:54px;width:150px}\n  </style>\n  <a href=//www.google.com/><span id=logo aria-label=Google></span></a>\n  <p><b>404.</b> <ins>That’s an error.</ins>\n  <p>The requested URL <code>/</code> was not found on this server.  <ins>That’s all we know.</ins>\n"
+     },
+     "result": {
+      "outcome": "succeeds",
+      "status": 404
+     }
+    }
+   ]
+  },
+  {
+   "id": "exception",
+   "title": "an open-class exception's exact request (C3: Google's certificates)",
+   "expected": "n/a",
+   "state": "n/a"
+  },
+  {
+   "id": "exception-other",
+   "title": "any other request to an open-class exception's host",
+   "expected": "n/a",
+   "state": "n/a"
+  },
+  {
+   "id": "unlisted",
+   "title": "an unlisted public host",
+   "expected": "refused:proxy/unlisted",
+   "state": "passed",
+   "results": [
+    {
+     "target": "example.com",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-48-208cc4"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    }
+   ]
+  },
+  {
+   "id": "learnosity",
+   "title": "Learnosity by host and alternate hosts",
+   "expected": "refused:proxy/unlisted",
+   "state": "passed",
+   "results": [
+    {
+     "target": "items.learnosity.com",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-49-348af5"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    },
+    {
+     "target": "data.learnosity.com",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-50-90c9dd"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    },
+    {
+     "target": "learnosity.com",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-51-370c40"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    }
+   ]
+  },
+  {
+   "id": "trailing-dot",
+   "title": "Learnosity and run.app names with a trailing dot",
+   "expected": "refused:proxy",
+   "state": "passed",
+   "results": [
+    {
+     "target": "learnosity.com.",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-52-b0d712"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    },
+    {
+     "target": "items.learnosity.com.",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-53-652049"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    },
+    {
+     "target": "at11-own-default-o3flcplpsa-uc.a.run.app.",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-54-2698d4"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    }
+   ]
+  },
+  {
+   "id": "ip-literal",
+   "title": "Learnosity (or any host) by IPv4 and IPv6 literal",
+   "expected": "refused:proxy/unlisted",
+   "state": "passed",
+   "results": [
+    {
+     "target": "54.230.0.1",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-55-59a458"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    },
+    {
+     "target": "[2600:9000::1]",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-56-41a6ab"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    }
+   ]
+  },
+  {
+   "id": "redirect",
+   "title": "a redirect chain ending at Learnosity or a private address",
+   "expected": "refused:proxy/unlisted",
+   "state": "passed",
+   "results": [
+    {
+     "target": "https://httpbin.org/redirect-to?url=https%3A%2F%2Fitems.learnosity.com%2F",
+     "observation": {
+      "hops": [
+       {
+        "url": "https://httpbin.org/redirect-to?url=https%3A%2F%2Fitems.learnosity.com%2F",
+        "observation": {
+         "via": "proxy",
+         "stage": "connect",
+         "status": 403,
+         "headers": {
+          "x-isolate01-refused": "unlisted",
+          "x-isolate01-decision": "refuse",
+          "x-isolate01-reason": "unlisted",
+          "content-length": "30",
+          "content-type": "text/plain",
+          "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+          "server": "envoy",
+          "connection": "close"
+         },
+         "probe": "b2493b5b6cb396e2-57-8a73c4"
+        }
+       }
+      ]
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    }
+   ]
+  },
+  {
+   "id": "rebinding",
+   "title": "names resolving to metadata, 10.x, 127.0.0.1 or the load balancer, and a name whose answer changes",
+   "expected": "refused:proxy/unlisted",
+   "state": "passed",
+   "results": [
+    {
+     "target": "meta.rebind.at11.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-58-11ef76"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    },
+    {
+     "target": "ten.rebind.at11.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-59-013133"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    },
+    {
+     "target": "lo.rebind.at11.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-60-a71a31"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    },
+    {
+     "target": "lb.rebind.at11.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-61-67cf2a"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    },
+    {
+     "target": "flip.rebind.at11.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-62-5ef2f4"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     },
+     "flip": true
+    },
+    {
+     "target": "flip.rebind.at11.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-63-d6ff7f"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     },
+     "flip": true
+    },
+    {
+     "target": "flip.rebind.at11.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-64-0959c8"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     },
+     "flip": true
+    },
+    {
+     "target": "flip.rebind.at11.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-65-d04c02"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     },
+     "flip": true
+    },
+    {
+     "target": "flip.rebind.at11.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-66-599c4e"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     },
+     "flip": true
+    },
+    {
+     "target": "flip.rebind.at11.graffiticode.org",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-67-320f36"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     },
+     "flip": true
+    }
+   ]
+  },
+  {
+   "id": "canary",
+   "title": "a public canary name we run, through the proxy (the control for refused:network)",
+   "expected": "n/a",
+   "state": "n/a"
+  },
+  {
+   "id": "run-app",
+   "title": "a run.app service by its URL (another project's; for L0185, Graffiticode's too)",
+   "expected": "refused:proxy/unlisted",
+   "state": "passed",
+   "results": [
+    {
+     "target": "at11-own-default-o3flcplpsa-uc.a.run.app",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-68-6f0434"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    }
+   ]
+  },
+  {
+   "id": "frontend-ip",
+   "title": "a front-end IP with another Host",
+   "expected": "refused:proxy/unlisted",
+   "state": "passed",
+   "results": [
+    {
+     "target": "142.250.0.1",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-69-cdb389"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    }
+   ]
+  },
+  {
+   "id": "fronted",
+   "title": "a listed SNI with another Host or :authority, HTTP/1.1 and HTTP/2",
+   "expected": "refused:proxy/host-mismatch",
+   "state": "passed",
+   "results": [
+    {
+     "target": "api.graffiticode.org as at11-own-default-o3flcplpsa-uc.a.run.app",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-70-00edce",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "host-mismatch",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "host-mismatch",
+       "content-length": "35",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "body": "isolate01: refused (host-mismatch)\n"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "host-mismatch"
+     }
+    },
+    {
+     "target": "api.graffiticode.org as at11-own-default-o3flcplpsa-uc.a.run.app (h2)",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-71-3b5633",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "host-mismatch",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "host-mismatch",
+       "content-length": "35",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:17 GMT",
+       "server": "envoy"
+      },
+      "body": "isolate01: refused (host-mismatch)\n"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "host-mismatch"
+     }
+    }
+   ]
+  },
+  {
+   "id": "fronted-open",
+   "title": "fronting through an unlisted host",
+   "expected": "n/a",
+   "state": "n/a"
+  },
+  {
+   "id": "relay",
+   "title": "a relay in another project",
+   "expected": "refused:proxy/unlisted",
+   "state": "passed",
+   "results": [
+    {
+     "target": "https://httpbin.org/anything",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:26:16 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-72-08c031"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    }
+   ]
+  },
+  {
+   "id": "dns-exfil",
+   "title": "DNS exfiltration through a domain we run (the server's log is checked)",
+   "expected": "nxdomain",
+   "state": "pending-log",
+   "results": [
+    {
+     "target": "at11-b422fd4a7b2d5303.at11.graffiticode.org",
+     "observation": {
+      "via": "dns",
+      "error": "nxdomain",
+      "code": "ENOTFOUND"
+     },
+     "result": {
+      "outcome": "nxdomain"
+     },
+     "logCheck": {
+      "name": "at11-b422fd4a7b2d5303.at11.graffiticode.org",
+      "label": "at11-b422fd4a7b2d5303",
+      "queriedAt": "2026-11-17T18:26:17.355Z"
+     }
+    }
+   ]
+  },
+  {
+   "id": "dns-direct",
+   "title": "DNS to a public resolver directly (UDP and TCP 53, DoT 853)",
+   "expected": "refused:firewall",
+   "state": "passed",
+   "results": [
+    {
+     "target": "8.8.8.8 udp/53",
+     "observation": {
+      "via": "direct",
+      "error": "timeout"
+     },
+     "result": {
+      "outcome": "refused:firewall"
+     }
+    },
+    {
+     "target": "8.8.8.8 tcp/53",
+     "observation": {
+      "via": "direct",
+      "error": "timeout"
+     },
+     "result": {
+      "outcome": "refused:firewall"
+     }
+    },
+    {
+     "target": "8.8.8.8 tcp/853",
+     "observation": {
+      "via": "direct",
+      "error": "timeout"
+     },
+     "result": {
+      "outcome": "refused:firewall"
+     }
+    }
+   ]
+  },
+  {
+   "id": "broker-unlisted",
+   "title": "Broker's execute, Broker not in the compiler's list",
+   "expected": "n/a",
+   "state": "n/a"
+  },
+  {
+   "id": "broker-no-invoker",
+   "title": "Broker's execute, listed, without run.invoker",
+   "expected": "n/a",
+   "state": "n/a"
+  },
+  {
+   "id": "broker-no-token",
+   "title": "Broker's execute with no execution token, by a listed invoker (L0176)",
+   "expected": "refused:broker/missing-execution-token",
+   "state": "passed",
+   "results": [
+    {
+     "target": "https://broker-sja7fatcta-uc.a.run.app/v1/execute",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-73-8c57e0",
+      "status": 401,
+      "headers": {
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "content-type": "application/json; charset=utf-8",
+       "content-length": "115",
+       "etag": "W/\"73-UiooB602Qi7uP4EV2eLNIyHZbWU\"",
+       "date": "Tue, 17 Nov 2026 18:27:47 GMT",
+       "server": "envoy",
+       "traceparent": "00-939fb86638253280b25d08907cb0ffc9-483ccf2903b76a24-01",
+       "x-cloud-trace-context": "939fb86638253280b25d08907cb0ffc9/5205263044396411428;o=1",
+       "x-envoy-upstream-service-time": "49",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "{\"status\":\"error\",\"error\":{\"code\":401,\"message\":\"missing execution token\",\"category\":\"authentication\"},\"data\":null}"
+     },
+     "result": {
+      "outcome": "refused:broker",
+      "status": 401,
+      "reason": "missing-execution-token"
+     }
+    }
+   ]
+  },
+  {
+   "id": "act-as",
+   "title": "auth's /internal/act-as with the compiler's own ID token",
+   "expected": "refused:auth/unknown-caller",
+   "state": "passed",
+   "results": [
+    {
+     "target": "https://auth.graffiticode.org/internal/act-as",
+     "observation": {
+      "via": "proxy",
+      "stage": "request",
+      "probe": "b2493b5b6cb396e2-74-d01926",
+      "status": 403,
+      "headers": {
+       "date": "Tue, 17 Nov 2026 18:27:47 GMT",
+       "content-type": "application/json; charset=utf-8",
+       "content-length": "102",
+       "x-powered-by": "Express",
+       "access-control-allow-origin": "*",
+       "etag": "W/\"66-p6rlEMm8u9r3sRWNDDgKIohaoCM\"",
+       "server": "envoy",
+       "x-cloud-trace-context": "dddc8be0177a4beafdaf3d035155d07d/5977358356818349796;o=1",
+       "traceparent": "00-dddc8be0177a4beafdaf3d035155d07d-52f3d7c1915ecee4-01",
+       "cf-cache-status": "DYNAMIC",
+       "server-timing": "cfEdge;dur=8,cfOrigin;dur=133",
+       "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=EyYobri9g%2Bqy%2FvVhpOe6Cmwm7QQeKjZNjqCdnwZe6zx2WqIuIin1m1Wowrqula7t6uWAm%2FKy70vmAoO1trJA1Z5zjLeHpKQuHwMGKW2y3HRZugk8DTEIKOmvXkfprG835lyUGSUxzRE%3D\"}]}",
+       "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+       "cf-ray": "a5c0ca9ed8902520-BOS",
+       "alt-svc": "h3=\":443\"; ma=86400",
+       "x-envoy-upstream-service-time": "174",
+       "x-isolate01-decision": "allow",
+       "x-isolate01-reason": "listed",
+       "connection": "close"
+      },
+      "body": "{\"status\":\"error\",\"error\":{\"code\":403,\"message\":\"unknown caller\",\"category\":\"permission\"},\"data\":null}"
+     },
+     "result": {
+      "outcome": "refused:auth",
+      "status": 403,
+      "reason": "unknown-caller"
+     }
+    }
+   ]
+  },
+  {
+   "id": "admin",
+   "title": "the proxy's admin interface",
+   "expected": "refused",
+   "state": "passed",
+   "results": [
+    {
+     "target": "10.8.0.10:9901 direct",
+     "observation": {
+      "via": "direct",
+      "error": "timeout"
+     },
+     "result": {
+      "outcome": "refused:firewall"
+     }
+    },
+    {
+     "target": "127.0.0.1:9901 via proxy",
+     "observation": {
+      "via": "proxy",
+      "stage": "connect",
+      "status": 403,
+      "headers": {
+       "x-isolate01-refused": "unlisted",
+       "x-isolate01-decision": "refuse",
+       "x-isolate01-reason": "unlisted",
+       "content-length": "30",
+       "content-type": "text/plain",
+       "date": "Tue, 17 Nov 2026 18:28:17 GMT",
+       "server": "envoy",
+       "connection": "close"
+      },
+      "probe": "b2493b5b6cb396e2-75-351a21"
+     },
+     "result": {
+      "outcome": "refused:proxy",
+      "reason": "unlisted"
+     }
+    }
+   ]
+  }
+ ]
+}
