@@ -33,6 +33,12 @@
 //              it is null and nothing executes under it.
 //   viewSafe   whether a view of a published item may use it (the viewer holds
 //              no grant; the publication's authority reaches only these)
+//   writesOutsideCommands  the language's compile can perform this function's
+//              write itself, outside Policy and Broker command control, when
+//              it runs outside a command (L0013's direct thumbnail upload,
+//              until C5d retires it). Nothing that must stay read-only may
+//              dispatch a stage in such a language: a render grant's read is
+//              refused before it compiles (writesOutsideCommandControl).
 
 // There are no execution modes: running the program is the action, and the
 // grant is the authority. A function runs whenever its program calls it
@@ -47,17 +53,15 @@
 // v9 (C5a, docs/c5-l0013-commands-plan.md): L0013's `snap`, the first
 // function with a service credential and an item scope, and its operation
 // `gcs.put-thumbnail`, whose one dispatch step is conditional with bounded
-// attempts. No v8 function or operation changes meaning, so v8 stays in the
-// window and its artifacts stay compatible (decision 2). These entries land
-// first, under version 8, unreachable: nothing supports a v3 token or an item
-// scope yet. The version itself moves to 9 in its own rollout change, merged
-// just before Broker's release (P1b), so main stays releasable meanwhile.
+// attempts; and `writesOutsideCommands`, which marks snap's legacy direct
+// upload so read-only paths refuse its language. No v8 function or operation changes meaning, so v8 stays in the
+// window and its artifacts stay compatible (decision 2).
 // v8: `learnosity.write-items` only creates records (AT-10 B1). Broker writes
 // every question and item under a reference derived from the operation id,
 // never the one a program sent, and an item may link only to questions the
 // same save writes. A save never changes a record already in the bank;
 // re-saving a program makes new records.
-export const REGISTRY_VERSION = 8;
+export const REGISTRY_VERSION = 9;
 
 // Earlier registry versions whose stored artifacts this version still serves
 // (docs/graffiticode-interpreter-plan.md, P1). An artifact records the version
@@ -66,7 +70,9 @@ export const REGISTRY_VERSION = 8;
 // bump that changes no protected function's meaning may list its predecessors
 // here so their artifacts stay readable; that listing is part of the bump's
 // security review. The default is none: a version not listed is incompatible.
-export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([]);
+// v8: v9 adds functions and changes none of v8's (C5 plan decision 2). There
+// is no retirement step for this listing.
+export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([8]);
 
 // A registry bump is rolled out across services, not swapped at once
 // (docs/graffiticode-interpreter-plan.md, P1b). Policy and Broker deploy
@@ -78,7 +84,11 @@ export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([])
 // it covers are interpreted under the current tables. Each plan keeps the
 // version it was admitted under, and a receipt binds that version, so the
 // two are never interchangeable. The default is none.
-export const REGISTRY_WINDOW: readonly number[] = Object.freeze([]);
+// v8: kept until its own retirement gate (C5 plan decision 2): every v8
+// command terminal or given up, and no repair or materialize pending on one.
+// Removing it earlier would leave v8 plans' unreached stages and B6 repairs
+// with replay-only sessions.
+export const REGISTRY_WINDOW: readonly number[] = Object.freeze([8]);
 
 // Whether `version` may still execute: the current version, or one in the
 // window.
@@ -121,6 +131,7 @@ export type FunctionSpec = Readonly<{
   credential?: Credential;
   scope?: ScopeKind;
   publicCapture?: Readonly<{ since: string | null }>;
+  writesOutsideCommands?: true;
 }>;
 
 // Broker operations. The broker builds each request itself from a constrained
@@ -247,6 +258,9 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       credential: "service" as const,
       scope: "item" as const,
       publicCapture: Object.freeze({ since: null }),
+      // Outside a command, L0013 still uploads a snap itself (its legacy
+      // path), with no Policy or Broker in the way.
+      writesOutsideCommands: true as const,
     }),
   }),
 });
@@ -270,6 +284,13 @@ export const systemPreviewFunctionsForLang = (lang: unknown): string[] =>
   Object.entries(protectedFunctionsForLang(lang) || {})
     .filter(([, spec]) => spec.kind === "sign" && spec.viewSafe === true && spec.implicit === true)
     .map(([fn]) => fn);
+
+// Whether a compile in `lang` can write outside Policy and Broker command
+// control: any of its functions declares `writesOutsideCommands`. A read-only
+// path (a render grant's /form and /data) checks every stage of its chain
+// against this and dispatches none that does.
+export const writesOutsideCommandControl = (lang: unknown): boolean =>
+  Object.values(protectedFunctionsForLang(lang) || {}).some(spec => spec.writesOutsideCommands === true);
 
 // The two views a compiler needs (l0000 Compiler config): explicit functions
 // keyed by node tag, and implicit ones required by every compile.

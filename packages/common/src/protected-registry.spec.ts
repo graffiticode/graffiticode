@@ -15,7 +15,8 @@ import {
   operationSteps,
   connectionBackends,
   credentialOf,
-  MAX_CONDITIONAL_ATTEMPTS
+  MAX_CONDITIONAL_ATTEMPTS,
+  writesOutsideCommandControl
 } from "./protected-registry.js";
 
 describe("protected-registry", () => {
@@ -241,7 +242,17 @@ describe("registered execution steps", () => {
 
 // v9 (C5a, docs/c5-l0013-commands-plan.md): a service-credential, item-scoped
 // function, conditional steps, and v8 kept for artifacts and execution.
-describe("registry: snap and its operation (C5a; version 9 lands in its rollout)", () => {
+describe("registry v9", () => {
+  it("is version 9, with v8 in the window and its artifacts compatible (decision 2)", () => {
+    expect(REGISTRY_VERSION).toBe(9);
+    expect(REGISTRY_WINDOW).toEqual([8]);
+    expect(ARTIFACT_COMPATIBLE_VERSIONS).toEqual([8]);
+    expect(isAcceptedRegistryVersion(8)).toBe(true);
+    expect(isArtifactCompatible(8)).toBe(true);
+    expect(isAcceptedRegistryVersion(7)).toBe(false);
+    expect(isArtifactCompatible(7)).toBe(false);
+  });
+
   it("registers L0013's snap: write, service credential, item scope, never delegable", () => {
     expect(Object.keys(PROTECTED_FUNCTIONS["0013"])).toEqual(["snap"]);
     expect(PROTECTED_FUNCTIONS["0013"].snap).toEqual({
@@ -256,6 +267,7 @@ describe("registry: snap and its operation (C5a; version 9 lands in its rollout)
       scope: "item",
       // Dated at C5d's activation; nothing executes under it before then.
       publicCapture: { since: null },
+      writesOutsideCommands: true,
     });
     expect(OPERATIONS["gcs.put-thumbnail"]).toMatchObject({ backend: "gcs", kind: "write", credential: "service" });
     expect(Object.isFrozen(PROTECTED_FUNCTIONS["0013"].snap.publicCapture)).toBe(true);
@@ -325,6 +337,20 @@ describe("registry: snap and its operation (C5a; version 9 lands in its rollout)
 
 // C5 plan decision 5: a conditional step may be authorized again after a
 // failed precondition, as numbered attempts; no other step may.
+// Registry 9: writes that can occur outside Policy/Broker command control.
+describe("writesOutsideCommands", () => {
+  it("marks snap, whose legacy path uploads by itself outside a command, and nothing else", () => {
+    const marked = Object.entries(PROTECTED_FUNCTIONS).flatMap(([lang, fns]) =>
+      Object.entries(fns).filter(([, spec]) => (spec as { writesOutsideCommands?: true }).writesOutsideCommands === true).map(([fn]) => `${lang}/${fn}`));
+    expect(marked).toEqual(["0013/snap"]);
+  });
+
+  it("answers per language, however its id is written", () => {
+    for (const lang of ["0013", "L0013", "13", "l0013"]) expect(writesOutsideCommandControl(lang)).toBe(true);
+    for (const lang of ["0176", "L0176", "0000", "0185", "9999", null, undefined]) expect(writesOutsideCommandControl(lang)).toBe(false);
+  });
+});
+
 describe("conditional steps", () => {
   const op = "gcs.put-thumbnail";
 
