@@ -1781,7 +1781,7 @@ L0013's `snap` under a command reserves and stages through Policy and publishes 
      - **Rollback:** `npm run rollback -- l0013r --env production --release rmwl2casf-31e8b9` restores `l0013r-rmwjzlgz6-2882e6`.
    - **Proxy rollback:** run a rolling update back to `egress-proxy-6cfd69d74ba1` (config `56007b0e…`), and verify with `verify-rollout.js --expect 56007b0e…`.
 
-### Step 27: Policy asks the console's item-authority route (C5a) [PROPOSED; held for review]
+### Step 27: Policy asks the console's item-authority route (C5a) [LIVE 2026-11-17]
 
 Policy decides who may capture an item by asking the console's own item store (C5 plan, decision 3): `POST /api/internal/item-authority { itemId }` on the `console` service (graffiticode-app, app#116, live since `console-rmwjw7o6n-d368e9`). Today Policy has no `ITEM_AUTHORITY_URL`, so every item scope is refused `item-authority-unavailable`. This step gives Policy the route.
 
@@ -1828,6 +1828,13 @@ Policy decides who may capture an item by asking the console's own item store (C
    - the serving revision carries both variables;
    - the full 36-check canary passes, unchanged since nothing asks the route yet;
    - the rollback target is recorded.
+   - **Done 2026-11-17 (owner-approved).** #413 merged as `f6132821`, and Policy was released from that clean `main` as `policy-rmwl4or99-166557`:
+     - `verify/policy.js` passed on the candidate.
+     - **The variables:** the only revision taking traffic, `policy-rmwl4or99-166557` at 100%, carries both, as `gcloud run revisions describe` shows them: `ITEM_AUTHORITY_URL=https://console-cfdwwd7ega-uc.a.run.app/api/internal/item-authority` and `ITEM_AUTHORITY_AUDIENCE=https://console.graffiticode.org/api/internal/item-authority`.
+     - `release-check policy` is ok.
+     - **The canary:** the full 36-check run passed through `api-rmwkxlbvy-b5fa92` (`canary-68st7`, from 21:07Z), and the new revision logged no errors.
+     - **The rollback plan:** `npm run rollback -- policy --env production --release rmwl4or99-166557 --plan` restores `policy-rmwl04x01-2d9c35` to 100%.
+     - **No calls from Policy yet,** as expected: nothing in production asks the route. Between 20:45Z and 21:10Z the console logged 20 `GET`s of the route from outside addresses with a generic `Mozilla/5.0 (compatible)` agent, through both hosts, each answered 405. They look like link scanners following the URLs in the PRs; the owner reviewed them, and no change is needed.
 3. **At the gate** (C5a's completion gate, held), through `api-c5a-gate`:
    - the owner's capture of their private item is allowed;
    - another account's capture of it is refused `not-owner`;
@@ -1863,6 +1870,145 @@ The expected output is one line, the rollback revision at `100%` with `item-auth
   ```
 
   A name can't be in both `env` and `removeEnv`, so this is one `deploy.json` change, released and then verified as above.
+
+### Step 28: the C5a gate bucket and the command staging bucket [PROPOSED; held for review]
+
+Two new buckets in `graffiticode`, as C5 plan decisions 8 and 9 and "IAM changes (C5a)" describe them. Neither exists yet (checked 2026-11-17: `gs://graffiticode-c5a-gate`, `gs://graffiticode-command-staging` and `gs://graffiticode-thumbnails` each answer 404).
+
+Both services are already configured for them:
+- **Broker** sets `THUMBNAIL_BUCKET=graffiticode-c5a-gate` and `COMMAND_STAGING_BUCKET=graffiticode-command-staging`.
+- **Policy** sets `COMMAND_STAGING_BUCKET=graffiticode-command-staging`.
+
+**Nothing in production uses either bucket until the gate.** Only a v3 capture under `COMMANDS_L0013` stages or publishes, and production has neither. Creating them changes no serving behaviour.
+
+**What each service does to them** (the code):
+- **Policy** (`packages/policy/src/staging.ts`) does two things, both in the staging bucket only:
+  - creates `{commandId}/{stage}/{occurrenceId}.png` once, with a `POST` upload and `ifGenerationMatch=0`;
+  - reads it back with `GET alt=media`, to adopt what a lost acknowledgment left behind.
+- **Broker** (`packages/broker/src/gcs.ts`):
+  - **staging:** reads the staged bytes with `GET alt=media`;
+  - **thumbnail bucket:** reads `{item}.png`'s generation and metadata, then writes it with `ifGenerationMatch` set to that generation (`0` when absent), as a multipart upload with `captureSequence`, `commandId`, `sha256` and `item` metadata, `Cache-Control: no-cache`;
+  - **the permission that implies:** replacing an existing object needs `storage.objects.delete`.
+- Neither service lists objects, reads bucket metadata, or changes ACLs or IAM.
+
+#### The gate bucket, `gs://graffiticode-c5a-gate`
+
+Broker's thumbnail bucket for the C5a gate only, so Broker's C5a release can't write production thumbnails. It's deleted after the gate's evidence is extracted, as `gs://graffiticode-b6-drive` was.
+
+```bash
+gcloud storage buckets create gs://graffiticode-c5a-gate --project=graffiticode \
+  --location=us-central1 --default-storage-class=STANDARD \
+  --uniform-bucket-level-access --public-access-prevention \
+  --soft-delete-duration=0
+gcloud storage buckets add-iam-policy-binding gs://graffiticode-c5a-gate \
+  --member=serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com \
+  --role=roles/storage.objectUser
+```
+
+- **Location:** `us-central1`, beside Broker.
+- **Access:** uniform bucket-level access, so there are no object ACLs, and public access prevention is enforced, unlike production thumbnails (decision 8's `graffiticode-thumbnails`, C5b, will be public).
+- **No versioning and no soft delete:** the bucket is transient, and nothing in it needs recovering.
+- **No lifecycle rule:** the gate reads what it published, and deleting the bucket is the gate's own last step.
+- **`broker-run` gets `roles/storage.objectUser`,** which grants `objects.get`, `create`, `delete` and `list`. The protocol needs get, create and delete. `objectCreator` can't overwrite, and `objectAdmin` would add object IAM and ACL changes it doesn't need. It's granted on this bucket only.
+
+#### The staging bucket, `gs://graffiticode-command-staging`
+
+Decision 9: where a capture's rendered PNG is staged before Broker publishes it. It's permanent, and its objects are deleted after 30 days.
+
+```bash
+cat > /tmp/staging-lifecycle.json <<'JSON'
+{"rule": [{"action": {"type": "Delete"}, "condition": {"age": 30}}]}
+JSON
+gcloud storage buckets create gs://graffiticode-command-staging --project=graffiticode \
+  --location=us-central1 --default-storage-class=STANDARD \
+  --uniform-bucket-level-access --public-access-prevention \
+  --soft-delete-duration=0 --lifecycle-file=/tmp/staging-lifecycle.json
+gcloud storage buckets add-iam-policy-binding gs://graffiticode-command-staging \
+  --member=serviceAccount:policy-run@graffiticode.iam.gserviceaccount.com \
+  --role=roles/storage.objectCreator
+gcloud storage buckets add-iam-policy-binding gs://graffiticode-command-staging \
+  --member=serviceAccount:policy-run@graffiticode.iam.gserviceaccount.com \
+  --role=roles/storage.objectViewer
+gcloud storage buckets add-iam-policy-binding gs://graffiticode-command-staging \
+  --member=serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com \
+  --role=roles/storage.objectViewer
+```
+
+- **Location and access** are as for the gate bucket: `us-central1`, uniform, public access prevention enforced, no versioning.
+- **Lifecycle:** objects are deleted at 30 days of age. That bounds how long a pending command can wait to publish: a capture staged more than 30 days before Broker reads it finds nothing, and Broker refuses it rather than publishing anything else. Recovery (the sweeper, C5d) runs well within that.
+- **No soft delete,** so the lifecycle's deletion is final. No account can delete a staged object, so soft delete would only keep expired bytes for 7 more days. Turning it off is a choice for review: the default (7 days) would also work, at a small storage cost.
+- **`policy-run`** gets `objectCreator` and `objectViewer`:
+  - it can create a name once and read it back;
+  - it can't replace or delete it, so staged bytes are immutable to Policy.
+- **`broker-run`** gets `objectViewer`: read only.
+
+#### What both buckets also inherit
+
+These are the defaults every new bucket gets, unchanged here:
+- **The bucket's own legacy bindings:** `projectOwner`/`projectEditor` `legacyBucketOwner`, and `projectViewer` `legacyBucketReader`. With uniform access these grant bucket-level rights, but object reads only through the project roles below.
+- **Project roles:**
+  - `roles/owner`: the three project owners;
+  - `roles/editor`: the Google APIs service agent `656973052505@cloudservices` only;
+  - `roles/storage.admin`: `storage@graffiticode`;
+  - `roles/storage.objectViewer`: the Artifact Registry service agent, project-wide.
+- No compiler account (`l0013r-run` included) has any role on either bucket. `l0013r-run`'s `objectAdmin` is on `graffiticode.appspot.com` and `graffiticode-l0013-evidence` only.
+
+#### Verification
+
+1. **Settings**, read only:
+
+   ```bash
+   for b in graffiticode-c5a-gate graffiticode-command-staging; do
+     gcloud storage buckets describe gs://$b --format=json \
+       | jq -c --arg b "$b" '{bucket: $b, location, default_storage_class, uniform_bucket_level_access, public_access_prevention, versioning_enabled, soft_delete: .soft_delete_policy.retentionDurationSeconds, lifecycle: .lifecycle_config}'
+   done
+   ```
+
+   **Expect:** `US-CENTRAL1`, `STANDARD`, `uniform_bucket_level_access: true`, `public_access_prevention: "enforced"`, versioning off or null, soft delete `"0"`. The lifecycle is `null` for the gate bucket and `[Delete, age 30]` for staging.
+
+2. **IAM**, read only:
+
+   ```bash
+   for b in graffiticode-c5a-gate graffiticode-command-staging; do
+     echo "== $b"; gcloud storage buckets get-iam-policy gs://$b --format=json | jq -r '.bindings[] | "\(.role): \(.members|join(", "))"'
+   done
+   ```
+
+   **Expect** the legacy bindings above plus exactly:
+   - **gate:** `roles/storage.objectUser: serviceAccount:broker-run@…`;
+   - **staging:** `roles/storage.objectCreator: serviceAccount:policy-run@…`, and `roles/storage.objectViewer: serviceAccount:broker-run@…, serviceAccount:policy-run@…`.
+
+3. **Behaviour, as each service's own identity.** These are two one-off Cloud Run jobs, each needing approval, running [`scripts/c5a/bucket-probe.js`](../scripts/c5a/bucket-probe.js) on `node:22.23.3@sha256:363e1587…`. Each makes the same JSON API calls the service's code makes, under `c5a-probe/<run>/`, and prints only status codes; its tokens come from the metadata server and are never printed.
+
+   - **`c5a-bucket-probe-policy`, as `policy-run`** (run first):
+
+     | Check | Expect | What it shows |
+     |---|---|---|
+     | `create-once` | 200 | |
+     | `create-again` | 412 | create-once holds |
+     | `read` | 200 | adoption |
+     | `overwrite` | 403 | no delete |
+     | `delete` | 403 | |
+     | `gate-read` | 403 | no access outside staging |
+
+   - **`c5a-bucket-probe-broker`, as `broker-run`:**
+
+     | Check | Expect | What it shows |
+     |---|---|---|
+     | `staging-read` | 200 | Policy's staged object |
+     | `staging-create` | 403 | |
+     | `gate-create` | 200 | |
+     | `gate-metadata` | 200 | |
+     | `gate-stale` | 412 | |
+     | `gate-overwrite` | 200 | the plan's "test write, a precondition failure and an overwrite" |
+
+   - **Anonymous reads** of both probe objects (`curl https://storage.googleapis.com/<bucket>/c5a-probe/<run>/…`) answer 401 or 403.
+   - **Afterwards:** the operator deletes `c5a-probe/` from both buckets with `gcloud storage rm`, and the two jobs. The results, without tokens, go to `docs/evidence/c5a/step28/`.
+
+**Rollback:**
+- **The gate bucket:** `gcloud storage rm -r gs://graffiticode-c5a-gate`. That's also its planned end after the gate.
+- **The staging bucket:** remove the three bindings with `gcloud storage buckets remove-iam-policy-binding`, using the same members and roles. Delete it only if C5a is abandoned: Policy's and Broker's configuration name it.
+- **Removing either bucket** makes staging or publishing fail with an error, which means unavailable, never allowed.
 
 ## 4. Verification (read-only)
 
