@@ -1781,6 +1781,58 @@ L0013's `snap` under a command reserves and stages through Policy and publishes 
      - **Rollback:** `npm run rollback -- l0013r --env production --release rmwl2casf-31e8b9` restores `l0013r-rmwjzlgz6-2882e6`.
    - **Proxy rollback:** run a rolling update back to `egress-proxy-6cfd69d74ba1` (config `56007b0e…`), and verify with `verify-rollout.js --expect 56007b0e…`.
 
+### Step 27: Policy asks the console's item-authority route (C5a) [PROPOSED; held for review]
+
+Policy decides who may capture an item by asking the console's own item store (C5 plan, decision 3): `POST /api/internal/item-authority { itemId }` on the `console` service (graffiticode-app, app#116, live since `console-rmwjw7o6n-d368e9`). Today Policy has no `ITEM_AUTHORITY_URL`, so every item scope is refused `item-authority-unavailable`. This step gives Policy the route.
+
+**Ingress, read first (2026-11-17):**
+- **The console:** ingress `all`, and `allUsers` holds `roles/run.invoker`, so Cloud Run doesn't authenticate its callers. `console.graffiticode.org` is mapped to it and proxied by Cloudflare. Its run.app URL is `https://console-cfdwwd7ega-uc.a.run.app`.
+- **The route authenticates its caller itself.** It accepts only a Google-issued ID token with a verified email in `ITEM_AUTHORITY_CALLERS` (unset, so `policy-run@graffiticode.iam.gserviceaccount.com` only), issued for `ITEM_AUTHORITY_AUDIENCE` (unset, so `https://console.graffiticode.org/api/internal/item-authority`). Anything else gets 403 and nothing about the item. Every answer is `no-store`.
+- **Baseline probes (2026-11-17),** on both the run.app URL and the domain:
+  - `POST` with no token: 403, `no-store`;
+  - `POST` with a malformed token: 403, `no-store`;
+  - `GET`: 405.
+- **The route's query** (a collection group on `items.id`) has its index in `graffiticode-app`'s Firestore: `COLLECTION_GROUP`, ascending, `READY`.
+
+**The change, entirely in Policy's `deploy.json` env** (this PR):
+
+```json
+"ITEM_AUTHORITY_URL": "https://console-cfdwwd7ega-uc.a.run.app/api/internal/item-authority",
+"ITEM_AUTHORITY_AUDIENCE": "https://console.graffiticode.org/api/internal/item-authority"
+```
+
+- **No IAM change.** The console is already publicly invokable, and the route checks Policy's token itself. Granting `policy-run` invoker there would add nothing.
+- **No console change or release.** The audience above is the route's default, and its caller default is `policy-run`.
+- **The run.app URL, not the domain.** Service-to-service calls avoid Cloudflare's proxy: its WAF and bot rules, its timeout, and its caching (§5, open question 4). The token's audience stays the console's own name; the route checks that, not the host it was reached on.
+- **Inert in production until the gate.** Policy asks the route only for an item scope: a v3 admission, reservation, mint or authorization. The production api declares no `scopes`, and `COMMANDS_L0013` is unset, so nothing asks before `api-c5a-gate`. Every 36-check canary path is unchanged.
+
+**Verification plan (each step needs the owner's approval):**
+1. **Positive probe as `policy-run`, before Policy is released.**
+   - A one-off Cloud Run job, `c5a-item-authority-probe`, runs as `policy-run` from the public `node:22` image with an inline script. It takes a metadata-server ID token for the audience above, then calls the run.app URL:
+     - with a known canary item id: expect 200 `{ exists: true, ownerUid: <the canary uid>, isPublic, taskId, lang }`;
+     - with an id no one holds: expect 200 `{ exists: false }`;
+     - with a token for another audience: expect 403.
+   - The job logs only status codes and the answers' fields, never a token. It is deleted after its evidence is saved.
+   - This proves the token reaches the route intact on a public service (§5, open question 3). The other way to prove it is the gate itself.
+2. **Release Policy** from `main` with the env:
+   - `verify/policy.js` passes;
+   - `release-check policy` is ok;
+   - the serving revision carries both variables;
+   - the full 36-check canary passes, unchanged since nothing asks the route yet;
+   - the rollback target is recorded.
+3. **At the gate** (C5a's completion gate, held), through `api-c5a-gate`:
+   - the owner's capture of their private item is allowed;
+   - another account's capture of it is refused `not-owner`;
+   - a non-owner's capture of a public item is decided as decision 4 says (the public-capture exception, recorded as such);
+   - an unknown id is refused `item-not-found`.
+   - Policy's log shows one route call per decision, and the console's log shows no 403 for `policy-run`.
+
+**Risks:**
+- **Cold starts.** The console has no minimum instances, and Policy gives up after 5 s (`ITEM_AUTHORITY_TIMEOUT_MS`). A cold start can surface as a temporary `item-authority-unavailable`, which never allows, and the command resumes later. If the gate shows it, the fix is the console's `--min-instances=1` (a separate change).
+- **Exposure.** The route's public surface is unchanged: it has been live and refusing every caller but `policy-run` since app#116.
+
+**Rollback:** release Policy without the two variables. Every item scope is then refused `item-authority-unavailable` again, as today.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |

@@ -503,7 +503,9 @@
         "POLICY_MIN_CONTRACT_VERSION": "2",
         "SYSTEM_SIGNINGS_PER_MINUTE": "120",
         "SYSTEM_SIGNINGS_BURST": "60",
-        "COMMAND_STAGING_BUCKET": "graffiticode-command-staging"
+        "COMMAND_STAGING_BUCKET": "graffiticode-command-staging",
+        "ITEM_AUTHORITY_URL": "https://console-cfdwwd7ega-uc.a.run.app/api/internal/item-authority",
+        "ITEM_AUTHORITY_AUDIENCE": "https://console.graffiticode.org/api/internal/item-authority"
       },
       "smoke": [
         {
