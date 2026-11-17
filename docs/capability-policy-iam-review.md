@@ -1839,7 +1839,22 @@ Policy decides who may capture an item by asking the console's own item store (C
 - **Cold starts are unlikely.** The console has a service-level minimum of 1 instance (`run.googleapis.com/minScale: 1`; its releases set no revision-level minimum, and today's kept it). Policy gives up after 5 s (`ITEM_AUTHORITY_TIMEOUT_MS`); a slow answer is a temporary `item-authority-unavailable`, which never allows, and the command resumes later.
 - **Exposure.** The route's public surface is unchanged: it has been live and refusing every caller but `policy-run` since app#116.
 
-**Rollback:** every item scope is then refused `item-authority-unavailable` again, as today. Either way, check the serving revision afterwards: `gcloud run services describe policy --project graffiticode --region us-central1 --format=json` must show neither `ITEM_AUTHORITY_URL` nor `ITEM_AUTHORITY_AUDIENCE` on the container.
+**Rollback:** every item scope is then refused `item-authority-unavailable` again, as today. Either way, verify it from the revisions that receive traffic, not from the service: `gcloud run services describe` shows the latest revision's template, which a traffic rollback leaves unchanged.
+1. Read the service's `status.traffic`, and list every revision with a nonzero percent.
+2. Run `gcloud run revisions describe <revision>` for each.
+3. Confirm that none of them carries `ITEM_AUTHORITY_URL` or `ITEM_AUTHORITY_AUDIENCE`, and that the intended rollback revision receives 100%.
+
+```bash
+gcloud run services describe policy --project=graffiticode --region=us-central1 --format=json \
+  | jq -r '.status.traffic[] | select((.percent // 0) > 0) | "\(.revisionName) \(.percent)"' \
+  | while read -r rev pct; do
+      n=$(gcloud run revisions describe "$rev" --project=graffiticode --region=us-central1 --format=json \
+        | jq '[.spec.containers[].env[]? | select(.name == "ITEM_AUTHORITY_URL" or .name == "ITEM_AUTHORITY_AUDIENCE")] | length')
+      echo "$rev ${pct}% item-authority-vars=$n"
+    done
+```
+
+The expected output is one line, the rollback revision at `100%` with `item-authority-vars=0`. Run against today's Policy (2026-11-17), it prints `policy-rmwl04x01-2d9c35 100% item-authority-vars=0`.
 - **Immediately:** `npm run rollback -- policy --env production --release <this release>` moves traffic back to the previous revision (`policy-rmwl04x01-2d9c35` today), which was created without either variable.
 - **Forward**, by a new release. Deleting the variables from `env` isn't enough: the CLI applies `env` with `--update-env-vars`, which keeps any variable it isn't given (`packages/deploy/README.md`, `removeEnv`). Remove both names from Policy's `env` and add them to its `removeEnv`, which the release passes as `--remove-env-vars`:
 
