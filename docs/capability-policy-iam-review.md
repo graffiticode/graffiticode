@@ -1740,22 +1740,46 @@ The app's form resolver accepts Policy's render grants (C5 plan, decision 7 and 
     - Every answer was `Cache-Control: no-store`.
 - **Rollback:** `gcloud run services remove-iam-policy-binding policy --project graffiticode --region us-central1 --member=serviceAccount:app-run@graffiticode-app.iam.gserviceaccount.com --role=roles/run.invoker`. The resolver then answers 503 again; nothing else changes.
 
-### Step 26: `l0013r` as a Policy and Broker caller (C5a) [PARTLY LIVE: invoker bindings only]
+### Step 26: `l0013r` as a Policy and Broker caller (C5a) [LIVE 2026-11-17]
 
-L0013's `snap` under a command reserves and stages through Policy and publishes its thumbnail through Broker, as `l0013r-run` (C5 plan, "IAM changes (C5a)"). It needs three things, each applied only with the owner's approval:
+L0013's `snap` under a command reserves and stages through Policy and publishes its thumbnail through Broker, as `l0013r-run` (C5 plan, "IAM changes (C5a)"). Each of the three parts was applied only with the owner's approval. Production `COMMANDS_L0013` stays unset, so no api yet gives `l0013r` a command session.
 
 1. **Invoker bindings (applied 2026-11-17, about 17:30Z):** `roles/run.invoker` on the `policy` and `broker` services (graffiticode, us-central1) for `serviceAccount:l0013r-run@graffiticode.iam.gserviceaccount.com`, service-level only.
-   - Verified: `policy` now has 10 invokers and `broker` 5, each including `l0013r-run`. `l0013r-run` has no project-level role in `graffiticode`. The IAM troubleshooter's allow policy grants `run.routes.invoke` on both.
-   - On their own these grant nothing usable: both services refuse a caller that their caller lists don't name, and `l0013r`'s egress proxy doesn't allow either host yet.
-   - Rollback: `gcloud run services remove-iam-policy-binding <policy|broker> --project graffiticode --region us-central1 --member=serviceAccount:l0013r-run@graffiticode.iam.gserviceaccount.com --role=roles/run.invoker`.
-2. **The caller lists (versions created 2026-11-17; Policy and Broker releases held):** a new version of each, adding `"l0013r-run@graffiticode.iam.gserviceaccount.com": { "role": "compiler", "lang": "0013" }` and nothing else.
-   - `policy-callers` version 7 (from 6) and `broker-callers` version 3 (from 2), both enabled. Each version's content was checked against the reviewed payload: version 6 or 2 plus the one entry, parsed by Policy's `parseCallers` (8 and 4 callers).
-   - `deploy.json` pins `policy-callers:7` and `broker-callers:3`. The serving revisions (`policy-rmwjyqeto-b2be2b`, `broker-rmwjy9cjp-4a0c2c`) still read versions 6 and 2 until Policy and Broker are released.
-   - Rollback: release Policy and Broker with the pins at 6 and 2 (both still enabled), then disable versions 7 and 3.
-3. **The proxy (held):** `compilers-l0013`'s `network.allow` gains `policy-sja7fatcta-uc.a.run.app` and `broker-sja7fatcta-uc.a.run.app`, plus `www.googleapis.com`.
-   - `l0013r`'s `/preflight` verifies the api's Google ID token (`PREFLIGHT_GATEWAYS`), which fetches `https://www.googleapis.com/oauth2/v3/certs` (`languages/l0000/crates/server/src/gateway.rs`), as `l0176r` and `l0000r` do. The plan's IAM list named only the first two.
-   - Config `56007b0e…` → `8b637609…`, template `egress-proxy-ce42b3628a5a`. Each host's certificate secret already exists.
-   - The rollout follows the README's "Change a compiler's hosts" and is verified with `verify-rollout.js`, before `l0013r` is re-released with the new list.
+   - **Verified:** `policy` now has 10 invokers and `broker` 5, each including `l0013r-run`. `l0013r-run` has no project-level role in `graffiticode`. The IAM troubleshooter's allow policy grants `run.routes.invoke` on both.
+   - **Rollback:** `gcloud run services remove-iam-policy-binding <policy|broker> --project graffiticode --region us-central1 --member=serviceAccount:l0013r-run@graffiticode.iam.gserviceaccount.com --role=roles/run.invoker`.
+2. **The caller lists (live 2026-11-17):** a new version of each, adding `"l0013r-run@graffiticode.iam.gserviceaccount.com": { "role": "compiler", "lang": "0013" }` and nothing else.
+   - **Versions:** `policy-callers` 7 (from 6) and `broker-callers` 3 (from 2). Each was checked against the reviewed payload (the previous version plus the one entry) and parsed by Policy's `parseCallers` (8 and 4 callers). `deploy.json` pins them (#411, merged `58adb430`).
+   - **Released from `main` at `58adb430`:**
+     - Broker `broker-rmwkzsw86-98e2cf` reads `broker-callers:3`;
+     - then Policy `policy-rmwl04x01-2d9c35` reads `policy-callers:7`.
+     - `release-check` is ok for both, and the full canary passed 36/36 (`canary-mrlkr`).
+   - **Rollback:** `npm run rollback -- broker|policy --env production --release rmwkzsw86-98e2cf|rmwl04x01-2d9c35` restores `broker-rmwjy9cjp-4a0c2c` and `policy-rmwjyqeto-b2be2b`, which read versions 2 and 6 (both still enabled). Then disable versions 3 and 7.
+3. **The proxy (live 2026-11-17):** `compilers-l0013`'s `network.allow` gains `policy-sja7fatcta-uc.a.run.app`, `broker-sja7fatcta-uc.a.run.app` and `www.googleapis.com`.
+   - **Why `www.googleapis.com`:** `l0013r`'s `/preflight` verifies the api's Google ID token (`PREFLIGHT_GATEWAYS`) with `https://www.googleapis.com/oauth2/v3/certs` (`languages/l0000/crates/server/src/gateway.rs`), as `l0176r` and `l0000r` do. The owner approved it in the review of #411.
+   - **What changed:** only the Envoy configuration and its digest. The generated DNS, firewall and certificate-loading scripts are unchanged, and each host's certificate secret already existed.
+   - **Rollout:**
+     - Config `56007b0e…` → `8b637609…`, on template `egress-proxy-ce42b3628a5a` (user-data digest `ce42b3628a5a…`).
+     - Rolling update at 18:20Z (proactive, surge 2, unavailable 0). The group was stable at 18:23Z on `egress-proxy-62k9` and `egress-proxy-d856`.
+     - The previous template, `egress-proxy-6cfd69d74ba1`, is kept.
+   - **`verify-rollout.js --expect 8b637609… --size 2`: ok.** Both VMs report `8b637609…` with `match: true`, at 18:23:58Z and 18:24:01Z ([`docs/evidence/c5a/step26/verify-rollout.json`](evidence/c5a/step26/verify-rollout.json)).
+   - **The class probe,** with its verdict kept as reported: `pending`.
+     - It ran the regenerated AT-11 probe (#411) as `l0013r-run` on `compilers-l0013`: job `at11-net-l0013r`, image `at11-probe@sha256:0b96d1ae52b1307fda0677a2ac86991dda400afc21a7a455e50d0a886dfff224`, execution `at11-net-l0013r-qdmmm`, nonce `b2493b5b6cb396e2`, 2026-11-17T18:25Z.
+     - Of 24 rows, 17 passed and 6 are n/a for the class. Among those that passed:
+       - `listed`: Policy is reached through the proxy, with Policy's own answer;
+       - `external`: `www.googleapis.com` and `storage.googleapis.com` are reached;
+       - `broker-no-token`: Broker's own refusal, 401 `missing-execution-token`;
+       - Learnosity, unlisted hosts, other run.app services, fronting, redirects, IP literals, trailing dots and direct connections are all still refused.
+     - **`dns-exfil` remains `pending-log`.** The job got NXDOMAIN for `at11-b422fd4a7b2d5303.at11.graffiticode.org`, but only the collector (`scripts/at11/collect.js`) decides that row, from the authoritative DNS server's query log.
+     - **The collector can't run.** That log and the collector's control job (`at11-iam-control`) were in `graffiticode-isolate01`, which is `DELETE_REQUESTED`. `graffiticode` has no query log for `at11.graffiticode.org`. So no collector verdict exists for this rollout.
+     - The full evidence line is [`docs/evidence/c5a/step26/at11-net-l0013r-qdmmm.json`](evidence/c5a/step26/at11-net-l0013r-qdmmm.json). The job was deleted after the evidence was saved.
+   - **Scoped exception (owner, 2026-11-17):** for this rollout only, the 17 passing rows, the n/a rows and the job's NXDOMAIN observation stand as the probe evidence, with `dns-exfil` recorded as unverifiable.
+     - **The reason:** this change touched only Envoy's configuration. DNS resolution for compilers isn't part of it.
+     - **It doesn't carry over.** Restoring the DNS collector and its control is tracked in §5 (open question 11), and must be done before any future DNS-control change.
+   - **Then `l0013r` was re-released** from `58adb430` as `l0013r-rmwl2casf-31e8b9`, image `sha256:a1a53155…`.
+     - Its approval record in the revisions database says `approved`, contract `[3]`. The previous approval, `l0013r-rmwjzlgz6-2882e6` with `[3]`, is kept.
+     - `release-check l0013r` is ok, and the full canary then passed 36/36 (`canary-rmhjb`). The revision logged no errors.
+     - **Rollback:** `npm run rollback -- l0013r --env production --release rmwl2casf-31e8b9` restores `l0013r-rmwjzlgz6-2882e6`.
+   - **Proxy rollback:** run a rolling update back to `egress-proxy-6cfd69d74ba1` (config `56007b0e…`), and verify with `verify-rollout.js --expect 56007b0e…`.
 
 ## 4. Verification (read-only)
 
@@ -1912,3 +1936,5 @@ L0013's `snap` under a command reserves and stages through Policy and publishes 
    retention-locked GCS bucket or a log sink?
 10. **Staging services and per-language SAs.** Do staging revisions share production SAs? Recommended:
     no, use `lNNNN-stg-run`.
+
+11. **The AT-11 collector has no DNS log or control (found 2026-11-17, Step 26).** `collect.js` reads the authoritative query log for `at11.graffiticode.org` and runs the control job `at11-iam-control`. Both were in `graffiticode-isolate01`, which is now `DELETE_REQUESTED`, so no collector verdict can be produced (`dns-exfil` stays `pending-log` and every run is void without the control). Step 26 went ahead under a scoped owner exception that covers only that Envoy-only rollout. **Before any future DNS-control change** (the compilers' resolver policy, the `compilers-root` zone, or the DNS firewall rules), restore both in `graffiticode`: an authoritative zone for the probe domain with query logging, and the control's canary resources. Then update `collect.json`'s `controlProject` and `dnsLog`, and run the full collector.
