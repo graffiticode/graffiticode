@@ -13,7 +13,6 @@ import { cacheVerifications } from "@graffiticode/common/verified-tokens";
 import { buildCompile, buildInterpreter, buildCommandStart, buildCommandMaterialize } from "./comp.js";
 import { materializeCommand } from "./commands/records.js";
 import { ARTIFACT_RESULT_FORM } from "./read.js";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { buildPolicyCommands } from "./commands/policy-commands.js";
 import { buildCommandWorker } from "./commands/worker.js";
 import { parseCommandFaults } from "./commands/faults.js";
@@ -189,7 +188,6 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
           language: { materialize: commandMaterialize },
           artifactStorer,
           commandId,
-          registryVersion: REGISTRY_VERSION,
           form: ARTIFACT_RESULT_FORM,
           log: line => console.log(line),
         });

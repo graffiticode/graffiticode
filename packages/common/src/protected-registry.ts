@@ -33,6 +33,11 @@
 //              it is null and nothing executes under it.
 //   viewSafe   whether a view of a published item may use it (the viewer holds
 //              no grant; the publication's authority reaches only these)
+//   meaningSince  the registry version from which this function's current
+//              meaning holds. It decides the registry version an artifact made
+//              with it is bound to (artifactRegistryVersion), so that the
+//              artifact's identity depends on the chain, not on which API
+//              build stored it. Metadata only: it grants nothing.
 //   writesOutsideCommands  the language's compile can perform this function's
 //              write itself, outside Policy and Broker command control, when
 //              it runs outside a command (L0013's direct thumbnail upload,
@@ -132,6 +137,7 @@ export type FunctionSpec = Readonly<{
   scope?: ScopeKind;
   publicCapture?: Readonly<{ since: string | null }>;
   writesOutsideCommands?: true;
+  meaningSince: number;
 }>;
 
 // Broker operations. The broker builds each request itself from a constrained
@@ -227,6 +233,7 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       implicit: true,
       delegable: true,
       viewSafe: true,
+      meaningSince: 8,
     }),
     // `save-to-itembank <activity>`: the node IS the item-bank write, and
     // ITEMS/QUESTIONS never write. The legacy literal member
@@ -241,6 +248,8 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       implicit: false,
       delegable: true,
       viewSafe: false,
+      // v8 changed write-items to create records only (AT-10 B1).
+      meaningSince: 8,
     }),
   }),
   "0013": Object.freeze({
@@ -261,6 +270,7 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       // Outside a command, L0013 still uploads a snap itself (its legacy
       // path), with no Policy or Broker in the way.
       writesOutsideCommands: true as const,
+      meaningSince: 9,
     }),
   }),
 });
@@ -284,6 +294,61 @@ export const systemPreviewFunctionsForLang = (lang: unknown): string[] =>
   Object.entries(protectedFunctionsForLang(lang) || {})
     .filter(([, spec]) => spec.kind === "sign" && spec.viewSafe === true && spec.implicit === true)
     .map(([fn]) => fn);
+
+// The registry version an artifact is bound to: the latest `meaningSince` of
+// the protected functions its chain uses, and never older than the oldest
+// version this registry still serves (ARTIFACT_COMPATIBLE_VERSIONS). It
+// depends only on the chain, so every API build that serves both versions
+// binds an artifact identically: a publication stored by one and retried by
+// another is the same artifact, and an API on an older registry still reads
+// and retries an artifact whose functions it knows (the owner's review of the
+// registry-9 API release).
+//
+// `uses` is one entry per stage: its language and whether it uses a function.
+// A language's implicit functions are always used.
+const boundVersion = (
+  uses: Iterable<{ lang: unknown; uses: (fn: string, spec: FunctionSpec) => boolean }>,
+  { current = REGISTRY_VERSION, compatible = ARTIFACT_COMPATIBLE_VERSIONS }: { current?: number; compatible?: readonly number[] } = {},
+): number => {
+  let version = Math.min(current, ...compatible);
+  for (const stage of uses) {
+    for (const [fn, spec] of Object.entries(protectedFunctionsForLang(stage.lang) ?? {})) {
+      if (spec.implicit || stage.uses(fn, spec)) version = Math.max(version, spec.meaningSince);
+    }
+  }
+  if (version > current) throw new Error(`a function's meaning (since ${version}) is newer than the registry (${current})`);
+  return version;
+};
+
+// A compile's artifact, from its chain's tasks ({lang, code}): the functions
+// whose tags its code contains. For a compile that already holds its tasks
+// (data.js's connection compile).
+export const artifactRegistryVersion = (
+  tasks: readonly { lang: unknown; code?: unknown }[],
+  options?: { current?: number; compatible?: readonly number[] },
+): number => boundVersion(tasks.map(task => {
+  const code = task?.code && typeof task.code === "object" ? task.code as Record<string, any> : {};
+  const tags = new Set(Object.entries(code).filter(([key, node]) => key !== "root" && typeof node?.tag === "string").map(([, node]) => node.tag));
+  return { lang: task?.lang, uses: (_fn: string, spec: FunctionSpec) => spec.tags.some(tag => tags.has(tag)) };
+}), options);
+
+// A command's artifact, from its recorded admission alone (the owner's review
+// of #409): each admitted stage's language, and the functions of the effect
+// intents Policy admitted for it. A function a stage uses outside an intent
+// can't act under a command (the Broker executes only admitted intents), so
+// the admission is the whole of what the command's result can depend on.
+// Publication and materialization need nothing but the command's own state.
+export const commandArtifactRegistryVersion = (
+  admission: { stages?: Record<string, { lang?: unknown; intents?: readonly { fn?: unknown }[] | null }> } | null | undefined,
+  options?: { current?: number; compatible?: readonly number[] },
+): number => {
+  const stages = Object.values(admission?.stages ?? {});
+  if (stages.length === 0) throw new Error("a command's artifact version needs its admission");
+  return boundVersion(stages.map(stage => {
+    const fns = new Set((stage?.intents ?? []).map(intent => intent?.fn));
+    return { lang: stage?.lang, uses: (fn: string) => fns.has(fn) };
+  }), options);
+};
 
 // Whether a compile in `lang` can write outside Policy and Broker command
 // control: any of its functions declares `writesOutsideCommands`. A read-only

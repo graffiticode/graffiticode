@@ -205,6 +205,17 @@ An intent's `scope` becomes `{ kind: "connection", id }` or `{ kind: "item", id 
   - no B6 repair or `/materialize` is pending on a v8 command.
 - **The artifact listing has no retirement step.** v8 artifacts stay readable.
 
+**An artifact's registry version comes from its chain, not from the API build that stores it** (`artifactRegistryVersion`, added after the owner's review of the registry-9 api release).
+- Each protected function declares `meaningSince`: the registry version from which its current meaning holds. L0176's `init` and `save-to-itembank` declare 8, and `snap` declares 9.
+- An artifact binds the latest `meaningSince` of the functions its chain uses, and never a version older than the oldest one served. An L0176 chain is 8 and a chain that snaps is 9, whichever build stores it.
+- **Why:** each api build used to bind its own `REGISTRY_VERSION`, which failed in both directions; the owner reproduced all three cases.
+  - A publication stored by a registry-8 api, which then died before acknowledging, was retried by a registry-9 api as a different binding (`binding-differs`), so it could never complete.
+  - After a receipt rollback, the registry-8 api couldn't read what the registry-9 api had published, and its retry conflicted.
+- **Where it's computed:** a command's artifact (publication and B6 materialization) takes it from the command's recorded admission alone, never from a fresh task lookup (`commandArtifactRegistryVersion`, after the owner's review of #409). Each admitted stage counts its language's implicit functions and the functions of its admitted intents. So a recovery whose result and artifact are already committed completes even with task storage unavailable.
+  - The admission is enough because only a write acts under a command, and only through an admitted intent; every other protected function is implicit. A registry test holds that rule, so a future tagged non-write function must add its own record first.
+  - The legacy connection compile (`data.js`) already holds its tasks, and takes the version from them (`artifactRegistryVersion`). Both agree for the same chain.
+- The binding check itself is unchanged and strict. An identical artifact is acknowledged; a different one still conflicts.
+
 ### 3. Item authority: owner edits, decided by the console's store, asked by Policy
 
 **The rule.**
@@ -568,6 +579,10 @@ Each is recorded in `docs/capability-policy-iam-review.md` as a new step and app
 
 - **Before the gate:** each C5a release can be rolled back by its own receipt, except below the floor.
   - The floor exists from step 3, so Policy and Broker can't return to a pre-scope revision once one has been released.
+  - **The api's receipt rollback is safe only to a build that binds artifacts as the release does.**
+    - This holds for every L0176 artifact, because a registry-8 api binds 8 and so does the registry-9 api that derives the version from the chain. Either can read and retry the other's L0176 artifacts.
+    - It doesn't hold for a registry-9 api without that derivation. Such a build binds 9, and must never be released.
+    - **v9 artifacts:** a chain that snaps binds 9, which a registry-8 api can't read. Only an api with `COMMANDS_L0013` makes them, and today's api never lists or leases those commands (they need the `scopes` capability). Before C5d turns L0013 commands on in production, the api gains a rollback floor at the first commit that reads 9, as Policy and Broker have.
 - **The gate creates v3 records:**
   - **Invocations and plans:** the floor keeps a scope-capable Policy and Broker serving them.
   - **Commands, if the gate creates any:** the `scopes` capability keeps today's api from listing, leasing or taking them over.

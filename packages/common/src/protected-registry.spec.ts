@@ -16,7 +16,9 @@ import {
   connectionBackends,
   credentialOf,
   MAX_CONDITIONAL_ATTEMPTS,
-  writesOutsideCommandControl
+  writesOutsideCommandControl,
+  artifactRegistryVersion,
+  commandArtifactRegistryVersion
 } from "./protected-registry.js";
 
 describe("protected-registry", () => {
@@ -268,6 +270,7 @@ describe("registry v9", () => {
       // Dated at C5d's activation; nothing executes under it before then.
       publicCapture: { since: null },
       writesOutsideCommands: true,
+      meaningSince: 9,
     });
     expect(OPERATIONS["gcs.put-thumbnail"]).toMatchObject({ backend: "gcs", kind: "write", credential: "service" });
     expect(Object.isFrozen(PROTECTED_FUNCTIONS["0013"].snap.publicCapture)).toBe(true);
@@ -404,5 +407,91 @@ describe("conditional steps", () => {
     // Attempt 1, given or not, is the rule as before.
     expect(isStepRegistered({ op: write, step: "questions", purpose: "dispatch", attempt: 1 })).toBe(true);
     expect(isStepRegistered({ op: write, step: "items", purpose: "dispatch", after: "questions", attempt: 1 })).toBe(true);
+  });
+});
+
+// The registry-9 API release (owner's review): an artifact's registry version
+// comes from its chain, so API builds on either side of a bump bind it alike.
+describe("artifactRegistryVersion", () => {
+  const save = { lang: "0176", code: { 1: { tag: "SAVE_TO_ITEMBANK", elts: [] }, root: 1 } };
+  const preview = { lang: "L0176", code: { 1: { tag: "NUM", elts: ["1"] }, root: 1 } };
+  const snap = { lang: "0013", code: { 1: { tag: "SNAP", elts: [] }, root: 1 } };
+  const plain = { lang: "0013", code: { 1: { tag: "NUM", elts: ["1"] }, root: 1 } };
+  const fetch = { lang: "0185", code: { root: 1 } };
+
+  it("declares each function's meaningSince, never past the registry", () => {
+    for (const [lang, fns] of Object.entries(PROTECTED_FUNCTIONS)) {
+      for (const [fn, spec] of Object.entries(fns)) {
+        expect([lang, fn, Number.isInteger(spec.meaningSince) && spec.meaningSince <= REGISTRY_VERSION]).toEqual([lang, fn, true]);
+      }
+    }
+    expect(PROTECTED_FUNCTIONS["0176"].init.meaningSince).toBe(8);
+    expect(PROTECTED_FUNCTIONS["0176"]["save-to-itembank"].meaningSince).toBe(8);
+    expect(PROTECTED_FUNCTIONS["0013"].snap.meaningSince).toBe(9);
+  });
+
+  it("binds an L0176 chain to 8, with or without other stages, under registry 9", () => {
+    expect(artifactRegistryVersion([save])).toBe(8);
+    expect(artifactRegistryVersion([preview])).toBe(8);
+    expect(artifactRegistryVersion([save, fetch])).toBe(8);
+  });
+
+  it("binds a chain that snaps to 9, and one that doesn't to the oldest served", () => {
+    expect(artifactRegistryVersion([snap])).toBe(9);
+    expect(artifactRegistryVersion([save, snap])).toBe(9);
+    expect(artifactRegistryVersion([plain])).toBe(8);
+    expect(artifactRegistryVersion([fetch])).toBe(8);
+  });
+
+  it("is what a registry-8 build binds an L0176 chain to", () => {
+    expect(artifactRegistryVersion([save], { current: 8, compatible: [] })).toBe(8);
+    expect(() => artifactRegistryVersion([snap], { current: 8, compatible: [] })).toThrow();
+  });
+});
+
+// The owner's review of #409: a command's artifact version comes from its
+// recorded admission alone, so publication and materialization never need a
+// fresh task lookup.
+describe("commandArtifactRegistryVersion", () => {
+  const save = { lang: "0176", modelDigest: "d", intents: [{ id: "i1", fn: "save-to-itembank", op: "learnosity.write-items", runtime: true }] };
+  const preview = { lang: "0176", modelDigest: "d", intents: [] };
+  const snap = { lang: "0013", modelDigest: "d", intents: [{ id: "i1", fn: "snap", op: "gcs.put-thumbnail", runtime: false, occurrences: ["n1"] }] };
+  const plain = { lang: "0013", modelDigest: "d", intents: [] };
+  const fetch = { lang: "0185", modelDigest: "d" };
+
+  it("binds an L0176 command to 8 and one that snaps to 9", () => {
+    expect(commandArtifactRegistryVersion({ stages: { s0: save, s1: fetch } })).toBe(8);
+    expect(commandArtifactRegistryVersion({ stages: { s0: preview } })).toBe(8);
+    expect(commandArtifactRegistryVersion({ stages: { s0: plain } })).toBe(8);
+    expect(commandArtifactRegistryVersion({ stages: { s0: snap } })).toBe(9);
+    expect(commandArtifactRegistryVersion({ stages: { s0: save, s1: snap } })).toBe(9);
+  });
+
+  it("agrees with the tasks' version for the same chain", () => {
+    const tasks = {
+      save: { lang: "0176", code: { 1: { tag: "SAVE_TO_ITEMBANK", elts: [] }, root: 1 } },
+      snap: { lang: "0013", code: { 1: { tag: "SNAP", elts: [] }, root: 1 } },
+    };
+    expect(commandArtifactRegistryVersion({ stages: { s0: save } })).toBe(artifactRegistryVersion([tasks.save]));
+    expect(commandArtifactRegistryVersion({ stages: { s0: snap } })).toBe(artifactRegistryVersion([tasks.snap]));
+  });
+
+  it("refuses without an admission, and a meaning newer than the registry", () => {
+    expect(() => commandArtifactRegistryVersion(undefined)).toThrow();
+    expect(() => commandArtifactRegistryVersion({ stages: {} })).toThrow();
+    expect(commandArtifactRegistryVersion({ stages: { s0: save } }, { current: 8, compatible: [] })).toBe(8);
+    expect(() => commandArtifactRegistryVersion({ stages: { s0: snap } }, { current: 8, compatible: [] })).toThrow();
+  });
+
+  // What the admission can't show is a function used without an intent. Only
+  // a write acts under a command, and only through an admitted intent; every
+  // other function is implicit (always counted). A tagged non-write function
+  // would need its own record before this derivation could count it.
+  it("relies on every non-implicit function being a write", () => {
+    for (const [lang, fns] of Object.entries(PROTECTED_FUNCTIONS)) {
+      for (const [fn, spec] of Object.entries(fns)) {
+        expect([lang, fn, spec.implicit || spec.kind === "write"]).toEqual([lang, fn, true]);
+      }
+    }
   });
 });

@@ -8,7 +8,7 @@ import request from "supertest";
 import { generateKeyPair, exportJWK } from "jose";
 import { encodeChainId } from "@graffiticode/common/chain";
 import { canonicalDigest } from "@graffiticode/common/canonical";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { ARTIFACT_COMPATIBLE_VERSIONS, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
   createPolicy,
   PolicyDenied,
@@ -258,8 +258,8 @@ const repairOf = async (commandId, key = "repair-1", occurrences = null) => {
   return { repair, done: await workerAs("w-repair")({ commandId: repair.commandId, generation: repair.generation }) };
 };
 const artifactOf = async invocationId => (await artifacts.getByInvocation(invocationId))?.content ?? null;
-const current = chain => artifacts.getCurrent({ uid: OWNER, taskId: chain, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
-const materialize = commandId => materializeCommand({ policy: client(), language, artifactStorer: artifacts, commandId, registryVersion: REGISTRY_VERSION, form: ARTIFACT_RESULT_FORM });
+const current = chain => artifacts.getCurrent({ uid: OWNER, taskId: chain, connectionId: "conn-1", registryVersion: REGISTRY_VERSION, compatibleVersions: ARTIFACT_COMPATIBLE_VERSIONS });
+const materialize = commandId => materializeCommand({ policy: client(), language, artifactStorer: artifacts, commandId, form: ARTIFACT_RESULT_FORM });
 const ledgerOf = async commandId => (await policy.commandRead({ caller: GATEWAY, commandId, what: "ledger" })).ledger;
 // What a clean run of AB produces: both saves' references.
 const CLEAN_AB = { items: [1, 2], refs: ["ab-n1.0", "ab-n1.1"] };
@@ -363,6 +363,9 @@ describe("a dropped outcome (decision 2)", () => {
     expect(provider).toHaveLength(1);
     expect(calls.filter(c => c.op === "materialize").map(c => c.baseUrl)).toEqual([TAG("0176")]);
     expect(await artifactOf(command.invocationId)).toEqual({ items: [1, 2], refs: ["one-n1.0"] });
+    // Its version is the original's, from its recorded admission alone: no
+    // task lookup (the owner's review of #409). An L0176 chain binds 8.
+    expect((await artifacts.getByInvocation(command.invocationId)).registryVersion).toBe(8);
     // Again: the stored artifact is the answer, never rebuilt.
     expect(await materialize(command.commandId)).toEqual({ ok: true, published: "already" });
     expect(calls.filter(c => c.op === "materialize")).toHaveLength(1);
@@ -559,7 +562,7 @@ describe("call evidence", () => {
     reconciled = () => [{ operationId: `${command.invocationId}/s0/n1.0`, verdict: "applied", final: true, result: { saved: provider[0], ref: "one-n1.0" }, resultSource: "evidence" }];
     await policy.reconcile({ caller: CONSOLE, user: { uid: OWNER }, connectionId: "conn-1", invocationId: command.invocationId });
     const lines = [];
-    const out = await materializeCommand({ policy: client(), language, artifactStorer: artifacts, commandId: command.commandId, registryVersion: REGISTRY_VERSION, form: ARTIFACT_RESULT_FORM, log: line => lines.push(line) });
+    const out = await materializeCommand({ policy: client(), language, artifactStorer: artifacts, commandId: command.commandId, form: ARTIFACT_RESULT_FORM, log: line => lines.push(line) });
     expect(out).toEqual({ ok: true, published: "current" });
     expect(lines).toEqual([
       `command ${command.commandId}: s1 from its recorded output, not run`,

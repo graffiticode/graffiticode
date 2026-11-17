@@ -15,12 +15,15 @@
 //     (`output-unavailable`), or a stage never reached (`not-complete`).
 //   materializeFromRecords({ policy, language, view, stage }) -> { ok, envelope } | refusal
 //     one stage rebuilt from its records (decision 6)
-//   materializeCommand({ policy, language, artifactStorer, commandId, registryVersion, form })
+//   materializeCommand({ policy, language, artifactStorer, commandId, form })
+//     the artifact's registry version is the original's, from its recorded
+//     admission (commandArtifactRegistryVersion), as at publish.
 //     -> { ok, published } | { ok: false, reason, stage?, occurrenceId? }
 //     the whole chain rebuilt from its records and stored as the original
 //     invocation's artifact (decisions 8, 9)
 
 import { canonicalStages, repairGate } from "@graffiticode/policy/records";
+import { commandArtifactRegistryVersion } from "@graffiticode/common/protected-registry";
 
 const key = (stage, occurrenceId) => `${stage}:${occurrenceId}`;
 const SETTLED = new Set(["completed", "failed", "partial", "uncertain"]);
@@ -140,7 +143,7 @@ const materializeChain = async ({ policy, language, view, log }) => {
 // eligibility gates apply. An artifact already stored for the invocation is
 // the answer, and is never rebuilt; storing never replaces a newer
 // invocation's (the head's compare-and-set).
-export const materializeCommand = async ({ policy, language, artifactStorer, commandId, registryVersion, form, log = _line => {} }) => {
+export const materializeCommand = async ({ policy, language, artifactStorer, commandId, form, log = _line => {} }) => {
   const view = await readOriginal({ policy, commandId });
   const gate = repairGate(view.state);
   if (gate) return { ok: false, reason: gate };
@@ -157,7 +160,7 @@ export const materializeCommand = async ({ policy, language, artifactStorer, com
     taskId: state.taskId,
     invocationId: state.invocationId,
     seq: state.seq,
-    registryVersion,
+    registryVersion: commandArtifactRegistryVersion(state.admission),
     form,
     content: out.data,
   });

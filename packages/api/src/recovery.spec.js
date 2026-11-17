@@ -27,7 +27,7 @@ import {
 import { buildDataApi } from "./data.js";
 import { inputDigest, InvocationRefused } from "./invocations.js";
 import { buildMemoryArtifactStorer } from "./storage/artifacts.js";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { ARTIFACT_COMPATIBLE_VERSIONS, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 
 // Protected execution on (the maintenance switch is tested on its own).
 const PROTECTED_ON = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
@@ -138,7 +138,7 @@ const run = (idempotencyKey = "job-1", uid = OWNER) => dataApi.get({
   idempotencyKey,
   action: {}
 });
-const current = () => artifactStorer.getCurrent({ uid: OWNER, taskId: "task-1", connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
+const current = () => artifactStorer.getCurrent({ uid: OWNER, taskId: "task-1", connectionId: "conn-1", registryVersion: REGISTRY_VERSION, compatibleVersions: ARTIFACT_COMPATIBLE_VERSIONS });
 
 describe("recovery", () => {
   it("stores the artifact when its write fails and then succeeds within the request", async () => {

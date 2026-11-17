@@ -1,4 +1,4 @@
-import { taskRequiresProtected, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { taskRequiresProtected, artifactRegistryVersion } from "@graffiticode/common/protected-registry";
 import { InvocationRefused } from "./invocations.js";
 import { buildReadArtifact, buildReadPublished } from "./read.js";
 import { ArtifactConflict } from "./storage/artifacts.js";
@@ -614,7 +614,8 @@ const buildGetData = ({
         taskId: id,
         invocationId: invocation.invocationId,
         seq: invocation.seq,
-        registryVersion: REGISTRY_VERSION,
+        // From the chain, not this build (artifactRegistryVersion).
+        registryVersion: artifactRegistryVersion(tasks),
         content
       };
       // The write is atomic, so a failed attempt leaves nothing half-stored

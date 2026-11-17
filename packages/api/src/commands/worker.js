@@ -24,7 +24,7 @@
 import { createHash } from "node:crypto";
 import { decodeChainId } from "@graffiticode/common/chain";
 import { canonicalDigest } from "@graffiticode/common/canonical";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { commandArtifactRegistryVersion } from "@graffiticode/common/protected-registry";
 import { PolicyRefused } from "./policy-commands.js";
 import { readOriginal, recordedFor, materializeFromRecords } from "./records.js";
 import { ARTIFACT_RESULT_FORM } from "../read.js";
@@ -397,6 +397,12 @@ export const buildCommandWorker = ({
     const { result } = await step(() => policy.read({ commandId: id, what: "result" }));
     if (!result || sha256(result.text) !== state.publication.resultDigest) throw new Error(`command ${id}: the committed result can't be read`);
     const of = state.publication.artifact ?? { invocationId: state.invocationId, seq: state.seq };
+    // The artifact's registry version comes from the command's own admission,
+    // not this build, so an API on either side of a registry bump stores and
+    // retries the same artifact; and it needs nothing but the command's state,
+    // so a recovery whose result and artifact are committed completes with
+    // task storage down (common/protected-registry
+    // commandArtifactRegistryVersion).
     await artifactStorer.put({
       uid: state.uid,
       ownerUid: state.ownerUid,
@@ -404,7 +410,7 @@ export const buildCommandWorker = ({
       taskId: state.taskId,
       invocationId: of.invocationId,
       seq: of.seq,
-      registryVersion: REGISTRY_VERSION,
+      registryVersion: commandArtifactRegistryVersion(state.admission),
       // The head's output, not a compile envelope: the read path serves it
       // as one (read.js storedEnvelope). The mark isn't a binding, so a
       // repeated delivery of an artifact stored before it still acknowledges.
