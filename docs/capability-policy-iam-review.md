@@ -2034,6 +2034,101 @@ gcloud storage buckets add-iam-policy-binding gs://graffiticode-command-staging 
 - **The staging bucket:** remove the three bindings with `gcloud storage buckets remove-iam-policy-binding`, using the same members and roles. Delete it only if C5a is abandoned: Policy's and Broker's configuration name it.
 - **Removing either bucket** makes staging or publishing fail with an error, which means unavailable, never allowed.
 
+### Step 29: the C5a gate api and the canary window [PROPOSED; held for review; release blocked]
+
+The gate (C5 plan, "C5a completion gate") runs `scripts/c5a-gate.js` as the canary account through a dedicated api, `api-c5a-gate`, as B6's drive ran through `api-drive` (Step 24). Production is untouched: production `COMMANDS_L0013` stays unset, and its api declares no `scopes`.
+
+#### Blocker: the api can't run the gate yet
+
+At `main` (`dc7d12fa`), three things the gate needs don't exist. C5a's six slices built Policy, Broker, the console route and the compilers, but no api slice:
+1. **Connectionless commands.** `POST /command` refuses any command without a connection: `packages/api/src/routes/command.js:86`, "a command needs a connection". An item capture and an L0000 head over a capture are connectionless v3 commands.
+2. **The `scopes` capability.** The api never sends `scopes` to Policy: `policy-commands.js`'s lease sends `recording: 1, repairs: 1`, and nothing else declares it. Policy hands v3 commands only to `scopes` workers (C5a slice 3), so even an allocated v3 command would be refused to the gate api as `worker-unsupported`.
+3. **The gate script.** `scripts/c5a-gate.js` isn't written.
+
+So `deploy.json`'s `api-c5a-gate` carries a `blocked` reason, and the CLI refuses to release it (`release.js`, `requireValue(!config.blocked)`) until an api slice lands. That slice needs:
+- connectionless allocation for an item-scoped chain;
+- `COMMAND_SCOPES=on`, which makes the worker declare `scopes: 1` on allocate, admit, lease, due and take-over, absent in production;
+- the anonymous public-capture path through the bridge (decision 4);
+- the gate script.
+
+Its name, `COMMAND_SCOPES`, is proposed here and set in the entry below; the slice may rename it.
+
+#### The deployment (`deploy.json` `api-c5a-gate`, in this PR, blocked)
+
+- **The production api's entry** (image build, steps, smoke, `verify/api.js`, `EDGE_AUTH_SECRET`), with these changes:
+  - **image** `us-central1-docker.pkg.dev/graffiticode/services/api-c5a-gate`;
+  - **`access: "private"`**, with `smokeServiceAccount: deploy-smoke@graffiticode.iam.gserviceaccount.com` for the CLI's candidate checks;
+  - **runtime** `api-run` (Policy's gateway caller and `l0013r`'s `PREFLIGHT_GATEWAYS` both name it, so no new identity or caller entry is needed);
+  - **no sweeper:** `SWEEP_AUDIENCE` and `SWEEP_CALLERS` are dropped, so recovery is left to C5d's drive, and Cloud Scheduler doesn't call it;
+  - **`COMMANDS_L0013=on`, `COMPILE_GENERATION_L0013=c5a-gate-1`, `COMMAND_SCOPES=on`;**
+  - `BASE_URL_L0013` stays production `l0013r` (`l0013r-rmwl2casf-31e8b9` is approved `[3]`), and every other language's routing is production's.
+- **It reaches Broker's gate bucket only.** Broker's `THUMBNAIL_BUCKET` is `graffiticode-c5a-gate` (Step 28).
+- **It is released from `main` after the api slice merges,** with `blocked` removed in that slice's PR.
+
+#### Provisioning and invokers (owner's actions; each needs approval)
+
+1. **Create the service** privately, so the CLI can release to it (the CLI needs an existing service with 100% traffic). The image is the live production api's:
+
+   ```bash
+   gcloud run deploy api-c5a-gate --project=graffiticode --region=us-central1 \
+     --image=us-central1-docker.pkg.dev/graffiticode/services/api@sha256:109d3f7c322e6d52dbcc2253ee733d3b31230a2ec27253ddad1142d4dd66d4bd \
+     --service-account=api-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated
+   ```
+
+   With no `COMMANDS_L0013` and no `COMMAND_SCOPES`, that placeholder serves exactly what production serves, reachable only by its invokers.
+2. **Invokers:** `roles/run.invoker` on `api-c5a-gate` only, for two accounts:
+   - `deploy-smoke`, for the CLI's candidate checks;
+   - `console-run@graffiticode-app`, the gateway identity the gate calls through.
+
+   ```bash
+   for m in serviceAccount:deploy-smoke@graffiticode.iam.gserviceaccount.com serviceAccount:console-run@graffiticode-app.iam.gserviceaccount.com; do
+     gcloud run services add-iam-policy-binding api-c5a-gate --project=graffiticode --region=us-central1 --member=$m --role=roles/run.invoker
+   done
+   ```
+
+   Not `allUsers` (B6's `api-drive` was public; this one isn't), and not `command-sweeper`.
+
+#### The canary window, `canary-window-c5a` (the IAM diff)
+
+The gate calls `api-c5a-gate` as the canary account does through the console:
+- a `console-run` ID token for the gate api's URL, in `X-Serverless-Authorization`;
+- the canary user's token in `Authorization`.
+
+The operator mints the first by impersonation, so the operator needs `roles/iam.serviceAccountOpenIdTokenCreator` on `console-run` for the window only. This is a conditional binding on the service account `console-run@graffiticode-app.iam.gserviceaccount.com`:
+
+```diff
+  bindings:
++ - role: roles/iam.serviceAccountOpenIdTokenCreator
++   members: [user:<the operator, as in canary-window-b6>]
++   condition:
++     title: canary-window-c5a
++     description: C5a live gate through api-c5a-gate (C5 plan)
++     expression: request.time < timestamp("<grant time + 24h, UTC>")
+```
+
+```bash
+gcloud iam service-accounts add-iam-policy-binding console-run@graffiticode-app.iam.gserviceaccount.com \
+  --project=graffiticode-app --member=user:<operator> --role=roles/iam.serviceAccountOpenIdTokenCreator \
+  --condition='title=canary-window-c5a,description=C5a live gate through api-c5a-gate (C5 plan),expression=request.time < timestamp("<grant time + 24h>")'
+```
+
+- **No other identity is granted:** not `api-run` (B6 needed it; this gate doesn't call the api's internal routes), and no compiler account. The plan forbids impersonating a compiler.
+- **It expires on its own,** and the gate's reads of Policy's and Broker's databases use the operator's own credentials.
+- **Stale bindings, for a later cleanup (not part of this step):** `console-run`'s policy still holds five expired conditional windows for the operator: `canary-window` (2026-10-24), `-a4`, `-a5`, `-c6` and `-b6` (expired 2026-11-17T08:00Z). They grant nothing now.
+
+#### Verification (when applied)
+
+- **The service:**
+  - `gcloud run services get-iam-policy api-c5a-gate` lists exactly `deploy-smoke` and `console-run` as invokers;
+  - an unauthenticated request answers 403 (Cloud Run's own page);
+  - the serving revision's environment, read from the revision (Step 27's method), carries `COMMANDS_L0013=on`, `COMMAND_SCOPES=on` and `COMPILE_GENERATION_L0013=c5a-gate-1`, and no `SWEEP_*`.
+- **The window:** `gcloud iam service-accounts get-iam-policy console-run@graffiticode-app.iam.gserviceaccount.com` shows `canary-window-c5a` with its expiry. After expiry, minting fails.
+- **Production unchanged:** the production api's serving revision has no `COMMANDS_L0013` or `COMMAND_SCOPES`, and the production canary still passes 36/36.
+
+**Retirement, after the gate:**
+- delete `api-c5a-gate` and its `deploy.json` entry, and the gate bucket (Step 28);
+- the window expires.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
