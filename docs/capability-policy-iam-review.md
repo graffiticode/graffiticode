@@ -2075,7 +2075,9 @@ Its name, `COMMAND_SCOPES`, is proposed here and set in the entry below; the sli
      --service-account=api-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated
    ```
 
-   With no `COMMANDS_L0013` and no `COMMAND_SCOPES`, that placeholder serves exactly what production serves, reachable only by its invokers.
+   - **A bootstrap placeholder only.** Creating a service from the production api's image copies none of its configuration: no environment (no `AUTH_URL`, `POLICY_URL`, routing or flags) and no secret mounts (`EDGE_AUTH_SECRET`). So the placeholder isn't a working api, and nothing is validated against it. It exists only so the CLI has a service with 100% traffic to release to.
+   - **The gate api is validated after its first managed release** (`npm run deploy -- api-c5a-gate`), which applies `deploy.json`'s environment and secrets. Its verification (below) reads that release's serving revision.
+   - Until then, only its two invokers can reach the placeholder.
 2. **Invokers:** `roles/run.invoker` on `api-c5a-gate` only, for two accounts:
    - `deploy-smoke`, for the CLI's candidate checks;
    - `console-run@graffiticode-app`, the gateway identity the gate calls through.
