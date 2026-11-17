@@ -12,7 +12,7 @@
   "trailingDot": [
     "learnosity.com.",
     "items.learnosity.com.",
-    "policy-sja7fatcta-uc.a.run.app."
+    "at11-own-default-o3flcplpsa-uc.a.run.app."
   ],
   "ipLiterals": [
     "54.230.0.1",
@@ -27,12 +27,12 @@
     "flip.rebind.at11.graffiticode.org"
   ],
   "runApp": [
-    "policy-sja7fatcta-uc.a.run.app"
+    "at11-own-default-o3flcplpsa-uc.a.run.app"
   ],
   "frontendIp": "142.250.0.1",
   "fronting": {
     "sni": "api.graffiticode.org",
-    "host": "policy-sja7fatcta-uc.a.run.app"
+    "host": "at11-own-default-o3flcplpsa-uc.a.run.app"
   },
   "relay": "https://httpbin.org/anything",
   "dnsExfil": "at11.graffiticode.org",
@@ -40,7 +40,7 @@
   "publicIp": "1.1.1.1",
   "broker": {
     "url": "https://broker-sja7fatcta-uc.a.run.app",
-    "relationship": "unlisted"
+    "relationship": "invoker"
   },
   "actAs": {
     "url": "https://auth.graffiticode.org",
@@ -96,9 +96,11 @@
     "l0183.graffiticode.org",
     "l0184.graffiticode.org",
     "l0185.graffiticode.org",
-    "l0186.graffiticode.org"
+    "l0186.graffiticode.org",
+    "policy-sja7fatcta-uc.a.run.app"
   ],
   "external": [
-    "storage.googleapis.com"
+    "storage.googleapis.com",
+    "www.googleapis.com"
   ]
 }

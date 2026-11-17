@@ -23,17 +23,21 @@ test("each class gets its own kind, Broker relationship and run.app target", asy
   assert.equal(by["compilers-default"].kind, "default");
   assert.equal(by["compilers-l0185"].kind, "open");
   for (const c of ["compilers-l0000", "compilers-l0176", "compilers-l0013"]) assert.equal(by[c].kind, "lang");
-  // Only L0176 lists Broker.
-  assert.equal(by["compilers-l0176"].broker.relationship, "invoker");
-  for (const c of ["compilers-default", "compilers-l0000", "compilers-l0013", "compilers-l0185"]) assert.equal(by[c].broker.relationship, "unlisted");
+  // Broker's callers, L0176 and (C5a) L0013, list it; no other class does.
+  for (const c of ["compilers-l0176", "compilers-l0013"]) assert.equal(by[c].broker.relationship, "invoker", c);
+  for (const c of ["compilers-default", "compilers-l0000", "compilers-l0185"]) assert.equal(by[c].broker.relationship, "unlisted");
   // A class that lists Policy can't use Policy as its unlisted run.app target.
-  for (const c of ["compilers-l0000", "compilers-l0176"]) assert.ok(!by[c].runApp[0].startsWith("policy-"), c);
+  for (const c of ["compilers-l0000", "compilers-l0176", "compilers-l0013"]) {
+    assert.ok(by[c].listed.includes("policy-sja7fatcta-uc.a.run.app"), c);
+    assert.ok(!by[c].runApp[0].startsWith("policy-"), c);
+  }
   for (const c of Object.values(by)) {
     assert.ok(!c.listed.includes(c.runApp[0]), `${c.$comment}: the run.app target is listed`);
     assert.equal(c.fronting.host, c.runApp[0]);
     assert.equal(c.admin.address, "10.8.0.10");
   }
-  assert.deepEqual(by["compilers-l0013"].external, ["storage.googleapis.com"]);
+  // L0013: its capture bucket, and (C5a) Google's certificates for its /preflight verifier.
+  assert.deepEqual(by["compilers-l0013"].external, ["storage.googleapis.com", "www.googleapis.com"]);
   assert.ok(by["compilers-l0013"].listed.includes("app.graffiticode.org"));
   assert.equal(by["compilers-default"].external, undefined);
   // The open class reaches Google only through its exception (C3): the exact request, and the
