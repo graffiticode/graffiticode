@@ -1748,9 +1748,10 @@ L0013's `snap` under a command reserves and stages through Policy and publishes 
    - Verified: `policy` now has 10 invokers and `broker` 5, each including `l0013r-run`. `l0013r-run` has no project-level role in `graffiticode`. The IAM troubleshooter's allow policy grants `run.routes.invoke` on both.
    - On their own these grant nothing usable: both services refuse a caller that their caller lists don't name, and `l0013r`'s egress proxy doesn't allow either host yet.
    - Rollback: `gcloud run services remove-iam-policy-binding <policy|broker> --project graffiticode --region us-central1 --member=serviceAccount:l0013r-run@graffiticode.iam.gserviceaccount.com --role=roles/run.invoker`.
-2. **The caller lists (held):** a new version of each, adding `"l0013r-run@graffiticode.iam.gserviceaccount.com": { "role": "compiler", "lang": "0013" }`.
-   - `policy-callers` 6 → 7, and `broker-callers` 2 → 3; nothing else changes.
-   - `deploy.json`'s pins then move to `policy-callers:7` and `broker-callers:3`, and Policy and Broker are released to read them.
+2. **The caller lists (versions created 2026-11-17; Policy and Broker releases held):** a new version of each, adding `"l0013r-run@graffiticode.iam.gserviceaccount.com": { "role": "compiler", "lang": "0013" }` and nothing else.
+   - `policy-callers` version 7 (from 6) and `broker-callers` version 3 (from 2), both enabled. Each version's content was checked against the reviewed payload: version 6 or 2 plus the one entry, parsed by Policy's `parseCallers` (8 and 4 callers).
+   - `deploy.json` pins `policy-callers:7` and `broker-callers:3`. The serving revisions (`policy-rmwjyqeto-b2be2b`, `broker-rmwjy9cjp-4a0c2c`) still read versions 6 and 2 until Policy and Broker are released.
+   - Rollback: release Policy and Broker with the pins at 6 and 2 (both still enabled), then disable versions 7 and 3.
 3. **The proxy (held):** `compilers-l0013`'s `network.allow` gains `policy-sja7fatcta-uc.a.run.app` and `broker-sja7fatcta-uc.a.run.app`, plus `www.googleapis.com`.
    - `l0013r`'s `/preflight` verifies the api's Google ID token (`PREFLIGHT_GATEWAYS`), which fetches `https://www.googleapis.com/oauth2/v3/certs` (`languages/l0000/crates/server/src/gateway.rs`), as `l0176r` and `l0000r` do. The plan's IAM list named only the first two.
    - Config `56007b0e…` → `8b637609…`, template `egress-proxy-ce42b3628a5a`. Each host's certificate secret already exists.
