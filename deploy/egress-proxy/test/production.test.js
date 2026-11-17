@@ -32,9 +32,14 @@ test("each first-wave compiler has its own class, holding only its inventoried h
   // broker-faults (the C6 drive's fault Broker) was retired on 2026-11-11 and is no longer listed.
   assert.deepEqual(model.classes["compilers-l0176"].hosts, ["api.graffiticode.org", "auth.graffiticode.org", "broker-sja7fatcta-uc.a.run.app", "policy-sja7fatcta-uc.a.run.app", "www.googleapis.com"]);
   assert.deepEqual(model.classes["compilers-l0000"].hosts, ["api.graffiticode.org", "auth.graffiticode.org", "policy-sja7fatcta-uc.a.run.app", "www.googleapis.com"]);
-  // Broker only for L0176, its one caller.
+  // C5a: L0013's snap reserves and stages through Policy and publishes
+  // through Broker, and its /preflight verifies the api's Google ID token
+  // (PREFLIGHT_GATEWAYS) with Google's certificates.
+  const l0013 = model.classes["compilers-l0013"].hosts;
+  for (const h of ["broker-sja7fatcta-uc.a.run.app", "policy-sja7fatcta-uc.a.run.app", "storage.googleapis.com", "www.googleapis.com"]) assert.ok(l0013.includes(h), h);
+  // Broker only for its callers, L0176 and L0013.
   for (const [name, cls] of Object.entries(model.classes)) {
-    if (name !== "compilers-l0176") assert.ok(!cls.hosts.some(h => h.startsWith("broker-")), name);
+    if (name !== "compilers-l0176" && name !== "compilers-l0013") assert.ok(!cls.hosts.some(h => h.startsWith("broker-")), name);
   }
   // Every terminated host gets a certificate secret, readable by the proxy alone.
   const text = render(commands(model));
