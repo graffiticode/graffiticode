@@ -539,6 +539,8 @@ It is **proven live** by a gate that creates the first v3 records. The rollback 
 
 ### Release order (C5a)
 
+**Steps 1–6 are released (complete 2026-11-17).** Revisions, canaries and rollback targets: [`docs/evidence/c5a/README.md`](evidence/c5a/README.md). The live gate (step 7) is pending.
+
 1. **Decision 0** (#398), on its own.
 2. **The graffiticode-app releases.** Nothing calls either yet.
    - The console's item-authority route (`console`: app#116).
@@ -582,7 +584,7 @@ Each is recorded in `docs/capability-policy-iam-review.md` as a new step and app
   - **The api's receipt rollback is safe only to a build that binds artifacts as the release does.**
     - This holds for every L0176 artifact, because a registry-8 api binds 8 and so does the registry-9 api that derives the version from the chain. Either can read and retry the other's L0176 artifacts.
     - It doesn't hold for a registry-9 api without that derivation. Such a build binds 9, and must never be released.
-    - **v9 artifacts:** a chain that snaps binds 9, which a registry-8 api can't read. Only an api with `COMMANDS_L0013` makes them, and today's api never lists or leases those commands (they need the `scopes` capability). Before C5d turns L0013 commands on in production, the api gains a rollback floor at the first commit that reads 9, as Policy and Broker have.
+    - **v9 artifacts:** a chain that snaps binds 9, which a registry-8 api can't read. Only an api with `COMMANDS_L0013` makes them, and today's api never lists or leases those commands (they need the `scopes` capability). Before C5d turns L0013 commands on in production, the api gains a rollback floor at `3b6b4a50`, the first safe registry-9 api release (`api-rmwkxlbvy-b5fa92`), as Policy and Broker have.
 - **The gate creates v3 records:**
   - **Invocations and plans:** the floor keeps a scope-capable Policy and Broker serving them.
   - **Commands, if the gate creates any:** the `scopes` capability keeps today's api from listing, leasing or taking them over.

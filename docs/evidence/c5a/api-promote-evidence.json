@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "service": "api",
+  "release": "rmwkxlbvy-b5fa92",
+  "revision": "api-rmwkxlbvy-b5fa92",
+  "networkHash": null,
+  "reviewer": "Claude Code for the owner (C5a api release, registry 9; agent execution under the owner's authorization, not an independent human review)",
+  "reviewedAt": "2026-11-17T17:11:10.000Z",
+  "corpus": {
+    "ranAt": "2026-11-17T17:07:24.087Z",
+    "tasks": 36,
+    "failures": 0
+  },
+  "refusals": [],
+  "notes": {
+    "stagedAt": "2026-11-17T17:05:37.102Z",
+    "source": "main at 3b6b4a50 (#409 merge)",
+    "image": "us-central1-docker.pkg.dev/graffiticode/services/api@sha256:109d3f7c322e6d52dbcc2253ee733d3b31230a2ec27253ddad1142d4dd66d4bd",
+    "registryVersion": 9,
+    "releasedBefore": {
+      "broker": "broker-rmwjy9cjp-4a0c2c",
+      "policy": "policy-rmwjyqeto-b2be2b",
+      "l0013r": "l0013r-rmwjzlgz6-2882e6",
+      "l0176r": "l0176r-rmwk08k8n-c74227"
+    },
+    "canaryJob": {
+      "execution": "canary-99xz2",
+      "apiUrl": "https://rmwkxlbvy-b5fa92---api-sja7fatcta-uc.a.run.app",
+      "args": "--chain-admission --after-cutover --command --l0185-tail",
+      "checks": 36,
+      "failed": 0
+    },
+    "candidateLogs": "no ERROR entries and no binding-differs or incompatible artifact answers on the revision during the run",
+    "disabled": "COMMANDS_L0013 unset (candidate env carries only COMMANDS_L0176 and REPAIR_L0176 of the command flags); the api declares no scopes capability on lease or due"
+  }
+}
