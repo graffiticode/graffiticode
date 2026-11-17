@@ -1,0 +1,48 @@
+{
+  "at": "2026-11-17T22:50:33.530Z",
+  "execution": "c5a-bucket-probe-broker-w6xhm",
+  "as": "broker",
+  "email": "broker-run@graffiticode.iam.gserviceaccount.com",
+  "run": "r11172247",
+  "staging": "graffiticode-command-staging",
+  "gate": "graffiticode-c5a-gate",
+  "checks": [
+    {
+      "id": "staging-read",
+      "expect": 200,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "id": "staging-create",
+      "expect": 403,
+      "status": 403,
+      "ok": true
+    },
+    {
+      "id": "gate-create",
+      "expect": 200,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "id": "gate-metadata",
+      "expect": 200,
+      "status": 200,
+      "ok": true
+    },
+    {
+      "id": "gate-stale",
+      "expect": 412,
+      "status": 412,
+      "ok": true
+    },
+    {
+      "id": "gate-overwrite",
+      "expect": 200,
+      "status": 200,
+      "ok": true
+    }
+  ],
+  "passed": true
+}

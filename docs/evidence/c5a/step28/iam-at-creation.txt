@@ -1,0 +1,13 @@
+== graffiticode-c5a-gate
+roles/storage.legacyBucketOwner: projectEditor:graffiticode, projectOwner:graffiticode
+roles/storage.legacyBucketReader: projectViewer:graffiticode
+roles/storage.legacyObjectOwner: projectEditor:graffiticode, projectOwner:graffiticode
+roles/storage.legacyObjectReader: projectViewer:graffiticode
+roles/storage.objectUser: serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com
+== graffiticode-command-staging
+roles/storage.legacyBucketOwner: projectEditor:graffiticode, projectOwner:graffiticode
+roles/storage.legacyBucketReader: projectViewer:graffiticode
+roles/storage.legacyObjectOwner: projectEditor:graffiticode, projectOwner:graffiticode
+roles/storage.legacyObjectReader: projectViewer:graffiticode
+roles/storage.objectCreator: serviceAccount:policy-run@graffiticode.iam.gserviceaccount.com
+roles/storage.objectViewer: serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com, serviceAccount:policy-run@graffiticode.iam.gserviceaccount.com

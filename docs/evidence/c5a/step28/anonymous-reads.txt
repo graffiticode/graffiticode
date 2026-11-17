@@ -1,0 +1,4 @@
+2026-11-17T22:50:53Z https://storage.googleapis.com/graffiticode-command-staging/c5a-probe/r11172247/staged.txt 403
+2026-11-17T22:50:53Z json-api graffiticode-command-staging/c5a-probe/r11172247/staged.txt 401
+2026-11-17T22:50:53Z https://storage.googleapis.com/graffiticode-c5a-gate/c5a-probe/r11172247/published.txt 403
+2026-11-17T22:50:54Z json-api graffiticode-c5a-gate/c5a-probe/r11172247/published.txt 401
