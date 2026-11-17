@@ -305,6 +305,26 @@ describe("publication across a registry bump", () => {
     await expect(asOldApi(artifacts.put)(retry)).resolves.toMatchObject({ acknowledged: true });
   });
 
+  // The owner's review of #409: the version comes from the command's recorded
+  // admission, so a publication whose result and artifact are committed
+  // completes without its tasks. The artifact is stored, the worker dies
+  // before acknowledging, then task storage goes down: recovery publishes.
+  it("completes a stored publication with task storage unavailable", async () => {
+    const { commandId, generation } = await allocate();
+    const real = artifacts.put;
+    artifacts.put = async artifact => {
+      await real(artifact);
+      throw new Error("the worker died before acknowledging");
+    };
+    await expect(workerAs("w1")({ commandId, generation })).rejects.toThrow("died");
+    artifacts.put = real;
+    const taken = await takeOver(commandId, generation, "w2");
+    const down = { get: async () => { throw new Error("task storage unavailable"); } };
+    const recover = buildCommandWorker({ policy: client(), taskStorer: down, language, artifactStorer: artifacts, worker: "w2", setInterval: () => null, clearInterval: () => {}, log: () => {} });
+    expect(await recover({ commandId, generation: taken.generation })).toMatchObject({ status: "completed", publication: { state: "published" } });
+    expect(await current()).toMatchObject({ status: "ok", artifact: { registryVersion: 8, content: { count: 2 } } });
+  });
+
   // The control: this API reads an artifact a registry-8 API stored.
   it("reads an artifact a registry-8 API stored", async () => {
     await artifacts.put({ uid: OWNER, ownerUid: OWNER, connectionId: "conn-1", taskId: CHAIN, invocationId: "inv-old", seq: 1, registryVersion: 8, content: { count: 1 } });
