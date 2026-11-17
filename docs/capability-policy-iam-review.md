@@ -1724,6 +1724,22 @@ B6 slice 5's drive (`docs/b6-command-repair-plan.md`, slice 5, "The drive, in de
 - `gcloud run services get-iam-policy broker-faults` lists only `l0176r-run` and `deploy-smoke`.
 - The production Broker's and api's environments have no fault variables.
 
+### Step 25: the app's render-grant resolver may read Policy's keys (C5a) [LIVE]
+
+The app's form resolver accepts Policy's render grants (C5 plan, decision 7 and "IAM changes (C5a)"; app#117). It verifies each grant with Policy's public keys from `GET /v1/jwks`, which is behind Cloud Run IAM. It fetches them with `app-run`'s own Google ID token for Policy's audience. Without this grant, every grant is answered 503 `render-grants-unavailable`.
+
+- **The binding:** `roles/run.invoker` on the `policy` service (graffiticode, us-central1) for `serviceAccount:app-run@graffiticode-app.iam.gserviceaccount.com`. It is service-level only; `app-run` has no project-level role in `graffiticode`.
+- **It grants nothing else.** Policy has two routes open to any invoker: `/v1/jwks` (public keys) and `/v1/protected-execution` (a public status). Every other route requires a caller role (`ROUTE_ROLES` in `packages/policy/src/app.ts`: gateway, broker, compiler or console), which `app-run` doesn't have.
+- **Applied 2026-11-17, about 17:20Z,** with the owner's approval (only this step; the rest of C5a's IAM stays held).
+- **Verified:**
+  - **The binding:** `run.invoker` on `policy` lists `app-run` (9 members), and there are no project-level bindings.
+  - **Through the app:** a well-formed ES256 grant signed by a throwaway key was sent to `https://app-cfdwwd7ega-uc.a.run.app/api/form/resolve` (served by `app-rmwjwsu2n-067a1a`).
+    - Before the binding, and until it propagated (17:20:31–17:21:51Z), the app answered 503 `render-grants-unavailable`. Policy logged `GET /v1/jwks` 403 for each attempt.
+    - At 17:22:11Z Policy logged `GET /v1/jwks` 200, and the app answered 401 `bad-render-grant`: the keys loaded and the foreign signature was refused.
+    - A later probe answered 401 from the held keys, with no new fetch.
+    - Every answer was `Cache-Control: no-store`.
+- **Rollback:** `gcloud run services remove-iam-policy-binding policy --project graffiticode --region us-central1 --member=serviceAccount:app-run@graffiticode-app.iam.gserviceaccount.com --role=roles/run.invoker`. The resolver then answers 503 again; nothing else changes.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
