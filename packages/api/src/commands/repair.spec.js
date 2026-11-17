@@ -8,7 +8,7 @@ import request from "supertest";
 import { generateKeyPair, exportJWK } from "jose";
 import { encodeChainId } from "@graffiticode/common/chain";
 import { canonicalDigest } from "@graffiticode/common/canonical";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { ARTIFACT_COMPATIBLE_VERSIONS, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
   createPolicy,
   PolicyDenied,
@@ -258,7 +258,7 @@ const repairOf = async (commandId, key = "repair-1", occurrences = null) => {
   return { repair, done: await workerAs("w-repair")({ commandId: repair.commandId, generation: repair.generation }) };
 };
 const artifactOf = async invocationId => (await artifacts.getByInvocation(invocationId))?.content ?? null;
-const current = chain => artifacts.getCurrent({ uid: OWNER, taskId: chain, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
+const current = chain => artifacts.getCurrent({ uid: OWNER, taskId: chain, connectionId: "conn-1", registryVersion: REGISTRY_VERSION, compatibleVersions: ARTIFACT_COMPATIBLE_VERSIONS });
 const materialize = commandId => materializeCommand({ policy: client(), language, artifactStorer: artifacts, commandId, registryVersion: REGISTRY_VERSION, form: ARTIFACT_RESULT_FORM });
 const ledgerOf = async commandId => (await policy.commandRead({ caller: GATEWAY, commandId, what: "ledger" })).ledger;
 // What a clean run of AB produces: both saves' references.

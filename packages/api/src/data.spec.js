@@ -1,5 +1,5 @@
 import { jest } from "@jest/globals";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { ARTIFACT_COMPATIBLE_VERSIONS, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import { buildDataApi } from "./data.js";
 import { createStorers } from "./storage/index.js";
 import { buildLangOverrideStorer } from "./storage/lang-override.js";
@@ -425,9 +425,11 @@ describe("data", () => {
       const out = await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
 
       expect(out.data.request).toEqual(SIGNED);
-      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION, compatibleVersions: ARTIFACT_COMPATIBLE_VERSIONS });
       expect(got.status).toBe("ok");
-      expect(got.artifact).toMatchObject({ ownerUid: "owner", invocationId: "inv-1", seq: 1 });
+      // Bound to the chain's registry version, not this build's: the version a
+      // registry-8 API stores and reads too (artifactRegistryVersion).
+      expect(got.artifact).toMatchObject({ ownerUid: "owner", invocationId: "inv-1", seq: 1, registryVersion: 8 });
       expect(got.artifact.content).toEqual({ data: { type: "questions", data: { q: 1 } }, errors: [] });
       expect(JSON.stringify(got.artifact.content)).not.toMatch(/signature/);
     });
@@ -444,7 +446,7 @@ describe("data", () => {
       // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
 
-      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION, compatibleVersions: ARTIFACT_COMPATIBLE_VERSIONS });
       expect(got.status).toBe("ok");
       expect(got.artifact.content.data.data.questions[0]).toEqual(question);
     });
@@ -461,7 +463,7 @@ describe("data", () => {
       // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       const out = await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, connectionId: "conn-1" });
 
-      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION, compatibleVersions: ARTIFACT_COMPATIBLE_VERSIONS });
       expect(got.status).toBe("missing");
       expect(out.artifact).toMatchObject({ stored: false, error: "artifact-rejected", reason: "signed-content", retryable: false });
     });
@@ -479,7 +481,7 @@ describe("data", () => {
       // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
       await dataApi.get({ taskStorer, compileStorer, id, auth: { uid: "u1" } });
 
-      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION });
+      const got = await artifactStorer.getCurrent({ uid: "u1", taskId: id, connectionId: "conn-1", registryVersion: REGISTRY_VERSION, compatibleVersions: ARTIFACT_COMPATIBLE_VERSIONS });
       expect(got.status).toBe("missing");
     });
 

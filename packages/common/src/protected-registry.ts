@@ -33,6 +33,11 @@
 //              it is null and nothing executes under it.
 //   viewSafe   whether a view of a published item may use it (the viewer holds
 //              no grant; the publication's authority reaches only these)
+//   meaningSince  the registry version from which this function's current
+//              meaning holds. It decides the registry version an artifact made
+//              with it is bound to (artifactRegistryVersion), so that the
+//              artifact's identity depends on the chain, not on which API
+//              build stored it. Metadata only: it grants nothing.
 //   writesOutsideCommands  the language's compile can perform this function's
 //              write itself, outside Policy and Broker command control, when
 //              it runs outside a command (L0013's direct thumbnail upload,
@@ -132,6 +137,7 @@ export type FunctionSpec = Readonly<{
   scope?: ScopeKind;
   publicCapture?: Readonly<{ since: string | null }>;
   writesOutsideCommands?: true;
+  meaningSince: number;
 }>;
 
 // Broker operations. The broker builds each request itself from a constrained
@@ -227,6 +233,7 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       implicit: true,
       delegable: true,
       viewSafe: true,
+      meaningSince: 8,
     }),
     // `save-to-itembank <activity>`: the node IS the item-bank write, and
     // ITEMS/QUESTIONS never write. The legacy literal member
@@ -241,6 +248,8 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       implicit: false,
       delegable: true,
       viewSafe: false,
+      // v8 changed write-items to create records only (AT-10 B1).
+      meaningSince: 8,
     }),
   }),
   "0013": Object.freeze({
@@ -261,6 +270,7 @@ export const PROTECTED_FUNCTIONS = Object.freeze({
       // Outside a command, L0013 still uploads a snap itself (its legacy
       // path), with no Policy or Broker in the way.
       writesOutsideCommands: true as const,
+      meaningSince: 9,
     }),
   }),
 });
@@ -284,6 +294,34 @@ export const systemPreviewFunctionsForLang = (lang: unknown): string[] =>
   Object.entries(protectedFunctionsForLang(lang) || {})
     .filter(([, spec]) => spec.kind === "sign" && spec.viewSafe === true && spec.implicit === true)
     .map(([fn]) => fn);
+
+// The registry version an artifact of `tasks` (a chain's {lang, code} tasks)
+// is bound to: the latest `meaningSince` of the protected functions the chain
+// uses (the implicit ones of its languages, and those whose tags it contains),
+// and never older than the oldest version this registry still serves
+// (ARTIFACT_COMPATIBLE_VERSIONS). It depends only on the chain, so every API
+// build that serves both versions binds an artifact identically: a
+// publication stored by one and retried by another is the same artifact, and
+// an API on an older registry still reads and retries an artifact whose
+// functions it knows (the owner's review of the registry-9 API release).
+export const artifactRegistryVersion = (
+  tasks: readonly { lang: unknown; code?: unknown }[],
+  { current = REGISTRY_VERSION, compatible = ARTIFACT_COMPATIBLE_VERSIONS }: { current?: number; compatible?: readonly number[] } = {},
+): number => {
+  const oldest = Math.min(current, ...compatible);
+  let version = oldest;
+  for (const task of tasks) {
+    const fns = protectedFunctionsForLang(task?.lang);
+    if (!fns) continue;
+    const code = task?.code && typeof task.code === "object" ? task.code as Record<string, any> : {};
+    const tags = new Set(Object.entries(code).filter(([key, node]) => key !== "root" && typeof node?.tag === "string").map(([, node]) => node.tag));
+    for (const spec of Object.values(fns)) {
+      if (spec.implicit || spec.tags.some(tag => tags.has(tag))) version = Math.max(version, spec.meaningSince);
+    }
+  }
+  if (version > current) throw new Error(`a function's meaning (since ${version}) is newer than the registry (${current})`);
+  return version;
+};
 
 // Whether a compile in `lang` can write outside Policy and Broker command
 // control: any of its functions declares `writesOutsideCommands`. A read-only

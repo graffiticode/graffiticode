@@ -16,6 +16,8 @@
 //   materializeFromRecords({ policy, language, view, stage }) -> { ok, envelope } | refusal
 //     one stage rebuilt from its records (decision 6)
 //   materializeCommand({ policy, language, artifactStorer, commandId, registryVersion, form })
+//     `registryVersion` is a number, or `async state => number`: the original
+//     command's artifact version, from its chain (artifactRegistryVersion).
 //     -> { ok, published } | { ok: false, reason, stage?, occurrenceId? }
 //     the whole chain rebuilt from its records and stored as the original
 //     invocation's artifact (decisions 8, 9)
@@ -157,7 +159,7 @@ export const materializeCommand = async ({ policy, language, artifactStorer, com
     taskId: state.taskId,
     invocationId: state.invocationId,
     seq: state.seq,
-    registryVersion,
+    registryVersion: typeof registryVersion === "function" ? await registryVersion(state) : registryVersion,
     form,
     content: out.data,
   });

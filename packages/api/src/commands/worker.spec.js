@@ -6,7 +6,7 @@
 import { generateKeyPair, exportJWK } from "jose";
 import { decodeChainId, encodeChainId } from "@graffiticode/common/chain";
 import { canonicalDigest } from "@graffiticode/common/canonical";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { ARTIFACT_COMPATIBLE_VERSIONS, REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
   createPolicy,
   PolicyDenied,
@@ -197,7 +197,7 @@ const takeOver = async (commandId, generation, name, recording = 1) => {
   clock += COMMAND_LEASE_MS + 1;
   return policy.leaseCommand({ caller: GATEWAY, commandId, worker: name, generation, takeOver: true, recording });
 };
-const current = query => artifacts.getCurrent({ uid: OWNER, taskId: CHAIN, connectionId: "conn-1", registryVersion: REGISTRY_VERSION, ...query });
+const current = query => artifacts.getCurrent({ uid: OWNER, taskId: CHAIN, connectionId: "conn-1", registryVersion: REGISTRY_VERSION, compatibleVersions: ARTIFACT_COMPATIBLE_VERSIONS, ...query });
 
 describe("a command, start to finish", () => {
   it("admits, pins, starts, settles from receipts, finishes and publishes the head's own result", async () => {
@@ -257,6 +257,58 @@ describe("recovery", () => {
     const taken = await takeOver(commandId, generation, "w2");
     expect(await workerAs("w2")({ commandId, generation: taken.generation })).toMatchObject({ status: "completed", publication: { state: "published" } });
     expect((await current()).artifact.content).toEqual({ count: 2 });
+  });
+});
+
+// The registry-9 API release (owner's review): a publication's artifact is
+// the same across API builds on either side of the bump, so recovery and
+// rollback both work. The chain (L0176 + L0000) binds registry 8, whatever
+// the build: v9 changed none of L0176's meanings.
+describe("publication across a registry bump", () => {
+  const OLD = { registryVersion: 8, compatibleVersions: [] };
+  // What a registry-8 API stores for this command: the same binding and
+  // content, under its own constant 8.
+  const asOldApi = put => async artifact => put({ ...artifact, registryVersion: 8 });
+
+  it("binds the chain's version, not this build's", async () => {
+    const { commandId, generation } = await allocate();
+    await workerAs("w1")({ commandId, generation });
+    const state = await policy.commandRead({ caller: GATEWAY, commandId, what: "state" });
+    expect((await artifacts.getByInvocation(state.invocationId)).registryVersion).toBe(8);
+  });
+
+  // Reproducer 1: the old API stores the artifact and dies before
+  // acknowledging; this API's retry is the same artifact, not a conflict.
+  it("completes a publication a registry-8 API stored and died before acknowledging", async () => {
+    const { commandId, generation } = await allocate();
+    const real = artifacts.put;
+    artifacts.put = async artifact => {
+      await asOldApi(real)(artifact);
+      throw new Error("the old API's process died");
+    };
+    await expect(workerAs("w1")({ commandId, generation })).rejects.toThrow("died");
+    artifacts.put = real;
+    const taken = await takeOver(commandId, generation, "w2");
+    expect(await workerAs("w2")({ commandId, generation: taken.generation })).toMatchObject({ status: "completed", publication: { state: "published" } });
+    expect((await current()).artifact.content).toEqual({ count: 2 });
+  });
+
+  // Reproducers 2 and 3: after a rollback to a registry-8 API, it reads what
+  // this API published, and its retry of that publication is acknowledged.
+  it("leaves what it publishes readable and retryable by a registry-8 API", async () => {
+    const { commandId, generation } = await allocate();
+    await workerAs("w1")({ commandId, generation });
+    expect(await current(OLD)).toMatchObject({ status: "ok", artifact: { content: { count: 2 } } });
+    const state = await policy.commandRead({ caller: GATEWAY, commandId, what: "state" });
+    const stored = await artifacts.getByInvocation(state.invocationId);
+    const { contentDigest: _digest, ...retry } = stored;
+    await expect(asOldApi(artifacts.put)(retry)).resolves.toMatchObject({ acknowledged: true });
+  });
+
+  // The control: this API reads an artifact a registry-8 API stored.
+  it("reads an artifact a registry-8 API stored", async () => {
+    await artifacts.put({ uid: OWNER, ownerUid: OWNER, connectionId: "conn-1", taskId: CHAIN, invocationId: "inv-old", seq: 1, registryVersion: 8, content: { count: 1 } });
+    expect(await current()).toMatchObject({ status: "ok", artifact: { registryVersion: 8, content: { count: 1 } } });
   });
 });
 

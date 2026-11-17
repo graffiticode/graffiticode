@@ -13,7 +13,7 @@ import { cacheVerifications } from "@graffiticode/common/verified-tokens";
 import { buildCompile, buildInterpreter, buildCommandStart, buildCommandMaterialize } from "./comp.js";
 import { materializeCommand } from "./commands/records.js";
 import { ARTIFACT_RESULT_FORM } from "./read.js";
-import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
+import { artifactRegistryVersion } from "@graffiticode/common/protected-registry";
 import { buildPolicyCommands } from "./commands/policy-commands.js";
 import { buildCommandWorker } from "./commands/worker.js";
 import { parseCommandFaults } from "./commands/faults.js";
@@ -189,7 +189,8 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
           language: { materialize: commandMaterialize },
           artifactStorer,
           commandId,
-          registryVersion: REGISTRY_VERSION,
+          // The original's chain decides its artifact's version, as at publish.
+          registryVersion: async state => artifactRegistryVersion(await taskStorer.get({ id: state.taskId, auth: { uid: state.uid } })),
           form: ARTIFACT_RESULT_FORM,
           log: line => console.log(line),
         });
