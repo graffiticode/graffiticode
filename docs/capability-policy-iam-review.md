@@ -1871,7 +1871,7 @@ The expected output is one line, the rollback revision at `100%` with `item-auth
 
   A name can't be in both `env` and `removeEnv`, so this is one `deploy.json` change, released and then verified as above.
 
-### Step 28: the C5a gate bucket and the command staging bucket [PROPOSED; held for review]
+### Step 28: the C5a gate bucket and the command staging bucket [LIVE 2026-11-17]
 
 Two new buckets in `graffiticode`, as C5 plan decisions 8 and 9 and "IAM changes (C5a)" describe them. Neither exists yet (checked 2026-11-17: `gs://graffiticode-c5a-gate`, `gs://graffiticode-command-staging` and `gs://graffiticode-thumbnails` each answer 404).
 
@@ -1947,8 +1947,10 @@ gcloud storage buckets add-iam-policy-binding gs://graffiticode-command-staging 
 
 #### What both buckets also inherit
 
-These are the defaults every new bucket gets, unchanged here:
-- **The bucket's own legacy bindings:** `projectOwner`/`projectEditor` `legacyBucketOwner`, and `projectViewer` `legacyBucketReader`. With uniform access these grant bucket-level rights, but object reads only through the project roles below.
+- **Bucket-level convenience bindings, reduced at creation.**
+  - **What creation adds:** a bucket created with uniform access gets four: `legacyBucketOwner` and `legacyObjectOwner` for `projectOwner:graffiticode` and `projectEditor:graffiticode`, and `legacyBucketReader` and `legacyObjectReader` for `projectViewer:graffiticode`. This plan first listed only the bucket-level two, read from `graffiticode-l0013-evidence`, which uses fine-grained access.
+  - **Why reduce them:** these bindings grant object access that basic project roles don't carry by themselves, and they extend to anyone who later holds those project roles ([basic roles](https://docs.cloud.google.com/storage/docs/access-control/iam-roles#basic-roles)).
+  - **What was removed (owner's choice, 2026-11-17):** `projectEditor` from both owner roles, and `projectViewer` from both reader roles, on both buckets. `projectOwner`'s two bindings stay.
 - **Project roles:**
   - `roles/owner`: the three project owners;
   - `roles/editor`: the Google APIs service agent `656973052505@cloudservices` only;
@@ -1979,7 +1981,8 @@ These are the defaults every new bucket gets, unchanged here:
    done
    ```
 
-   **Expect** the legacy bindings above plus exactly:
+   **Expect** exactly these bindings:
+   - **both buckets:** `roles/storage.legacyBucketOwner: projectOwner:graffiticode` and `roles/storage.legacyObjectOwner: projectOwner:graffiticode`;
    - **gate:** `roles/storage.objectUser: serviceAccount:broker-run@…`;
    - **staging:** `roles/storage.objectCreator: serviceAccount:policy-run@…`, and `roles/storage.objectViewer: serviceAccount:broker-run@…, serviceAccount:policy-run@…`.
 
@@ -2009,6 +2012,22 @@ These are the defaults every new bucket gets, unchanged here:
 
    - **Anonymous reads** of both probe objects (`curl https://storage.googleapis.com/<bucket>/c5a-probe/<run>/…`) answer 401 or 403.
    - **Afterwards:** the operator deletes `c5a-probe/` from both buckets with `gcloud storage rm`, and the two jobs. The results, without tokens, go to `docs/evidence/c5a/step28/`.
+
+**Applied 2026-11-17 (owner-approved).** Evidence: [`docs/evidence/c5a/step28/`](evidence/c5a/step28/).
+1. **Created** both buckets with the commands above (staging with `--soft-delete-duration=7d` and the 30-day rule), and added the four runtime bindings.
+2. **Settings** (`settings.jsonl`): as expected.
+   - **Both:** `US-CENTRAL1`, `STANDARD`, uniform, public access prevention `enforced`, versioning null.
+   - **Gate:** soft delete `0`, no lifecycle.
+   - **Staging:** soft delete `604800`, and Delete at age 30.
+3. **IAM at creation** (`iam-at-creation.txt`, with the JSON policies) carried the four convenience bindings above, not two. The owner chose to remove `projectEditor` and `projectViewer` from them.
+   - `gcloud storage buckets remove-iam-policy-binding` didn't match those convenience members ("binding … not found"), so nothing changed that way.
+   - Instead, each policy was read, only those members were removed with `jq` (which left the two reader bindings empty, so they're dropped), and the policy was written back with `set-iam-policy` under its etag.
+   - **Read back** (`iam-after.txt`): exactly the expected bindings above.
+4. **Probes,** at run label `r11172247`, both passed:
+   - **`c5a-bucket-probe-policy-rrg8t`, as `policy-run`** (`probe-policy.json`): `create-once` 200, `create-again` 412, `read` 200, `overwrite` 403, `delete` 403, `gate-read` 403.
+   - **`c5a-bucket-probe-broker-w6xhm`, as `broker-run`** (`probe-broker.json`): `staging-read` 200, `staging-create` 403, `gate-create` 200, `gate-metadata` 200, `gate-stale` 412, `gate-overwrite` 200.
+5. **Anonymous reads** of both probe objects (`anonymous-reads.txt`): 403 by `storage.googleapis.com/<bucket>/<object>`, and 401 by the JSON API.
+6. **Cleanup,** after this evidence was pushed: the operator deleted `c5a-probe/` from both buckets, and both jobs.
 
 **Rollback:**
 - **The gate bucket:** `gcloud storage rm -r gs://graffiticode-c5a-gate`. That's also its planned end after the gate.

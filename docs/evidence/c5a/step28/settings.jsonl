@@ -1,0 +1,2 @@
+{"bucket":"graffiticode-c5a-gate","location":"US-CENTRAL1","default_storage_class":"STANDARD","uniform_bucket_level_access":true,"public_access_prevention":"enforced","versioning_enabled":null,"soft_delete":"0","lifecycle":null}
+{"bucket":"graffiticode-command-staging","location":"US-CENTRAL1","default_storage_class":"STANDARD","uniform_bucket_level_access":true,"public_access_prevention":"enforced","versioning_enabled":null,"soft_delete":"604800","lifecycle":{"rule":[{"action":{"type":"Delete"},"condition":{"age":30}}]}}

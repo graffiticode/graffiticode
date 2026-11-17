@@ -1,0 +1,44 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "projectEditor:graffiticode",
+        "projectOwner:graffiticode"
+      ],
+      "role": "roles/storage.legacyBucketOwner"
+    },
+    {
+      "members": [
+        "projectViewer:graffiticode"
+      ],
+      "role": "roles/storage.legacyBucketReader"
+    },
+    {
+      "members": [
+        "projectEditor:graffiticode",
+        "projectOwner:graffiticode"
+      ],
+      "role": "roles/storage.legacyObjectOwner"
+    },
+    {
+      "members": [
+        "projectViewer:graffiticode"
+      ],
+      "role": "roles/storage.legacyObjectReader"
+    },
+    {
+      "members": [
+        "serviceAccount:policy-run@graffiticode.iam.gserviceaccount.com"
+      ],
+      "role": "roles/storage.objectCreator"
+    },
+    {
+      "members": [
+        "serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com",
+        "serviceAccount:policy-run@graffiticode.iam.gserviceaccount.com"
+      ],
+      "role": "roles/storage.objectViewer"
+    }
+  ],
+  "etag": "CAQ="
+}
