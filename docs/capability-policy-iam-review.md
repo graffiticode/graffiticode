@@ -1781,6 +1781,89 @@ L0013's `snap` under a command reserves and stages through Policy and publishes 
      - **Rollback:** `npm run rollback -- l0013r --env production --release rmwl2casf-31e8b9` restores `l0013r-rmwjzlgz6-2882e6`.
    - **Proxy rollback:** run a rolling update back to `egress-proxy-6cfd69d74ba1` (config `56007b0e…`), and verify with `verify-rollout.js --expect 56007b0e…`.
 
+### Step 27: Policy asks the console's item-authority route (C5a) [PROPOSED; held for review]
+
+Policy decides who may capture an item by asking the console's own item store (C5 plan, decision 3): `POST /api/internal/item-authority { itemId }` on the `console` service (graffiticode-app, app#116, live since `console-rmwjw7o6n-d368e9`). Today Policy has no `ITEM_AUTHORITY_URL`, so every item scope is refused `item-authority-unavailable`. This step gives Policy the route.
+
+**Ingress, read first (2026-11-17):**
+- **The console:** ingress `all`, and `allUsers` holds `roles/run.invoker`, so Cloud Run doesn't authenticate its callers. `console.graffiticode.org` is mapped to it and proxied by Cloudflare. Its run.app URL is `https://console-cfdwwd7ega-uc.a.run.app`.
+- **The route authenticates its caller itself.** It accepts only a Google-issued ID token with a verified email in `ITEM_AUTHORITY_CALLERS` (unset, so `policy-run@graffiticode.iam.gserviceaccount.com` only), issued for `ITEM_AUTHORITY_AUDIENCE` (unset, so `https://console.graffiticode.org/api/internal/item-authority`). Anything else gets 403 and nothing about the item. Every answer is `no-store`.
+- **Baseline probes (2026-11-17),** on both the run.app URL and the domain:
+  - `POST` with no token: 403, `no-store`;
+  - `POST` with a malformed token: 403, `no-store`;
+  - `GET`: 405.
+- **The route's query** (a collection group on `items.id`) has its index in `graffiticode-app`'s Firestore: `COLLECTION_GROUP`, ascending, `READY`.
+
+**The change, entirely in Policy's `deploy.json` env** (this PR):
+
+```json
+"ITEM_AUTHORITY_URL": "https://console-cfdwwd7ega-uc.a.run.app/api/internal/item-authority",
+"ITEM_AUTHORITY_AUDIENCE": "https://console.graffiticode.org/api/internal/item-authority"
+```
+
+- **No IAM change.** The console is already publicly invokable, and the route checks Policy's token itself. Granting `policy-run` invoker there would add nothing.
+- **No console change or release.** The audience above is the route's default, and its caller default is `policy-run`.
+- **The run.app URL, not the domain.** Service-to-service calls avoid Cloudflare's proxy: its WAF and bot rules, its timeout, and its caching (§5, open question 4). The token's audience stays the console's own name; the route checks that, not the host it was reached on.
+- **Inert in production until the gate.** Policy asks the route only for an item scope: a v3 admission, reservation, mint or authorization. The production api declares no `scopes`, and `COMMANDS_L0013` is unset, so nothing asks before `api-c5a-gate`. Every 36-check canary path is unchanged.
+
+**Verification plan (each step needs the owner's approval):**
+1. **Positive probe as `policy-run`, before Policy is released.**
+   - A one-off Cloud Run job, `c5a-item-authority-probe`, runs as `policy-run` from the public `node:22` image with an inline script. It takes a metadata-server ID token for the audience above, then calls the run.app URL:
+     - with a known canary item id: expect 200 `{ exists: true, ownerUid: <the canary uid>, isPublic, taskId, lang }`;
+     - with an id no one holds: expect 200 `{ exists: false }`;
+     - with a token for another audience: expect 403.
+   - The job logs only status codes and the answers' fields, never a token. It is deleted after its evidence is saved.
+   - This proves the token reaches the route intact on a public service (§5, open question 3). The other way to prove it is the gate itself.
+   - **Done 2026-11-17 (owner-approved; passed).**
+     - **The job:** `c5a-item-authority-probe`, execution `c5a-item-authority-probe-ppbkf`, at 19:55Z, running [`scripts/c5a/item-authority-probe.js`](../scripts/c5a/item-authority-probe.js) on `node:22.23.3@sha256:363e1587…`. The job was deleted after its evidence was saved.
+     - **The tokens:** both were for `policy-run`, verified, issued by `accounts.google.com`.
+     - **The canary's private L0176 item `3UItj2wroJ80BnHXkpR9`:** 200, `{ exists: true, ownerUid: <the canary uid>, isPublic: false, taskId, lang: "0176" }`.
+     - **An unknown id:** 200 `{ exists: false }`.
+     - **The known item, with a token for the run.app URL's audience:** 403.
+     - Every answer was `Cache-Control: no-store`.
+     - **Evidence:** [`docs/evidence/c5a/step27/probe-result.json`](evidence/c5a/step27/probe-result.json); no tokens are recorded.
+2. **Release Policy** from `main` with the env:
+   - `verify/policy.js` passes;
+   - `release-check policy` is ok;
+   - the serving revision carries both variables;
+   - the full 36-check canary passes, unchanged since nothing asks the route yet;
+   - the rollback target is recorded.
+3. **At the gate** (C5a's completion gate, held), through `api-c5a-gate`:
+   - the owner's capture of their private item is allowed;
+   - another account's capture of it is refused `not-owner`;
+   - a non-owner's capture of a public item is decided as decision 4 says (the public-capture exception, recorded as such);
+   - an unknown id is refused `item-not-found`.
+   - Policy's log shows one route call per decision, and the console's log shows no 403 for `policy-run`.
+
+**Risks:**
+- **Cold starts are unlikely.** The console has a service-level minimum of 1 instance (`run.googleapis.com/minScale: 1`; its releases set no revision-level minimum, and today's kept it). Policy gives up after 5 s (`ITEM_AUTHORITY_TIMEOUT_MS`); a slow answer is a temporary `item-authority-unavailable`, which never allows, and the command resumes later.
+- **Exposure.** The route's public surface is unchanged: it has been live and refusing every caller but `policy-run` since app#116.
+
+**Rollback:** every item scope is then refused `item-authority-unavailable` again, as today. Either way, verify it from the revisions that receive traffic, not from the service: `gcloud run services describe` shows the latest revision's template, which a traffic rollback leaves unchanged.
+1. Read the service's `status.traffic`, and list every revision with a nonzero percent.
+2. Run `gcloud run revisions describe <revision>` for each.
+3. Confirm that none of them carries `ITEM_AUTHORITY_URL` or `ITEM_AUTHORITY_AUDIENCE`, and that the intended rollback revision receives 100%.
+
+```bash
+gcloud run services describe policy --project=graffiticode --region=us-central1 --format=json \
+  | jq -r '.status.traffic[] | select((.percent // 0) > 0) | "\(.revisionName) \(.percent)"' \
+  | while read -r rev pct; do
+      n=$(gcloud run revisions describe "$rev" --project=graffiticode --region=us-central1 --format=json \
+        | jq '[.spec.containers[].env[]? | select(.name == "ITEM_AUTHORITY_URL" or .name == "ITEM_AUTHORITY_AUDIENCE")] | length')
+      echo "$rev ${pct}% item-authority-vars=$n"
+    done
+```
+
+The expected output is one line, the rollback revision at `100%` with `item-authority-vars=0`. Run against today's Policy (2026-11-17), it prints `policy-rmwl04x01-2d9c35 100% item-authority-vars=0`.
+- **Immediately:** `npm run rollback -- policy --env production --release <this release>` moves traffic back to the previous revision (`policy-rmwl04x01-2d9c35` today), which was created without either variable.
+- **Forward**, by a new release. Deleting the variables from `env` isn't enough: the CLI applies `env` with `--update-env-vars`, which keeps any variable it isn't given (`packages/deploy/README.md`, `removeEnv`). Remove both names from Policy's `env` and add them to its `removeEnv`, which the release passes as `--remove-env-vars`:
+
+  ```json
+  "removeEnv": ["ITEM_AUTHORITY_URL", "ITEM_AUTHORITY_AUDIENCE"]
+  ```
+
+  A name can't be in both `env` and `removeEnv`, so this is one `deploy.json` change, released and then verified as above.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
