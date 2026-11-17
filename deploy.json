@@ -875,6 +875,7 @@
           "api.graffiticode.org",
           "app.graffiticode.org",
           "auth.graffiticode.org",
+          "broker-sja7fatcta-uc.a.run.app",
           "l0000.graffiticode.org",
           "l0001.graffiticode.org",
           "l0002.graffiticode.org",
@@ -916,7 +917,9 @@
           "l0184.graffiticode.org",
           "l0185.graffiticode.org",
           "l0186.graffiticode.org",
-          "storage.googleapis.com"
+          "policy-sja7fatcta-uc.a.run.app",
+          "storage.googleapis.com",
+          "www.googleapis.com"
         ]
       },
       "exclude": [],

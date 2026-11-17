@@ -1740,6 +1740,22 @@ The app's form resolver accepts Policy's render grants (C5 plan, decision 7 and 
     - Every answer was `Cache-Control: no-store`.
 - **Rollback:** `gcloud run services remove-iam-policy-binding policy --project graffiticode --region us-central1 --member=serviceAccount:app-run@graffiticode-app.iam.gserviceaccount.com --role=roles/run.invoker`. The resolver then answers 503 again; nothing else changes.
 
+### Step 26: `l0013r` as a Policy and Broker caller (C5a) [PARTLY LIVE: invoker bindings only]
+
+L0013's `snap` under a command reserves and stages through Policy and publishes its thumbnail through Broker, as `l0013r-run` (C5 plan, "IAM changes (C5a)"). It needs three things, each applied only with the owner's approval:
+
+1. **Invoker bindings (applied 2026-11-17, about 17:30Z):** `roles/run.invoker` on the `policy` and `broker` services (graffiticode, us-central1) for `serviceAccount:l0013r-run@graffiticode.iam.gserviceaccount.com`, service-level only.
+   - Verified: `policy` now has 10 invokers and `broker` 5, each including `l0013r-run`. `l0013r-run` has no project-level role in `graffiticode`. The IAM troubleshooter's allow policy grants `run.routes.invoke` on both.
+   - On their own these grant nothing usable: both services refuse a caller that their caller lists don't name, and `l0013r`'s egress proxy doesn't allow either host yet.
+   - Rollback: `gcloud run services remove-iam-policy-binding <policy|broker> --project graffiticode --region us-central1 --member=serviceAccount:l0013r-run@graffiticode.iam.gserviceaccount.com --role=roles/run.invoker`.
+2. **The caller lists (held):** a new version of each, adding `"l0013r-run@graffiticode.iam.gserviceaccount.com": { "role": "compiler", "lang": "0013" }`.
+   - `policy-callers` 6 → 7, and `broker-callers` 2 → 3; nothing else changes.
+   - `deploy.json`'s pins then move to `policy-callers:7` and `broker-callers:3`, and Policy and Broker are released to read them.
+3. **The proxy (held):** `compilers-l0013`'s `network.allow` gains `policy-sja7fatcta-uc.a.run.app` and `broker-sja7fatcta-uc.a.run.app`, plus `www.googleapis.com`.
+   - `l0013r`'s `/preflight` verifies the api's Google ID token (`PREFLIGHT_GATEWAYS`), which fetches `https://www.googleapis.com/oauth2/v3/certs` (`languages/l0000/crates/server/src/gateway.rs`), as `l0176r` and `l0000r` do. The plan's IAM list named only the first two.
+   - Config `56007b0e…` → `8b637609…`, template `egress-proxy-ce42b3628a5a`. Each host's certificate secret already exists.
+   - The rollout follows the README's "Change a compiler's hosts" and is verified with `verify-rollout.js`, before `l0013r` is re-released with the new list.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
