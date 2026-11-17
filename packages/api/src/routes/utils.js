@@ -140,15 +140,17 @@ export const parsePublicationId = value => {
 // accepted, with a selected connection.
 const IDEMPOTENCY_KEY_RE = /^[A-Za-z0-9_:.-]{1,190}$/;
 
-// @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-export const parseIdempotencyKey = (value, { connectionId } = {}) => {
+// `connectionless` (C5, COMMAND_SCOPES=on): a signed-in caller's key may
+// name a command with no connection.
+/** @type {(value: unknown, options?: { connectionId?: string | null, connectionless?: boolean }) => string | null} */
+export const parseIdempotencyKey = (value, { connectionId = null, connectionless = false } = {}) => {
   if (value === undefined || value === null || value === "") {
     return null;
   }
   if (typeof value !== "string" || !IDEMPOTENCY_KEY_RE.test(value)) {
     throw new InvalidArgumentError("idempotency key must be 1-190 characters of [A-Za-z0-9_:.-]");
   }
-  if (!connectionId) {
+  if (!connectionId && !connectionless) {
     throw new InvalidArgumentError("an idempotency key requires a connectionId");
   }
   return value;

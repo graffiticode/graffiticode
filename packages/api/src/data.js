@@ -1,4 +1,5 @@
 import { taskRequiresProtected, artifactRegistryVersion } from "@graffiticode/common/protected-registry";
+import { commandOnlyChain, scopesEnabled } from "./commands/bridge.js";
 import { InvocationRefused } from "./invocations.js";
 import { buildReadArtifact, buildReadPublished } from "./read.js";
 import { ArtifactConflict } from "./storage/artifacts.js";
@@ -327,6 +328,19 @@ const buildGetData = ({
     // the invocation, and are told apart by it in the audit.
     let invocation = null;
     const attemptId = connectionId ? randomUUID() : undefined;
+    // C5: with no connection, a chain may run as a command on an api that
+    // runs v3 commands (COMMAND_SCOPES), signed in or anonymous (the bridge
+    // decides). A command-only chain (commandOnlyChain: L0013's capture once
+    // its commands are on) always asks the bridge, which refuses rather than
+    // let it reach this legacy compile and its direct upload.
+    if (!connectionId && (scopesEnabled() || commandOnlyChain(tasks))) {
+      if (commandBridge) {
+        const bridged = await commandBridge({ tasks, id, auth, authToken, connectionId: null, options, idempotencyKey, client });
+        if (bridged) return bridged;
+      } else if (commandOnlyChain(tasks)) {
+        return { errors: [failedWith("Error: commands are unavailable on this server", "policy-unavailable")] };
+      }
+    }
     if (connectionId) {
       if (!allocateInvocation) {
         return { errors: [failedWith("Error: connections are not available on this server.", "connections-unavailable")] };

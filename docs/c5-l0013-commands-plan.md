@@ -537,6 +537,15 @@ It is **proven live** by a gate that creates the first v3 records. The rollback 
      - outside a command session, snap is unchanged.
    - **Deploy test:** `test:deploy` covers `l0013r`'s pinnable entry and the floor report's rule.
 
+7. **The api, for the gate** (added 2026-11-17, after the release phase: the six slices had no api work, so the gate couldn't run; IAM review Step 29). Behind `COMMAND_SCOPES=on`, which only `api-c5a-gate` sets:
+   - **One capability setting.** The Policy client declares `scopes: 1` on allocation, admission, lease (renewal and takeover) and the due query. Off, every request is byte for byte what it was.
+   - **Connectionless commands.** `POST /command` and the compile bridge accept a chain with no connection when none of its writes needs one: an L0013 capture, or an L0000 head over one. A mixed chain with an L0176 save is refused `connection-required` without its connection.
+   - **Whole-chain eligibility.** Every stage in a language with a write function is preflighted. A chain whose writes are only partly in command-enabled languages is refused `commands-not-enabled`, never split.
+   - **Anonymous public capture through the bridge only.** An anonymous compile allocates with `anonymous: true` and no user token, always under a fresh key. `POST /command` still requires a user.
+   - **No fallback to L0013's direct upload.** Once L0013's commands are on, an L0013 chain that the bridge doesn't run as a command is refused (`legacy-protocol`, `worker-unsupported`, `policy-unavailable`) instead of reaching the legacy compile. One that captures nothing compiles as today.
+   - **The deploy guard.** The production `api` lists `COMMAND_SCOPES` in `removeEnv`. A deploy test requires every api entry to set it or remove it, and `COMMANDS_L0013=on` to come with `COMMAND_SCOPES=on`.
+   - **`scripts/c5a-gate.js`** collects the gate's observations through `api-c5a-gate` and the operator's reads. `scripts/lib/c5a-gate-checks.js` judges them, and is tested offline. Observations no gate-api call can make (the mismatch probes, the narrowed refusal, the pre-slice-6 plan, the conditional pair, the console-route and proxy evidence) are given as evidence files, and the verdict fails closed without them.
+
 ### Release order (C5a)
 
 **Steps 1–6 are released (complete 2026-11-17).** Revisions, canaries and rollback targets: [`docs/evidence/c5a/README.md`](evidence/c5a/README.md). The live gate (step 7) is pending.

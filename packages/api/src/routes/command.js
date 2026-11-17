@@ -2,6 +2,12 @@
 //
 //   POST /command { id, connectionId, idempotencyKey, data?, options? }
 //     -> { commandId, outcome, result, statusUrl }
+//     C5 (COMMAND_SCOPES=on): `connectionId` may be omitted for a chain none
+//     of whose writes needs a connection (an L0013 capture, or an L0000 head
+//     over one); a chain with a write that does is refused
+//     `connection-required`. The whole chain decides eligibility
+//     (bridge.js buildChainEligibility). A signed-in user is always required
+//     here: an anonymous capture runs through the compile bridge only.
 //   GET  /command/:id -> the same, for the command's own user
 //
 // The key is required. A new key allocates a command only when the chain is
@@ -34,7 +40,7 @@ import { classify } from "@graffiticode/common/failures";
 import { PolicyRefused } from "../commands/policy-commands.js";
 import { normalizeLang } from "../admission.js";
 import { legacyOutcome } from "../commands/dispatch.js";
-import { commandsEnabled, runCommand } from "../commands/bridge.js";
+import { commandsEnabled, connectionRequired, eligibilityOf, runCommand, scopesEnabled } from "../commands/bridge.js";
 
 export { commandsEnabled };
 
@@ -83,8 +89,10 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
     const authToken = parseAuthTokenFromRequest(req);
     const body = req.body ?? {};
     const connectionId = parseConnectionId(body.connectionId, { auth });
-    if (!connectionId) throw new InvalidArgumentError("a command needs a connection");
-    const idempotencyKey = parseIdempotencyKey(req.get("Idempotency-Key") ?? body.idempotencyKey, { connectionId });
+    // C5: only an api that runs v3 commands takes one with no connection.
+    const scopes = scopesEnabled(env);
+    if (!connectionId && !scopes) throw new InvalidArgumentError("a command needs a connection");
+    const idempotencyKey = parseIdempotencyKey(req.get("Idempotency-Key") ?? body.idempotencyKey, { connectionId, connectionless: scopes });
     if (!idempotencyKey) throw new InvalidArgumentError("a command needs an idempotency key");
     if (typeof body.id !== "string" || !body.id) throw new InvalidArgumentError("a command needs the id of the task chain it runs");
     const { id } = await withData({ auth, id: body.id, data: body.data, req });
@@ -94,7 +102,13 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
     // A new key needs an eligible chain. A key either protocol already holds
     // is served whatever the flags say now (D2a): otherwise Policy only answers
     // which protocol holds the key, and creates nothing.
-    const create = Boolean(await isEligible(tasks));
+    // C5: the whole chain's verdict, when the rule gives one: a chain whose
+    // writes aren't all allowed, or that needs a connection it wasn't given,
+    // is refused before anything is allocated.
+    const verdict = eligibilityOf(await isEligible(tasks));
+    if (verdict?.refusal) return refused(res, STATUS_OF[classify(verdict.refusal).category] ?? 403, verdict.refusal);
+    if (!connectionId && connectionRequired(verdict)) return refused(res, STATUS_OF[classify("connection-required").category] ?? 400, "connection-required");
+    const create = Boolean(verdict);
     let outcome;
     try {
       outcome = await runCommand({

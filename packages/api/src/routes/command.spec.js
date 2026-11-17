@@ -6,6 +6,7 @@ import express from "express";
 import request from "supertest";
 import { buildCommandRouter } from "./command.js";
 import { PolicyRefused } from "../commands/policy-commands.js";
+import { buildChainEligibility } from "../commands/bridge.js";
 
 const UID = "0xuser";
 const TASKS = [{ lang: "0176", code: { root: "save" } }];
@@ -132,5 +133,52 @@ describe("GET /command/:id", () => {
   it("answers 404 for another user's or an unknown command", async () => {
     const res = await request(build({})).get("/command/c%3A9").set({ authorization: "Bearer t" });
     expect(res.status).toBe(404);
+  });
+});
+
+// C5 (COMMAND_SCOPES=on): a command may name no connection when none of its
+// writes needs one; the whole chain decides; a signed-in user is still
+// required (an anonymous capture runs through the compile bridge only).
+describe("POST /command with COMMAND_SCOPES", () => {
+  const ENV = { COMMANDS_L0013: "on", COMMANDS_L0176: "on", COMMAND_SCOPES: "on" };
+  const REQUIRED = { snap: ["snap"], save: ["init", "save-to-itembank"], data: [] };
+  const chainOf = roots => roots.map(root => ({ lang: root === "snap" ? "0013" : root === "save" ? "0176" : "0000", code: { root } }));
+  /** @type {(tasks: object[], env?: Record<string, string>) => any} */
+  const app = (tasks, env = ENV) => {
+    const a = express();
+    a.use(express.json());
+    a.use((/** @type {any} */ req, _res, next) => { req.auth = req.get("authorization") ? { context: { uid: UID } } : { context: null }; next(); });
+    const eligible = buildChainEligibility({ preflight: async ({ code }) => ({ manifest: { requiredFunctions: REQUIRED[code.root] } }), baseUrlFor: async lang => `https://${lang}`, env });
+    a.use("/command", buildCommandRouter({ taskStorer: { get: async () => tasks, create: async () => "task-data" }, policy, run: async args => { runs.push(args); return { commandId: args.commandId, status: "pending" }; }, worker: "w1", env, eligible }));
+    return a;
+  };
+  const CONNECTIONLESS = { id: "task-chain", idempotencyKey: "snap:1" };
+
+  it("allocates an L0000 head over an L0013 capture with no connection", async () => {
+    const res = await post(app(chainOf(["data", "snap"])), CONNECTIONLESS);
+    expect(res.status).toBe(200);
+    expect(calls[0][1]).toMatchObject({ connectionId: null, idempotencyKey: "snap:1", lang: "0000", create: true });
+    expect(JSON.parse(calls[0][1].request)).toEqual({ id: "task-chain", connectionId: null, options: {} });
+  });
+
+  it("refuses a mixed chain that needs a connection, allocating nothing", async () => {
+    const res = await post(app(chainOf(["snap", "save"])), CONNECTIONLESS);
+    expect([res.status, res.body.error.reason]).toEqual([400, "connection-required"]);
+    expect(calls).toEqual([]);
+    // With its connection, it runs.
+    expect((await post(app(chainOf(["snap", "save"])), { ...CONNECTIONLESS, connectionId: "conn-1" })).status).toBe(200);
+  });
+
+  it("refuses a chain whose writes are only partly allowed", async () => {
+    const res = await post(app(chainOf(["snap", "save"]), { COMMANDS_L0013: "on", COMMAND_SCOPES: "on" }), { ...CONNECTIONLESS, connectionId: "conn-1" });
+    expect([res.status, res.body.error.reason]).toEqual([403, "commands-not-enabled"]);
+    expect(calls).toEqual([]);
+  });
+
+  it("still requires a signed-in user and a key, and a connection without COMMAND_SCOPES", async () => {
+    expect((await post(app(chainOf(["snap"])), CONNECTIONLESS, {})).status).toBe(401);
+    expect((await post(app(chainOf(["snap"])), { id: "task-chain" })).status).toBe(400);
+    expect((await post(app(chainOf(["snap"]), { COMMANDS_L0013: "on" }), CONNECTIONLESS)).status).toBe(400);
+    expect(calls).toEqual([]);
   });
 });

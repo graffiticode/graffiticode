@@ -13,6 +13,7 @@ import {
   setNoStoreCacheHeaders
 } from "./utils.js";
 import { isNonNullObject } from "../util.js";
+import { scopesEnabled } from "../commands/bridge.js";
 import { InvalidArgumentError } from "../errors/http.js";
 import { countSigningStages, isSigningLang } from "../signing-limit.js";
 import { checkGeneration, getActiveGeneration, parseGenerationParam } from "../generation.js";
@@ -50,7 +51,9 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLi
     const authToken = parseAuthTokenFromRequest(req);
     const items = getItemsFromRequest(req);
     const connectionId = parseConnectionId(req.body?.connectionId, { auth });
-    const idempotencyKey = parseIdempotencyKey(req.get("Idempotency-Key") ?? req.body?.idempotencyKey, { connectionId });
+    // C5: with COMMAND_SCOPES, a signed-in caller's key may name a command
+    // with no connection (the bridge runs it).
+    const idempotencyKey = parseIdempotencyKey(req.get("Idempotency-Key") ?? req.body?.idempotencyKey, { connectionId, connectionless: Boolean(auth?.uid) && scopesEnabled() });
     // The per-client signing limit: with no connection, every L0176 stage of
     // every item signs under the system preview session. Charged for the
     // whole request before any task is written or any stage dispatched.
