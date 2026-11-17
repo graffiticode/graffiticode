@@ -1922,7 +1922,7 @@ JSON
 gcloud storage buckets create gs://graffiticode-command-staging --project=graffiticode \
   --location=us-central1 --default-storage-class=STANDARD \
   --uniform-bucket-level-access --public-access-prevention \
-  --soft-delete-duration=0 --lifecycle-file=/tmp/staging-lifecycle.json
+  --soft-delete-duration=7d --lifecycle-file=/tmp/staging-lifecycle.json
 gcloud storage buckets add-iam-policy-binding gs://graffiticode-command-staging \
   --member=serviceAccount:policy-run@graffiticode.iam.gserviceaccount.com \
   --role=roles/storage.objectCreator
@@ -1934,9 +1934,12 @@ gcloud storage buckets add-iam-policy-binding gs://graffiticode-command-staging 
   --role=roles/storage.objectViewer
 ```
 
-- **Location and access** are as for the gate bucket: `us-central1`, uniform, public access prevention enforced, no versioning.
+- **Location and access** are as for the gate bucket: `us-central1`, uniform, public access prevention enforced, no versioning. Unlike the gate bucket, it keeps soft delete (below).
 - **Lifecycle:** objects are deleted at 30 days of age. That bounds how long a pending command can wait to publish: a capture staged more than 30 days before Broker reads it finds nothing, and Broker refuses it rather than publishing anything else. Recovery (the sweeper, C5d) runs well within that.
-- **No soft delete,** so the lifecycle's deletion is final. No account can delete a staged object, so soft delete would only keep expired bytes for 7 more days. Turning it off is a choice for review: the default (7 days) would also work, at a small storage cost.
+- **Seven-day soft delete** ([Google's soft delete](https://docs.cloud.google.com/storage/docs/soft-delete)): a deleted object can be restored for 7 days.
+  - Neither runtime identity can delete a staged object: Policy has `objectCreator` and `objectViewer`, and Broker has `objectViewer`.
+  - People and accounts with broader roles can delete one: the project owners and `storage@graffiticode` (`roles/storage.admin`). Soft delete gives a recovery window for an accidental deletion.
+  - Objects the lifecycle rule deletes are also kept for 7 more days, at a small storage cost.
 - **`policy-run`** gets `objectCreator` and `objectViewer`:
   - it can create a name once and read it back;
   - it can't replace or delete it, so staged bytes are immutable to Policy.
@@ -1964,7 +1967,9 @@ These are the defaults every new bucket gets, unchanged here:
    done
    ```
 
-   **Expect:** `US-CENTRAL1`, `STANDARD`, `uniform_bucket_level_access: true`, `public_access_prevention: "enforced"`, versioning off or null, soft delete `"0"`. The lifecycle is `null` for the gate bucket and `[Delete, age 30]` for staging.
+   **Expect:** `US-CENTRAL1`, `STANDARD`, `uniform_bucket_level_access: true`, `public_access_prevention: "enforced"`, versioning off or null.
+   - **Gate:** soft delete `"0"`, and lifecycle `null`.
+   - **Staging:** soft delete `"604800"` (7 days), and lifecycle `[Delete, age 30]`.
 
 2. **IAM**, read only:
 
