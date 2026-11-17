@@ -1828,7 +1828,7 @@ Policy decides who may capture an item by asking the console's own item store (C
    - Policy's log shows one route call per decision, and the console's log shows no 403 for `policy-run`.
 
 **Risks:**
-- **Cold starts.** The console has no minimum instances, and Policy gives up after 5 s (`ITEM_AUTHORITY_TIMEOUT_MS`). A cold start can surface as a temporary `item-authority-unavailable`, which never allows, and the command resumes later. If the gate shows it, the fix is the console's `--min-instances=1` (a separate change).
+- **Cold starts are unlikely.** The console has a service-level minimum of 1 instance (`run.googleapis.com/minScale: 1`; its releases set no revision-level minimum, and today's kept it). Policy gives up after 5 s (`ITEM_AUTHORITY_TIMEOUT_MS`); a slow answer is a temporary `item-authority-unavailable`, which never allows, and the command resumes later.
 - **Exposure.** The route's public surface is unchanged: it has been live and refusing every caller but `policy-run` since app#116.
 
 **Rollback:** release Policy without the two variables. Every item scope is then refused `item-authority-unavailable` again, as today.
