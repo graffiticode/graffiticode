@@ -1831,7 +1831,15 @@ Policy decides who may capture an item by asking the console's own item store (C
 - **Cold starts are unlikely.** The console has a service-level minimum of 1 instance (`run.googleapis.com/minScale: 1`; its releases set no revision-level minimum, and today's kept it). Policy gives up after 5 s (`ITEM_AUTHORITY_TIMEOUT_MS`); a slow answer is a temporary `item-authority-unavailable`, which never allows, and the command resumes later.
 - **Exposure.** The route's public surface is unchanged: it has been live and refusing every caller but `policy-run` since app#116.
 
-**Rollback:** release Policy without the two variables. Every item scope is then refused `item-authority-unavailable` again, as today.
+**Rollback:** every item scope is then refused `item-authority-unavailable` again, as today. Either way, check the serving revision afterwards: `gcloud run services describe policy --project graffiticode --region us-central1 --format=json` must show neither `ITEM_AUTHORITY_URL` nor `ITEM_AUTHORITY_AUDIENCE` on the container.
+- **Immediately:** `npm run rollback -- policy --env production --release <this release>` moves traffic back to the previous revision (`policy-rmwl04x01-2d9c35` today), which was created without either variable.
+- **Forward**, by a new release. Deleting the variables from `env` isn't enough: the CLI applies `env` with `--update-env-vars`, which keeps any variable it isn't given (`packages/deploy/README.md`, `removeEnv`). Remove both names from Policy's `env` and add them to its `removeEnv`, which the release passes as `--remove-env-vars`:
+
+  ```json
+  "removeEnv": ["ITEM_AUTHORITY_URL", "ITEM_AUTHORITY_AUDIENCE"]
+  ```
+
+  A name can't be in both `env` and `removeEnv`, so this is one `deploy.json` change, released and then verified as above.
 
 ## 4. Verification (read-only)
 
