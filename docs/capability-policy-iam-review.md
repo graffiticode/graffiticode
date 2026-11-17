@@ -1814,6 +1814,14 @@ Policy decides who may capture an item by asking the console's own item store (C
      - with a token for another audience: expect 403.
    - The job logs only status codes and the answers' fields, never a token. It is deleted after its evidence is saved.
    - This proves the token reaches the route intact on a public service (§5, open question 3). The other way to prove it is the gate itself.
+   - **Done 2026-11-17 (owner-approved; passed).**
+     - **The job:** `c5a-item-authority-probe`, execution `c5a-item-authority-probe-ppbkf`, at 19:55Z, running [`scripts/c5a/item-authority-probe.js`](../scripts/c5a/item-authority-probe.js) on `node:22.23.3@sha256:363e1587…`. The job was deleted after its evidence was saved.
+     - **The tokens:** both were for `policy-run`, verified, issued by `accounts.google.com`.
+     - **The canary's private L0176 item `3UItj2wroJ80BnHXkpR9`:** 200, `{ exists: true, ownerUid: <the canary uid>, isPublic: false, taskId, lang: "0176" }`.
+     - **An unknown id:** 200 `{ exists: false }`.
+     - **The known item, with a token for the run.app URL's audience:** 403.
+     - Every answer was `Cache-Control: no-store`.
+     - **Evidence:** [`docs/evidence/c5a/step27/probe-result.json`](evidence/c5a/step27/probe-result.json); no tokens are recorded.
 2. **Release Policy** from `main` with the env:
    - `verify/policy.js` passes;
    - `release-check policy` is ok;

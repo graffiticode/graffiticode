@@ -1,0 +1,54 @@
+{
+  "at": "2026-11-17T19:55:36.643Z",
+  "execution": "c5a-item-authority-probe-ppbkf",
+  "url": "https://console-cfdwwd7ega-uc.a.run.app/api/internal/item-authority",
+  "audience": "https://console.graffiticode.org/api/internal/item-authority",
+  "caller": {
+    "email": "policy-run@graffiticode.iam.gserviceaccount.com",
+    "emailVerified": true,
+    "aud": "https://console.graffiticode.org/api/internal/item-authority",
+    "iss": "https://accounts.google.com"
+  },
+  "wrongCaller": {
+    "email": "policy-run@graffiticode.iam.gserviceaccount.com",
+    "emailVerified": true,
+    "aud": "https://console-cfdwwd7ega-uc.a.run.app/api/internal/item-authority",
+    "iss": "https://accounts.google.com"
+  },
+  "known": {
+    "itemId": "3UItj2wroJ80BnHXkpR9",
+    "status": 200,
+    "cacheControl": "no-store",
+    "answer": {
+      "exists": true,
+      "ownerUid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+      "isPublic": false,
+      "taskId": "eyJ0YXNrSWRzIjpbIjB3R290UzhiSXBiSUlZTEFHOHRLIl19",
+      "lang": "0176"
+    }
+  },
+  "unknown": {
+    "itemId": "c5a-probe-unknown-mwl43xl7",
+    "status": 200,
+    "cacheControl": "no-store",
+    "answer": {
+      "exists": false
+    }
+  },
+  "wrongAudience": {
+    "itemId": "3UItj2wroJ80BnHXkpR9",
+    "audience": "https://console-cfdwwd7ega-uc.a.run.app/api/internal/item-authority",
+    "status": 403,
+    "cacheControl": "no-store",
+    "answer": {
+      "error": "Forbidden"
+    }
+  },
+  "checks": {
+    "known": true,
+    "unknown": true,
+    "wrongAudience": true,
+    "noStore": true
+  },
+  "passed": true
+}
