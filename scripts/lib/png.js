@@ -3,14 +3,18 @@
 // this reads (anything else throws). Pure functions over Buffers.
 //
 //   decodePng(buffer) -> { width, height, rgba: Uint8Array }
-//   imageLooks(image) -> { width, height, reddish, blue }
+//   imageLooks(image) -> { width, height, reddish, blue, transparent }
 //     reddish: the share of pixels whose red exceeds both other channels by 8
 //       or more (the View's error banner is Tailwind's red-50 on red-200: an
 //       error render is ~83% reddish, a sheet 0%).
 //     blue: the count of pixels whose blue exceeds red by 60 or more (a
 //       rendered L0179 sheet's focused-cell outline).
+//     transparent: the share of pixels whose alpha isn't 255. The camera's
+//       screenshots are opaque RGB, so any transparency is unexpected: RGB
+//       values under a zero alpha would show nothing at all.
 //   compareImages(a, b) -> { sameSize, identical, meanDiff }
-//     meanDiff: the mean absolute difference per channel (0-255) over RGB.
+//     meanDiff: the mean absolute difference per channel (0-255) over RGBA,
+//       so an image that differs only in alpha is neither identical nor close.
 import { inflateSync } from "node:zlib";
 
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -71,12 +75,14 @@ export const decodePng = buffer => {
 export const imageLooks = ({ width, height, rgba }) => {
   let reddish = 0;
   let blue = 0;
+  let transparent = 0;
   for (let i = 0; i < rgba.length; i += 4) {
     const [r, g, b] = [rgba[i], rgba[i + 1], rgba[i + 2]];
     if (r - Math.max(g, b) >= 8) reddish++;
     if (b - r >= 60) blue++;
+    if (rgba[i + 3] !== 255) transparent++;
   }
-  return { width, height, reddish: reddish / (width * height), blue };
+  return { width, height, reddish: reddish / (width * height), blue, transparent: transparent / (width * height) };
 };
 
 export const compareImages = (a, b) => {
@@ -84,11 +90,11 @@ export const compareImages = (a, b) => {
   let total = 0;
   let identical = true;
   for (let i = 0; i < a.rgba.length; i += 4) {
-    for (let k = 0; k < 3; k++) {
+    for (let k = 0; k < 4; k++) {
       const d = Math.abs(a.rgba[i + k] - b.rgba[i + k]);
       if (d) identical = false;
       total += d;
     }
   }
-  return { sameSize: true, identical, meanDiff: total / (a.width * a.height * 3) };
+  return { sameSize: true, identical, meanDiff: total / (a.width * a.height * 4) };
 };

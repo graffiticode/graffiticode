@@ -14,7 +14,11 @@
 //              non-owner's (C5A_NON_OWNER_TOKEN), the L0000-over-L0013
 //              composition, the mixed chain through the canary's connection,
 //              and anonymous captures of the public item until one is
-//              rate-limited. Each command's record, reservations and plan are
+//              rate-limited. Every anonymous command's id is saved as it is
+//              allocated, and the burst's commands are retired as the due
+//              phase's fixtures are (the one past the quota stays pending
+//              otherwise; finished ones are left as they are), however the
+//              burst ends. Each command's record, reservations and plan are
 //              read from Policy's database with the operator's credentials, and
 //              the published object from the gate bucket.
 //   due        Policy's due query as the gateway: two pending v3 fixtures
@@ -29,9 +33,10 @@
 //              then retired without running (c5a-gate-fixtures.js: a fenced
 //              takeover and an empty finish, recorded `failed`) and checked
 //              no longer due, even when the phase fails part-way.
-//   cleanup    the same retirement and check, alone: rerun after an
-//              interrupted due phase or cleanup. The gate isn't retired until
-//              it reports every fixture finished and none due.
+//   cleanup    the same retirement and check, alone, over the fixtures and
+//              the quota commands: rerun after an interrupted captures, due
+//              or cleanup phase. The gate isn't retired until it reports
+//              every one finished and none due.
 //   after      read-only: the same digests again, and graffiticode-thumbnails'
 //              object count.
 //   judge      the verdict over the state and every --evidence file, written
@@ -293,6 +298,48 @@ const recordImages = async () => {
   };
 };
 
+// Policy's gateway command routes, as the gateway (canary-window-c5a covers
+// api-run), for retiring the commands a run leaves pending: the captures
+// phase's quota commands, and the due phase's fixtures.
+const gatewayClient = () => {
+  const headers = async (user = null) => ({
+    "X-Serverless-Authorization": `Bearer ${await idToken(gatewayAccount, policyUrl)}`,
+    "X-Caller-Identity": await idToken(gatewayAccount, "urn:graffiticode:policy"),
+    ...(user ? { Authorization: `Bearer ${user}` } : {}),
+  });
+  const call = async (method, route, { body, user = null } = {}) => {
+    const res = await http({ method, url: `${policyUrl}${route}`, headers: await headers(user), body });
+    if (res.status !== 200 || res.json?.status !== "success") {
+      throw Object.assign(new Error(`policy ${method} ${route}: ${res.status} ${res.json?.error?.reason ?? ""}`), { reason: res.json?.error?.reason ?? null });
+    }
+    return res.json.data;
+  };
+  const at = id => `/v1/commands/${encodeURIComponent(id)}`;
+  return {
+    allocate: async body => call("POST", "/v1/commands", { body, user: await canary() }),
+    get: id => call("GET", at(id)),
+    lease: (id, body) => call("POST", `${at(id)}/lease`, { body }),
+    finish: (id, generation) => call("POST", `${at(id)}/finish`, { body: { generation, result: null } }),
+    due: ({ scopes }) => call("GET", `/v1/commands-due?limit=50&recording=1&repairs=1${scopes ? "&scopes=1" : ""}`),
+  };
+};
+const fixtureWorker = () => `c5a-gate-fixture:${state.runId}`;
+// Every command this run may leave executable: the due phase's fixtures and
+// every anonymous command of the quota burst (the one past the quota is
+// refused its reservation and stays pending). Each id is saved the moment it
+// is known. retireFixtures() leaves a finished command as it is, so the
+// burst's completed captures keep their results.
+const retirable = () => [...Object.values(state.fixtures ?? {}), ...(state.quotaCommands ?? [])];
+const retireAll = async client => {
+  const ids = retirable();
+  if (!ids.length) return;
+  await collect("fixtureCleanup", async () => {
+    await retireFixtures({ client, ids, worker: fixtureWorker() });
+    return verifyRetired({ client, ids });
+  });
+  await save();
+};
+
 // ------------------------------------------------------------------ phases
 
 const need = name => {
@@ -392,7 +439,21 @@ if (phase === "captures") {
   // evidence is Policy's own reservation audit for the item.
   const burstFrom = new Date().toISOString();
   const anonymous = [];
-  for (let i = 0; i < burst; i++) anonymous.push(await anonymousCompile(need("--public-task")));
+  state.quotaCommands ??= [];
+  try {
+    for (let i = 0; i < burst; i++) {
+      const a = await anonymousCompile(need("--public-task"));
+      anonymous.push(a);
+      // Saved before the next capture: an interrupted run's cleanup finds it.
+      if (a.commandId && !state.quotaCommands.includes(a.commandId)) {
+        state.quotaCommands.push(a.commandId);
+        await save();
+      }
+    }
+  } finally {
+    // The command past the quota is never left executable.
+    await retireAll(gatewayClient());
+  }
   const anonymousIds = anonymous.map(a => a.commandId).filter(Boolean);
   const firstAnonymous = anonymous.find(a => a.commandId);
   const firstAnonymousRec = firstAnonymous ? await commandRecord(firstAnonymous.commandId) : { record: null, reservations: [] };
@@ -410,6 +471,7 @@ if (phase === "captures") {
       subject: rec.record?.uid ?? null,
       publicCapture: rec.reservations[0]?.publicCapture ?? null,
       rateLimit: { ...rateLimitFromAudit(entries), attempted: anonymous.length },
+      commandIds: anonymousIds,
       auditPoll: poll,
     };
   });
@@ -418,41 +480,6 @@ if (phase === "captures") {
   await collect("images", recordImages);
   await save();
 }
-
-// Policy's gateway command routes, as the gateway (canary-window-c5a covers
-// api-run), for the due and cleanup phases.
-const gatewayClient = () => {
-  const headers = async (user = null) => ({
-    "X-Serverless-Authorization": `Bearer ${await idToken(gatewayAccount, policyUrl)}`,
-    "X-Caller-Identity": await idToken(gatewayAccount, "urn:graffiticode:policy"),
-    ...(user ? { Authorization: `Bearer ${user}` } : {}),
-  });
-  const call = async (method, route, { body, user = null } = {}) => {
-    const res = await http({ method, url: `${policyUrl}${route}`, headers: await headers(user), body });
-    if (res.status !== 200 || res.json?.status !== "success") {
-      throw Object.assign(new Error(`policy ${method} ${route}: ${res.status} ${res.json?.error?.reason ?? ""}`), { reason: res.json?.error?.reason ?? null });
-    }
-    return res.json.data;
-  };
-  const at = id => `/v1/commands/${encodeURIComponent(id)}`;
-  return {
-    allocate: async body => call("POST", "/v1/commands", { body, user: await canary() }),
-    get: id => call("GET", at(id)),
-    lease: (id, body) => call("POST", `${at(id)}/lease`, { body }),
-    finish: (id, generation) => call("POST", `${at(id)}/finish`, { body: { generation, result: null } }),
-    due: ({ scopes }) => call("GET", `/v1/commands-due?limit=50&recording=1&repairs=1${scopes ? "&scopes=1" : ""}`),
-  };
-};
-const fixtureWorker = () => `c5a-gate-fixture:${state.runId}`;
-const retireAll = async client => {
-  const ids = Object.values(state.fixtures ?? {});
-  if (!ids.length) return;
-  await collect("fixtureCleanup", async () => {
-    await retireFixtures({ client, ids, worker: fixtureWorker() });
-    return verifyRetired({ client, ids });
-  });
-  await save();
-};
 
 if (phase === "due") {
   if (!state.capturesStartedAt) throw new Error("run --phase captures first");
@@ -505,7 +532,7 @@ if (phase === "due") {
 }
 
 if (phase === "cleanup") {
-  if (!state.fixtures || !Object.keys(state.fixtures).length) throw new Error("no fixtures recorded in this state");
+  if (!retirable().length) throw new Error("no fixtures or quota commands recorded in this state");
   await retireAll(gatewayClient());
 }
 

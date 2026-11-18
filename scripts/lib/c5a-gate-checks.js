@@ -18,7 +18,7 @@
 //   privateOwner   { outcome, reservedSequence, published: { bucket, captureSequence } }
 //   privateNonOwner { outcome, reason }
 //   narrowed       { reason }                           live: authorize-execution after access narrowed
-//   publicAnonymous { outcome, subject, publicCapture, rateLimit: { allowed, refused, attempted } }
+//   publicAnonymous { outcome, subject, publicCapture, rateLimit: { allowed, refused, attempted }, commandIds }
 //                    rateLimit from Policy's command-reserve audit for the item (rateLimitFromAudit)
 //   mixed          { invocations, tokens: [{ fn, scopeKinds }] }
 //   composition    { outcome, connectionId, contractVersion, itemScopeAuthorized }
@@ -26,7 +26,8 @@
 //   reserveStageBind { order, repeatReserveSame, repeatStageSame, publishedSequence, reservedSequence, outOfOrderFinal, outOfOrderNewer }   live
 //   elsewhere      { appspotBefore, appspotAfter, thumbnailsObjects }
 //   oldWorkers     dueObservation(): { v3Fixtures, control, productionListedV3, scopedListedV3, controlListedToProduction, controlListedToScoped, productionLease }
-//   fixtureCleanup c5a-gate-fixtures.js verifyRetired(): { fixtures, statuses, listedAfter }
+//   fixtureCleanup c5a-gate-fixtures.js verifyRetired(): { fixtures, statuses, listedAfter },
+//                  over the due phase's fixtures and the quota burst's commands
 //   deployed       { policy, broker, ... }               each service's serving commit
 //   hermetic       { <row>: { service, commit, test, output, passed, result, uninducible?, fixture?, results? } }
 //                  mismatches (results: [{ direction, reason }]) and preSlice6 (fixture, result.reason)
@@ -157,6 +158,7 @@ export const imageObservation = ({ scenario, expectedCommandIds, object, looks, 
   height: looks.height,
   reddish: looks.reddish,
   blue: looks.blue,
+  transparent: looks.transparent ?? null,
   reference,
   sameSize: comparison?.sameSize ?? false,
   identical: comparison?.identical ?? false,
@@ -269,6 +271,7 @@ export const CHECKS = [
       if (!c) return `${scenario}: no published image observed`;
       if (!Array.isArray(c.expectedCommandIds) || !c.expectedCommandIds.includes(c.commandId)) return `${scenario}: the object is ${c.commandId}'s capture, not this scenario's`;
       if (c.reference !== kind) return `${scenario}: compared with the ${c.reference} reference, not ${kind}`;
+      if (c.transparent !== 0) return `${scenario}: unexpected transparency (${c.transparent === null || c.transparent === undefined ? "not observed" : `${(c.transparent * 100).toFixed(1)}% of pixels`}); the camera's screenshots are opaque`;
       if (!(c.reddish < MAX_REDDISH)) return `${scenario}: an error render (${(c.reddish * 100).toFixed(1)}% reddish)`;
       if (c.sameSize !== true || !(c.meanDiff <= MAX_MEAN_DIFF)) return `${scenario}: differs from the ${kind} reference (${c.width}×${c.height}, mean difference ${c.meanDiff})`;
     }
@@ -373,12 +376,16 @@ export const CHECKS = [
     if (w.productionLease !== "worker-unsupported") return `production's lease of a v3 fixture: ${w.productionLease ?? "not observed"}`;
     return true;
   }],
-  ["fixtures-retired", "the due phase's never-run fixtures are retired: none pending, none listed by any due query", o => {
+  ["fixtures-retired", "nothing the run allocated is left executable: the due phase's fixtures and the quota burst's commands are finished, none listed by any due query", o => {
     const w = o.oldWorkers;
     const c = o.fixtureCleanup;
     if (!c || !Array.isArray(c.fixtures)) return "the fixtures' retirement wasn't observed";
-    const expected = [...(w?.v3Fixtures ?? []), ...(w?.control ? [w.control] : [])];
-    if (!expected.length) return "no fixture ids observed";
+    const fixtures = [...(w?.v3Fixtures ?? []), ...(w?.control ? [w.control] : [])];
+    if (!fixtures.length) return "no fixture ids observed";
+    // The burst's commands, the one past the quota among them.
+    const quota = o.publicAnonymous?.commandIds;
+    if (!Array.isArray(quota) || !quota.length) return "the quota burst's command ids weren't observed";
+    const expected = [...fixtures, ...quota];
     const unchecked = expected.filter(id => !c.fixtures.includes(id));
     if (unchecked.length) return `not checked: ${JSON.stringify(unchecked)}`;
     const pending = expected.filter(id => !c.statuses?.[id] || c.statuses[id] === "pending");
