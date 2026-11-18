@@ -1,0 +1,1 @@
+{"status":"success","data":{"data":{"title":"","instructions":"","validation":{"points":0,"regions":{"*":{"primaryColumn":null,"order":"expected","rows":[{"id":1,"A":{"text":"C5a gate fixture: public (r381d64)"}}]}},"cells":{}},"interaction":{"type":"table","cells":{"A1":{"text":"C5a gate fixture: public (r381d64)"}}}},"errors":[]}}

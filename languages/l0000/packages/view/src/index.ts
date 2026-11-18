@@ -13,3 +13,4 @@ export type {
   FormModel,
 } from "./view";
 export { Form } from "./components/form";
+export { CAPTURE_CONTEXT_GLOBAL, isDisplayOnlyCapture } from "./lib/capture";

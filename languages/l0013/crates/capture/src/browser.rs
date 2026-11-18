@@ -19,6 +19,13 @@ use tokio::task::JoinHandle;
 use crate::CameraError;
 use crate::egress::{QUIET_DISABLED_FEATURES, QUIET_SWITCHES, build_nss_db, chrome_egress};
 
+/// The display-only capture context (C5): run in every document before its own scripts, so
+/// the shared View (`@graffiticode/l0000-view`, `src/lib/capture.ts`) renders what it loads
+/// and never recompiles. A recompile is a `POST /compile`, which a render grant never allows;
+/// its refusal was what the camera photographed. Not writable or reconfigurable by the page.
+pub const CAPTURE_CONTEXT_SCRIPT: &str = "Object.defineProperty(window, \"__graffiticodeCapture\", \
+     { value: Object.freeze({ displayOnly: true }), writable: false, configurable: false, enumerable: false });";
+
 /// A rectangle in the page's own (CSS) pixels.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CssRect {
@@ -71,7 +78,14 @@ impl Session {
         let (browser, mut handler) = Browser::launch(config.build()?).await?;
         let events = tokio::spawn(async move { while handler.next().await.is_some() {} });
         let page = browser.new_page("about:blank").await?;
-        Ok(Self { browser, events, interceptor: None, page, _profile: profile, _home: home })
+        let session = Self { browser, events, interceptor: None, page, _profile: profile, _home: home };
+        // Every capture, a command's or a direct snap's, is display-only; set before the first
+        // navigation, so it is in place before any of the form's scripts run.
+        if let Err(e) = session.page.evaluate_on_new_document(CAPTURE_CONTEXT_SCRIPT).await {
+            session.close().await;
+            return Err(e.into());
+        }
+        Ok(session)
     }
 
     /// Adds `name: value` to every GET request the page makes to `origin` (scheme, host and

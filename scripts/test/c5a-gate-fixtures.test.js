@@ -94,6 +94,36 @@ test("fixtures are retired without running, and no worker can list or take them 
   assert.deepEqual(await retireFixtures({ client: h.client, ids, worker: WORKER, now: h.now, sleep: h.sleep }), statuses);
 });
 
+test("the quota burst's command past the quota is retired with the fixtures, and is never due afterwards", async () => {
+  // The #418 review's reproducer: an anonymous v3 capture the quota refused
+  // its reservation, left pending, due to a scopes worker and takeable.
+  const h = harness();
+  const state = {};
+  const fixtures = await ensureFixtures({ client: h.client, state, save: async () => {}, specs: SPECS });
+  const past = await h.policy.allocateCommand({ caller: GATEWAY, user: null, anonymous: true, connectionId: null, scopes: 1, taskId: encodeChainId(["t-public"]), inputDigest: hex("a"), idempotencyKey: "c5a-gate:run:anon-13", lang: "0013", request: "{}", worker: "api", create: true });
+  state.quotaCommands = [past.commandId];
+  h.clock += COMMAND_LEASE_MS + 1;
+  assert.ok((await h.client.due({ scopes: true })).commands.some(c => c.commandId === past.commandId));
+  // The runner's cleanup ids: the fixtures and the quota commands.
+  const ids = [...Object.values(fixtures), ...state.quotaCommands];
+  const statuses = await retireFixtures({ client: h.client, ids, worker: WORKER, now: h.now, sleep: h.sleep });
+  assert.equal(statuses[past.commandId], "failed");
+  const retired = await verifyRetired({ client: h.client, ids });
+  assert.deepEqual(retired.listedAfter, []);
+  h.clock += COMMAND_LEASE_MS + 1;
+  assert.ok(!(await h.client.due({ scopes: true })).commands.some(c => c.commandId === past.commandId));
+  const c = await h.client.get(past.commandId);
+  assert.equal(c.publication.state, "none");
+  await assert.rejects(h.client.lease(past.commandId, { worker: "later-scopes-worker", generation: c.generation, takeOver: true, recording: 1, repairs: 1, scopes: 1 }));
+  // The verdict needs the quota command among those retired: a cleanup over
+  // the fixtures alone (the reviewer's passing gate) now fails.
+  const fixturesOnly = await verifyRetired({ client: h.client, ids: Object.values(fixtures) });
+  const judged = cleanup => verdict({ oldWorkers: { v3Fixtures: [fixtures["v3-fixture-1"], fixtures["v3-fixture-2"]], control: fixtures["v2-control"] }, publicAnonymous: { commandIds: state.quotaCommands }, fixtureCleanup: cleanup }).checks.find(x => x.id === "fixtures-retired");
+  assert.equal(judged(retired).ok, true);
+  assert.equal(judged(fixturesOnly).ok, false);
+  assert.equal(judged(fixturesOnly).detail, `not checked: ${JSON.stringify([past.commandId])}`);
+});
+
 test("an interrupted setup resumes: saved ids are kept, and nothing is allocated twice", async () => {
   const h = harness();
   const state = {};
@@ -138,7 +168,7 @@ test("the gate needs the control in both due queries and every fixture retired",
   // The reviewer's case: the scopes query omits the control.
   const noControl = dueObservation({ ...base, productionQueries: [{ commands: [{ commandId: "v2" }] }], scopedQueries: [{ commands: [{ commandId: "v3a" }, { commandId: "v3b" }] }] });
   assert.equal(noControl.controlListedToScoped, false);
-  const o = { oldWorkers: noControl, fixtureCleanup: { fixtures: ["v3a", "v3b", "v2"], statuses: { v3a: "failed", v3b: "failed", v2: "failed" }, listedAfter: [] } };
+  const o = { oldWorkers: noControl, publicAnonymous: { commandIds: ["anon"] }, fixtureCleanup: { fixtures: ["v3a", "v3b", "v2", "anon"], statuses: { v3a: "failed", v3b: "failed", v2: "failed", anon: "failed" }, listedAfter: [] } };
   const byId = id => verdict(o).checks.find(c => c.id === id);
   assert.equal(byId("old-workers").ok, false);
   assert.match(byId("old-workers").detail, /scopes worker's due query never listed the v2 control/);
@@ -148,9 +178,9 @@ test("the gate needs the control in both due queries and every fixture retired",
   // A fixture left pending, unchecked, or still due fails the gate.
   o.fixtureCleanup.statuses.v3b = "pending";
   assert.equal(byId("fixtures-retired").ok, false);
-  o.fixtureCleanup = { fixtures: ["v3a", "v3b"], statuses: { v3a: "failed", v3b: "failed" }, listedAfter: [] };
+  o.fixtureCleanup = { fixtures: ["v3a", "v3b", "anon"], statuses: { v3a: "failed", v3b: "failed", anon: "failed" }, listedAfter: [] };
   assert.equal(byId("fixtures-retired").ok, false);
-  o.fixtureCleanup = { fixtures: ["v3a", "v3b", "v2"], statuses: { v3a: "failed", v3b: "failed", v2: "failed" }, listedAfter: ["v3a"] };
+  o.fixtureCleanup = { fixtures: ["v3a", "v3b", "v2", "anon"], statuses: { v3a: "failed", v3b: "failed", v2: "failed", anon: "failed" }, listedAfter: ["v3a"] };
   assert.equal(byId("fixtures-retired").ok, false);
   delete o.fixtureCleanup;
   assert.equal(byId("fixtures-retired").ok, false);

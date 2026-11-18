@@ -14,7 +14,11 @@
 //              non-owner's (C5A_NON_OWNER_TOKEN), the L0000-over-L0013
 //              composition, the mixed chain through the canary's connection,
 //              and anonymous captures of the public item until one is
-//              rate-limited. Each command's record, reservations and plan are
+//              rate-limited. Every anonymous command's id is saved as it is
+//              allocated, and the burst's commands are retired as the due
+//              phase's fixtures are (the one past the quota stays pending
+//              otherwise; finished ones are left as they are), however the
+//              burst ends. Each command's record, reservations and plan are
 //              read from Policy's database with the operator's credentials, and
 //              the published object from the gate bucket.
 //   due        Policy's due query as the gateway: two pending v3 fixtures
@@ -29,9 +33,10 @@
 //              then retired without running (c5a-gate-fixtures.js: a fenced
 //              takeover and an empty finish, recorded `failed`) and checked
 //              no longer due, even when the phase fails part-way.
-//   cleanup    the same retirement and check, alone: rerun after an
-//              interrupted due phase or cleanup. The gate isn't retired until
-//              it reports every fixture finished and none due.
+//   cleanup    the same retirement and check, alone, over the fixtures and
+//              the quota commands: rerun after an interrupted captures, due
+//              or cleanup phase. The gate isn't retired until it reports
+//              every one finished and none due.
 //   after      read-only: the same digests again, and graffiticode-thumbnails'
 //              object count.
 //   judge      the verdict over the state and every --evidence file, written
@@ -42,7 +47,15 @@
 // of the private item), --public-task (of the public item), --compose-task (an
 // L0000 head over the private capture), --mixed-task (the private capture plus
 // an L0176 save), --control-task (an L0176 chain with no write: the due
-// phase's v2 control). Observations no gate-api call can make are given as JSON
+// phase's v2 control). The non-owner (C5A_NON_OWNER_TOKEN) must be able to
+// read --private-task, or the api's own task lookup refuses it (404) before
+// Policy's item authority is asked: post the identical program as that
+// account first, which adds it to that task's ACL only. --reference-private
+// and --reference-public are the owner-approved reference renders (PNG) of the
+// two fixture items; each scenario's published capture is read right after its
+// command and must be identical to its item's reference (`images-correct`).
+// Audit reads poll, bounded, until Cloud Logging has every record the run
+// expects. Observations no gate-api call can make are given as JSON
 // files with --evidence (repeatable), merged over what the phases recorded:
 // `canary`, `repairRoundtrip`, `v2PlanDigest`, `v8Artifact`, `preSlice6`,
 // `narrowed`, `mismatches`, `conditional`, `reserveStageBind`, `consoleRoute`,
@@ -64,7 +77,8 @@ import path from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { createCanaryEnv, loadDeployServices, http } from "./lib/canary-env.js";
 import { ensureFixtures, retireFixtures, verifyRetired } from "./lib/c5a-gate-fixtures.js";
-import { verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planContractVersion, tokensFromAudit, brokerAuditFilter, rateLimitFromAudit, policyReserveFilter, dueObservation } from "./lib/c5a-gate-checks.js";
+import { verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planContractVersion, tokensFromAudit, brokerAuditFilter, rateLimitFromAudit, policyReserveFilter, dueObservation, pollUntil, reservesCover, imageObservation } from "./lib/c5a-gate-checks.js";
+import { decodePng, imageLooks, compareImages } from "./lib/png.js";
 
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {
@@ -86,6 +100,9 @@ const consoleAccount = flag("--console-account", "console-run@graffiticode-app.i
 const gatewayAccount = flag("--gateway-account", "api-run@graffiticode.iam.gserviceaccount.com");
 const gateService = flag("--gate-service", "api-c5a-gate");
 const stateFile = flag("--state", new URL("../.gc-deploy/c5a-gate/state.json", import.meta.url).pathname);
+// Bounded ingestion polling for audit reads (pollUntil).
+const auditTimeoutMs = Number(flag("--audit-timeout-ms", "180000"));
+const auditIntervalMs = Number(flag("--audit-interval-ms", "10000"));
 // One past the quota, so a fresh fixture's last anonymous capture is refused.
 const burst = Number(flag("--anonymous-burst", String(PUBLIC_CAPTURE_LIMIT + 1)));
 
@@ -148,6 +165,12 @@ const logs = async (filter, limit = 1000) => {
   const out = await gcloud(["logging", "read", filter, `--limit=${limit}`, "--format=json"]);
   return out ? JSON.parse(out) : [];
 };
+// An audit read that waits, bounded, for Cloud Logging to ingest what the run
+// expects (`done`): the entries, and how the poll went.
+const polledLogs = async (filter, done) => {
+  const { value, attempts, timedOut } = await pollUntil({ read: () => logs(filter), done, timeoutMs: auditTimeoutMs, intervalMs: auditIntervalMs });
+  return { entries: value, poll: { attempts, timedOut } };
+};
 
 // The approval records released before C5a (Step 26's evidence names them):
 // every approved revision of L0176 and L0000, as stored.
@@ -195,6 +218,8 @@ const command = async ({ id, key, userToken, connection = null }) => {
   const res = await http({ method: "POST", url: `${await gateUrl()}/command`, headers: await asConsole(userToken), body: { id, idempotencyKey: key, ...(connection ? { connectionId: connection } : {}) } });
   return { status: res.status, commandId: res.json?.data?.commandId ?? null, outcome: res.json?.data?.outcome ?? null, reason: res.json?.data?.reason ?? res.json?.error?.reason ?? null };
 };
+// Whose item each published capture is: the reservation of a command.
+const reservedItem = rec => rec.reservations[0]?.item ?? null;
 const anonymousCompile = async id => {
   const res = await http({ method: "POST", url: `${await gateUrl()}/compile`, headers: await asConsole(null), body: { id } });
   const envelope = res.json?.data ?? res.json;
@@ -224,6 +249,95 @@ const published = async item => {
   const meta = JSON.parse(out);
   const custom = meta.custom_fields ?? meta.metadata ?? {};
   return { bucket: GATE_BUCKET, captureSequence: custom.captureSequence === undefined ? null : Number(custom.captureSequence), generation: meta.generation ?? null };
+};
+
+// The owner-approved reference renders of the two fixture items.
+const references = {};
+const reference = async kind => {
+  if (!references[kind]) {
+    const file = need(`--reference-${kind}`);
+    const bytes = await readFile(file);
+    references[kind] = { file, bytes, image: decodePng(bytes), sha256: createHash("sha256").update(bytes).digest("hex") };
+  }
+  return references[kind];
+};
+// A scenario's published capture, read right after its command (the object is
+// overwritten by the next capture of the item), kept beside the state, and
+// compared with its item's reference. Any failed read throws.
+const images = [];
+const snapshotImage = async ({ scenario, item, expectedCommandIds, kind }) => {
+  const object = `gs://${GATE_BUCKET}/${item}.png`;
+  const meta = JSON.parse(await gcloud(["storage", "objects", "describe", object, "--format=json"]));
+  const custom = meta.custom_fields ?? meta.metadata ?? {};
+  const dir = path.join(path.dirname(stateFile), "images");
+  await mkdir(dir, { recursive: true });
+  const file = path.join(dir, `${scenario}-${meta.generation}.png`);
+  await gcloud(["storage", "cp", `${object}#${meta.generation}`, file]);
+  const bytes = await readFile(file);
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  if (custom.sha256 && custom.sha256 !== sha256) throw new Error(`${scenario}: downloaded ${sha256}, the object names ${custom.sha256}`);
+  const image = decodePng(bytes);
+  const ref = await reference(kind);
+  const observed = imageObservation({
+    scenario,
+    expectedCommandIds,
+    object: { commandId: custom.commandId ?? null, generation: meta.generation ?? null, captureSequence: custom.captureSequence === undefined ? null : Number(custom.captureSequence) },
+    looks: imageLooks(image),
+    comparison: compareImages(image, ref.image),
+    reference: kind,
+    sha256,
+  });
+  images.push({ ...observed, file });
+  console.log(`image ${scenario}: ${JSON.stringify(observed)}`);
+};
+const recordImages = async () => {
+  for (const kind of ["private", "public"]) await reference(kind);
+  return {
+    references: Object.fromEntries(Object.entries(references).map(([kind, r]) => [kind, { file: r.file, sha256: r.sha256, width: r.image.width, height: r.image.height }])),
+    captures: images,
+  };
+};
+
+// Policy's gateway command routes, as the gateway (canary-window-c5a covers
+// api-run), for retiring the commands a run leaves pending: the captures
+// phase's quota commands, and the due phase's fixtures.
+const gatewayClient = () => {
+  const headers = async (user = null) => ({
+    "X-Serverless-Authorization": `Bearer ${await idToken(gatewayAccount, policyUrl)}`,
+    "X-Caller-Identity": await idToken(gatewayAccount, "urn:graffiticode:policy"),
+    ...(user ? { Authorization: `Bearer ${user}` } : {}),
+  });
+  const call = async (method, route, { body, user = null } = {}) => {
+    const res = await http({ method, url: `${policyUrl}${route}`, headers: await headers(user), body });
+    if (res.status !== 200 || res.json?.status !== "success") {
+      throw Object.assign(new Error(`policy ${method} ${route}: ${res.status} ${res.json?.error?.reason ?? ""}`), { reason: res.json?.error?.reason ?? null });
+    }
+    return res.json.data;
+  };
+  const at = id => `/v1/commands/${encodeURIComponent(id)}`;
+  return {
+    allocate: async body => call("POST", "/v1/commands", { body, user: await canary() }),
+    get: id => call("GET", at(id)),
+    lease: (id, body) => call("POST", `${at(id)}/lease`, { body }),
+    finish: (id, generation) => call("POST", `${at(id)}/finish`, { body: { generation, result: null } }),
+    due: ({ scopes }) => call("GET", `/v1/commands-due?limit=50&recording=1&repairs=1${scopes ? "&scopes=1" : ""}`),
+  };
+};
+const fixtureWorker = () => `c5a-gate-fixture:${state.runId}`;
+// Every command this run may leave executable: the due phase's fixtures and
+// every anonymous command of the quota burst (the one past the quota is
+// refused its reservation and stays pending). Each id is saved the moment it
+// is known. retireFixtures() leaves a finished command as it is, so the
+// burst's completed captures keep their results.
+const retirable = () => [...Object.values(state.fixtures ?? {}), ...(state.quotaCommands ?? [])];
+const retireAll = async client => {
+  const ids = retirable();
+  if (!ids.length) return;
+  await collect("fixtureCleanup", async () => {
+    await retireFixtures({ client, ids, worker: fixtureWorker() });
+    return verifyRetired({ client, ids });
+  });
+  await save();
 };
 
 // ------------------------------------------------------------------ phases
@@ -258,9 +372,21 @@ if (phase === "captures") {
       state.observations.errors = { ...(state.observations.errors ?? {}), [`plan:${name}`]: String(e?.message ?? e) };
     }
   };
+  // Each scenario's published image, read before the next capture of its item
+  // overwrites it; a failed read is recorded, and fails the gate.
+  const imageOf = async (scenario, rec, expectedCommandIds, kind) => {
+    try {
+      const item = reservedItem(rec);
+      if (!item) throw new Error("no reservation, so no published capture");
+      await snapshotImage({ scenario, item, expectedCommandIds, kind });
+    } catch (e) {
+      state.observations.errors = { ...(state.observations.errors ?? {}), [`image:${scenario}`]: String(e?.message ?? e).slice(0, 300) };
+    }
+  };
   // The owner's private capture.
   const owner = await command({ id: need("--private-task"), key: key("private"), userToken: await canary() });
   const ownerRec = await commandRecord(owner.commandId);
+  await imageOf("private", ownerRec, [owner.commandId], "private");
   await collect("privateOwner", async () => {
     const reservation = ownerRec.reservations[0];
     if (!reservation) throw new Error("the owner's capture has no reservation");
@@ -275,11 +401,15 @@ if (phase === "captures") {
     if (!nonOwnerToken) throw new Error("set C5A_NON_OWNER_TOKEN to a non-owner's access token");
     const other = await command({ id: need("--private-task"), key: key("non-owner"), userToken: nonOwnerToken });
     const otherRec = other.commandId ? await commandRecord(other.commandId) : { record: null };
-    return { outcome: otherRec.record?.status ?? other.outcome, reason: otherRec.record?.admissionRefusal?.reason ?? other.reason };
+    // `status` tells Policy's refusal (a command, failed `not-owner`) from the
+    // api's own task lookup (404, no command): the latter means the non-owner
+    // can't read --private-task, and Policy was never asked.
+    return { outcome: otherRec.record?.status ?? other.outcome, reason: otherRec.record?.admissionRefusal?.reason ?? other.reason, status: other.status, commandId: other.commandId };
   });
   // The composition: an L0000 head over the private capture, connectionless.
   const composed = await command({ id: need("--compose-task"), key: key("compose"), userToken: await canary() });
   const composedRec = await commandRecord(composed.commandId);
+  await imageOf("composition", composedRec, [composed.commandId], "private");
   await collect("composition", async () => {
     if (!composedRec.record) throw new Error("no command record for the composition");
     return {
@@ -294,70 +424,62 @@ if (phase === "captures") {
   // execution token with only its own scope (Broker's execute audit).
   const mixed = await command({ id: need("--mixed-task"), key: key("mixed"), userToken: await canary(), connection: connectionId });
   const mixedRec = await commandRecord(mixed.commandId);
+  await imageOf("mixed", mixedRec, [mixed.commandId], "private");
   await collect("mixed", async () => {
     if (!mixedRec.record) throw new Error("no command record for the mixed chain");
-    const tokens = tokensFromAudit(await logs(brokerAuditFilter(mixedRec.record.invocationId)));
+    // Both stages' execute records, once Cloud Logging has them.
+    const bothStages = entries => ["snap", "save-to-itembank"].every(fn => tokensFromAudit(entries).some(t => t.fn === fn));
+    const { entries, poll } = await polledLogs(brokerAuditFilter(mixedRec.record.invocationId), bothStages);
+    const tokens = tokensFromAudit(entries);
     if (!tokens.length) throw new Error(`no Broker execute record for ${mixedRec.record.invocationId}`);
-    return { invocations: 1, tokens };
+    return { invocations: 1, tokens, auditPoll: poll };
   });
   await planOf("mixed", mixedRec);
   // Anonymous captures of the public item, one past the quota; the quota's
   // evidence is Policy's own reservation audit for the item.
   const burstFrom = new Date().toISOString();
   const anonymous = [];
-  for (let i = 0; i < burst; i++) anonymous.push(await anonymousCompile(need("--public-task")));
+  state.quotaCommands ??= [];
+  try {
+    for (let i = 0; i < burst; i++) {
+      const a = await anonymousCompile(need("--public-task"));
+      anonymous.push(a);
+      // Saved before the next capture: an interrupted run's cleanup finds it.
+      if (a.commandId && !state.quotaCommands.includes(a.commandId)) {
+        state.quotaCommands.push(a.commandId);
+        await save();
+      }
+    }
+  } finally {
+    // The command past the quota is never left executable.
+    await retireAll(gatewayClient());
+  }
+  const anonymousIds = anonymous.map(a => a.commandId).filter(Boolean);
+  const firstAnonymous = anonymous.find(a => a.commandId);
+  const firstAnonymousRec = firstAnonymous ? await commandRecord(firstAnonymous.commandId) : { record: null, reservations: [] };
+  // The public object ends on the burst's last published capture.
+  await imageOf("public", firstAnonymousRec, anonymousIds, "public");
   await collect("publicAnonymous", async () => {
-    const first = anonymous.find(a => a.commandId);
-    if (!first) throw new Error("no anonymous capture allocated a command");
-    const rec = await commandRecord(first.commandId);
+    if (!firstAnonymous) throw new Error("no anonymous capture allocated a command");
+    const rec = firstAnonymousRec;
     const item = rec.reservations[0]?.item;
     if (!item) throw new Error("the first anonymous capture has no reservation");
+    // Every allocated command's reserve, allowed or refused, once ingested.
+    const { entries, poll } = await polledLogs(policyReserveFilter(item, burstFrom), reservesCover(anonymousIds));
     return {
-      outcome: rec.record?.status ?? first.outcome,
+      outcome: rec.record?.status ?? firstAnonymous.outcome,
       subject: rec.record?.uid ?? null,
       publicCapture: rec.reservations[0]?.publicCapture ?? null,
-      rateLimit: { ...rateLimitFromAudit(await logs(policyReserveFilter(item, burstFrom))), attempted: anonymous.length },
+      rateLimit: { ...rateLimitFromAudit(entries), attempted: anonymous.length },
+      commandIds: anonymousIds,
+      auditPoll: poll,
     };
   });
   state.commands = [owner, composed, mixed, ...anonymous].map(c => c.commandId).filter(Boolean);
   observe("plans", plans);
+  await collect("images", recordImages);
   await save();
 }
-
-// Policy's gateway command routes, as the gateway (canary-window-c5a covers
-// api-run), for the due and cleanup phases.
-const gatewayClient = () => {
-  const headers = async (user = null) => ({
-    "X-Serverless-Authorization": `Bearer ${await idToken(gatewayAccount, policyUrl)}`,
-    "X-Caller-Identity": await idToken(gatewayAccount, "urn:graffiticode:policy"),
-    ...(user ? { Authorization: `Bearer ${user}` } : {}),
-  });
-  const call = async (method, route, { body, user = null } = {}) => {
-    const res = await http({ method, url: `${policyUrl}${route}`, headers: await headers(user), body });
-    if (res.status !== 200 || res.json?.status !== "success") {
-      throw Object.assign(new Error(`policy ${method} ${route}: ${res.status} ${res.json?.error?.reason ?? ""}`), { reason: res.json?.error?.reason ?? null });
-    }
-    return res.json.data;
-  };
-  const at = id => `/v1/commands/${encodeURIComponent(id)}`;
-  return {
-    allocate: async body => call("POST", "/v1/commands", { body, user: await canary() }),
-    get: id => call("GET", at(id)),
-    lease: (id, body) => call("POST", `${at(id)}/lease`, { body }),
-    finish: (id, generation) => call("POST", `${at(id)}/finish`, { body: { generation, result: null } }),
-    due: ({ scopes }) => call("GET", `/v1/commands-due?limit=50&recording=1&repairs=1${scopes ? "&scopes=1" : ""}`),
-  };
-};
-const fixtureWorker = () => `c5a-gate-fixture:${state.runId}`;
-const retireAll = async client => {
-  const ids = Object.values(state.fixtures ?? {});
-  if (!ids.length) return;
-  await collect("fixtureCleanup", async () => {
-    await retireFixtures({ client, ids, worker: fixtureWorker() });
-    return verifyRetired({ client, ids });
-  });
-  await save();
-};
 
 if (phase === "due") {
   if (!state.capturesStartedAt) throw new Error("run --phase captures first");
@@ -410,7 +532,7 @@ if (phase === "due") {
 }
 
 if (phase === "cleanup") {
-  if (!state.fixtures || !Object.keys(state.fixtures).length) throw new Error("no fixtures recorded in this state");
+  if (!retirable().length) throw new Error("no fixtures or quota commands recorded in this state");
   await retireAll(gatewayClient());
 }
 

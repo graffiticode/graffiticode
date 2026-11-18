@@ -5,7 +5,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { pinnedStage } from "@graffiticode/common/contract";
 import { createAudit } from "@graffiticode/policy";
-import { CHECKS, verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planStages, tokensFromAudit, rateLimitFromAudit, brokerAuditFilter, dueObservation } from "../lib/c5a-gate-checks.js";
+import { readFileSync } from "node:fs";
+import { deflateSync } from "node:zlib";
+import { CHECKS, verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planStages, tokensFromAudit, rateLimitFromAudit, brokerAuditFilter, dueObservation, pollUntil, reservesCover, imageObservation, MAX_MEAN_DIFF, MAX_REDDISH } from "../lib/c5a-gate-checks.js";
+import { decodePng, imageLooks, compareImages } from "../lib/png.js";
+
+// The quota burst's commands: the quota's completed captures, then the one
+// refused its reservation (retired: failed).
+const QUOTA = Array.from({ length: PUBLIC_CAPTURE_LIMIT + 1 }, (_, i) => `c:anon${i + 1}`);
+const image = scenario => ({ scenario, expectedCommandIds: [`c:${scenario}`], commandId: `c:${scenario}`, generation: "1", captureSequence: 1, sha256: "s", width: 1024, height: 152, reddish: 0, blue: 4839, transparent: 0, reference: scenario === "public" ? "public" : "private", sameSize: true, identical: true, meanDiff: 0 });
 
 const approved = { l0013r: { revision: "l0013r-rmwl2casf-31e8b9", contractVersions: [3] }, l0000r: { revision: "l0000r-rmw8gtkc2-830693", contractVersions: [1, 2] }, l0176r: { revision: "l0176r-rmwk08k8n-c74227", contractVersions: [1, 2] }, beforeDigest: "a1", afterDigest: "a1" };
 const stage = (lang, i, over = {}) => ({ stage: `s${i}`, lang, revision: approved[`l${lang}r`].revision, contractVersions: approved[`l${lang}r`].contractVersions, registryVersion: lang === "0000" ? 0 : 9, ...over });
@@ -24,7 +32,7 @@ const PASSING = () => ({
   privateOwner: { outcome: "completed", reservedSequence: 7, published: { bucket: GATE_BUCKET, captureSequence: 7 } },
   privateNonOwner: { outcome: "failed", reason: "not-owner" },
   narrowed: { reason: "not-owner" },
-  publicAnonymous: { outcome: "completed", subject: "anonymous", publicCapture: true, rateLimit: { allowed: PUBLIC_CAPTURE_LIMIT, refused: 1, refusedAfterQuota: true, attempted: PUBLIC_CAPTURE_LIMIT + 1 } },
+  publicAnonymous: { outcome: "completed", subject: "anonymous", publicCapture: true, rateLimit: { allowed: PUBLIC_CAPTURE_LIMIT, refused: 1, refusedAfterQuota: true, attempted: PUBLIC_CAPTURE_LIMIT + 1 }, commandIds: QUOTA },
   mixed: { invocations: 1, tokens: [{ fn: "snap", scopeKinds: ["item"] }, { fn: "save-to-itembank", scopeKinds: ["connection"] }] },
   deployed: { policy: "p".repeat(40), broker: "b".repeat(40), l0013r: "l".repeat(40) },
   hermetic: {
@@ -36,9 +44,13 @@ const PASSING = () => ({
   reserveStageBind: { order: ["reserve", "stage", "bind"], repeatReserveSame: true, repeatStageSame: true, publishedSequence: 7, reservedSequence: 7, outOfOrderFinal: 12, outOfOrderNewer: 12 },
   elsewhere: { appspotBefore: "h1", appspotAfter: "h1", thumbnailsObjects: 0 },
   oldWorkers: { v3Fixtures: ["c:v3a", "c:v3b"], control: "c:v2", productionListedV3: [], scopedListedV3: ["c:v3a", "c:v3b"], controlListedToProduction: true, controlListedToScoped: true, productionLease: "worker-unsupported" },
-  fixtureCleanup: { fixtures: ["c:v3a", "c:v3b", "c:v2"], statuses: { "c:v3a": "failed", "c:v3b": "failed", "c:v2": "failed" }, listedAfter: [] },
+  fixtureCleanup: { fixtures: ["c:v3a", "c:v3b", "c:v2", ...QUOTA], statuses: { "c:v3a": "failed", "c:v3b": "failed", "c:v2": "failed", ...Object.fromEntries(QUOTA.map((id, i) => [id, i < PUBLIC_CAPTURE_LIMIT ? "completed" : "failed"])) }, listedAfter: [] },
   consoleRoute: [{ caller: "policy-run@graffiticode.iam.gserviceaccount.com", status: 200 }, { caller: "api-run@graffiticode.iam.gserviceaccount.com", status: 403 }, { caller: "anonymous", status: 403 }],
   proxy: { verifyRollout: true, at11: "step26-exception" },
+  images: {
+    references: { private: { sha256: "r1", width: 1024, height: 152 }, public: { sha256: "r2", width: 1024, height: 152 } },
+    captures: ["private", "composition", "mixed", "public"].map(image),
+  },
 });
 
 const failsOnly = (id, mutate) => {
@@ -99,8 +111,21 @@ test("each check fails on its own evidence", () => {
   failsOnly("old-workers", o => { o.oldWorkers.controlListedToScoped = false; });
   failsOnly("fixtures-retired", o => { o.fixtureCleanup.statuses["c:v3b"] = "pending"; });
   failsOnly("fixtures-retired", o => { o.fixtureCleanup.listedAfter = ["c:v3a"]; });
+  // #418 review: the command past the quota, left pending and due.
+  failsOnly("fixtures-retired", o => { o.fixtureCleanup.statuses["c:anon13"] = "pending"; o.fixtureCleanup.listedAfter = ["c:anon13"]; });
+  failsOnly("fixtures-retired", o => { o.fixtureCleanup.fixtures = o.fixtureCleanup.fixtures.filter(id => id !== "c:anon13"); delete o.fixtureCleanup.statuses["c:anon13"]; });
+  failsOnly("fixtures-retired", o => { delete o.publicAnonymous.commandIds; });
   failsOnly("console-route", o => { o.consoleRoute[1].status = 200; });
   failsOnly("proxy", o => { o.proxy.at11 = "pending"; });
+  // The r381d64 captures: the composition photographed "failed to post compile".
+  failsOnly("images-correct", o => { Object.assign(o.images.captures[1], { reddish: 0.826, identical: false, sameSize: false, height: 54, meanDiff: null }); });
+  failsOnly("images-correct", o => { o.images.captures[2].meanDiff = 0.97; o.images.captures[2].identical = false; });
+  failsOnly("images-correct", o => { o.images.captures[0].commandId = "c:composition"; });
+  failsOnly("images-correct", o => { o.images.captures[3].reference = "private"; });
+  failsOnly("images-correct", o => { o.images.captures.pop(); });
+  failsOnly("images-correct", o => { delete o.images.references.public; });
+  failsOnly("images-correct", o => { o.images.captures[1].transparent = 1; });
+  failsOnly("images-correct", o => { delete o.images.captures[0].transparent; });
 });
 
 test("registry versions and per-stage contracts are judged from the plans' own stages", () => {
@@ -226,4 +251,118 @@ test("the due observation comes from the due queries' answers, as each worker as
   const o = PASSING();
   o.oldWorkers = leaked;
   assert.deepEqual(verdict(o).checks.filter(c => !c.ok).map(c => c.id), ["old-workers"]);
+});
+
+// The owner's review of the r381d64 captures: image content is evidence, and an
+// audit read waits for ingestion.
+const fixture = name => readFileSync(new URL(`./fixtures/${name}`, import.meta.url));
+const SHEET = "c5a-private-sheet.png"; // E3: the private fixture, rendered correctly
+const ERROR = "c5a-private-error.png"; // the composition and mixed captures: "failed to post compile"
+const PUBLIC = "c5a-public-sheet.png"; // the public fixture: the same sheet, one word different
+
+test("the camera's PNGs decode, and an error render is told from the sheet by its pixels", () => {
+  const sheet = decodePng(fixture(SHEET));
+  const error = decodePng(fixture(ERROR));
+  assert.deepEqual([sheet.width, sheet.height, error.width, error.height], [1024, 152, 1024, 54]);
+  const looks = { sheet: imageLooks(sheet), error: imageLooks(error) };
+  assert.ok(looks.sheet.reddish < MAX_REDDISH && looks.sheet.blue > 4000, JSON.stringify(looks.sheet));
+  assert.ok(looks.error.reddish > 0.8 && looks.error.blue === 0, JSON.stringify(looks.error));
+  // A correct render is identical to its reference; one word different is not close enough.
+  assert.deepEqual(compareImages(sheet, decodePng(fixture(SHEET))), { sameSize: true, identical: true, meanDiff: 0 });
+  const near = compareImages(sheet, decodePng(fixture(PUBLIC)));
+  assert.ok(near.sameSize && !near.identical && near.meanDiff > MAX_MEAN_DIFF * 10, JSON.stringify(near));
+  assert.equal(compareImages(sheet, error).sameSize, false);
+  assert.throws(() => decodePng(Buffer.from("not a png")), /not a PNG/);
+});
+
+// A PNG writer for the tests: IHDR, one IDAT of already-filtered rows, IEND.
+const crc = buf => { let c = ~0; for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); } return ~c >>> 0; };
+const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const body = Buffer.concat([Buffer.from(type, "latin1"), data]); const sum = Buffer.alloc(4); sum.writeUInt32BE(crc(body)); return Buffer.concat([len, body, sum]); };
+const writePng = ({ width, height, colorType, filtered }) => {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0); ihdr.writeUInt32BE(height, 4); ihdr[8] = 8; ihdr[9] = colorType;
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(filtered)), chunk("IEND", Buffer.alloc(0))]);
+};
+// An RGBA image as a filter-0 PNG.
+const rgbaPng = ({ width, height, rgba }) => writePng({ width, height, colorType: 6, filtered: Buffer.concat(Array.from({ length: height }, (_, y) => Buffer.concat([Buffer.from([0]), Buffer.from(rgba.subarray(y * width * 4, (y + 1) * width * 4))]))) });
+
+test("decoding undoes every PNG row filter", () => {
+  // A 3×2 RGB image, written with filters 1–4 against a filter-0 reading.
+  const pixels = [[[10, 20, 30], [40, 50, 60], [70, 80, 90]], [[15, 25, 35], [45, 255, 65], [0, 5, 250]]];
+  const png = filter => {
+    const rows = pixels.map(r => Buffer.from(r.flat()));
+    const out = [];
+    rows.forEach((row, y) => {
+      const prev = y ? rows[y - 1] : Buffer.alloc(row.length);
+      const f = Buffer.alloc(row.length);
+      for (let x = 0; x < row.length; x++) {
+        const a = x >= 3 ? row[x - 3] : 0;
+        const b = prev[x];
+        const c = x >= 3 ? prev[x - 3] : 0;
+        const p = a + b - c;
+        const paeth = Math.abs(p - a) <= Math.abs(p - b) && Math.abs(p - a) <= Math.abs(p - c) ? a : Math.abs(p - b) <= Math.abs(p - c) ? b : c;
+        f[x] = (row[x] - [0, a, b, (a + b) >> 1, paeth][filter]) & 255;
+      }
+      out.push(Buffer.from([filter]), f);
+    });
+    return writePng({ width: 3, height: 2, colorType: 2, filtered: Buffer.concat(out) });
+  };
+  const expected = Uint8Array.from(pixels.flat().flatMap(p => [...p, 255]));
+  for (const filter of [0, 1, 2, 3, 4]) assert.deepEqual(decodePng(png(filter)).rgba, expected, `filter ${filter}`);
+});
+
+test("an image observation names its command, and is judged against its item's reference", () => {
+  const sheet = decodePng(fixture(SHEET));
+  const observe = (png, commandId) => imageObservation({ scenario: "composition", expectedCommandIds: ["c:comp"], object: { commandId, generation: "2", captureSequence: 2 }, looks: imageLooks(png), comparison: compareImages(png, sheet), reference: "private", sha256: "x" });
+  const o = PASSING();
+  o.images.captures[1] = observe(sheet, "c:comp");
+  assert.equal(verdict(o).passed, true);
+  o.images.captures[1] = observe(decodePng(fixture(ERROR)), "c:comp");
+  assert.match(verdict(o).checks.find(c => c.id === "images-correct").detail, /composition: an error render/);
+  o.images.captures[1] = observe(sheet, "c:mixed");
+  assert.match(verdict(o).checks.find(c => c.id === "images-correct").detail, /c:mixed's capture, not this scenario's/);
+});
+
+test("a transparent image is never a correct capture, even with the reference's RGB values", () => {
+  // The #418 review's reproducer: the private reference's RGB, every alpha 0.
+  const sheet = decodePng(fixture(SHEET));
+  assert.equal(imageLooks(sheet).transparent, 0, "the camera's screenshots are opaque");
+  const invisible = decodePng(rgbaPng({ ...sheet, rgba: sheet.rgba.map((v, i) => (i % 4 === 3 ? 0 : v)) }));
+  assert.equal(imageLooks(invisible).transparent, 1);
+  const comparison = compareImages(invisible, sheet);
+  assert.ok(!comparison.identical && comparison.meanDiff > MAX_MEAN_DIFF, JSON.stringify(comparison));
+  // One translucent pixel is enough to fail, though it is all but identical.
+  const one = Uint8Array.from(sheet.rgba);
+  one[3] = 254;
+  const translucent = decodePng(rgbaPng({ ...sheet, rgba: one }));
+  assert.ok(compareImages(translucent, sheet).meanDiff <= MAX_MEAN_DIFF);
+  const observe = png => imageObservation({ scenario: "composition", expectedCommandIds: ["c:comp"], object: { commandId: "c:comp", generation: "2", captureSequence: 2 }, looks: imageLooks(png), comparison: compareImages(png, sheet), reference: "private", sha256: "x" });
+  for (const png of [invisible, translucent]) {
+    const o = PASSING();
+    o.images.captures[1] = observe(png);
+    const result = verdict(o);
+    assert.equal(result.passed, false);
+    assert.match(result.checks.find(c => c.id === "images-correct").detail, /composition: unexpected transparency/);
+  }
+  // The same image, opaque, passes.
+  const o = PASSING();
+  o.images.captures[1] = observe(decodePng(rgbaPng(sheet)));
+  assert.equal(verdict(o).passed, true);
+});
+
+test("an audit read polls until every expected record is ingested, and no longer than its bound", async () => {
+  // The r381d64 case: the 13th reserve (refused) arrived after the first read.
+  const reserve = (commandId, outcome) => ({ jsonPayload: { event: "command-reserve", commandId, outcome } });
+  const ids = ["c:1", "c:2", "c:13"];
+  const reads = [[reserve("c:1", "allowed"), reserve("c:2", "allowed")], [reserve("c:1", "allowed"), reserve("c:2", "allowed"), reserve("c:13", "denied")]];
+  let t = 0;
+  const clock = { now: () => t, sleep: async ms => { t += ms; } };
+  let n = 0;
+  const done = await pollUntil({ read: async () => reads[Math.min(n++, 1)], done: reservesCover(ids), timeoutMs: 60_000, intervalMs: 10_000, ...clock });
+  assert.deepEqual([done.attempts, done.timedOut, done.value.length], [2, false, 3]);
+  // Never ingested: it stops at its bound and returns what it had.
+  t = 0;
+  const stuck = await pollUntil({ read: async () => reads[0], done: reservesCover(ids), timeoutMs: 30_000, intervalMs: 10_000, ...clock });
+  assert.deepEqual([stuck.attempts, stuck.timedOut, stuck.value.length], [4, true, 2]);
+  assert.ok(t <= 30_000);
 });

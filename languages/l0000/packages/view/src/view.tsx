@@ -77,6 +77,7 @@ import type { ComponentType, CSSProperties } from "react";
 import useSWR from "swr";
 import { compile, getData } from "./swr/fetchers";
 import { DataLoad, dataGenerationsFor, type DataGenerations } from "./lib/api";
+import { isDisplayOnlyCapture } from "./lib/capture";
 import "./index.css";
 
 export interface CompileError {
@@ -289,6 +290,9 @@ export const View = ({
   const connection = connectionProp ?? params.get("connection") ?? undefined;
   const publication = publicationProp ?? params.get("publication") ?? undefined;
   const [targetOrigin] = useState<string | undefined>(params.get("origin") ?? undefined);
+  // Opened by a camera (C5): load and render, never recompile (lib/capture.ts). Read once:
+  // the camera sets it before any page script runs.
+  const [displayOnly] = useState(() => isDisplayOnlyCapture());
   const [errors, setErrors] = useState<CompileError[]>([]);
 
   const reducer = useMemo(() => makeReducer(reduce, formModel), [reduce, formModel]);
@@ -427,9 +431,12 @@ export const View = ({
   // data (as this used to) meant returning a cell to a value it already held replayed an
   // OLDER compiled snapshot straight out of the cache, reverting the sheet. A bare request
   // with last-write-wins ordering has no cache to go stale.
+  //
+  // Never in the display-only capture context: there the model the Form reports is rendered
+  // as it stands, and nothing is posted.
   const latestCompile = useRef(0);
   useEffect(() => {
-    if (compileSeq === 0 || !id) return;
+    if (compileSeq === 0 || !id || displayOnly) return;
     const seq = ++latestCompile.current;
     if (targetOrigin) {
       window.parent.postMessage({ focus: { type: "update", value: data } }, targetOrigin);

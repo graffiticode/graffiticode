@@ -663,4 +663,76 @@ describe("View", () => {
     expect(loads()).toBe(2);
     expect(dataA.cells).toEqual({ A1: "9" });
   });
+
+  // C5: a camera opens the form in the display-only capture context (lib/capture.ts). Under a
+  // render grant only GET /form and /data are allowed, and a refused recompile was what the
+  // camera photographed ("failed to post compile ...").
+  describe("the display-only capture context", () => {
+    /** Reports an update as soon as it has data, as L0179's spreadsheet does on init. */
+    const InitReportingForm = ({ state }: FormProps) => {
+      lastData = state.data;
+      apply = state.apply;
+      React.useEffect(() => {
+        if (state.data?.cells) state.apply({ type: "update", args: { cells: { ...state.data.cells, B1: "derived" } } });
+      }, [Boolean(state.data?.cells)]);
+      return <div data-testid="form">{JSON.stringify(state.data)}</div>;
+    };
+    const capture = (value: unknown) => vi.stubGlobal("__graffiticodeCapture", value);
+
+    test("loads once and renders, and the Form's initial update posts no compile", async () => {
+      setSearch("?id=item11");
+      capture({ displayOnly: true });
+      const { fetchSpy, compilePosts } = stubApi({ stored: { cells: { A1: "1" } } });
+      const View = await loadView();
+
+      render(<Wrapper><View Form={InitReportingForm} /></Wrapper>);
+      await waitFor(() => expect(lastData?.cells?.B1).toBe("derived"));
+      await tick(50);
+
+      expect(compilePosts.length, "a capture posted a compile").toBe(0);
+      const urls = fetchSpy.mock.calls.map(([url]) => String(url));
+      expect(urls.filter((u) => u.includes("/data"))).toHaveLength(1);
+      expect(urls.every((u) => u.includes("/data"))).toBe(true);
+      // The model the Form reported is what renders.
+      expect(lastData.cells).toEqual({ A1: "1", B1: "derived" });
+    });
+
+    test("later edits and answers post nothing either", async () => {
+      setSearch("?id=item12");
+      capture({ displayOnly: true });
+      const { compilePosts } = stubApi({ stored: { cells: { A1: "1" } } });
+      const View = await loadView();
+
+      render(<Wrapper><View Form={CountingForm} /></Wrapper>);
+      await waitFor(() => expect(lastData?.cells).toEqual({ A1: "1" }));
+      act(() => apply({ type: "update", args: { cells: { A1: "2" } } }));
+      act(() => apply({ type: "response", args: { cells: { A1: "3" } } }));
+      await tick(50);
+
+      expect(compilePosts.length).toBe(0);
+      expect(lastData.cells).toEqual({ A1: "3" });
+    });
+
+    test("without the context, the same initial update recompiles as before", async () => {
+      setSearch("?id=item13");
+      const { compilePosts } = stubApi({ stored: { cells: { A1: "1" } } });
+      const View = await loadView();
+
+      render(<Wrapper><View Form={InitReportingForm} /></Wrapper>);
+      await waitFor(() => expect(compilePosts.length).toBe(1));
+      expect(compilePosts[0].cells).toEqual({ A1: "1", B1: "derived" });
+    });
+
+    test("only displayOnly: true counts", async () => {
+      for (const [n, value] of [[14, { displayOnly: "true" }], [15, true], [16, { displayOnly: 1 }]] as const) {
+        cleanup();
+        setSearch(`?id=item${n}`);
+        capture(value);
+        const { compilePosts } = stubApi({ stored: { cells: { A1: "1" } } });
+        const View = await loadView();
+        render(<Wrapper><View Form={InitReportingForm} /></Wrapper>);
+        await waitFor(() => expect(compilePosts.length, `context ${JSON.stringify(value)}`).toBe(1));
+      }
+    });
+  });
 });
