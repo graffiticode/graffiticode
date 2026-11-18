@@ -68,7 +68,8 @@ describe("storage/oauth-tokens", () => {
       const created = await storer.create("link-1", tokenData(1));
       const expected = { ...tokenData(1), id: created.id, link_id: "link-1", created_at: created.created_at };
       await expect(storer.findByAccessToken("access-1")).resolves.toEqual(expected);
-      await expect(storer.findByRefreshToken("refresh-1")).resolves.toEqual(expected);
+      // By refresh token, it also says whether its access token still authenticates.
+      await expect(storer.findByRefreshToken("refresh-1")).resolves.toEqual({ ...expected, access_usable: true });
     });
 
     it("returns null for an unknown token", async () => {

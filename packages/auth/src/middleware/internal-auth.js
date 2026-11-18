@@ -61,3 +61,36 @@ export const requireCleanupAuth = (req, res, next) => {
   }
   next();
 };
+
+/**
+ * The OAuth-store migration's operator key (installations plan, P5). The fence and
+ * the seal (routes/oauth-migration.js) are one-way, operator-only steps: on top of
+ * the internal key, they need X-Migration-Operator-Key matching
+ * OAUTH_MIGRATION_OPERATOR_KEY, which no service holds. Unset: refused (500), so
+ * neither can happen by accident.
+ */
+export const requireMigrationOperatorAuth = (req, res, next) => {
+  const expectedKey = process.env.OAUTH_MIGRATION_OPERATOR_KEY;
+  if (!expectedKey) {
+    console.error("OAUTH_MIGRATION_OPERATOR_KEY not configured");
+    return res.status(500).json({
+      status: "error",
+      error: { message: "Migration operator key not configured" },
+    });
+  }
+  const apiKey = req.headers["x-migration-operator-key"];
+  if (!apiKey || !sameKey(apiKey, expectedKey)) {
+    throw new UnauthorizedError("Invalid migration operator key");
+  }
+  next();
+};
+
+/**
+ * Answers a write the migration fence refused (storage/oauth-migration.js) as the
+ * contract states: 409 { error: "migration_fenced" }. Mounted after the routes of
+ * every router whose writes the fence covers.
+ */
+export const fencedWriteHandler = (err, req, res, next) => {
+  if (err?.name !== "MigrationFencedError") return next(err);
+  res.status(409).json({ status: "error", error: "migration_fenced", message: err.message });
+};

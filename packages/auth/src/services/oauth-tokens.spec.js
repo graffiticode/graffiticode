@@ -37,6 +37,15 @@ const fakeStorers = ({ link = null, tokens = [] } = {}) => {
       calls.push(["token.findByRefreshToken", refreshToken]);
       return state.tokens.find(t => t.refresh_token === refreshToken) ?? null;
     },
+    async rotate(oldRefreshToken, data) {
+      calls.push(["token.rotate", oldRefreshToken, data]);
+      const old = state.tokens.find(t => t.refresh_token === oldRefreshToken);
+      if (!old) throw new NotFoundError("Token not found");
+      state.tokens = state.tokens.filter(t => t !== old);
+      const token = { id: `t${state.tokens.length + 2}`, link_id: old.link_id, ...data };
+      state.tokens.push(token);
+      return token;
+    },
     async update(linkId, tokenId, updates) {
       calls.push(["token.update", linkId, tokenId, updates]);
       return { id: tokenId, link_id: linkId, ...updates };
@@ -134,23 +143,20 @@ describe("services/oauth-tokens", () => {
   });
 
   describe("rotateTokens", () => {
-    it("removes the old token, then creates the new one under the same link", async () => {
+    it("replaces the old token with the new one under the same link, in one storer call", async () => {
       const storers = fakeStorers({ tokens: [{ id: "t1", link_id: "l", ...tokenData }] });
       const service = buildOAuthTokensService(storers);
       const next = { access_token: "a2", refresh_token: "r2", client_id: "c1" };
 
       await expect(service.rotateTokens("r1", next)).resolves.toEqual({ id: "t2", link_id: "l", ...next });
-      expect(storers.calls.slice(1)).toEqual([
-        ["token.remove", "l", "t1"],
-        ["token.create", "l", next],
-      ]);
+      expect(storers.calls).toEqual([["token.rotate", "r1", next]]);
     });
 
     it("throws NotFoundError for an unknown refresh token, creating nothing", async () => {
       const storers = fakeStorers();
       const service = buildOAuthTokensService(storers);
       await expect(service.rotateTokens("nope", tokenData)).rejects.toThrow(NotFoundError);
-      expect(storers.calls.map(c => c[0])).toEqual(["token.findByRefreshToken"]);
+      expect(storers.calls.map(c => c[0])).toEqual(["token.rotate"]);
     });
   });
 });

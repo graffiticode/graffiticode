@@ -7,6 +7,7 @@ import { buildLinkedEmailStorer } from "./linked-emails.js";
 import { buildOAuthFlowStorer } from "./oauth-flow.js";
 import { buildOAuthLinkStorer } from "./oauth-links.js";
 import { buildOAuthTokenStorer } from "./oauth-tokens.js";
+import { buildOAuthMigrationStorer } from "./oauth-migration.js";
 import { buildRefreshTokenStorer } from "./refresh-tokens.js";
 
 export const createStorers = () => {
@@ -23,6 +24,8 @@ export const createStorers = () => {
   const oauthClientStorer = buildOAuthFlowStorer("oauth-clients");
   const oauthPendingStorer = buildOAuthFlowStorer("oauth-pending");
   const oauthCodeStorer = buildOAuthFlowStorer("oauth-codes");
+  // The OAuth-store migration contract (fence, seal, single use, marks).
+  const oauthMigrationStorer = buildOAuthMigrationStorer();
   return {
     apiKeyStorer,
     emailInviteStorer,
@@ -36,5 +39,6 @@ export const createStorers = () => {
     oauthClientStorer,
     oauthPendingStorer,
     oauthCodeStorer,
+    oauthMigrationStorer,
   };
 };

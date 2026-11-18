@@ -7,7 +7,11 @@ import { NotFoundError } from "@graffiticode/common/errors";
  * OAuth tokens stored in Firestore.
  */
 
-export const buildOAuthTokensService = ({ oauthLinkStorer, oauthTokenStorer }) => {
+// `checkUnfenced` (storage/oauth-migration.js) refuses every write early once
+// the OAuth store is fenced for the migration, so a fenced store answers
+// migration_fenced whether or not the token exists; the storers refuse
+// atomically either way.
+export const buildOAuthTokensService = ({ oauthLinkStorer, oauthTokenStorer, checkUnfenced = async () => {} }) => {
   /**
    * Create or update a token for a given provider ID and client.
    * If a token already exists for this client, it will be replaced.
@@ -15,6 +19,9 @@ export const buildOAuthTokensService = ({ oauthLinkStorer, oauthTokenStorer }) =
    * Auto-creates an oauth-link if one doesn't exist for the provider ID.
    */
   const createToken = async ({ providerId, email, tokenData }) => {
+    // Refused once fenced (the storer refuses too, atomically); checked first
+    // so a refused write leaves no link behind either.
+    await checkUnfenced();
     let oauthLink;
     try {
       oauthLink = await oauthLinkStorer.findByProviderId({
@@ -70,6 +77,7 @@ export const buildOAuthTokensService = ({ oauthLinkStorer, oauthTokenStorer }) =
    * Update specific fields of a token (e.g., after Firebase token refresh).
    */
   const updateToken = async (accessToken, updates) => {
+    await checkUnfenced();
     const existingToken = await oauthTokenStorer.findByAccessToken(accessToken);
     if (!existingToken) {
       throw new NotFoundError("Token not found");
@@ -88,6 +96,7 @@ export const buildOAuthTokensService = ({ oauthLinkStorer, oauthTokenStorer }) =
    * Delete a token by its access token.
    */
   const deleteToken = async (accessToken) => {
+    await checkUnfenced();
     const existingToken = await oauthTokenStorer.findByAccessToken(accessToken);
     if (!existingToken) {
       throw new NotFoundError("Token not found");
@@ -97,22 +106,12 @@ export const buildOAuthTokensService = ({ oauthLinkStorer, oauthTokenStorer }) =
   };
 
   /**
-   * Rotate tokens (OAuth 2.1 refresh flow).
-   * Deletes old token and creates new one atomically.
+   * Rotate tokens (OAuth 2.1 refresh flow): the old token is replaced by the
+   * new one in one transaction.
    */
   const rotateTokens = async (oldRefreshToken, newTokenData) => {
-    const existingToken = await oauthTokenStorer.findByRefreshToken(oldRefreshToken);
-    if (!existingToken) {
-      throw new NotFoundError("Token not found");
-    }
-
-    // Remove old token
-    await oauthTokenStorer.remove(existingToken.link_id, existingToken.id);
-
-    // Create new token
-    const newToken = await oauthTokenStorer.create(existingToken.link_id, newTokenData);
-
-    return newToken;
+    await checkUnfenced();
+    return oauthTokenStorer.rotate(oldRefreshToken, newTokenData);
   };
 
   return {

@@ -1,5 +1,6 @@
 /* eslint-disable camelcase */
 import { getFirestore } from "../firebase.js";
+import { assertUnfenced } from "./oauth-migration.js";
 
 /**
  * Generic Firestore-backed key/value storer for ephemeral OAuth flow records:
@@ -16,11 +17,26 @@ import { getFirestore } from "../firebase.js";
  * Keys are UUIDs or base64url tokens, so they are safe Firestore document ids.
  */
 export const buildOAuthFlowStorer = (collection) => {
+  // The fence (oauth-migration.js): once Graffiticode's records are fenced for
+  // the OAuth-store migration, every write here is refused, in the same
+  // transaction that would have made it.
   const put = async (key, record) => {
     const db = getFirestore();
+    const ref = db.collection(collection).doc(key);
     const data = { ...record, updated_at: Date.now() };
-    await db.collection(collection).doc(key).set(data);
+    await db.runTransaction(async tx => {
+      await assertUnfenced(tx, db);
+      tx.set(ref, data);
+    });
     return data;
+  };
+
+  // A record consumed through the migration (consumed_by) reads as used, for
+  // a code, and as gone, for a pending authorization: either way it can't be
+  // used again here.
+  const view = data => {
+    if (!data.consumed_by) return data;
+    return collection === "oauth-codes" ? { ...data, used: true } : null;
   };
 
   const get = async (key) => {
@@ -35,24 +51,31 @@ export const buildOAuthFlowStorer = (collection) => {
       await ref.delete().catch(() => {});
       return null;
     }
-    return data;
+    return view(data);
   };
 
   const patch = async (key, updates) => {
     const db = getFirestore();
     const ref = db.collection(collection).doc(key);
-    const doc = await ref.get();
-    if (!doc.exists) {
-      return null;
-    }
-    await ref.update(updates);
-    const updated = await ref.get();
-    return updated.data();
+    return db.runTransaction(async tx => {
+      await assertUnfenced(tx, db);
+      const doc = await tx.get(ref);
+      if (!doc.exists) {
+        return null;
+      }
+      const updated = { ...doc.data(), ...updates };
+      tx.update(ref, updates);
+      return view(updated);
+    });
   };
 
   const remove = async (key) => {
     const db = getFirestore();
-    await db.collection(collection).doc(key).delete().catch(() => {});
+    const ref = db.collection(collection).doc(key);
+    await db.runTransaction(async tx => {
+      await assertUnfenced(tx, db);
+      tx.delete(ref);
+    });
   };
 
   return { put, get, patch, remove };

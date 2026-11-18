@@ -9,6 +9,7 @@ import { buildLinkedEmailsRouter } from "./linked-emails.js";
 import { buildOAuthRouter } from "./oauth.js";
 import { buildOAuthFlowRouter } from "./oauth-flow.js";
 import { buildOAuthLinksRouter } from "./oauth-links.js";
+import { buildOAuthMigrationRouter } from "./oauth-migration.js";
 import { buildOAuthTokensRouter } from "./oauth-tokens.js";
 import { buildV1Router } from "./v1/index.js";
 
@@ -27,6 +28,7 @@ export const createHttpAuthApp = deps => {
     app.use("/oauth-clients", buildOAuthFlowRouter(deps.oauthClientStorer));
     app.use("/oauth-pending", buildOAuthFlowRouter(deps.oauthPendingStorer));
     app.use("/oauth-codes", buildOAuthFlowRouter(deps.oauthCodeStorer));
+    app.use("/oauth-migration/v1", buildOAuthMigrationRouter(deps));
     app.use("/v1", buildV1Router(deps));
   });
 };
