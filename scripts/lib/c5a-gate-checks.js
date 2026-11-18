@@ -121,7 +121,7 @@ export const policyReserveFilter = (itemId, since) => [
 // it). `read()` is retried until `done(value)` or the deadline; the last value
 // is returned either way, with how many reads it took and whether it timed out,
 // so a check still judges what was there.
-export const pollUntil = async ({ read, done, timeoutMs = 180_000, intervalMs = 10_000, sleep = ms => new Promise(r => setTimeout(r, ms)), now = () => Date.now() }) => {
+export const pollUntil = async ({ read, done, timeoutMs = 180_000, intervalMs = 10_000, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = () => Date.now() }) => {
   const deadline = now() + timeoutMs;
   let attempts = 0;
   for (;;) {
