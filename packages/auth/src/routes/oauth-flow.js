@@ -2,7 +2,7 @@
 import { NotFoundError } from "@graffiticode/common/errors";
 import { buildHttpHandler, sendSuccessResponse } from "@graffiticode/common/http";
 import { Router } from "express";
-import { requireInternalAuth } from "../middleware/internal-auth.js";
+import { fencedWriteHandler, requireInternalAuth } from "../middleware/internal-auth.js";
 
 /**
  * Generic router for ephemeral OAuth flow records (clients, pending auths,
@@ -52,6 +52,9 @@ export const buildOAuthFlowRouter = (storer) => {
     await storer.remove(key);
     sendSuccessResponse(res, {});
   }));
+
+  // Writes refused by the migration fence: 409 migration_fenced.
+  router.use(fencedWriteHandler);
 
   return router;
 };

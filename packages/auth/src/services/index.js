@@ -5,6 +5,7 @@ import { buildKeysService } from "./keys.js";
 import { buildLinkedEmailsService } from "./linked-emails.js";
 import { buildOAuthService } from "./oauth.js";
 import { buildOAuthTokensService } from "./oauth-tokens.js";
+import { checkUnfenced } from "../storage/oauth-migration.js";
 
 export const createServices = ({
   firebaseAuth,
@@ -22,7 +23,7 @@ export const createServices = ({
   const apiKeyService = buildApiKeyService({ apiKeyStorer });
   const linkedEmailsService = buildLinkedEmailsService({ linkedEmailStorer });
   const oauthService = buildOAuthService({ oauthLinkStorer, linkedEmailsService });
-  const oauthTokensService = buildOAuthTokensService({ oauthLinkStorer, oauthTokenStorer });
+  const oauthTokensService = buildOAuthTokensService({ oauthLinkStorer, oauthTokenStorer, checkUnfenced });
 
   return {
     apiKeyService,

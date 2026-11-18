@@ -3,7 +3,8 @@ import { InvalidArgumentError, NotFoundError } from "@graffiticode/common/errors
 import { isNonEmptyString } from "@graffiticode/common/utils";
 import { buildHttpHandler, sendSuccessResponse } from "@graffiticode/common/http";
 import { Router } from "express";
-import { requireInternalAuth } from "../middleware/internal-auth.js";
+import { fencedWriteHandler, requireInternalAuth } from "../middleware/internal-auth.js";
+import { withMarks } from "../storage/oauth-migration.js";
 
 /**
  * Routes for OAuth token management.
@@ -82,7 +83,9 @@ const buildGet = ({ oauthTokensService }) => buildHttpHandler(async (req, res) =
     throw new NotFoundError("Token not found");
   }
 
-  sendSuccessResponse(res, { token });
+  // With the migration's marks: whether it was revoked, and whether (and
+  // under which claim) it was marked migrated.
+  sendSuccessResponse(res, { token: withMarks(token) });
 });
 
 const buildUpdate = ({ oauthTokensService }) => buildHttpHandler(async (req, res) => {
@@ -191,6 +194,7 @@ export const buildOAuthTokensRouter = deps => {
   router.post("/update", buildUpdate(deps));
   router.post("/delete", buildDelete(deps));
   router.post("/rotate", buildRotate(deps));
+  router.use(fencedWriteHandler);
 
   return router;
 };
