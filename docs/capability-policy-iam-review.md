@@ -2034,36 +2034,32 @@ gcloud storage buckets add-iam-policy-binding gs://graffiticode-command-staging 
 - **The staging bucket:** remove the three bindings with `gcloud storage buckets remove-iam-policy-binding`, using the same members and roles. Delete it only if C5a is abandoned: Policy's and Broker's configuration name it.
 - **Removing either bucket** makes staging or publishing fail with an error, which means unavailable, never allowed.
 
-### Step 29: the C5a gate api and the canary window [PROPOSED; held for review; release blocked]
+### Step 29: the C5a gate api and the canary window [PROPOSED; held for review]
 
 The gate (C5 plan, "C5a completion gate") runs `scripts/c5a-gate.js` as the canary account through a dedicated api, `api-c5a-gate`, as B6's drive ran through `api-drive` (Step 24). Production is untouched: production `COMMANDS_L0013` stays unset, and its api declares no `scopes`.
 
-#### Blocker: the api can't run the gate yet
+#### The api slice (resolved)
 
-At `main` (`dc7d12fa`), three things the gate needs don't exist. C5a's six slices built Policy, Broker, the console route and the compilers, but no api slice:
-1. **Connectionless commands.** `POST /command` refuses any command without a connection: `packages/api/src/routes/command.js:86`, "a command needs a connection". An item capture and an L0000 head over a capture are connectionless v3 commands.
-2. **The `scopes` capability.** The api never sends `scopes` to Policy: `policy-commands.js`'s lease sends `recording: 1, repairs: 1`, and nothing else declares it. Policy hands v3 commands only to `scopes` workers (C5a slice 3), so even an allocated v3 command would be refused to the gate api as `worker-unsupported`.
-3. **The gate script.** `scripts/c5a-gate.js` isn't written.
+When this step was first proposed, the api at `main` couldn't run the gate: `POST /command` refused a command with no connection, the api never declared the `scopes` capability, and `scripts/c5a-gate.js` didn't exist. So the entry carried a `blocked` reason. C5a slice 7 (#417, merged `08c74b8f`) added all three, behind `COMMAND_SCOPES=on`:
+- connectionless commands through `POST /command` and the compile bridge, with whole-chain eligibility;
+- the capability declared on allocation, admission, lease, takeover and the due query;
+- anonymous public capture through the bridge only, and no fallback to L0013's direct upload;
+- the deploy guard (production `api` lists `COMMAND_SCOPES` in `removeEnv`);
+- the gate runner and its tested verdict.
 
-So `deploy.json`'s `api-c5a-gate` carries a `blocked` reason, and the CLI refuses to release it (`release.js`, `requireValue(!config.blocked)`) until an api slice lands. That slice needs:
-- connectionless allocation for an item-scoped chain;
-- `COMMAND_SCOPES=on`, which makes the worker declare `scopes: 1` on allocate, admit, lease, due and take-over, absent in production;
-- the anonymous public-capture path through the bridge (decision 4);
-- the gate script.
+The `blocked` field is removed. Releasing `api-c5a-gate` still needs the owner's approval, as do the provisioning, invokers and window below.
 
-Its name, `COMMAND_SCOPES`, is proposed here and set in the entry below; the slice may rename it.
-
-#### The deployment (`deploy.json` `api-c5a-gate`, in this PR, blocked)
+#### The deployment (`deploy.json` `api-c5a-gate`, in this PR)
 
 - **The production api's entry** (image build, steps, smoke, `verify/api.js`, `EDGE_AUTH_SECRET`), with these changes:
   - **image** `us-central1-docker.pkg.dev/graffiticode/services/api-c5a-gate`;
   - **`access: "private"`**, with `smokeServiceAccount: deploy-smoke@graffiticode.iam.gserviceaccount.com` for the CLI's candidate checks;
   - **runtime** `api-run` (Policy's gateway caller and `l0013r`'s `PREFLIGHT_GATEWAYS` both name it, so no new identity or caller entry is needed);
-  - **no sweeper:** `SWEEP_AUDIENCE` and `SWEEP_CALLERS` are dropped, so recovery is left to C5d's drive, and Cloud Scheduler doesn't call it;
+  - **no sweeper:** `SWEEP_AUDIENCE` and `SWEEP_CALLERS` are dropped from `env` and listed in its `removeEnv`, so no revision of it ever mounts the sweep route (recovery is left to C5d's drive, and Cloud Scheduler never calls it);
   - **`COMMANDS_L0013=on`, `COMPILE_GENERATION_L0013=c5a-gate-1`, `COMMAND_SCOPES=on`;**
   - `BASE_URL_L0013` stays production `l0013r` (`l0013r-rmwl2casf-31e8b9` is approved `[3]`), and every other language's routing is production's.
 - **It reaches Broker's gate bucket only.** Broker's `THUMBNAIL_BUCKET` is `graffiticode-c5a-gate` (Step 28).
-- **It is released from `main` after the api slice merges,** with `blocked` removed in that slice's PR.
+- **It is released from `main`** (now including #417), with the owner's approval, after the service is provisioned.
 
 #### Provisioning and invokers (owner's actions; each needs approval)
 

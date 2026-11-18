@@ -228,7 +228,6 @@
       }
     },
     "api-c5a-gate": {
-      "blocked": "C5a gate api: the api cannot yet allocate a connectionless command or declare the scopes capability (COMMAND_SCOPES), and scripts/c5a-gate.js does not exist. See IAM review Step 29.",
       "image": "us-central1-docker.pkg.dev/graffiticode/services/api-c5a-gate",
       "dockerfile": "configs/Dockerfile.api.yaml",
       "port": 3100,
@@ -404,6 +403,10 @@
         "module": "verify/api.js"
       },
       "retireTags": true,
+      "removeEnv": [
+        "SWEEP_AUDIENCE",
+        "SWEEP_CALLERS"
+      ],
       "secrets": {
         "EDGE_AUTH_SECRET": "edge-auth-secret:1"
       }
