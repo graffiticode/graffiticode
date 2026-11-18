@@ -21,7 +21,8 @@
 // receipts and Cloud Logging.
 import { createHash, randomBytes } from "node:crypto";
 import { createCanaryEnv, loadDeployServices, http } from "../../../scripts/lib/canary-env.js";
-import { savedReferences, auditByOperation } from "../../../scripts/lib/b6-drive-checks.js";
+import { savedReferences, auditByOperation, roundtripBrokerProblems, roundtripOperations } from "../../../scripts/lib/b6-drive-checks.js";
+import { OPERATIONS } from "@graffiticode/common/protected-registry";
 
 const [staged, revision] = process.argv.slice(2);
 if (!staged || !revision) throw new Error("usage: roundtrip.mjs <stagedBase> <stagedRevision>");
@@ -67,6 +68,27 @@ const claimsOf = async invocationId => {
   const where = { compositeFilter: { op: "AND", filters: [range("GREATER_THAN_OR_EQUAL", `${invocationId}/`), range("LESS_THAN", `${invocationId}0`)] } };
   const res = await http({ method: "POST", url: `https://firestore.googleapis.com/v1/projects/${project}/databases/broker/documents:runQuery`, headers: { Authorization: `Bearer ${await operator()}` }, body: { structuredQuery: { from: [{ collectionId: "receipts" }], where, select: { fields: [{ fieldPath: "operationId" }] } } } });
   return (Array.isArray(res.json) ? res.json : []).filter(r => r.document).map(r => r.document.fields.operationId.stringValue);
+};
+// One operation's Broker receipt, read and absent (claim null) or its records.
+const receiptOf = async opid => {
+  const name = createHash("sha256").update(opid).digest("hex");
+  const doc = async p => {
+    const res = await http({ method: "GET", url: `https://firestore.googleapis.com/v1/projects/${project}/databases/broker/documents/receipts/${name}${p}`, headers: { Authorization: `Bearer ${await operator()}` } });
+    if (res.status === 404) return null;
+    if (res.status !== 200) throw new Error(`Broker receipt ${name}${p}: ${res.status}`);
+    return res.json;
+  };
+  const value = v => v?.stringValue ?? (v?.integerValue !== undefined ? Number(v.integerValue) : (v?.arrayValue?.values ?? []).map(x => x.stringValue));
+  const claim = await doc("");
+  const outcome = await doc("/outcome/final");
+  const steps = claim ? (await doc("/steps"))?.documents ?? [] : [];
+  const attempts = claim ? (await doc("/attempts"))?.documents ?? [] : [];
+  return {
+    claim: claim ? { operationId: value(claim.fields.operationId), claimedAt: claim.fields.claimedAt?.stringValue ?? null } : null,
+    outcome: outcome ? { status: value(outcome.fields.status), steps: value(outcome.fields.steps) } : null,
+    steps: steps.map(d => ({ n: value(d.fields.n), step: value(d.fields.step) })).sort((a, b) => a.n - b.n),
+    attempts: attempts.length,
+  };
 };
 const finalOutcomes = async invocationId => {
   let done = 0;
@@ -166,16 +188,23 @@ const opids = {
 const auditEntries = await logs(`resource.type="cloud_run_revision" AND (resource.labels.service_name="broker" OR resource.labels.service_name="broker-faults") AND jsonPayload.logName="security_audit" AND (${Object.values(opids).map(o => `jsonPayload.opid="${o}"`).join(" OR ")}) AND timestamp>="${startedAt}"`);
 const audit = auditByOperation(auditEntries, Object.values(opids));
 const tally = Object.fromEntries(Object.entries(opids).map(([k, o]) => [k, audit.get(o)]));
-const dispatched = a => Object.values(a.dispatches).reduce((n, c) => n + c, 0);
-check("Broker: A written once by the original, B once by the repair, nothing else",
-  tally["A, original"].claims === 1 && dispatched(tally["A, original"]) > 0 && Object.values(tally["A, original"].dispatches).every(c => c === 1) &&
-  tally["B, original"].claims === 0 && dispatched(tally["B, original"]) === 0 &&
-  tally["A, repair"].claims === 0 && dispatched(tally["A, repair"]) === 0 &&
-  tally["B, repair"].claims === 1 && dispatched(tally["B, repair"]) > 0 && Object.values(tally["B, repair"].dispatches).every(c => c === 1) &&
-  auditEntries.every(e => e.resource.labels.service_name === "broker"),
-  JSON.stringify(tally));
+// The owner's review of 4fe391: B may be refused before Broker, or after its
+// receipt is claimed and before any dispatch (a claim is not a dispatch).
+const brokerEvidence = {
+  opids,
+  receipts: Object.fromEntries(await Promise.all(Object.entries(opids).map(async ([k, o]) => [k, await receiptOf(o)]))),
+  audit: auditEntries.map(e => ({ at: e.timestamp, service: e.resource.labels.service_name, opid: e.jsonPayload.opid, event: e.jsonPayload.event, outcome: e.jsonPayload.outcome, reason: e.jsonPayload.reason ?? null, purpose: e.jsonPayload.purpose ?? null, step: e.jsonPayload.step ?? null })),
+};
+const registeredSteps = OPERATIONS["learnosity.write-items"].steps.filter(s => s.purpose === "dispatch").map(s => s.id);
+const brokerProblems = roundtripBrokerProblems({ operations: roundtripOperations(brokerEvidence), registeredSteps });
+check("Broker: A written once by the original, B once by the repair, B under the original never dispatched", brokerProblems.length === 0,
+  brokerProblems.length ? brokerProblems.join("; ") : JSON.stringify(tally));
 const receipts = { original: await claimsOf(original.invocationId), repair: await claimsOf(repair.invocationId) };
-check("Broker's receipts: one under each invocation", receipts.original.length === 1 && receipts.repair.length === 1, JSON.stringify(receipts));
+// Under the original, A's receipt and at most B's (definitively failed, judged above).
+check("Broker's receipts: A (and at most a failed B) under the original, B under the repair",
+  receipts.original.includes(opids["A, original"]) && receipts.original.every(o => o === opids["A, original"] || o === opids["B, original"]) &&
+  JSON.stringify(receipts.repair) === JSON.stringify([opids["B, repair"]]),
+  JSON.stringify(receipts));
 
 const read = await http({ method: "GET", url: `${staged}/data?id=${encodeURIComponent(chain)}&connection=${connectionId}`, headers: await asUser() });
 const references = savedReferences(read.json?.data?.data);
@@ -192,7 +221,7 @@ const record = {
   original: { key: originalKey, commandId: originalId, invocationId: original.invocationId, status: original.status, outcomes: outcomes.map(o => ({ stage: o.stage, occurrenceId: o.occurrenceId, outcome: o.outcome, source: o.source, reason: o.reason ?? null })) },
   repair: { key: repairKey, commandId: repairId, invocationId: repair.invocationId, status: repair.status, selection: repair.selection, publication: repair.publication },
   permissions: { saved },
-  lines, opids, audit: tally, receipts, references, expectedPrefixes: expected,
+  lines, opids, audit: tally, brokerEvidence, receipts, references, expectedPrefixes: expected,
   results,
 };
 console.log(`RECORD ${JSON.stringify(record)}`);
