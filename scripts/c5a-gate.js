@@ -24,8 +24,14 @@
 //              Once their leases expire, the query is asked repeatedly as
 //              production asks it (recording, repairs) and as a `scopes`
 //              worker does, and production's takeover lease of a v3 fixture
-//              is attempted (refused `worker-unsupported`). Production's
-//              sweeper then recovers the control, which writes nothing.
+//              is attempted (refused `worker-unsupported`). Every fixture's
+//              id is saved the moment it is allocated, and all of them are
+//              then retired without running (c5a-gate-fixtures.js: a fenced
+//              takeover and an empty finish, recorded `failed`) and checked
+//              no longer due, even when the phase fails part-way.
+//   cleanup    the same retirement and check, alone: rerun after an
+//              interrupted due phase or cleanup. The gate isn't retired until
+//              it reports every fixture finished and none due.
 //   after      read-only: the same digests again, and graffiticode-thumbnails'
 //              object count.
 //   judge      the verdict over the state and every --evidence file, written
@@ -57,6 +63,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { createCanaryEnv, loadDeployServices, http } from "./lib/canary-env.js";
+import { ensureFixtures, retireFixtures, verifyRetired } from "./lib/c5a-gate-fixtures.js";
 import { verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planContractVersion, tokensFromAudit, brokerAuditFilter, rateLimitFromAudit, policyReserveFilter, dueObservation } from "./lib/c5a-gate-checks.js";
 
 const args = process.argv.slice(2);
@@ -65,7 +72,7 @@ const flag = (name, fallback = null) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 const flags = name => args.flatMap((a, i) => (a === name ? [args[i + 1]] : []));
-const PHASES = ["baseline", "captures", "due", "after", "judge"];
+const PHASES = ["baseline", "captures", "due", "cleanup", "after", "judge"];
 const phase = flag("--phase");
 if (!PHASES.includes(phase)) {
   console.error(`usage: c5a-gate.js --phase <${PHASES.join("|")}> [--private-task id --public-task id --compose-task id --mixed-task id] [--evidence file]...`);
@@ -317,46 +324,94 @@ if (phase === "captures") {
   await save();
 }
 
-if (phase === "due") {
-  if (!state.capturesStartedAt) throw new Error("run --phase captures first");
-  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-  const asGateway = async (user = null) => ({
+// Policy's gateway command routes, as the gateway (canary-window-c5a covers
+// api-run), for the due and cleanup phases.
+const gatewayClient = () => {
+  const headers = async (user = null) => ({
     "X-Serverless-Authorization": `Bearer ${await idToken(gatewayAccount, policyUrl)}`,
     "X-Caller-Identity": await idToken(gatewayAccount, "urn:graffiticode:policy"),
     ...(user ? { Authorization: `Bearer ${user}` } : {}),
   });
-  const policy = async (method, route, { body, user = null } = {}) => {
-    const res = await http({ method, url: `${policyUrl}${route}`, headers: await asGateway(user), body });
-    return { status: res.status, data: res.json?.data ?? null, reason: res.json?.error?.reason ?? null };
-  };
-  const fixture = async (name, { id, connection, scopes }) => {
-    const out = await policy("POST", "/v1/commands", {
-      user: await canary(),
-      body: { connectionId: connection, taskId: id, inputDigest: createHash("sha256").update("{}").digest("hex"), idempotencyKey: key(name), lang: "0013", request: JSON.stringify({ id, connectionId: connection, options: {} }), worker: `c5a-gate-fixture:${state.runId}`, create: true, ...(scopes ? { scopes: 1 } : {}) },
-    });
-    if (out.status !== 200 || !out.data?.commandId) throw new Error(`fixture ${name}: ${out.status} ${out.reason}`);
-    return out.data.commandId;
-  };
-  await collect("oldWorkers", async () => {
-    const v3Fixtures = [await fixture("v3-fixture-1", { id: need("--private-task"), connection: null, scopes: true }), await fixture("v3-fixture-2", { id: need("--private-task"), connection: null, scopes: true })];
-    const control = await fixture("v2-control", { id: need("--control-task"), connection: connectionId, scopes: false });
-    // Their leases (60 s) expire; then the due query, as each worker asks it.
-    await sleep(62_000);
-    const productionQueries = [];
-    const scopedQueries = [];
-    for (let i = 0; i < 10 && !productionQueries.some(q => (q.commands ?? []).some(c => c.commandId === control)); i++) {
-      const production = await policy("GET", "/v1/commands-due?limit=50&recording=1&repairs=1");
-      const scoped = await policy("GET", "/v1/commands-due?limit=50&recording=1&repairs=1&scopes=1");
-      if (production.status !== 200 || scoped.status !== 200) throw new Error(`due query: ${production.status}/${scoped.status}`);
-      productionQueries.push(production.data);
-      scopedQueries.push(scoped.data);
-      await sleep(2_000);
+  const call = async (method, route, { body, user = null } = {}) => {
+    const res = await http({ method, url: `${policyUrl}${route}`, headers: await headers(user), body });
+    if (res.status !== 200 || res.json?.status !== "success") {
+      throw Object.assign(new Error(`policy ${method} ${route}: ${res.status} ${res.json?.error?.reason ?? ""}`), { reason: res.json?.error?.reason ?? null });
     }
-    // Production's takeover lease of a v3 fixture, with its capabilities.
-    const lease = await policy("POST", `/v1/commands/${encodeURIComponent(v3Fixtures[0])}/lease`, { body: { worker: "c5a-gate-production-probe", generation: 1, takeOver: true, recording: 1, repairs: 1 } });
-    return dueObservation({ v3Fixtures, control, productionQueries, scopedQueries, productionLease: lease.status === 200 ? "leased" : lease.reason });
+    return res.json.data;
+  };
+  const at = id => `/v1/commands/${encodeURIComponent(id)}`;
+  return {
+    allocate: async body => call("POST", "/v1/commands", { body, user: await canary() }),
+    get: id => call("GET", at(id)),
+    lease: (id, body) => call("POST", `${at(id)}/lease`, { body }),
+    finish: (id, generation) => call("POST", `${at(id)}/finish`, { body: { generation, result: null } }),
+    due: ({ scopes }) => call("GET", `/v1/commands-due?limit=50&recording=1&repairs=1${scopes ? "&scopes=1" : ""}`),
+  };
+};
+const fixtureWorker = () => `c5a-gate-fixture:${state.runId}`;
+const retireAll = async client => {
+  const ids = Object.values(state.fixtures ?? {});
+  if (!ids.length) return;
+  await collect("fixtureCleanup", async () => {
+    await retireFixtures({ client, ids, worker: fixtureWorker() });
+    return verifyRetired({ client, ids });
   });
   await save();
+};
+
+if (phase === "due") {
+  if (!state.capturesStartedAt) throw new Error("run --phase captures first");
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const client = gatewayClient();
+  const spec = (name, { id, connection, scopes }) => ({
+    name,
+    body: { connectionId: connection, taskId: id, inputDigest: createHash("sha256").update("{}").digest("hex"), idempotencyKey: key(name), lang: "0013", request: JSON.stringify({ id, connectionId: connection, options: {} }), worker: fixtureWorker(), create: true, ...(scopes ? { scopes: 1 } : {}) },
+  });
+  try {
+    await collect("oldWorkers", async () => {
+      const fixtures = await ensureFixtures({
+        client,
+        state,
+        save,
+        specs: [
+          spec("v3-fixture-1", { id: need("--private-task"), connection: null, scopes: true }),
+          spec("v3-fixture-2", { id: need("--private-task"), connection: null, scopes: true }),
+          spec("v2-control", { id: need("--control-task"), connection: connectionId, scopes: false }),
+        ],
+      });
+      const v3Fixtures = [fixtures["v3-fixture-1"], fixtures["v3-fixture-2"]];
+      const control = fixtures["v2-control"];
+      // Their leases (60 s) expire; then the due query, as each worker asks it.
+      await sleep(62_000);
+      const productionQueries = [];
+      const scopedQueries = [];
+      const seen = (queries, id) => queries.some(q => (q.commands ?? []).some(c => c.commandId === id));
+      for (let i = 0; i < 10 && !(seen(productionQueries, control) && seen(scopedQueries, control)); i++) {
+        productionQueries.push(await client.due({ scopes: false }));
+        scopedQueries.push(await client.due({ scopes: true }));
+        await sleep(2_000);
+      }
+      // Production's takeover lease of a v3 fixture, with its capabilities.
+      let productionLease;
+      try {
+        await client.lease(v3Fixtures[0], { worker: "c5a-gate-production-probe", generation: 1, takeOver: true, recording: 1, repairs: 1 });
+        productionLease = "leased";
+      } catch (e) {
+        if (!e?.reason) throw e;
+        productionLease = e.reason;
+      }
+      return dueObservation({ v3Fixtures, control, productionQueries, scopedQueries, productionLease });
+    });
+    await save();
+  } finally {
+    // Never left executable: retired however the phase ended.
+    await retireAll(client);
+  }
+}
+
+if (phase === "cleanup") {
+  if (!state.fixtures || !Object.keys(state.fixtures).length) throw new Error("no fixtures recorded in this state");
+  await retireAll(gatewayClient());
 }
 
 if (phase === "after") {

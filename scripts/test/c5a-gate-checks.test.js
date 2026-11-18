@@ -35,7 +35,8 @@ const PASSING = () => ({
   conditional: { attempts: [{ decisionId: "d1" }, { decisionId: "d2" }], finalSequence: 12, newerSequence: 12 },
   reserveStageBind: { order: ["reserve", "stage", "bind"], repeatReserveSame: true, repeatStageSame: true, publishedSequence: 7, reservedSequence: 7, outOfOrderFinal: 12, outOfOrderNewer: 12 },
   elsewhere: { appspotBefore: "h1", appspotAfter: "h1", thumbnailsObjects: 0 },
-  oldWorkers: { v3Fixtures: ["c:v3a", "c:v3b"], productionListedV3: [], scopedListedV3: ["c:v3a", "c:v3b"], controlListedToProduction: true, productionLease: "worker-unsupported" },
+  oldWorkers: { v3Fixtures: ["c:v3a", "c:v3b"], control: "c:v2", productionListedV3: [], scopedListedV3: ["c:v3a", "c:v3b"], controlListedToProduction: true, controlListedToScoped: true, productionLease: "worker-unsupported" },
+  fixtureCleanup: { fixtures: ["c:v3a", "c:v3b", "c:v2"], statuses: { "c:v3a": "failed", "c:v3b": "failed", "c:v2": "failed" }, listedAfter: [] },
   consoleRoute: [{ caller: "policy-run@graffiticode.iam.gserviceaccount.com", status: 200 }, { caller: "api-run@graffiticode.iam.gserviceaccount.com", status: 403 }, { caller: "anonymous", status: 403 }],
   proxy: { verifyRollout: true, at11: "step26-exception" },
 });
@@ -95,7 +96,9 @@ test("each check fails on its own evidence", () => {
   failsOnly("old-workers", o => { o.oldWorkers.controlListedToProduction = false; });
   failsOnly("old-workers", o => { o.oldWorkers.scopedListedV3 = ["c:v3a"]; });
   failsOnly("old-workers", o => { o.oldWorkers.productionLease = "leased"; });
-  failsOnly("old-workers", o => { o.oldWorkers.v3Fixtures = []; });
+  failsOnly("old-workers", o => { o.oldWorkers.controlListedToScoped = false; });
+  failsOnly("fixtures-retired", o => { o.fixtureCleanup.statuses["c:v3b"] = "pending"; });
+  failsOnly("fixtures-retired", o => { o.fixtureCleanup.listedAfter = ["c:v3a"]; });
   failsOnly("console-route", o => { o.consoleRoute[1].status = 200; });
   failsOnly("proxy", o => { o.proxy.at11 = "pending"; });
 });
@@ -217,7 +220,7 @@ test("the due observation comes from the due queries' answers, as each worker as
     scopedQueries: [{ commands: [{ commandId: "c:v3a" }, { commandId: "c:v2" }] }, { commands: [{ commandId: "c:v3b" }] }],
     productionLease: "worker-unsupported",
   });
-  assert.deepEqual(due, { v3Fixtures: ["c:v3a", "c:v3b"], productionListedV3: [], scopedListedV3: ["c:v3a", "c:v3b"], controlListedToProduction: true, productionLease: "worker-unsupported", queries: 4 });
+  assert.deepEqual(due, { v3Fixtures: ["c:v3a", "c:v3b"], control: "c:v2", productionListedV3: [], scopedListedV3: ["c:v3a", "c:v3b"], controlListedToProduction: true, controlListedToScoped: true, productionLease: "worker-unsupported", queries: 4 });
   // The reviewer's case: production listed a v3 command (its lease refused).
   const leaked = dueObservation({ v3Fixtures: ["c:v3a"], control: "c:v2", productionQueries: [{ commands: [{ commandId: "c:v3a" }, { commandId: "c:v2" }] }], scopedQueries: [{ commands: [{ commandId: "c:v3a" }] }], productionLease: "worker-unsupported" });
   const o = PASSING();

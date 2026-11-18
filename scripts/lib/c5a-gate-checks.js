@@ -25,7 +25,8 @@
 //   conditional    { attempts: [{ decisionId }], finalSequence, newerSequence }   live
 //   reserveStageBind { order, repeatReserveSame, repeatStageSame, publishedSequence, reservedSequence, outOfOrderFinal, outOfOrderNewer }   live
 //   elsewhere      { appspotBefore, appspotAfter, thumbnailsObjects }
-//   oldWorkers     dueObservation(): { v3Fixtures, productionListedV3, scopedListedV3, controlListedToProduction, productionLease }
+//   oldWorkers     dueObservation(): { v3Fixtures, control, productionListedV3, scopedListedV3, controlListedToProduction, controlListedToScoped, productionLease }
+//   fixtureCleanup c5a-gate-fixtures.js verifyRetired(): { fixtures, statuses, listedAfter }
 //   deployed       { policy, broker, ... }               each service's serving commit
 //   hermetic       { <row>: { service, commit, test, output, passed, result, uninducible?, fixture?, results? } }
 //                  mismatches (results: [{ direction, reason }]) and preSlice6 (fixture, result.reason)
@@ -120,9 +121,11 @@ export const dueObservation = ({ v3Fixtures, control, productionQueries, scopedQ
   const scoped = listed(scopedQueries);
   return {
     v3Fixtures,
+    control,
     productionListedV3: v3Fixtures.filter(id => production.includes(id)),
     scopedListedV3: v3Fixtures.filter(id => scoped.includes(id)),
     controlListedToProduction: production.includes(control),
+    controlListedToScoped: scoped.includes(control),
     productionLease,
     queries: productionQueries.length + scopedQueries.length,
   };
@@ -297,8 +300,23 @@ export const CHECKS = [
     if (!w || !Array.isArray(w.v3Fixtures) || w.v3Fixtures.length === 0) return "no pending v3 fixture observed";
     if (w.productionListedV3?.length !== 0) return `production's due query listed ${JSON.stringify(w.productionListedV3)}`;
     if (w.controlListedToProduction !== true) return "production's due query never listed the v2 control, so it proves nothing";
+    // A scopes worker owns v2 commands too: its query must list the control.
+    if (w.controlListedToScoped !== true) return "a scopes worker's due query never listed the v2 control";
     if (!same([...w.scopedListedV3 ?? []].sort(), [...w.v3Fixtures].sort())) return `a scopes worker's due query listed ${JSON.stringify(w.scopedListedV3)} of ${JSON.stringify(w.v3Fixtures)}`;
     if (w.productionLease !== "worker-unsupported") return `production's lease of a v3 fixture: ${w.productionLease ?? "not observed"}`;
+    return true;
+  }],
+  ["fixtures-retired", "the due phase's never-run fixtures are retired: none pending, none listed by any due query", o => {
+    const w = o.oldWorkers;
+    const c = o.fixtureCleanup;
+    if (!c || !Array.isArray(c.fixtures)) return "the fixtures' retirement wasn't observed";
+    const expected = [...(w?.v3Fixtures ?? []), ...(w?.control ? [w.control] : [])];
+    if (!expected.length) return "no fixture ids observed";
+    const unchecked = expected.filter(id => !c.fixtures.includes(id));
+    if (unchecked.length) return `not checked: ${JSON.stringify(unchecked)}`;
+    const pending = expected.filter(id => !c.statuses?.[id] || c.statuses[id] === "pending");
+    if (pending.length) return `still pending: ${JSON.stringify(pending)}`;
+    if ((c.listedAfter ?? []).length) return `still listed as due: ${JSON.stringify(c.listedAfter)}`;
     return true;
   }],
   ["console-route", "the console route refuses any caller but policy-run", o => {
