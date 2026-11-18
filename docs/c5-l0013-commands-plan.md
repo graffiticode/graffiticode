@@ -601,7 +601,7 @@ Each is recorded in `docs/capability-policy-iam-review.md` as a new step and app
 - **The gate itself needs no rollback:**
   - its records stay as evidence;
   - the canary items are left as they are;
-  - the gate bucket and `api-c5a-gate` are deleted after the evidence is extracted, and the window expires;
+  - the gate bucket and `api-c5a-gate` are deleted after the evidence is extracted, and the window expires (done 2026-11-18 after the gate passed: `docs/evidence/c5a-authorization/`, including `retirement/`);
   - `l0013r`'s pinnable revision stays approved, which is harmless while no production api allocates L0013 commands.
 
 ### C5a completion gate

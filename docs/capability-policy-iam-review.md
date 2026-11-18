@@ -2130,6 +2130,17 @@ gcloud iam service-accounts add-iam-policy-binding console-run@graffiticode-app.
 - delete `api-c5a-gate` and its `deploy.json` entry, and the gate bucket (Step 28);
 - the window expires.
 
+**Retired 2026-11-18,** after the gate passed 20/20 (run `r36074e`) and its evidence merged (#424, `docs/evidence/c5a-authorization/`):
+- **`api-c5a-gate` deleted** at 22:59:51Z, with its two revisions and its invokers (`console-run`, `deploy-smoke`). Its `deploy.json` entry is removed.
+- **`gs://graffiticode-c5a-gate` deleted** at 23:00:02Z, with its two objects; Broker's `objectUser` there went with it. Both objects were first checked byte for byte against the archived images.
+- **Production unchanged:**
+  - canary `canary-9jqm2` passed 36/36;
+  - the production api, `api-rmwkxlbvy-b5fa92`, still has no `COMMANDS_L0013`, `COMMAND_SCOPES` or `INTERPRETER_L0013`.
+- **Kept:** the command staging bucket, and the C5a releases' permanent IAM and proxy configuration.
+- **Broker's `THUMBNAIL_BUCKET`** still names the deleted gate bucket. Nothing publishes there while production admits no v3 capture command, and C5b switches it before any activation.
+- **`canary-window-c5a`** is left to expire on its condition at 2026-11-19T03:57:32Z, unextended.
+- **Record:** `docs/evidence/c5a-authorization/retirement/` (a snapshot before deletion and `verification.json`).
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |

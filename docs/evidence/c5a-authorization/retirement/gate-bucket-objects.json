@@ -1,0 +1,64 @@
+[
+{
+  "url": "gs://graffiticode-c5a-gate/7vwaCAIyMNCJEzgIfyYY.png#1795038439870721",
+  "type": "cloud_object",
+  "metadata": {
+    "bucket": "graffiticode-c5a-gate",
+    "cacheControl": "no-cache",
+    "contentType": "image/png",
+    "crc32c": "wiJMDg==",
+    "etag": "CIGixKS/kpgDEAE=",
+    "generation": "1795038439870721",
+    "id": "graffiticode-c5a-gate/7vwaCAIyMNCJEzgIfyYY.png/1795038439870721",
+    "kind": "storage#object",
+    "md5Hash": "QKcEspRW9qUrbtv3p/SpUQ==",
+    "mediaLink": "https://storage.googleapis.com/download/storage/v1/b/graffiticode-c5a-gate/o/7vwaCAIyMNCJEzgIfyYY.png?generation=1795038439870721&alt=media",
+    "metadata": {
+      "captureSequence": "6",
+      "commandId": "c:34f2972fceadbe6f5aaf5434fb4d159302dbb760c6613c7084602b1d80ed6917",
+      "item": "7vwaCAIyMNCJEzgIfyYY",
+      "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+    },
+    "metageneration": "1",
+    "name": "7vwaCAIyMNCJEzgIfyYY.png",
+    "selfLink": "https://www.googleapis.com/storage/v1/b/graffiticode-c5a-gate/o/7vwaCAIyMNCJEzgIfyYY.png",
+    "size": "18516",
+    "storageClass": "STANDARD",
+    "timeCreated": "2026-11-18T21:47:19.893000+00:00",
+    "timeFinalized": "2026-11-18T21:47:19.893000+00:00",
+    "timeStorageClassUpdated": "2026-11-18T21:47:19.893000+00:00",
+    "updated": "2026-11-18T21:47:19.893000+00:00"
+  }
+},
+{
+  "url": "gs://graffiticode-c5a-gate/wbyfys3akpc4yEGFrnuu.png#1795038553049259",
+  "type": "cloud_object",
+  "metadata": {
+    "bucket": "graffiticode-c5a-gate",
+    "cacheControl": "no-cache",
+    "contentType": "image/png",
+    "crc32c": "iFcZ+Q==",
+    "etag": "CKuRwNq/kpgDEAE=",
+    "generation": "1795038553049259",
+    "id": "graffiticode-c5a-gate/wbyfys3akpc4yEGFrnuu.png/1795038553049259",
+    "kind": "storage#object",
+    "md5Hash": "Rusrd3/Xy1SmL0ofA0KyRA==",
+    "mediaLink": "https://storage.googleapis.com/download/storage/v1/b/graffiticode-c5a-gate/o/wbyfys3akpc4yEGFrnuu.png?generation=1795038553049259&alt=media",
+    "metadata": {
+      "captureSequence": "24",
+      "commandId": "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+      "item": "wbyfys3akpc4yEGFrnuu",
+      "sha256": "db1481a6a0fbc97760f6bb029c00cd40b66558f0d7498c59f30bbda890ff13d1"
+    },
+    "metageneration": "1",
+    "name": "wbyfys3akpc4yEGFrnuu.png",
+    "selfLink": "https://www.googleapis.com/storage/v1/b/graffiticode-c5a-gate/o/wbyfys3akpc4yEGFrnuu.png",
+    "size": "18010",
+    "storageClass": "STANDARD",
+    "timeCreated": "2026-11-18T21:49:13.071000+00:00",
+    "timeFinalized": "2026-11-18T21:49:13.071000+00:00",
+    "timeStorageClassUpdated": "2026-11-18T21:49:13.071000+00:00",
+    "updated": "2026-11-18T21:49:13.071000+00:00"
+  }
+}
+]

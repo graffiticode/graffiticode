@@ -45,5 +45,5 @@ During the staged run the candidate logged no errors, no `binding-differs` and n
 
 ## Still pending
 
-- **C5a's live gate,** with its IAM changes, buckets, `api-c5a-gate`, the canary window and the edge-cache check, each applied only with the owner's approval.
+- ~~**C5a's live gate**~~ **passed 20/20 on 2026-11-18** (run `r36074e`): [`../c5a-authorization/`](../c5a-authorization/README.md). `api-c5a-gate` and the gate bucket were retired the same day, and `canary-window-c5a` expires 2026-11-19T03:57:32Z.
 - **Before C5d:** the api's rollback floor at `3b6b4a50`, the first safe registry-9 api release.
