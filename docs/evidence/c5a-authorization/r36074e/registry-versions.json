@@ -1,0 +1,36 @@
+{
+  "row": "registryVersions",
+  "at": "2026-11-18T20:12:58.134Z",
+  "command": {
+    "commandId": "c:0f8fc69b8d69d4f2eac6f0b7e05e81ff227cced4d4772081cdfcee56355bfe01",
+    "idempotencyKey": "canary:71818a3f:command-l0185",
+    "status": "completed",
+    "createdAt": "2026-11-18T19:25:19.203Z"
+  },
+  "commandId": "c:0f8fc69b8d69d4f2eac6f0b7e05e81ff227cced4d4772081cdfcee56355bfe01",
+  "planDigest": "85573157adaed273aeb096f2615494320699df1bb559f96d8a2d38dfcfc0f387",
+  "digestVerified": true,
+  "revisions": [
+    "l0176r-rmwk08k8n-c74227",
+    "l0185r-rmwczv08x-e43ac0"
+  ],
+  "stages": [
+    {
+      "stage": "s0",
+      "lang": "0176",
+      "revision": "l0176r-rmwk08k8n-c74227",
+      "imageDigest": "sha256:0b6ac1bcfbd3faff6bc50cb245d74f19d175cebedbdd17b6c81743d89e4ef4bc",
+      "registryVersion": 9
+    },
+    {
+      "stage": "s1",
+      "lang": "0185",
+      "revision": "l0185r-rmwczv08x-e43ac0",
+      "imageDigest": "sha256:749e34c0806b48e19d19556e5bb9430078b922f48d566c301f68b6b6a79ab508",
+      "registryVersion": 0
+    }
+  ],
+  "l0185RegistryVersion": 0,
+  "l0176RegistryVersion": 9,
+  "problems": []
+}

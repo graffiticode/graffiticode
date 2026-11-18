@@ -1,0 +1,470 @@
+{
+  "runId": "efb34d9b",
+  "observations": {
+    "privateOwner": {
+      "outcome": "completed",
+      "reservedSequence": 4,
+      "published": {
+        "bucket": "graffiticode-c5a-gate",
+        "captureSequence": 4,
+        "generation": "1795038397756527"
+      }
+    },
+    "privateNonOwner": {
+      "outcome": "failed",
+      "reason": "not-owner",
+      "status": 200,
+      "commandId": "c:21f417cad501f4f89b18d34204380d3a4e8443d1bd77586a64c2483f7f2b1eb6"
+    },
+    "composition": {
+      "outcome": "completed",
+      "connectionId": null,
+      "contractVersion": 3,
+      "itemScopeAuthorized": true
+    },
+    "mixed": {
+      "invocations": 1,
+      "tokens": [
+        {
+          "fn": "snap",
+          "scopeKinds": [
+            "item"
+          ]
+        },
+        {
+          "fn": "save-to-itembank",
+          "scopeKinds": [
+            "connection"
+          ]
+        }
+      ],
+      "auditPoll": {
+        "attempts": 1,
+        "timedOut": false
+      }
+    },
+    "fixtureCleanup": {
+      "fixtures": [
+        "c:3d6dbfbdec95169254b99cb901dc7ee2cc8907b571f454e7106861ce5f04ca33",
+        "c:4cdf628202d679a7bd6617c10c7ffdc5e68a4e38933a0fbbb74eb0f0f9d0c71d",
+        "c:1aa03682e01977ad082143bee78bcef70ecfc4dc994e6693e06e68fd8b874cc7",
+        "c:7231614f3b74b1413770cb2ee23dbd863754c27cd5017bb4438ce999c582cea5",
+        "c:7fa7ab8f2e7a41f05a5ca5aeeb3a479259a2a51a8e33698d174134b49642d0d9",
+        "c:82087f09f5e19c0364e9d0fa454b24a8a6f84d5ff4f3d2aeb19a270f54ba75ce",
+        "c:f4a2b8c8f4a67afe996dd489a6421f7d6a28db5886c64c494f38d0fa9c2faf98",
+        "c:1f75d28c571c6c149e4bbc5a43183ff36fd29e7feff5f4a7d5859f8d62c8382f",
+        "c:4b275dfb2852e71ea4b735c84c3ff5d2f49b9a4056af1be2fd381209e79c3c7a",
+        "c:7d2fa98959389918d3c41fbffc8aed04d08d2e717ce22f8f40e214a113a3d6fa",
+        "c:cbd06c8b0ea13c9129793ebf9ad178bfe283f61795c5b0f9d65ed5b4f96c2ddf",
+        "c:37765f16073276c3e137a08119d68334a7796ac8551f7e3031d6fd32d3ac4dec",
+        "c:59ac8feb90e7f05ca70fd86ba65fc17133d9a65b884b1861220a21b17ecf4ebe",
+        "c:f14153522ecb95293a968e19bdfa4ec1d87662292cf38301e5f2ca3217db4f40",
+        "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+        "c:9f5ec63dea0ef5e52cffe8bac68af9c4fb30ffd101d74d0c216049c34e58bde5"
+      ],
+      "statuses": {
+        "c:3d6dbfbdec95169254b99cb901dc7ee2cc8907b571f454e7106861ce5f04ca33": "failed",
+        "c:4cdf628202d679a7bd6617c10c7ffdc5e68a4e38933a0fbbb74eb0f0f9d0c71d": "failed",
+        "c:1aa03682e01977ad082143bee78bcef70ecfc4dc994e6693e06e68fd8b874cc7": "failed",
+        "c:7231614f3b74b1413770cb2ee23dbd863754c27cd5017bb4438ce999c582cea5": "completed",
+        "c:7fa7ab8f2e7a41f05a5ca5aeeb3a479259a2a51a8e33698d174134b49642d0d9": "completed",
+        "c:82087f09f5e19c0364e9d0fa454b24a8a6f84d5ff4f3d2aeb19a270f54ba75ce": "completed",
+        "c:f4a2b8c8f4a67afe996dd489a6421f7d6a28db5886c64c494f38d0fa9c2faf98": "completed",
+        "c:1f75d28c571c6c149e4bbc5a43183ff36fd29e7feff5f4a7d5859f8d62c8382f": "completed",
+        "c:4b275dfb2852e71ea4b735c84c3ff5d2f49b9a4056af1be2fd381209e79c3c7a": "completed",
+        "c:7d2fa98959389918d3c41fbffc8aed04d08d2e717ce22f8f40e214a113a3d6fa": "completed",
+        "c:cbd06c8b0ea13c9129793ebf9ad178bfe283f61795c5b0f9d65ed5b4f96c2ddf": "completed",
+        "c:37765f16073276c3e137a08119d68334a7796ac8551f7e3031d6fd32d3ac4dec": "completed",
+        "c:59ac8feb90e7f05ca70fd86ba65fc17133d9a65b884b1861220a21b17ecf4ebe": "completed",
+        "c:f14153522ecb95293a968e19bdfa4ec1d87662292cf38301e5f2ca3217db4f40": "completed",
+        "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690": "completed",
+        "c:9f5ec63dea0ef5e52cffe8bac68af9c4fb30ffd101d74d0c216049c34e58bde5": "failed"
+      },
+      "listedAfter": []
+    },
+    "publicAnonymous": {
+      "outcome": "completed",
+      "subject": "anonymous",
+      "publicCapture": true,
+      "rateLimit": {
+        "allowed": 12,
+        "refused": 1,
+        "refusedAfterQuota": true,
+        "attempted": 13
+      },
+      "commandIds": [
+        "c:7231614f3b74b1413770cb2ee23dbd863754c27cd5017bb4438ce999c582cea5",
+        "c:7fa7ab8f2e7a41f05a5ca5aeeb3a479259a2a51a8e33698d174134b49642d0d9",
+        "c:82087f09f5e19c0364e9d0fa454b24a8a6f84d5ff4f3d2aeb19a270f54ba75ce",
+        "c:f4a2b8c8f4a67afe996dd489a6421f7d6a28db5886c64c494f38d0fa9c2faf98",
+        "c:1f75d28c571c6c149e4bbc5a43183ff36fd29e7feff5f4a7d5859f8d62c8382f",
+        "c:4b275dfb2852e71ea4b735c84c3ff5d2f49b9a4056af1be2fd381209e79c3c7a",
+        "c:7d2fa98959389918d3c41fbffc8aed04d08d2e717ce22f8f40e214a113a3d6fa",
+        "c:cbd06c8b0ea13c9129793ebf9ad178bfe283f61795c5b0f9d65ed5b4f96c2ddf",
+        "c:37765f16073276c3e137a08119d68334a7796ac8551f7e3031d6fd32d3ac4dec",
+        "c:59ac8feb90e7f05ca70fd86ba65fc17133d9a65b884b1861220a21b17ecf4ebe",
+        "c:f14153522ecb95293a968e19bdfa4ec1d87662292cf38301e5f2ca3217db4f40",
+        "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+        "c:9f5ec63dea0ef5e52cffe8bac68af9c4fb30ffd101d74d0c216049c34e58bde5"
+      ],
+      "auditPoll": {
+        "attempts": 1,
+        "timedOut": false
+      }
+    },
+    "plans": [
+      {
+        "name": "private",
+        "stages": [
+          {
+            "stage": "s0",
+            "lang": "0013",
+            "revision": "l0013r-rmwmhjmoi-17a112",
+            "contractVersions": [
+              3
+            ],
+            "registryVersion": 9
+          }
+        ],
+        "admitted": true
+      },
+      {
+        "name": "composition",
+        "stages": [
+          {
+            "stage": "s0",
+            "lang": "0000",
+            "revision": "l0000r-rmw8gtkc2-830693",
+            "contractVersions": [
+              1,
+              2
+            ],
+            "registryVersion": 0
+          },
+          {
+            "stage": "s1",
+            "lang": "0013",
+            "revision": "l0013r-rmwmhjmoi-17a112",
+            "contractVersions": [
+              3
+            ],
+            "registryVersion": 9
+          }
+        ],
+        "admitted": true
+      },
+      {
+        "name": "mixed",
+        "stages": [
+          {
+            "stage": "s0",
+            "lang": "0013",
+            "revision": "l0013r-rmwmhjmoi-17a112",
+            "contractVersions": [
+              3
+            ],
+            "registryVersion": 9
+          },
+          {
+            "stage": "s1",
+            "lang": "0176",
+            "revision": "l0176r-rmwk08k8n-c74227",
+            "contractVersions": [
+              1,
+              2
+            ],
+            "registryVersion": 9
+          }
+        ],
+        "admitted": true
+      }
+    ],
+    "images": {
+      "references": {
+        "private": {
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/scripts/test/fixtures/c5a-private-sheet.png",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "width": 1024,
+          "height": 152
+        },
+        "public": {
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/scripts/test/fixtures/c5a-public-sheet.png",
+          "sha256": "db1481a6a0fbc97760f6bb029c00cd40b66558f0d7498c59f30bbda890ff13d1",
+          "width": 1024,
+          "height": 152
+        }
+      },
+      "captures": [
+        {
+          "scenario": "private",
+          "expectedCommandIds": [
+            "c:544d4e99b029e07d1c3ae95941c03b3ab03add1017562ef557ff80a181e8b3f4"
+          ],
+          "commandId": "c:544d4e99b029e07d1c3ae95941c03b3ab03add1017562ef557ff80a181e8b3f4",
+          "generation": "1795038397756527",
+          "captureSequence": 4,
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "width": 1024,
+          "height": 152,
+          "reddish": 0.000006424753289473684,
+          "blue": 4839,
+          "transparent": 0,
+          "reference": "private",
+          "sameSize": true,
+          "identical": true,
+          "meanDiff": 0,
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/.gc-deploy/c5a-gate/r36074e/images/private-1795038397756527.png"
+        },
+        {
+          "scenario": "composition",
+          "expectedCommandIds": [
+            "c:91608f1ccd3f49c4ebb04771c1fa095c72d9cd27ee0ced99e24b709e948f6f91"
+          ],
+          "commandId": "c:91608f1ccd3f49c4ebb04771c1fa095c72d9cd27ee0ced99e24b709e948f6f91",
+          "generation": "1795038420029051",
+          "captureSequence": 5,
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "width": 1024,
+          "height": 152,
+          "reddish": 0.000006424753289473684,
+          "blue": 4839,
+          "transparent": 0,
+          "reference": "private",
+          "sameSize": true,
+          "identical": true,
+          "meanDiff": 0,
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/.gc-deploy/c5a-gate/r36074e/images/composition-1795038420029051.png"
+        },
+        {
+          "scenario": "mixed",
+          "expectedCommandIds": [
+            "c:34f2972fceadbe6f5aaf5434fb4d159302dbb760c6613c7084602b1d80ed6917"
+          ],
+          "commandId": "c:34f2972fceadbe6f5aaf5434fb4d159302dbb760c6613c7084602b1d80ed6917",
+          "generation": "1795038439870721",
+          "captureSequence": 6,
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "width": 1024,
+          "height": 152,
+          "reddish": 0.000006424753289473684,
+          "blue": 4839,
+          "transparent": 0,
+          "reference": "private",
+          "sameSize": true,
+          "identical": true,
+          "meanDiff": 0,
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/.gc-deploy/c5a-gate/r36074e/images/mixed-1795038439870721.png"
+        },
+        {
+          "scenario": "public",
+          "expectedCommandIds": [
+            "c:7231614f3b74b1413770cb2ee23dbd863754c27cd5017bb4438ce999c582cea5",
+            "c:7fa7ab8f2e7a41f05a5ca5aeeb3a479259a2a51a8e33698d174134b49642d0d9",
+            "c:82087f09f5e19c0364e9d0fa454b24a8a6f84d5ff4f3d2aeb19a270f54ba75ce",
+            "c:f4a2b8c8f4a67afe996dd489a6421f7d6a28db5886c64c494f38d0fa9c2faf98",
+            "c:1f75d28c571c6c149e4bbc5a43183ff36fd29e7feff5f4a7d5859f8d62c8382f",
+            "c:4b275dfb2852e71ea4b735c84c3ff5d2f49b9a4056af1be2fd381209e79c3c7a",
+            "c:7d2fa98959389918d3c41fbffc8aed04d08d2e717ce22f8f40e214a113a3d6fa",
+            "c:cbd06c8b0ea13c9129793ebf9ad178bfe283f61795c5b0f9d65ed5b4f96c2ddf",
+            "c:37765f16073276c3e137a08119d68334a7796ac8551f7e3031d6fd32d3ac4dec",
+            "c:59ac8feb90e7f05ca70fd86ba65fc17133d9a65b884b1861220a21b17ecf4ebe",
+            "c:f14153522ecb95293a968e19bdfa4ec1d87662292cf38301e5f2ca3217db4f40",
+            "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+            "c:9f5ec63dea0ef5e52cffe8bac68af9c4fb30ffd101d74d0c216049c34e58bde5"
+          ],
+          "commandId": "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+          "generation": "1795038553049259",
+          "captureSequence": 24,
+          "sha256": "db1481a6a0fbc97760f6bb029c00cd40b66558f0d7498c59f30bbda890ff13d1",
+          "width": 1024,
+          "height": 152,
+          "reddish": 0.000006424753289473684,
+          "blue": 4839,
+          "transparent": 0,
+          "reference": "public",
+          "sameSize": true,
+          "identical": true,
+          "meanDiff": 0,
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/.gc-deploy/c5a-gate/r36074e/images/public-1795038553049259.png"
+        }
+      ]
+    },
+    "reserveStageBind": {
+      "captures": [
+        {
+          "scenario": "private",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "commandId": "c:544d4e99b029e07d1c3ae95941c03b3ab03add1017562ef557ff80a181e8b3f4",
+          "objectCommandId": "c:544d4e99b029e07d1c3ae95941c03b3ab03add1017562ef557ff80a181e8b3f4",
+          "objectGeneration": "1795038397756527",
+          "reservations": 1,
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "boundOccurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "reservedAt": "2026-11-18T21:46:26.817Z",
+          "stagedAt": "2026-11-18T21:46:35.821Z",
+          "boundAt": "2026-11-18T21:46:36.015Z",
+          "reservedSequence": 4,
+          "publishedSequence": 4
+        },
+        {
+          "scenario": "composition",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "commandId": "c:91608f1ccd3f49c4ebb04771c1fa095c72d9cd27ee0ced99e24b709e948f6f91",
+          "objectCommandId": "c:91608f1ccd3f49c4ebb04771c1fa095c72d9cd27ee0ced99e24b709e948f6f91",
+          "objectGeneration": "1795038420029051",
+          "reservations": 1,
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "boundOccurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "reservedAt": "2026-11-18T21:46:54.545Z",
+          "stagedAt": "2026-11-18T21:46:58.512Z",
+          "boundAt": "2026-11-18T21:46:58.667Z",
+          "reservedSequence": 5,
+          "publishedSequence": 5
+        },
+        {
+          "scenario": "mixed",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "commandId": "c:34f2972fceadbe6f5aaf5434fb4d159302dbb760c6613c7084602b1d80ed6917",
+          "objectCommandId": "c:34f2972fceadbe6f5aaf5434fb4d159302dbb760c6613c7084602b1d80ed6917",
+          "objectGeneration": "1795038439870721",
+          "reservations": 1,
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "boundOccurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "reservedAt": "2026-11-18T21:47:13.938Z",
+          "stagedAt": "2026-11-18T21:47:18.495Z",
+          "boundAt": "2026-11-18T21:47:18.622Z",
+          "reservedSequence": 6,
+          "publishedSequence": 6
+        },
+        {
+          "scenario": "public",
+          "item": "wbyfys3akpc4yEGFrnuu",
+          "commandId": "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+          "objectCommandId": "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+          "objectGeneration": "1795038553049259",
+          "reservations": 1,
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "boundOccurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "reservedAt": "2026-11-18T21:49:07.656Z",
+          "stagedAt": "2026-11-18T21:49:11.701Z",
+          "boundAt": "2026-11-18T21:49:11.828Z",
+          "reservedSequence": 24,
+          "publishedSequence": 24
+        }
+      ]
+    },
+    "oldWorkers": {
+      "v3Fixtures": [
+        "c:3d6dbfbdec95169254b99cb901dc7ee2cc8907b571f454e7106861ce5f04ca33",
+        "c:4cdf628202d679a7bd6617c10c7ffdc5e68a4e38933a0fbbb74eb0f0f9d0c71d"
+      ],
+      "control": "c:1aa03682e01977ad082143bee78bcef70ecfc4dc994e6693e06e68fd8b874cc7",
+      "productionListedV3": [],
+      "scopedListedV3": [
+        "c:3d6dbfbdec95169254b99cb901dc7ee2cc8907b571f454e7106861ce5f04ca33",
+        "c:4cdf628202d679a7bd6617c10c7ffdc5e68a4e38933a0fbbb74eb0f0f9d0c71d"
+      ],
+      "controlListedToProduction": true,
+      "controlListedToScoped": true,
+      "productionLease": "worker-unsupported",
+      "queries": 2
+    },
+    "approvals": {
+      "beforeDigest": "7e995b5c48039afa362404069d2130b502cef168c569100c53743d24ab08646c",
+      "beforeDigestKind": "json",
+      "afterDigest": "35f781bf9344b303d6f8c24d373a6a50a064831770cf9a10ca503a4aef43616c",
+      "afterDigestKind": "canonical",
+      "history": {
+        "baselineAt": "2026-11-18T21:45:33.773Z",
+        "readTime": "2026-11-18T21:45:33.773Z",
+        "exact": true,
+        "source": {
+          "file": ".gc-deploy/c5a-gate/r36074e/approvals-history/baseline.raw.json",
+          "sha256": "e0ddf95040bf063eb6af419f20a7e2a07b85c476189b22388ff9b311818ea8c8",
+          "collectedAt": "2026-11-18T22:09:40.145Z"
+        },
+        "baselineDigest": "35f781bf9344b303d6f8c24d373a6a50a064831770cf9a10ca503a4aef43616c",
+        "comparison": {
+          "added": [],
+          "deleted": [],
+          "modified": [],
+          "baselineCount": 42,
+          "currentCount": 42,
+          "identical": true
+        }
+      }
+    },
+    "errors": {},
+    "elsewhere": {
+      "appspotBefore": "6e32da1beddf143cb47752c94547fa4cf02d1a9d66bacce9cd42dd16bc7c0e93",
+      "appspotAfter": "6e32da1beddf143cb47752c94547fa4cf02d1a9d66bacce9cd42dd16bc7c0e93",
+      "thumbnailsObjects": 0
+    }
+  },
+  "baseline": {
+    "at": "2026-11-18T21:45:33.773Z",
+    "approvals": "7e995b5c48039afa362404069d2130b502cef168c569100c53743d24ab08646c",
+    "appspot": "6e32da1beddf143cb47752c94547fa4cf02d1a9d66bacce9cd42dd16bc7c0e93"
+  },
+  "capturesStartedAt": "2026-11-18T21:46:09.014Z",
+  "gateUrl": "https://api-c5a-gate-sja7fatcta-uc.a.run.app",
+  "quotaCommands": [
+    "c:7231614f3b74b1413770cb2ee23dbd863754c27cd5017bb4438ce999c582cea5",
+    "c:7fa7ab8f2e7a41f05a5ca5aeeb3a479259a2a51a8e33698d174134b49642d0d9",
+    "c:82087f09f5e19c0364e9d0fa454b24a8a6f84d5ff4f3d2aeb19a270f54ba75ce",
+    "c:f4a2b8c8f4a67afe996dd489a6421f7d6a28db5886c64c494f38d0fa9c2faf98",
+    "c:1f75d28c571c6c149e4bbc5a43183ff36fd29e7feff5f4a7d5859f8d62c8382f",
+    "c:4b275dfb2852e71ea4b735c84c3ff5d2f49b9a4056af1be2fd381209e79c3c7a",
+    "c:7d2fa98959389918d3c41fbffc8aed04d08d2e717ce22f8f40e214a113a3d6fa",
+    "c:cbd06c8b0ea13c9129793ebf9ad178bfe283f61795c5b0f9d65ed5b4f96c2ddf",
+    "c:37765f16073276c3e137a08119d68334a7796ac8551f7e3031d6fd32d3ac4dec",
+    "c:59ac8feb90e7f05ca70fd86ba65fc17133d9a65b884b1861220a21b17ecf4ebe",
+    "c:f14153522ecb95293a968e19bdfa4ec1d87662292cf38301e5f2ca3217db4f40",
+    "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+    "c:9f5ec63dea0ef5e52cffe8bac68af9c4fb30ffd101d74d0c216049c34e58bde5"
+  ],
+  "commands": [
+    "c:544d4e99b029e07d1c3ae95941c03b3ab03add1017562ef557ff80a181e8b3f4",
+    "c:91608f1ccd3f49c4ebb04771c1fa095c72d9cd27ee0ced99e24b709e948f6f91",
+    "c:34f2972fceadbe6f5aaf5434fb4d159302dbb760c6613c7084602b1d80ed6917",
+    "c:7231614f3b74b1413770cb2ee23dbd863754c27cd5017bb4438ce999c582cea5",
+    "c:7fa7ab8f2e7a41f05a5ca5aeeb3a479259a2a51a8e33698d174134b49642d0d9",
+    "c:82087f09f5e19c0364e9d0fa454b24a8a6f84d5ff4f3d2aeb19a270f54ba75ce",
+    "c:f4a2b8c8f4a67afe996dd489a6421f7d6a28db5886c64c494f38d0fa9c2faf98",
+    "c:1f75d28c571c6c149e4bbc5a43183ff36fd29e7feff5f4a7d5859f8d62c8382f",
+    "c:4b275dfb2852e71ea4b735c84c3ff5d2f49b9a4056af1be2fd381209e79c3c7a",
+    "c:7d2fa98959389918d3c41fbffc8aed04d08d2e717ce22f8f40e214a113a3d6fa",
+    "c:cbd06c8b0ea13c9129793ebf9ad178bfe283f61795c5b0f9d65ed5b4f96c2ddf",
+    "c:37765f16073276c3e137a08119d68334a7796ac8551f7e3031d6fd32d3ac4dec",
+    "c:59ac8feb90e7f05ca70fd86ba65fc17133d9a65b884b1861220a21b17ecf4ebe",
+    "c:f14153522ecb95293a968e19bdfa4ec1d87662292cf38301e5f2ca3217db4f40",
+    "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+    "c:9f5ec63dea0ef5e52cffe8bac68af9c4fb30ffd101d74d0c216049c34e58bde5"
+  ],
+  "fixtures": {
+    "v3-fixture-1": "c:3d6dbfbdec95169254b99cb901dc7ee2cc8907b571f454e7106861ce5f04ca33",
+    "v3-fixture-2": "c:4cdf628202d679a7bd6617c10c7ffdc5e68a4e38933a0fbbb74eb0f0f9d0c71d",
+    "v2-control": "c:1aa03682e01977ad082143bee78bcef70ecfc4dc994e6693e06e68fd8b874cc7"
+  },
+  "observationHistory": {
+    "approvals": [
+      {
+        "replacedAt": "2026-11-18T22:32:10.737Z",
+        "observation": {
+          "beforeDigest": "7e995b5c48039afa362404069d2130b502cef168c569100c53743d24ab08646c",
+          "afterDigest": "121c0b7835c79b7e2673897541ca860fd1cacfdfa361143edbb41166ce936e0c"
+        },
+        "errors": {}
+      }
+    ],
+    "elsewhere": [
+      {
+        "replacedAt": "2026-11-18T22:32:10.737Z",
+        "observation": null,
+        "errors": {
+          "elsewhere": "gcloud storage buckets describe failed (1)"
+        }
+      }
+    ]
+  }
+}

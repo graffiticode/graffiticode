@@ -1,0 +1,79 @@
+{
+  "row": "v2PlanDigest",
+  "at": "2026-11-18T20:12:58.167Z",
+  "commits": {
+    "before": "2ce1433542edc995787dede3683a5527a5218171",
+    "after": "f6132821c5a654c2bfd3fce10ca7b5a5e328bdc2"
+  },
+  "plans": [
+    {
+      "digest": "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+      "invocationId": "inv-b16a3f71-16c2-4c90-9942-8f987d1bce37",
+      "recordedAt": "2026-11-11T06:26:45.619Z",
+      "revisions": [
+        "l0176r-rmw9k415k-ebe71b",
+        "l0000r-rmw8gtkc2-830693"
+      ],
+      "before": {
+        "registryVersion": 8,
+        "planDigest": "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+        "refusal": null
+      },
+      "after": {
+        "registryVersion": 9,
+        "planDigest": "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+        "refusal": null
+      }
+    },
+    {
+      "digest": "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+      "invocationId": "inv-1a23f7a3-4992-4670-951d-bbadb2137171",
+      "recordedAt": "2026-11-15T19:59:05.172Z",
+      "revisions": [
+        "l0176r-rmwe83rgw-eae49e"
+      ],
+      "before": {
+        "registryVersion": 8,
+        "planDigest": "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+        "refusal": null
+      },
+      "after": {
+        "registryVersion": 9,
+        "planDigest": "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+        "refusal": null
+      }
+    },
+    {
+      "digest": "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff",
+      "invocationId": "inv-1d7ad360-25f1-45dd-9647-dd93b49d34b0",
+      "recordedAt": "2026-11-17T00:46:59.229Z",
+      "revisions": [
+        "l0176r-rmwe83rgw-eae49e"
+      ],
+      "before": {
+        "registryVersion": 8,
+        "planDigest": "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff",
+        "refusal": null
+      },
+      "after": {
+        "registryVersion": 9,
+        "planDigest": "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff",
+        "refusal": null
+      }
+    }
+  ],
+  "problems": [],
+  "ok": true,
+  "observation": {
+    "before": [
+      "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+      "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+      "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff"
+    ],
+    "after": [
+      "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+      "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+      "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff"
+    ]
+  }
+}

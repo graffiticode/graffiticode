@@ -1,0 +1,65 @@
+[
+  {
+    "timestamp": "2026-11-18T04:13:37.646016Z",
+    "revision": "api-rmwkxlbvy-b5fa92",
+    "requestMethod": "GET",
+    "requestUrl": "https://api.graffiticode.org/form?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+    "status": 302,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+    "latency": "0.146706s"
+  },
+  {
+    "timestamp": "2026-11-18T04:13:38.829676Z",
+    "revision": "api-rmwkxlbvy-b5fa92",
+    "requestMethod": "OPTIONS",
+    "requestUrl": "https://api.graffiticode.org/data?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&generations=%40L0179%3Dinterp-4",
+    "status": 204,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+    "latency": "0.002583s"
+  },
+  {
+    "timestamp": "2026-11-18T04:13:39.036954Z",
+    "revision": "api-rmwkxlbvy-b5fa92",
+    "requestMethod": "GET",
+    "requestUrl": "https://api.graffiticode.org/data?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&generations=%40L0179%3Dinterp-4",
+    "status": 200,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.0.0 Safari/537.36",
+    "latency": "0.386036s"
+  },
+  {
+    "timestamp": "2026-11-18T04:13:44.512156Z",
+    "revision": "api-rmwkxlbvy-b5fa92",
+    "requestMethod": "GET",
+    "requestUrl": "https://api.graffiticode.org/form?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&lang=0179",
+    "status": 404,
+    "userAgent": "c5a-edge-probe",
+    "latency": "0.046947s"
+  },
+  {
+    "timestamp": "2026-11-18T04:13:44.797590Z",
+    "revision": "api-rmwkxlbvy-b5fa92",
+    "requestMethod": "GET",
+    "requestUrl": "https://api.graffiticode.org/data?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&generations=%40L0179%3Dinterp-4",
+    "status": 404,
+    "userAgent": "c5a-edge-probe",
+    "latency": "0.039756s"
+  },
+  {
+    "timestamp": "2026-11-18T04:13:44.990728Z",
+    "revision": "api-rmwkxlbvy-b5fa92",
+    "requestMethod": "GET",
+    "requestUrl": "https://api.graffiticode.org/form?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&lang=0179",
+    "status": 404,
+    "userAgent": "c5a-edge-probe",
+    "latency": "0.088595s"
+  },
+  {
+    "timestamp": "2026-11-18T04:13:45.213502Z",
+    "revision": "api-rmwkxlbvy-b5fa92",
+    "requestMethod": "GET",
+    "requestUrl": "https://api.graffiticode.org/data?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&generations=%40L0179%3Dinterp-4",
+    "status": 404,
+    "userAgent": "c5a-edge-probe",
+    "latency": "0.054016s"
+  }
+]

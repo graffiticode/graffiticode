@@ -1,0 +1,27 @@
+{
+  "url": "https://console-cfdwwd7ega-uc.a.run.app/api/internal/item-authority",
+  "audience": "https://console.graffiticode.org/api/internal/item-authority",
+  "probes": [
+    {
+      "label": "unauthenticated",
+      "caller": "anonymous",
+      "status": 403,
+      "cacheControl": "no-store",
+      "at": "2026-11-18T21:46:39.518Z"
+    },
+    {
+      "label": "api-run, route audience",
+      "caller": "api-run@graffiticode.iam.gserviceaccount.com",
+      "status": 403,
+      "cacheControl": "no-store",
+      "at": "2026-11-18T21:46:39.907Z"
+    },
+    {
+      "label": "console-run, wrong audience",
+      "caller": "console-run@graffiticode-app.iam.gserviceaccount.com",
+      "status": 403,
+      "cacheControl": "no-store",
+      "at": "2026-11-18T21:46:40.167Z"
+    }
+  ]
+}

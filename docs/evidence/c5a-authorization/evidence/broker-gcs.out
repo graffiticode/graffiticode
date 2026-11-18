@@ -1,0 +1,64 @@
+(node:34413) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/gcs.spec.ts
+  credential and scope (decision 5)
+    ✓ refuses a service operation whose token selects a connection (4 ms)
+    ✓ refuses a connection operation whose token selects an item
+    ✓ refuses a payload for another item than the token's, before the claim (1 ms)
+    ✓ refuses a snap token that names no command, whose staging it couldn't find (1 ms)
+    ✓ refuses a snap token spent by another language's compiler
+    ✓ records the selected scope in a v3 receipt's binding, and leaves a v2 binding as it was (3 ms)
+    ✓ refuses to be built with an operation whose credential disagrees with the registry (10 ms)
+  publishing (decision 8)
+    ✓ ends a 412 race on the newer capture: the older wins first, the newer retries under a fresh decision (1 ms)
+    ○ skipped publishes the first capture, with its sequence on the object and a stable result
+    ○ skipped completes an older capture arriving after a newer one with its own result, writing nothing
+    ○ skipped replaces an object with no sequence, as the migration copy leaves (decision 8)
+    ○ skipped fails `precondition-contention` after four 412s, never having written
+    ○ skipped stops when Policy refuses the next attempt, recording what the earlier ones observed
+    ○ skipped records an upload whose response was lost as uncertain
+    ○ skipped answers a retry of a written operation from its receipt, reading and writing nothing
+  staging (decision 9)
+    ○ skipped refuses missing staged bytes with no claim, definitely, before claiming
+    ○ skipped refuses staged bytes that don't match the bound digest, before claiming
+    ○ skipped refuses, as unavailable, when staging can't be read now
+    ○ skipped reads each stage's own staged object when two stages share an occurrence id
+    ○ skipped never reads staging once a claim exists: deleted after a dropped outcome, the retry replays and reconciliation resolves applied
+  reconciliation (decisions 5 and 8)
+    ○ skipped resolves a dropped outcome applied after a newer capture, with exactly the result the undropped run returned
+    ○ skipped resolves a crash between the upload and its outcome applied, and the retry writes nothing
+    ○ skipped leaves a capture unresolved while the published sequence is lower, since an upload could still land
+    ○ skipped keeps an item's receipts and a connection's apart
+  configuration
+    ○ skipped takes both buckets together, and never the legacy one
+    ○ skipped refuses a snap token when no buckets are configured
+  the Cloud Storage client
+    ○ skipped reads metadata and bytes, absent as null
+    ○ skipped uploads with the generation precondition, and tells a 412, a refusal and an unknown failure apart
+    ○ skipped does everything asynchronous while preparing: send calls fetch before awaiting anything
+  review of #401
+    ○ skipped doesn't publish when authority is revoked while the attempt is prepared
+    ○ skipped doesn't start an upload once preparation has used up the deadline
+    ○ skipped refuses to prepare past the deadline, before any authorization
+    ○ skipped runs a Policy-authorized anonymous public capture, and audits its provenance
+    ○ skipped keeps anonymous to its narrow terms: never L0176, never a connection, never a user's subject
+    ○ skipped replays a concurrent winner when staging disappears while this request reads it
+    ○ skipped replays a concurrent claim too when staging can't be read now
+  reopening a run that stopped before dispatch (7e)
+    ○ skipped aborts a run whose authorization was unavailable, and runs the operation again with a fresh token
+    ○ skipped starts the next run once, when two requests reopen it together
+    ○ skipped aborts a run whose metadata read failed, before any authorization
+    ○ skipped refuses a reopened run whose staging has gone, definitely, starting no run
+    ○ skipped records a failure, as always, once any request was authorized for dispatch
+    ○ skipped leaves a connection write's failure before dispatch recorded, as before
+  an abort whose acknowledgment was lost (7e)
+    ○ skipped never lets the older run record a failure while its successor publishes
+    ○ skipped refuses the older run as temporary when its successor already finished
+    ○ skipped records the failure when the lost abort never committed
+    ○ skipped makes abort, outcome and the next run exclude each other in the store
+
+Test Suites: 1 passed, 1 total
+Tests:       38 skipped, 8 passed, 46 total
+Snapshots:   0 total
+Time:        0.474 s
+Ran all test suites matching /src\/gcs.spec.ts/i with tests matching "credential and scope|ends a 412 race".

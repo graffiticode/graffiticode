@@ -1,0 +1,86 @@
+{
+  "canary": {
+    "execution": "canary-qvw98",
+    "at": "2026-11-18T19:22:39Z",
+    "flags": "--chain-admission --after-cutover --command --l0185-tail",
+    "checks": 36,
+    "failed": 0,
+    "l0185RegistryVersion": 0,
+    "l0176RegistryVersion": 9,
+    "registryEvidence": {
+      "commandId": "c:0f8fc69b8d69d4f2eac6f0b7e05e81ff227cced4d4772081cdfcee56355bfe01",
+      "planDigest": "85573157adaed273aeb096f2615494320699df1bb559f96d8a2d38dfcfc0f387",
+      "digestVerified": true,
+      "revisions": [
+        "l0176r-rmwk08k8n-c74227",
+        "l0185r-rmwczv08x-e43ac0"
+      ]
+    }
+  },
+  "repairRoundtrip": {
+    "passed": true,
+    "run": "4fe391",
+    "target": "production api-rmwkxlbvy-b5fa92",
+    "recorded": "9/11",
+    "revisedVerdict": "11/11",
+    "basis": "owner-accepted timing variant; rejudge.mjs over the extracted Broker evidence (r36074e/l0176)"
+  },
+  "v2PlanDigest": {
+    "before": [
+      "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+      "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+      "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff"
+    ],
+    "after": [
+      "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+      "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+      "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff"
+    ],
+    "commits": {
+      "before": "2ce1433542edc995787dede3683a5527a5218171",
+      "after": "f6132821c5a654c2bfd3fce10ca7b5a5e328bdc2"
+    },
+    "plans": [
+      "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+      "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+      "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff"
+    ]
+  },
+  "v8Artifact": {
+    "served": true,
+    "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+    "readInvocationId": "inv-f20b261d-d10a-4e2b-98c0-a476dde833d3",
+    "at": "2026-11-18T20:39:40.277Z"
+  },
+  "consoleRoute": [
+    {
+      "caller": "policy-run@graffiticode.iam.gserviceaccount.com",
+      "status": 200,
+      "source": "step27 c5a-item-authority-probe-ppbkf 2026-11-17T19:55:36.643Z"
+    },
+    {
+      "caller": "anonymous",
+      "status": 403,
+      "label": "unauthenticated",
+      "at": "2026-11-18T21:46:39.518Z"
+    },
+    {
+      "caller": "api-run@graffiticode.iam.gserviceaccount.com",
+      "status": 403,
+      "label": "api-run, route audience",
+      "at": "2026-11-18T21:46:39.907Z"
+    },
+    {
+      "caller": "console-run@graffiticode-app.iam.gserviceaccount.com",
+      "status": 403,
+      "label": "console-run, wrong audience",
+      "at": "2026-11-18T21:46:40.167Z"
+    }
+  ],
+  "consoleRouteStep27WrongAudience": 403,
+  "proxy": {
+    "verifyRollout": true,
+    "at11": "step26-exception",
+    "basis": "docs/capability-policy-iam-review.md, AT-11 collector item 11: Step 26 under a scoped owner exception (no DNS log or control)"
+  }
+}

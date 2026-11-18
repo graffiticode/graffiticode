@@ -1,0 +1,19 @@
+{
+  "at": "2026-11-18T21:54:09.027Z",
+  "appspotDigest": "6e32da1beddf143cb47752c94547fa4cf02d1a9d66bacce9cd42dd16bc7c0e93",
+  "appspotObjects": 33,
+  "baselineAppspot": "6e32da1beddf143cb47752c94547fa4cf02d1a9d66bacce9cd42dd16bc7c0e93",
+  "appspotUnchanged": true,
+  "thumbnailsBucket": "absent (404)",
+  "approvalRecords": {
+    "0176": {
+      "count": 30,
+      "latestUpdate": "2026-11-17T01:35:15.250006Z"
+    },
+    "0000": {
+      "count": 12,
+      "latestUpdate": "2026-11-08T23:43:49.873289Z"
+    }
+  },
+  "baselineAt": "2026-11-18T21:45:33.773Z"
+}

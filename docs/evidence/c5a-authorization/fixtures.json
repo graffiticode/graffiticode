@@ -1,0 +1,183 @@
+{
+  "run": "r381d64",
+  "created": {
+    "privateSheetTask": {
+      "kind": "task",
+      "id": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+      "lang": "0179",
+      "as": "canary",
+      "program": "sheets [sheet \"c5a gate private r381d64\" [cells [cell A1 [text \"C5a gate fixture: private (r381d64)\"]] {}]] {v: \"0.0.1\"}.."
+    },
+    "publicSheetTask": {
+      "kind": "task",
+      "id": "eyJ0YXNrSWRzIjpbInZRQ0NtYjlMR01KalBJVTlXQjA4Il19",
+      "lang": "0179",
+      "as": "public",
+      "program": "sheets [sheet \"c5a gate public r381d64\" [cells [cell A1 [text \"C5a gate fixture: public (r381d64)\"]] {}]] {v: \"0.0.1\"}.."
+    },
+    "privateItem": {
+      "kind": "item",
+      "id": "7vwaCAIyMNCJEzgIfyYY",
+      "taskId": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+      "isPublic": false,
+      "name": "c5a gate private r381d64"
+    },
+    "publicItem": {
+      "kind": "item",
+      "id": "wbyfys3akpc4yEGFrnuu",
+      "taskId": "eyJ0YXNrSWRzIjpbInZRQ0NtYjlMR01KalBJVTlXQjA4Il19",
+      "isPublic": true,
+      "name": "c5a gate public r381d64"
+    },
+    "privateSnapTask": {
+      "kind": "task",
+      "id": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+      "lang": "0013",
+      "as": "canary",
+      "program": "snap item \"7vwaCAIyMNCJEzgIfyYY\" {}.."
+    },
+    "publicSnapTask": {
+      "kind": "task",
+      "id": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+      "lang": "0013",
+      "as": "public",
+      "program": "snap item \"wbyfys3akpc4yEGFrnuu\" {}.."
+    },
+    "composeHeadTask": {
+      "kind": "task",
+      "id": "eyJ0YXNrSWRzIjpbInJlTVVGZVlNMzVUeDJLZ1pWWVVjIl19",
+      "lang": "0000",
+      "as": "canary",
+      "program": "\"c5a gate compose r381d64\".."
+    },
+    "mixedSaveTask": {
+      "kind": "task",
+      "id": "eyJ0YXNrSWRzIjpbImhFa0hKTTcwZ3c3bzFVOUt6NHBLIl19",
+      "lang": "0176",
+      "as": "canary",
+      "program": "set-var \"lrn-id\" \"c5a-gate-mixed-r381d64\" save-to-itembank items [item [questions [mcq []] {}]] {}.."
+    },
+    "controlTask": {
+      "kind": "task",
+      "id": "eyJ0YXNrSWRzIjpbInpTcU9VM1BseVlOa0gzUGJXdVdvIl19",
+      "lang": "0176",
+      "as": "canary",
+      "program": "set-var \"lrn-id\" \"c5a-gate-control-r381d64\" items [item [questions [mcq []] {}]] {}.."
+    }
+  },
+  "flags": {
+    "--private-task": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+    "--public-task": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+    "--compose-task": "eyJ0YXNrSWRzIjpbInJlTVVGZVlNMzVUeDJLZ1pWWVVjIl19+eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+    "--mixed-task": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19+eyJ0YXNrSWRzIjpbImhFa0hKTTcwZ3c3bzFVOUt6NHBLIl19",
+    "--control-task": "eyJ0YXNrSWRzIjpbInpTcU9VM1BseVlOa0gzUGJXdVdvIl19"
+  },
+  "readBack": {
+    "at": "2026-11-18T03:56:07.486Z",
+    "items": {
+      "privateItem": {
+        "id": "7vwaCAIyMNCJEzgIfyYY",
+        "owner": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+        "lang": "0179",
+        "isPublic": false,
+        "taskId": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19"
+      },
+      "publicItem": {
+        "id": "wbyfys3akpc4yEGFrnuu",
+        "owner": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+        "lang": "0179",
+        "isPublic": true,
+        "taskId": "eyJ0YXNrSWRzIjpbInZRQ0NtYjlMR01KalBJVTlXQjA4Il19"
+      }
+    },
+    "tasks": {
+      "privateSheetTask": {
+        "id": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+        "doc": "wFmmKzCNbsEpmWuBvaOy",
+        "lang": "0179",
+        "acls": {
+          "uids": {
+            "995cc0bc98105563168b7fbee7b1e59a4256331c": true
+          },
+          "public": false
+        },
+        "storageType": "persistent",
+        "count": "1"
+      },
+      "publicSheetTask": {
+        "id": "eyJ0YXNrSWRzIjpbInZRQ0NtYjlMR01KalBJVTlXQjA4Il19",
+        "doc": "vQCCmb9LGMJjPIU9WB08",
+        "lang": "0179",
+        "acls": {
+          "public": true,
+          "uids": {}
+        },
+        "storageType": "persistent",
+        "count": "1"
+      },
+      "privateSnapTask": {
+        "id": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+        "doc": "zjy8eEXLUna2vdLNh97v",
+        "lang": "0013",
+        "acls": {
+          "uids": {
+            "995cc0bc98105563168b7fbee7b1e59a4256331c": true
+          },
+          "public": false
+        },
+        "storageType": "persistent",
+        "count": "1"
+      },
+      "publicSnapTask": {
+        "id": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+        "doc": "Ta4XydWuyFbTWaQWfDaN",
+        "lang": "0013",
+        "acls": {
+          "public": true,
+          "uids": {}
+        },
+        "storageType": "persistent",
+        "count": "1"
+      },
+      "composeHeadTask": {
+        "id": "eyJ0YXNrSWRzIjpbInJlTVVGZVlNMzVUeDJLZ1pWWVVjIl19",
+        "doc": "reMUFeYM35Tx2KgZVYUc",
+        "lang": "0000",
+        "acls": {
+          "public": false,
+          "uids": {
+            "995cc0bc98105563168b7fbee7b1e59a4256331c": true
+          }
+        },
+        "storageType": "persistent",
+        "count": "1"
+      },
+      "mixedSaveTask": {
+        "id": "eyJ0YXNrSWRzIjpbImhFa0hKTTcwZ3c3bzFVOUt6NHBLIl19",
+        "doc": "hEkHJM70gw7o1U9Kz4pK",
+        "lang": "0176",
+        "acls": {
+          "uids": {
+            "995cc0bc98105563168b7fbee7b1e59a4256331c": true
+          },
+          "public": false
+        },
+        "storageType": "persistent",
+        "count": "1"
+      },
+      "controlTask": {
+        "id": "eyJ0YXNrSWRzIjpbInpTcU9VM1BseVlOa0gzUGJXdVdvIl19",
+        "doc": "zSqOU3PlyYNkH3PbWuWo",
+        "lang": "0176",
+        "acls": {
+          "public": false,
+          "uids": {
+            "995cc0bc98105563168b7fbee7b1e59a4256331c": true
+          }
+        },
+        "storageType": "persistent",
+        "count": "1"
+      }
+    }
+  }
+}

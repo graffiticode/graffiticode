@@ -1,0 +1,113 @@
+[
+  {
+    "published": {
+      "object": "gs://graffiticode-c5a-gate/7vwaCAIyMNCJEzgIfyYY.png",
+      "fromGeneration": "1794975635917666",
+      "generation": "1795038397756527",
+      "created": "2026-11-18T21:46:37+0000",
+      "custom": {
+        "captureSequence": "4",
+        "commandId": "c:544d4e99b029e07d1c3ae95941c03b3ab03add1017562ef557ff80a181e8b3f4",
+        "item": "7vwaCAIyMNCJEzgIfyYY",
+        "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+      },
+      "seenAt": "2026-11-18T21:46:38.175Z"
+    }
+  },
+  {
+    "label": "E4 A1 #1",
+    "url": "https://api.graffiticode.org/form?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&lang=0179",
+    "at": "2026-11-18T21:46:38.644Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "a5ca2b459d2da661-SJC",
+      "date": "Wed, 18 Nov 2026 21:46:38 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  },
+  {
+    "label": "E4 A1' #1",
+    "url": "https://api.graffiticode.org/form?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+    "at": "2026-11-18T21:46:38.835Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "a5ca2b47eb8fa661-SJC",
+      "date": "Wed, 18 Nov 2026 21:46:38 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  },
+  {
+    "label": "E4 A2 #1",
+    "url": "https://api.graffiticode.org/data?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&generations=%40L0179%3Dinterp-4",
+    "at": "2026-11-18T21:46:39.122Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "BYPASS",
+      "cf-ray": "a5ca2b491ebca661-SJC",
+      "date": "Wed, 18 Nov 2026 21:46:39 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  },
+  {
+    "label": "E4 A1 #2",
+    "url": "https://api.graffiticode.org/form?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&lang=0179",
+    "at": "2026-11-18T21:46:39.322Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "a5ca2b4aec45a661-SJC",
+      "date": "Wed, 18 Nov 2026 21:46:39 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  },
+  {
+    "label": "E4 A1' #2",
+    "url": "https://api.graffiticode.org/form?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+    "at": "2026-11-18T21:46:39.515Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "a5ca2b4c2f88a661-SJC",
+      "date": "Wed, 18 Nov 2026 21:46:39 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  },
+  {
+    "label": "E4 A2 #2",
+    "url": "https://api.graffiticode.org/data?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&generations=%40L0179%3Dinterp-4",
+    "at": "2026-11-18T21:46:39.705Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "BYPASS",
+      "cf-ray": "a5ca2b4d5b13a661-SJC",
+      "date": "Wed, 18 Nov 2026 21:46:39 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  }
+]

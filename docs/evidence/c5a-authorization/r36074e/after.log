@@ -1,0 +1,3 @@
+observed approvals: {"beforeDigest":"7e995b5c48039afa362404069d2130b502cef168c569100c53743d24ab08646c","afterDigest":"121c0b7835c79b7e2673897541ca860fd1cacfdfa361143edbb41166ce936e0c"}
+ERROR: (gcloud.storage.buckets.describe) gs://graffiticode-thumbnails not found: 404.
+FAILED to observe elsewhere: gcloud storage buckets describe failed (1)

@@ -1,0 +1,208 @@
+{
+  "run": "4fe391",
+  "target": {
+    "api": "production",
+    "revision": "api-rmwkxlbvy-b5fa92",
+    "url": "https://rmwkxlbvy-b5fa92---api-sja7fatcta-uc.a.run.app"
+  },
+  "extractedAt": "2026-11-18T19:59:13.675Z",
+  "opids": {
+    "A, original": "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2",
+    "B, original": "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5",
+    "A, repair": "inv-b9237f3d-5f9b-4c74-9d6f-cdbf113c377f/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2",
+    "B, repair": "inv-b9237f3d-5f9b-4c74-9d6f-cdbf113c377f/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5"
+  },
+  "original": {
+    "key": "b6-activation:4fe391:original",
+    "commandId": "c:9c390f796d594c505e75bdea47da0ef1646f5521940d7dcf9cdc9881169accbc",
+    "invocationId": "inv-d7e51ba8-15f7-446e-99df-fa44637ae907",
+    "status": "partial",
+    "outcomes": [
+      {
+        "stage": "s0",
+        "occurrenceId": "x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5",
+        "outcome": "failed",
+        "source": "receipt",
+        "reason": "authorization-denied:not-granted"
+      },
+      {
+        "stage": "s0",
+        "occurrenceId": "x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2",
+        "outcome": "completed",
+        "source": "receipt",
+        "reason": null
+      }
+    ]
+  },
+  "repair": {
+    "commandId": "c:b1a3466046f8ff5e225eff340d41c5819debcd2db88b4f7c11075b2f302dd45a",
+    "invocationId": "inv-b9237f3d-5f9b-4c74-9d6f-cdbf113c377f",
+    "status": "completed",
+    "selection": [
+      {
+        "stage": "s0",
+        "occurrenceId": "x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5"
+      }
+    ]
+  },
+  "receipts": {
+    "A, original": {
+      "opid": "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2",
+      "claim": {
+        "operationId": "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2",
+        "claimedAt": "2026-11-18T19:45:27.676Z"
+      },
+      "outcome": {
+        "status": "succeeded",
+        "steps": [
+          "questions",
+          "items"
+        ],
+        "at": "2026-11-18T19:45:30.129Z"
+      },
+      "run": null,
+      "steps": [
+        {
+          "n": 0,
+          "step": "questions"
+        },
+        {
+          "n": 1,
+          "step": "items"
+        }
+      ],
+      "attempts": 0
+    },
+    "B, original": {
+      "opid": "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5",
+      "claim": {
+        "operationId": "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5",
+        "claimedAt": "2026-11-18T19:45:31.227Z"
+      },
+      "outcome": {
+        "status": "failed",
+        "steps": [],
+        "at": "2026-11-18T19:45:31.529Z"
+      },
+      "run": null,
+      "steps": [],
+      "attempts": 0
+    },
+    "A, repair": {
+      "opid": "inv-b9237f3d-5f9b-4c74-9d6f-cdbf113c377f/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2",
+      "claim": null,
+      "outcome": null,
+      "run": null,
+      "steps": [],
+      "attempts": 0
+    },
+    "B, repair": {
+      "opid": "inv-b9237f3d-5f9b-4c74-9d6f-cdbf113c377f/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5",
+      "claim": {
+        "operationId": "inv-b9237f3d-5f9b-4c74-9d6f-cdbf113c377f/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5",
+        "claimedAt": "2026-11-18T19:45:36.070Z"
+      },
+      "outcome": {
+        "status": "succeeded",
+        "steps": [
+          "questions",
+          "items"
+        ],
+        "at": "2026-11-18T19:45:38.437Z"
+      },
+      "run": null,
+      "steps": [
+        {
+          "n": 0,
+          "step": "questions"
+        },
+        {
+          "n": 1,
+          "step": "items"
+        }
+      ],
+      "attempts": 0
+    }
+  },
+  "audit": [
+    {
+      "at": "2026-11-18T19:45:28.168850Z",
+      "service": "broker",
+      "opid": "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2",
+      "event": "execute-step",
+      "outcome": "allowed",
+      "reason": null,
+      "purpose": "dispatch",
+      "step": "questions"
+    },
+    {
+      "at": "2026-11-18T19:45:29.189699Z",
+      "service": "broker",
+      "opid": "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2",
+      "event": "execute-step",
+      "outcome": "allowed",
+      "reason": null,
+      "purpose": "dispatch",
+      "step": "items"
+    },
+    {
+      "at": "2026-11-18T19:45:30.198923Z",
+      "service": "broker",
+      "opid": "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2",
+      "event": "execute",
+      "outcome": "allowed",
+      "reason": null,
+      "purpose": null,
+      "step": null
+    },
+    {
+      "at": "2026-11-18T19:45:31.594178Z",
+      "service": "broker",
+      "opid": "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5",
+      "event": "execute",
+      "outcome": "failed",
+      "reason": "authorization-denied:not-granted",
+      "purpose": null,
+      "step": null
+    },
+    {
+      "at": "2026-11-18T19:45:36.450580Z",
+      "service": "broker",
+      "opid": "inv-b9237f3d-5f9b-4c74-9d6f-cdbf113c377f/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5",
+      "event": "execute-step",
+      "outcome": "allowed",
+      "reason": null,
+      "purpose": "dispatch",
+      "step": "questions"
+    },
+    {
+      "at": "2026-11-18T19:45:37.494435Z",
+      "service": "broker",
+      "opid": "inv-b9237f3d-5f9b-4c74-9d6f-cdbf113c377f/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5",
+      "event": "execute-step",
+      "outcome": "allowed",
+      "reason": null,
+      "purpose": "dispatch",
+      "step": "items"
+    },
+    {
+      "at": "2026-11-18T19:45:38.488907Z",
+      "service": "broker",
+      "opid": "inv-b9237f3d-5f9b-4c74-9d6f-cdbf113c377f/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5",
+      "event": "execute",
+      "outcome": "allowed",
+      "reason": null,
+      "purpose": null,
+      "step": null
+    }
+  ],
+  "receiptListing": {
+    "original": [
+      "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5",
+      "inv-d7e51ba8-15f7-446e-99df-fa44637ae907/s0/x:8ba63972966374f2c1a49ff9d7e8ede489e408ba3f0255ade23c98190b1678c2"
+    ],
+    "repair": [
+      "inv-b9237f3d-5f9b-4c74-9d6f-cdbf113c377f/s0/x:6e7405cf8bb9285d5e62849828e93f4358dbae26cfa8fab7b674a7aa8679c9d5"
+    ]
+  }
+}

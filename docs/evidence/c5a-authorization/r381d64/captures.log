@@ -1,0 +1,6 @@
+observed privateOwner: {"outcome":"completed","reservedSequence":1,"published":{"bucket":"graffiticode-c5a-gate","captureSequence":1,"generation":"1794975223004388"}}
+observed privateNonOwner: {"outcome":null,"reason":null}
+observed composition: {"outcome":"completed","connectionId":null,"contractVersion":3,"itemScopeAuthorized":true}
+observed mixed: {"invocations":1,"tokens":[{"fn":"snap","scopeKinds":["item"]},{"fn":"save-to-itembank","scopeKinds":["connection"]}]}
+observed publicAnonymous: {"outcome":"completed","subject":"anonymous","publicCapture":true,"rateLimit":{"allowed":12,"refused":0,"refusedAfterQuota":false,"attempted":13}}
+observed plans: [{"name":"private","stages":[{"stage":"s0","lang":"0013","revision":"l0013r-rmwl2casf-31e8b9","contractVersions":[3],"registryVersion":9}],"admitted":true},{"name":"composition","stages":[{"stage":"s0","lang":"0000","revision":"l0000r-rmw8gtkc2-830693","contractVersions":[1,2],"registryVersion":0},{"stage":"s1","lang":"0013","revision":"l0013r-rmwl2casf-31e8b9","contractVersions":[3],"registryVersion":9}],"admitted":true},{"name":"mixed","stages":[{"stage":"s0","lang":"0013","revision":"l0013r-rmwl2casf-31e8b9","contractVersions":[3],"registryVersion":9},{"stage":"s1","lang":"0176","revision":"l0176r-rmwk08k8n-c74227","contractVersions":[1,2],"registryVersion":9}],"admitted":true}]

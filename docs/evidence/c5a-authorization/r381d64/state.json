@@ -1,0 +1,215 @@
+{
+  "runId": "53ce1137",
+  "observations": {
+    "privateOwner": {
+      "outcome": "completed",
+      "reservedSequence": 1,
+      "published": {
+        "bucket": "graffiticode-c5a-gate",
+        "captureSequence": 1,
+        "generation": "1794975223004388"
+      }
+    },
+    "privateNonOwner": {
+      "outcome": "failed",
+      "reason": "not-owner"
+    },
+    "composition": {
+      "outcome": "completed",
+      "connectionId": null,
+      "contractVersion": 3,
+      "itemScopeAuthorized": true
+    },
+    "mixed": {
+      "invocations": 1,
+      "tokens": [
+        {
+          "fn": "snap",
+          "scopeKinds": [
+            "item"
+          ]
+        },
+        {
+          "fn": "save-to-itembank",
+          "scopeKinds": [
+            "connection"
+          ]
+        }
+      ]
+    },
+    "publicAnonymous": {
+      "outcome": "completed",
+      "subject": "anonymous",
+      "publicCapture": true,
+      "rateLimit": {
+        "allowed": 12,
+        "refused": 1,
+        "refusedAfterQuota": true,
+        "attempted": 13
+      }
+    },
+    "plans": [
+      {
+        "name": "private",
+        "stages": [
+          {
+            "stage": "s0",
+            "lang": "0013",
+            "revision": "l0013r-rmwl2casf-31e8b9",
+            "contractVersions": [
+              3
+            ],
+            "registryVersion": 9
+          }
+        ],
+        "admitted": true
+      },
+      {
+        "name": "composition",
+        "stages": [
+          {
+            "stage": "s0",
+            "lang": "0000",
+            "revision": "l0000r-rmw8gtkc2-830693",
+            "contractVersions": [
+              1,
+              2
+            ],
+            "registryVersion": 0
+          },
+          {
+            "stage": "s1",
+            "lang": "0013",
+            "revision": "l0013r-rmwl2casf-31e8b9",
+            "contractVersions": [
+              3
+            ],
+            "registryVersion": 9
+          }
+        ],
+        "admitted": true
+      },
+      {
+        "name": "mixed",
+        "stages": [
+          {
+            "stage": "s0",
+            "lang": "0013",
+            "revision": "l0013r-rmwl2casf-31e8b9",
+            "contractVersions": [
+              3
+            ],
+            "registryVersion": 9
+          },
+          {
+            "stage": "s1",
+            "lang": "0176",
+            "revision": "l0176r-rmwk08k8n-c74227",
+            "contractVersions": [
+              1,
+              2
+            ],
+            "registryVersion": 9
+          }
+        ],
+        "admitted": true
+      }
+    ],
+    "privateNonOwnerTaskAcl": {
+      "status": 404,
+      "at": "2026-11-18T04:20:05.174Z",
+      "where": "api-c5a-gate task lookup, before Policy",
+      "taskAclUids": [
+        "995cc0bc98105563168b7fbee7b1e59a4256331c"
+      ]
+    }
+  },
+  "baseline": {
+    "at": "2026-11-18T04:03:58.483Z",
+    "approvals": "77f3f0140cd08483bf1660399c495661cf29d36734e285446a6664177ddc879c",
+    "appspot": "6e32da1beddf143cb47752c94547fa4cf02d1a9d66bacce9cd42dd16bc7c0e93"
+  },
+  "capturesStartedAt": "2026-11-18T04:19:58.721Z",
+  "gateUrl": "https://api-c5a-gate-sja7fatcta-uc.a.run.app",
+  "commands": [
+    "c:0aef8228f754b2ce7ce8556a9e36812db127e3de56d27809e25921e485c9c093",
+    "c:0b0bf0853b5da16bd27888460eb61d8d6909729900e7f826bd275abfdfca7176",
+    "c:59e33c3b3e894726a30ff005627cc4f553ac07e91535b7daed1884f9dbb737af",
+    "c:47167d61b55d19e136ddd55638c08464db223aaa9a133bd9d9747abaf8f44644",
+    "c:f1e3b66a0e68e713d434ffdd4fa89095351f405eb3ae9f9bff7e7b3c68339546",
+    "c:7b05bbbab792575a8db449a4910ee3773af7d5f157b2d5b39aa01762de65fa96",
+    "c:9b314cdd1d8b851bed6625f80dfe9ee4961894683ce3eadd55f6951d3574e236",
+    "c:a3528503025a0759f9dd345e447c55e78e5364ef7b5066f998dc1cab6d82cada",
+    "c:04b81c5f491eabd3849136d255321095647c38d4569ede6a255bb13755b729e3",
+    "c:ee99301cca056ee755027e06c857b5b006a475d27c7011821adad8c71b18efc9",
+    "c:9d116f4ba7f00a4acecda209f06c2d36762a600bd16042ee27ed5eb01d3c04e9",
+    "c:ea8bc4433fba12a6ecd414640ec2b7b28e1d956448eef6069ac09c8bdbdefc52",
+    "c:56cab266143593d5880b3d5e72278b2414142647aa955308502a915608fe468c",
+    "c:1206f11b61bac46f355ed77d9794a53b366206c908c43e4f8d4e680328ebe92b",
+    "c:c93817f4afb191ad9bbbcc1089f55e5415e442413e27fd5b5cf4bfaff65705fc",
+    "c:399e8095f07904917f3de189a3ab0655610e48120267b2a45211471a46857457"
+  ],
+  "observationHistory": {
+    "privateNonOwner": [
+      {
+        "source": "captures",
+        "at": "2026-11-18T04:20:05.174Z",
+        "value": {
+          "outcome": null,
+          "reason": null
+        },
+        "note": "api-c5a-gate answered 404 (75-byte body) from its own task lookup: the non-owner couldn't read the private snap task; Policy saw nothing"
+      },
+      {
+        "source": "nonowner-retry",
+        "at": "2026-11-18T15:29:45.415Z",
+        "key": "c5a-gate:53ce1137:non-owner",
+        "answer": {
+          "status": 200,
+          "commandId": "c:8332eefc8ca55d974ad7083b107e00e524af2758161de42867ef75d9e0e57c13",
+          "outcome": "failed",
+          "reason": "not-owner"
+        },
+        "value": {
+          "outcome": "failed",
+          "reason": "not-owner"
+        }
+      }
+    ],
+    "publicAnonymous": [
+      {
+        "source": "captures",
+        "at": "2026-11-18T04:22:33Z",
+        "value": {
+          "outcome": "completed",
+          "subject": "anonymous",
+          "publicCapture": true,
+          "rateLimit": {
+            "allowed": 12,
+            "refused": 0,
+            "refusedAfterQuota": false,
+            "attempted": 13
+          }
+        },
+        "note": "read before the 13th's refusal (04:22:32.955Z) was ingested"
+      },
+      {
+        "source": "recollect",
+        "at": "2026-11-18T15:30:20.252Z",
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"policy\" AND jsonPayload.logName=\"security_audit\" AND jsonPayload.event=\"command-reserve\" AND jsonPayload.itemId=\"wbyfys3akpc4yEGFrnuu\" AND timestamp>=\"2026-11-18T04:19:58.721Z\"",
+        "entries": 13,
+        "value": {
+          "outcome": "completed",
+          "subject": "anonymous",
+          "publicCapture": true,
+          "rateLimit": {
+            "allowed": 12,
+            "refused": 1,
+            "refusedAfterQuota": true,
+            "attempted": 13
+          }
+        }
+      }
+    ]
+  }
+}

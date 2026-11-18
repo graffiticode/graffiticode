@@ -1,0 +1,13 @@
+{
+  "gateUrl": "https://api-c5a-gate-sja7fatcta-uc.a.run.app",
+  "task": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+  "key": "c5a-gate:53ce1137:private",
+  "submittedAt": "2026-11-18T04:13:19.141Z",
+  "answeredAt": "2026-11-18T04:13:45.071Z",
+  "status": 200,
+  "commandId": "c:0aef8228f754b2ce7ce8556a9e36812db127e3de56d27809e25921e485c9c093",
+  "outcome": "completed",
+  "reason": null,
+  "statusUrl": "/command/c%3A0aef8228f754b2ce7ce8556a9e36812db127e3de56d27809e25921e485c9c093",
+  "error": null
+}
