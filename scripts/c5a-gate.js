@@ -54,6 +54,9 @@
 // and --reference-public are the owner-approved reference renders (PNG) of the
 // two fixture items; each scenario's published capture is read right after its
 // command and must be identical to its item's reference (`images-correct`).
+// --approvals-at-baseline (after) is a saved read of the approval records at
+// exactly the baseline (Firestore history, recorded within the hour), for a
+// run whose baseline digest predates canonical hashing.
 // Audit reads poll, bounded, until Cloud Logging has every record the run
 // expects. Observations no gate-api call can make are given as JSON
 // files with --evidence (repeatable), merged over what the phases recorded:
@@ -79,6 +82,7 @@ import { createCanaryEnv, loadDeployServices, http } from "./lib/canary-env.js";
 import { ensureFixtures, retireFixtures, verifyRetired } from "./lib/c5a-gate-fixtures.js";
 import { verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planContractVersion, tokensFromAudit, brokerAuditFilter, rateLimitFromAudit, policyReserveFilter, dueObservation, pollUntil, reservesCover, imageObservation } from "./lib/c5a-gate-checks.js";
 import { decodePng, imageLooks, compareImages } from "./lib/png.js";
+import { runCapturing, bucketObjectCount, collectIndependently, approvalInventory, inventoryDigest, compareInventories, historyReadTime, archiveObservations, exactInventory } from "./lib/c5a-gate-reads.js";
 
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {
@@ -174,30 +178,45 @@ const polledLogs = async (filter, done) => {
 
 // The approval records released before C5a (Step 26's evidence names them):
 // every approved revision of L0176 and L0000, as stored.
-const approvalsDigest = async () => {
-  const records = {};
-  for (const lang of ["0176", "0000"]) records[lang] = (await docs("revisions", `languages/${lang}/revisions`)).sort((a, b) => String(a.revision).localeCompare(String(b.revision)));
-  return digest(records);
+// The approval records of L0176 and L0000 (revisions database), every page,
+// at `readTime` when given (Firestore's history), as { name, fields } ordered
+// by document name. Their digest is canonical: key order never counts (the
+// r36074e baseline's JSON digest differed between two reads of the same records).
+const approvalDocs = async (readTime = null) => {
+  const byLang = {};
+  for (const lang of ["0176", "0000"]) {
+    const found = [];
+    let pageToken = "";
+    do {
+      const q = new URLSearchParams({ pageSize: "300", ...(readTime ? { readTime } : {}), ...(pageToken ? { pageToken } : {}) });
+      const res = await http({ method: "GET", url: `${firestore("revisions", `languages/${lang}/revisions`)}?${q}`, headers: await asOperator() });
+      if (res.status !== 200) throw new Error(`Firestore revisions/languages/${lang}/revisions${readTime ? ` at ${readTime}` : ""}: ${res.status}`);
+      found.push(...(res.json?.documents ?? []).map(d => ({ name: d.name, fields: decode({ mapValue: d }) })));
+      pageToken = res.json?.nextPageToken ?? "";
+    } while (pageToken);
+    byLang[lang] = found;
+  }
+  return approvalInventory(byLang);
 };
+const approvalsDigest = async () => inventoryDigest(await approvalDocs());
+// gcloud with its exit code and stderr kept (runCapturing), for the reads
+// whose failures must be told apart.
+const gcloudCaptured = args => runCapturing("gcloud", [...args, `--project=${project}`, "--quiet"]);
 // graffiticode.appspot.com's thumbnails/: names and generations. A failed
 // read throws.
 const appspotListing = async () => {
-  const out = await gcloud(["storage", "ls", "--json", "gs://graffiticode.appspot.com/thumbnails/"]);
-  const listed = JSON.parse(out || "[]").map(o => [o.url, o.metadata?.generation ?? null]).sort();
+  const out = await gcloudCaptured(["storage", "ls", "--json", "gs://graffiticode.appspot.com/thumbnails/"]);
+  const listed = JSON.parse(out.trim() || "[]").map(o => [o.url, o.metadata?.generation ?? null]).sort();
   if (listed.length === 0) throw new Error("the appspot thumbnails listing is empty");
   return digest(listed);
 };
-// graffiticode-thumbnails' object count: 0 when the bucket doesn't exist
-// (C5b creates it); any other failure throws.
-const thumbnailsCount = async () => {
-  const exists = await gcloud(["storage", "buckets", "describe", "gs://graffiticode-thumbnails", "--format=value(name)"]).then(() => true, e => {
-    if (/not found|404/i.test(String(e?.message ?? e))) return false;
-    throw e;
-  });
-  if (!exists) return 0;
-  const out = await gcloud(["storage", "ls", "gs://graffiticode-thumbnails/"]);
-  return out.split("\n").filter(Boolean).length;
-};
+// graffiticode-thumbnails' object count: 0 only for gcloud's not-found answer
+// for that bucket (C5b creates it); any other failure throws.
+const thumbnailsCount = () => bucketObjectCount({
+  bucket: "graffiticode-thumbnails",
+  describe: () => gcloudCaptured(["storage", "buckets", "describe", "gs://graffiticode-thumbnails", "--format=value(name)"]),
+  list: () => gcloudCaptured(["storage", "ls", "--json", "gs://graffiticode-thumbnails/"]),
+});
 
 // ------------------------------------------------------------ the gate api
 
@@ -387,7 +406,7 @@ if (phase === "baseline") {
   // the run's captures changed. (A baseline whose read failed saved nothing.)
   if (state.baseline || state.capturesStartedAt || state.commands) throw new Error(`this run's baseline is fixed${state.capturesStartedAt ? ` (captures started at ${state.capturesStartedAt})` : ""}; start a new --state`);
   // A baseline read that fails stops here: nothing is compared against it.
-  state.baseline = { at: new Date().toISOString(), approvals: await approvalsDigest(), appspot: await appspotListing() };
+  state.baseline = { at: new Date().toISOString(), approvals: await approvalsDigest(), approvalsDigestKind: "canonical", appspot: await appspotListing() };
   console.log(`baseline ${JSON.stringify(state.baseline)}`);
   await save();
 }
@@ -576,8 +595,46 @@ if (phase === "cleanup") {
 
 if (phase === "after") {
   if (!state.baseline || !state.commands) throw new Error("run --phase baseline and --phase captures first");
-  await collect("approvals", async () => ({ ...(state.observations.approvals ?? {}), beforeDigest: state.baseline.approvals, afterDigest: await approvalsDigest() }));
-  await collect("elsewhere", async () => ({ appspotBefore: state.baseline.appspot, appspotAfter: await appspotListing(), thumbnailsObjects: await thumbnailsCount() }));
+  // A rerun keeps what the earlier after phase recorded, with every read error
+  // belonging to it (approvals, elsewhere and elsewhere.<read>).
+  const now = new Date().toISOString();
+  archiveObservations(state, ["approvals", "elsewhere"], now);
+  // The approval records now, and the complete inventory at exactly the
+  // baseline: from Firestore's history while the baseline is within the hour,
+  // or a saved exact-time read (--approvals-at-baseline, as recorded within
+  // the hour). A rounded read is never used: a record could change in the
+  // gap and be restored. A canonical baseline needs no history; an old one
+  // fails without it (approvalsProblem). Inventories are kept beside the state.
+  await collect("approvals", async () => {
+    const current = await approvalDocs();
+    const dir = path.join(path.dirname(stateFile), "approvals-history");
+    await mkdir(dir, { recursive: true });
+    await writeFile(path.join(dir, `inventory-current-${now}.json`), `${JSON.stringify({ readAt: now, inventory: current }, null, 2)}\n`);
+    const beforeDigestKind = state.baseline.approvalsDigestKind ?? "json";
+    let history = null;
+    const saved = flag("--approvals-at-baseline");
+    if (saved) {
+      const text = await readFile(saved, "utf8");
+      const parsed = JSON.parse(text);
+      const atBaseline = exactInventory(parsed, state.baseline.at, decode);
+      history = { baselineAt: state.baseline.at, readTime: parsed.readTime, exact: true, source: { file: saved, sha256: createHash("sha256").update(text).digest("hex"), collectedAt: parsed.collectedAt ?? null }, baselineDigest: inventoryDigest(atBaseline), comparison: compareInventories(atBaseline, current) };
+    } else {
+      const { readTime, exact } = historyReadTime(state.baseline.at);
+      if (exact) {
+        const atBaseline = await approvalDocs(readTime);
+        await writeFile(path.join(dir, `inventory-${readTime}.json`), `${JSON.stringify({ readTime, exact, inventory: atBaseline }, null, 2)}\n`);
+        history = { baselineAt: state.baseline.at, readTime, exact, source: "firestore history", baselineDigest: inventoryDigest(atBaseline), comparison: compareInventories(atBaseline, current) };
+      }
+    }
+    return { beforeDigest: state.baseline.approvals, beforeDigestKind, afterDigest: inventoryDigest(current), afterDigestKind: "canonical", ...(history ? { history } : {}) };
+  });
+  // appspot and graffiticode-thumbnails read independently: either result
+  // stands when the other read fails.
+  const { values, errors } = await collectIndependently({ appspotAfter: appspotListing, thumbnailsObjects: thumbnailsCount });
+  observe("elsewhere", { appspotBefore: state.baseline.appspot, ...values });
+  state.observations.errors = { ...(state.observations.errors ?? {}) };
+  for (const name of ["appspotAfter", "thumbnailsObjects"]) if (errors[name]) state.observations.errors[`elsewhere.${name}`] = errors[name];
+  if (Object.keys(errors).length) console.log(`FAILED to observe elsewhere: ${JSON.stringify(errors)}`);
   await save();
 }
 
@@ -617,6 +674,9 @@ if (phase === "judge") {
   const result = verdict(merged);
   for (const c of result.checks) console.log(`${c.ok ? "ok    " : "FAILED"} ${c.id}: ${c.detail}`);
   const report = path.join(path.dirname(stateFile), "report.json");
+  // An earlier report is kept, renamed by when it was written.
+  const earlier = await readFile(report, "utf8").catch(() => null);
+  if (earlier) await writeFile(path.join(path.dirname(stateFile), `report-${JSON.parse(earlier).at ?? "earlier"}.json`), earlier);
   await writeFile(report, `${JSON.stringify({ runId: state.runId, at: new Date().toISOString(), ...result, observations: merged }, null, 2)}\n`);
   console.log(`${result.passed ? "GATE PASSED" : "GATE NOT PASSED"}; report ${report}`);
   if (!result.passed) process.exit(1);

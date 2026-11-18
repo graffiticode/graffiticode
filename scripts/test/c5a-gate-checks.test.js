@@ -18,7 +18,7 @@ const QUOTA = Array.from({ length: PUBLIC_CAPTURE_LIMIT + 1 }, (_, i) => `c:anon
 const jest = (file, ...titles) => `PASS src/${file}\n  describe\n${titles.map(t => `    ✓ ${t} (3 ms)`).join("\n")}\n\nTests:       ${titles.length} passed`;
 const image = scenario => ({ scenario, expectedCommandIds: [`c:${scenario}`], commandId: `c:${scenario}`, generation: "1", captureSequence: 1, sha256: "s", width: 1024, height: 152, reddish: 0, blue: 4839, transparent: 0, reference: scenario === "public" ? "public" : "private", sameSize: true, identical: true, meanDiff: 0 });
 
-const approved = { l0013r: { revision: "l0013r-rmwl2casf-31e8b9", contractVersions: [3] }, l0000r: { revision: "l0000r-rmw8gtkc2-830693", contractVersions: [1, 2] }, l0176r: { revision: "l0176r-rmwk08k8n-c74227", contractVersions: [1, 2] }, beforeDigest: "a1", afterDigest: "a1" };
+const approved = { l0013r: { revision: "l0013r-rmwl2casf-31e8b9", contractVersions: [3] }, l0000r: { revision: "l0000r-rmw8gtkc2-830693", contractVersions: [1, 2] }, l0176r: { revision: "l0176r-rmwk08k8n-c74227", contractVersions: [1, 2] }, beforeDigest: "a1", beforeDigestKind: "canonical", afterDigest: "a1", afterDigestKind: "canonical" };
 const stage = (lang, i, over = {}) => ({ stage: `s${i}`, lang, revision: approved[`l${lang}r`].revision, contractVersions: approved[`l${lang}r`].contractVersions, registryVersion: lang === "0000" ? 0 : 9, ...over });
 const PASSING = () => ({
   gateBucket: GATE_BUCKET,

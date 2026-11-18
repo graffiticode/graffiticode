@@ -273,6 +273,35 @@ const byFields = (o, row, fields, judge) => {
 const same = (a, b) => has(a) && has(b) && JSON.stringify(a) === JSON.stringify(b);
 const versions = v => JSON.stringify([...(v ?? [])].sort((a, b) => a - b));
 
+// The approval records released before C5a, unchanged by the run (r36074e's
+// review). A canonical baseline digest (approvalsDigest over the inventory
+// ordered by document name, key order never counting) is compared with the
+// after digest. A baseline digest taken the old way (JSON key order counted,
+// so two reads of the same records could differ) proves nothing alone: the
+// complete inventory read from Firestore's history at exactly the baseline
+// must match today's in membership and canonical
+// contents. A history comparison, when recorded, must always match.
+//   approvals { beforeDigest, beforeDigestKind?, afterDigest, afterDigestKind,
+//               history?: { baselineAt, readTime, exact, comparison: compareInventories() } }
+export const approvalsProblem = a => {
+  if (!a) return "the approval records weren't read";
+  const h = a.history;
+  if (h) {
+    const c = h.comparison;
+    if (!c) return "the approval history comparison wasn't recorded";
+    if (c.identical !== true) return `approval records changed since the baseline: added ${JSON.stringify(c.added ?? null)}, deleted ${JSON.stringify(c.deleted ?? null)}, modified ${JSON.stringify(c.modified ?? null)}`;
+    // Exactly at the baseline: a rounded read leaves a gap in which a record
+    // could change and be restored (the second #423 review).
+    if (!h.readTime || !h.baselineAt || Date.parse(h.readTime) !== Date.parse(h.baselineAt)) return `the history was read at ${h.readTime}, not exactly at the baseline ${h.baselineAt}`;
+  }
+  if (a.beforeDigestKind === "canonical") {
+    if (a.afterDigestKind !== "canonical" || !same(a.beforeDigest, a.afterDigest)) return "earlier approval records changed or weren't read";
+    return null;
+  }
+  if (!h) return "the baseline approvals digest isn't canonical, and no history comparison was recorded";
+  return null;
+};
+
 // One capture's live reserve/stage/bind evidence, correlated to one
 // occurrence: the published object's command, that command's reservation for
 // the object's item ({ occurrenceId, reservedAt, stagedAt, captureSequence })
@@ -399,7 +428,8 @@ export const CHECKS = [
     const fixture = o.hermetic.preSlice6.fixture ?? {};
     if (fixture.lang !== "0013" || fixture.approved !== true || versions(fixture.contractVersions) !== "[1,2]") return `pre-slice-6 fixture ${JSON.stringify(fixture)}: an approved l0013r at [1, 2] is needed`;
     if (o.hermetic.preSlice6.result?.reason !== "contract-version-unsupported") return `pre-slice-6 plan: ${o.hermetic.preSlice6.result?.reason ?? "not observed"}`;
-    if (!same(o.approvals?.beforeDigest, o.approvals?.afterDigest)) return "earlier approval records changed or weren't read";
+    const approvals = approvalsProblem(o.approvals);
+    if (approvals) return approvals;
     return true;
   }],
   ["registry-versions", "manifests report l0000r 0 and l0176r and l0013r 9; the canary's L0185 is 0 beside L0176 at 9", o => {
