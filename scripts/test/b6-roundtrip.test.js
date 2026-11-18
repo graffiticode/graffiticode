@@ -47,6 +47,9 @@ test("an uncertain or other outcome for B is rejected", () => {
   rejects(o => { o["B, original"].receipt.steps = [{ n: 0, step: "questions" }]; }, /has step records/);
   rejects(o => { o["B, original"].audit = []; }, /0 execute records, expected exactly one/);
   rejects(o => { o["B, original"] = { receipt: null, audit: [{ service: "broker", event: "execute", outcome: "failed", reason: ROUNDTRIP_B_REFUSAL }] }; }, /no receipt, but Broker recorded/);
+  // The #421 review's false passes: with no receipt, any Broker record fails.
+  rejects(o => { o["B, original"] = { receipt: null, audit: [{ service: "broker", event: "execute", outcome: "denied", reason: "authorization-denied:not-granted" }] }; }, /no receipt, but Broker recorded \["execute:denied"\]/);
+  rejects(o => { o["B, original"] = { receipt: null, audit: [{ service: "broker", event: "execute-step", outcome: "allowed", purpose: "sign", step: "sign" }] }; }, /no receipt, but Broker recorded \["execute-step:allowed:sign"\]/);
 });
 
 test("extra claims are rejected", () => {

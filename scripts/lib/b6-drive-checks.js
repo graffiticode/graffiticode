@@ -247,7 +247,7 @@ export const exclusionProblems = ({ requests = [], ledger = [] }) => {
 // The owner's review of 4fe391: where the narrowing lands is timing. B may be
 // refused before Broker (no receipt), or after Broker claimed its receipt but
 // before any dispatch. A claim is not a provider dispatch. Accepted:
-//   B, original  either no receipt and no Broker record at all, or exactly one
+//   B, original  either no receipt and an empty Broker audit, or exactly one
 //                receipt, definitively failed (final outcome `failed`, no
 //                steps) with exactly one execute record, `failed`
 //                `authorization-denied:not-granted`, and no dispatch
@@ -301,8 +301,9 @@ export const roundtripBrokerProblems = ({ operations, registeredSteps }) => {
   const bOriginal = op => {
     const label = "B, original";
     if (op.receipt === null) {
-      // Refused before Broker: nothing claimed, nothing dispatched.
-      if (dispatches(op).length || executes(op).some(e => e.outcome !== "denied")) problems.push(`${label}: no receipt, but Broker recorded ${JSON.stringify(op.audit.map(e => `${e.event}:${e.outcome}`))}`);
+      // Refused before Broker: no receipt and no Broker record of any kind
+      // (the #421 review: a denied execute or a signing step isn't "nothing").
+      if (op.audit.length) problems.push(`${label}: no receipt, but Broker recorded ${JSON.stringify(op.audit.map(e => `${e.event}:${e.outcome}${e.purpose ? `:${e.purpose}` : ""}`))}`);
       return;
     }
     const r = op.receipt;

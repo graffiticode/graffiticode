@@ -66,12 +66,20 @@ export const v8ProvenanceProblems = ({ provenance, apiWindows }) => {
 //                   ({ binding, contentDigest, updateTime, head })
 //   stored          the artifact's stored envelope ({ data: activity, errors })
 //   served          { status, body } of GET /data through today's api
-//   broker          Broker security_audit entries from the read's start to
-//                   after it, every service ({ event, purpose, step, op })
-// The view re-signs an L0176 activity per render, so the served activity may
-// carry fields the stored one doesn't (recorded as `added`); its type and its
-// item data must be exactly the stored ones.
-export const v8ReadProblems = ({ before, after, stored, served, broker }) => {
+//   readInvocationId  the view's own read invocation (Policy's
+//                   idempotency-keys record for read.<artifact invocation>)
+//   broker          { entries, complete, truncated }: Broker security_audit
+//                   from the read's start, polled until the read invocation's
+//                   signing evidence arrived (complete) and never cut off by a
+//                   read limit (truncated) ({ invocationId, connectionId, opid,
+//                   op, event, purpose, outcome })
+// The view re-signs an L0176 activity per render (a read invocation and a
+// preview signature: Broker sign steps), so the served activity may carry
+// fields the stored one doesn't (recorded as `added`); its type and item data
+// must be exactly the stored ones. The #421 review: an empty or late audit
+// never passes; the read's signing must be seen, and nothing dispatched.
+export const SIGN_PREVIEW = /^learnosity\.sign-[a-z]+-preview$/;
+export const v8ReadProblems = ({ before, after, stored, served, readInvocationId, broker }) => {
   const problems = [];
   if (!before || !after) return ["the artifact wasn't read before and after"];
   if (canon(before.binding) !== canon(after.binding)) problems.push("its bindings changed");
@@ -85,12 +93,29 @@ export const v8ReadProblems = ({ before, after, stored, served, broker }) => {
   const storedActivity = stored?.data;
   if (!storedActivity) problems.push("the stored activity wasn't read");
   else if (!activity || activity.type !== storedActivity.type || canon(activity.data) !== canon(storedActivity.data)) problems.push("the served activity isn't the stored one");
-  if (!Array.isArray(broker)) problems.push("Broker's audit wasn't read");
-  else {
-    const dispatched = broker.filter(e => e.event === "execute-step" && e.purpose === "dispatch");
-    if (dispatched.length) problems.push(`Broker dispatched ${JSON.stringify(dispatched.map(e => `${e.op}:${e.step}`))}`);
+  if (!readInvocationId) problems.push("the view's read invocation wasn't found");
+  if (!broker || !Array.isArray(broker.entries)) return [...problems, "Broker's audit wasn't read"];
+  if (broker.truncated !== false) problems.push("Broker's audit collection may be truncated");
+  if (broker.complete !== true) problems.push("the read's signing evidence never arrived");
+  const entries = broker.entries;
+  const dispatched = entries.filter(e => e.event === "execute-step" && e.purpose === "dispatch" && (e.connectionId === before.binding?.connectionId || e.invocationId === readInvocationId));
+  if (dispatched.length) problems.push(`Broker dispatched ${JSON.stringify(dispatched.map(e => `${e.op}:${e.step}`))}`);
+  const original = entries.filter(e => e.invocationId === before.binding?.invocationId);
+  if (original.length) problems.push(`Broker recorded ${original.length} record(s) under the artifact's own invocation`);
+  if (readInvocationId) {
+    const read = entries.filter(e => e.invocationId === readInvocationId);
+    const signs = read.filter(e => e.event === "execute-step" && e.purpose === "sign" && e.outcome === "allowed" && SIGN_PREVIEW.test(e.op ?? ""));
+    const executes = read.filter(e => e.event === "execute" && e.outcome === "allowed" && SIGN_PREVIEW.test(e.op ?? ""));
+    if (!signs.length || !executes.length) problems.push(`the read invocation's preview signing wasn't recorded (${signs.length} sign step(s), ${executes.length} execute(s))`);
+    const other = read.filter(e => !SIGN_PREVIEW.test(e.op ?? "") || (e.event === "execute-step" && e.purpose !== "sign"));
+    if (other.length) problems.push(`the read invocation recorded other operations ${JSON.stringify(other.map(e => `${e.op}:${e.event}:${e.purpose ?? ""}`))}`);
   }
   return problems;
+};
+// The read's signing evidence has arrived: a sign step and its execute.
+export const readSigningSeen = (entries, readInvocationId) => {
+  const read = (entries ?? []).filter(e => e.invocationId === readInvocationId && SIGN_PREVIEW.test(e.op ?? "") && e.outcome === "allowed");
+  return read.some(e => e.event === "execute-step" && e.purpose === "sign") && read.some(e => e.event === "execute");
 };
 export const addedFields = (stored, served) => Object.keys(served?.body?.data?.data ?? {}).filter(k => !(k in (stored?.data ?? {})));
 

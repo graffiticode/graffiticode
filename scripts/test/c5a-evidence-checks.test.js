@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { planDigest } from "@graffiticode/common/contract";
-import { v2DigestProblems, v8ProvenanceProblems, v8ReadProblems, addedFields, registryVersionsObservation } from "../lib/c5a-evidence-checks.js";
+import { v2DigestProblems, v8ProvenanceProblems, v8ReadProblems, addedFields, readSigningSeen, registryVersionsObservation } from "../lib/c5a-evidence-checks.js";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/c5a-evidence.json", import.meta.url), "utf8"));
 const v2 = () => structuredClone(fixture.v2);
@@ -71,24 +71,45 @@ test("v8 provenance: any gap in the chain is refused", () => {
 });
 
 // The live read's shapes: GET /data's envelope ({ status, data: { data, errors } })
-// over the stored activity, re-signed per view.
+// over the stored activity, re-signed per view under its own read invocation.
 const stored = { data: { type: "string", data: { id: "item-1", name: "graffiticode-canary", questions: [{ type: "mcq" }] } }, errors: [] };
-const state = (over = {}) => ({ binding: { uid: "u", ownerUid: "u", connectionId: "c", taskId: "t", invocationId: "inv-1", seq: 1, registryVersion: 8 }, contentDigest: "d1", updateTime: "2026-11-16T18:27:13.990219Z", head: { invocationId: "inv-1", seq: 1 }, ...over });
+const state = (over = {}) => ({ binding: { uid: "u", ownerUid: "u", connectionId: "conn-1", taskId: "t", invocationId: "inv-1", seq: 1, registryVersion: 8 }, contentDigest: "d1", updateTime: "2026-11-16T18:27:13.990219Z", head: { invocationId: "inv-1", seq: 1 }, ...over });
+const READ = "inv-read";
+const sign = (over = {}) => ({ invocationId: READ, connectionId: "conn-1", opid: `${READ}/read/x`, op: "learnosity.sign-items-preview", ...over });
+const signing = [sign({ event: "execute-step", purpose: "sign", outcome: "allowed" }), sign({ event: "execute", purpose: null, outcome: "allowed" })];
 const read = (over = {}) => ({
   before: state(),
   after: state(),
   stored,
+  readInvocationId: READ,
   served: { status: 200, body: { status: "success", data: { data: { ...stored.data, request: { signed: true } }, errors: [] } } },
-  broker: [{ event: "execute-step", purpose: "sign", step: "sign", op: "learnosity.sign-items-preview" }],
+  broker: { entries: signing, complete: true, truncated: false },
   ...over,
 });
 
-test("v8 read: served unchanged, re-signed, with no dispatch, passes", () => {
+test("v8 read: served unchanged, signed under its read invocation, with no dispatch, passes", () => {
   assert.deepEqual(v8ReadProblems(read()), []);
   assert.deepEqual(addedFields(stored, read().served), ["request"]);
+  assert.equal(readSigningSeen(signing, READ), true);
+  assert.equal(readSigningSeen(signing.slice(0, 1), READ), false);
+  assert.equal(readSigningSeen(signing, "inv-other"), false);
 });
 
-test("v8 read: a changed artifact, a refused or different view, or any dispatch fails", () => {
+test("v8 read: an empty, late, incomplete or truncated audit never passes (#421 review)", () => {
+  // The reviewer's false pass: no records at all.
+  matches(v8ReadProblems(read({ broker: { entries: [], complete: false, truncated: false } })), /signing evidence never arrived/);
+  matches(v8ReadProblems(read({ broker: { entries: [], complete: true, truncated: false } })), /preview signing wasn't recorded \(0 sign step\(s\), 0 execute\(s\)\)/);
+  // ...then a delayed dispatch: it fails whenever it is collected.
+  matches(v8ReadProblems(read({ broker: { entries: [...signing, { connectionId: "conn-1", invocationId: "inv-late", op: "learnosity.write-items", event: "execute-step", purpose: "dispatch", step: "items", outcome: "allowed" }], complete: true, truncated: false } })), /dispatched \["learnosity.write-items:items"\]/);
+  matches(v8ReadProblems(read({ broker: { entries: signing, complete: true, truncated: true } })), /may be truncated/);
+  matches(v8ReadProblems(read({ broker: { entries: signing, complete: true } })), /may be truncated/);
+  matches(v8ReadProblems(read({ readInvocationId: null })), /read invocation wasn't found/);
+  matches(v8ReadProblems(read({ broker: undefined })), /Broker's audit wasn't read/);
+  matches(v8ReadProblems(read({ broker: { entries: [...signing, sign({ op: "learnosity.write-items", event: "execute", outcome: "allowed" })], complete: true, truncated: false } })), /read invocation recorded other operations/);
+  matches(v8ReadProblems(read({ broker: { entries: [...signing, { invocationId: "inv-1", op: "learnosity.write-items", event: "execute", outcome: "replayed" }], complete: true, truncated: false } })), /under the artifact's own invocation/);
+});
+
+test("v8 read: a changed artifact or a refused or different view fails", () => {
   matches(v8ReadProblems(read({ after: state({ contentDigest: "d2" }) })), /content digest changed/);
   matches(v8ReadProblems(read({ after: state({ updateTime: "2026-11-18T20:00:00Z" }) })), /document was rewritten/);
   matches(v8ReadProblems(read({ after: state({ binding: { ...state().binding, seq: 2 } }) })), /bindings changed/);
@@ -96,8 +117,6 @@ test("v8 read: a changed artifact, a refused or different view, or any dispatch 
   matches(v8ReadProblems(read({ served: { status: 500, body: null } })), /answered 500/);
   matches(v8ReadProblems(read({ served: { status: 200, body: { data: { data: null, errors: [{ code: "artifact-incompatible" }] } } } })), /\["artifact-incompatible"\]/);
   matches(v8ReadProblems(read({ served: { status: 200, body: { data: { data: { ...stored.data, data: { ...stored.data.data, name: "other" } }, errors: [] } } } })), /isn't the stored one/);
-  matches(v8ReadProblems(read({ broker: [{ event: "execute-step", purpose: "dispatch", step: "items", op: "learnosity.write-items" }] })), /dispatched \["learnosity.write-items:items"\]/);
-  matches(v8ReadProblems(read({ broker: undefined })), /Broker's audit wasn't read/);
   assert.deepEqual(v8ReadProblems(read({ before: null })), ["the artifact wasn't read before and after"]);
 });
 
