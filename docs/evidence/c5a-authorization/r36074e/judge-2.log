@@ -1,0 +1,21 @@
+ok     observations-read: ok
+ok     scenarios: ok
+ok     l0176-unchanged: ok
+ok     plans-pin-approved: ok
+ok     private-owner: ok
+ok     images-correct: ok
+ok     private-non-owner: ok
+ok     public-anonymous: ok
+ok     mixed-chain: ok
+ok     mismatches: ok
+ok     composition: ok
+ok     per-stage-contracts: ok
+ok     registry-versions: ok
+ok     conditional-retry: ok
+ok     reserve-stage-bind: ok
+ok     nothing-elsewhere: ok
+ok     old-workers: ok
+ok     fixtures-retired: ok
+ok     console-route: ok
+ok     proxy: ok
+GATE PASSED; report /Users/jeffdyer/work/graffiticode/graffiticode-c6r/.gc-deploy/c5a-gate/r36074e/report.json
