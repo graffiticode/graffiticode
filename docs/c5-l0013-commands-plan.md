@@ -653,20 +653,25 @@ All six slices are merged and released in the order above, and:
 |---|---|---|
 | Private item, owner and non-owner | live | `scripts/c5a-gate.js` captures: the owner's and a non-owner's capture of the private fixture; records, reservations and the gate bucket's object |
 | Refused after access is narrowed | live | the owner's capture started, the fixture item made unreachable to the owner between reservation and publish (the console's item, moved or deleted by the owner), and Policy's `authorize-execution` audit `not-owner` for that operation; if the window between reserve and execute can't be held open from outside, *hermetic* (`packages/policy` authorize-execution with item authority changed after reservation, at the released commit) |
-| Public anonymous, rate-limited | live | the quota plus one anonymous captures of a fresh public fixture; Policy's `command-reserve` audit: `limit` allowed with `publicCapture`, then `rate-limited` |
+| Public anonymous, rate-limited | live | the quota plus one anonymous captures of a fresh public fixture; Policy's `command-reserve` audit: exactly `limit` (12) distinct commands allowed with `publicCapture`, then `rate-limited` after the last of them |
 | Mixed chain, one invocation, own scopes | live | the mixed program through the canary connection; Broker's `execute` audit by `invocationId` (`itemId` for the capture, `connectionId` for the save) |
 | `credential-scope-mismatch`, both ways | hermetic | an execution token whose credential and scope disagree can't be produced by a compiler that follows its session, and the gate mints none. Broker's tests (`packages/broker`, `credential-scope-mismatch` both directions) run at the released Broker commit, `58adb430`, and their output is the evidence |
 | Composition, connectionless v3 | live | the composed program; the command record (no connection) and its stored plan (`plan.contractVersion` 3) |
-| Per-stage contracts | live, plus hermetic | the mixed and composed plans' stages and the revisions database's approval records (live). A plan pinning a pre-slice-6 `l0013r` can't be formed: no such revision is approved, so nothing pins it. Policy's admission test (`contract-version-unsupported` for an unapproved or pre-`[3]` revision) at the released Policy commit is the evidence |
+| Per-stage contracts | live, plus hermetic | the mixed and composed plans' stages and the revisions database's approval records (live). A plan pinning a pre-slice-6 `l0013r` can't be formed live: no such revision is approved. Policy's admission test at the deployed Policy commit is the evidence, with an *approved* `l0013r` fixture at `[1, 2]` (an unapproved revision tests a different refusal), refused `contract-version-unsupported` |
 | Registry versions | live | the stored plans' pinned manifests (`plan.stages[].registryVersion`) and the staged canary's L0185 → L0176 output |
 | A conditional retry | live | two captures of the public fixture started so that the older reserves first and publishes first: Broker's `execute-step` audit for the newer (two attempts, distinct `decisionId`s) and the gate bucket's object metadata. If the ordering can't be forced from outside, *hermetic* (Broker's `gcs.put-thumbnail` precondition test at `58adb430`) |
 | Reserve, stage, bind | live | Policy's reservation records (`reserved` → `staged` → bound) and its audit for each capture, and the published object's `captureSequence`. A repeated `reserve` or `stage` happens live only on a compiler retry; failing that, *hermetic* (Policy's reservation tests at the released commit) |
 | Nothing written elsewhere | live | `graffiticode.appspot.com/thumbnails/` listing digest before and after, and `graffiticode-thumbnails` absent or empty; any failed read fails the row |
-| Old workers | live | the production api's log lines naming any gate command (none), and its Policy due query by the gateway (never lists a v3 command) |
+| Old workers | live | Policy's due query as the gateway (`--phase due`): two pending v3 fixtures (connectionless captures, allocated and never run) and a v2 control (a connection command over an L0176 chain with no write, never run). Once their leases expire, the query as production asks it (`recording`, `repairs`) must list the control and none of the v3 fixtures; as a `scopes` worker asks it, all of them; and production's takeover lease of a v3 fixture is refused `worker-unsupported`. The gateway calls need `canary-window-c5a` to cover `api-run` as well as `console-run` (Step 29 amended accordingly) |
 | Console route | live | Step 27's `policy-run` probe evidence, and a fresh unauthenticated and wrong-audience probe |
 | Proxy | live (Step 26) | `verify-rollout` and the AT-11 probe under Step 26's recorded exception |
 
-Each *hermetic* row records the test name, the commit, and its output, in the gate's evidence directory.
+**Hermetic evidence rules** (owner's second review of #417, enforced by `scripts/lib/c5a-gate-checks.js`):
+- A hermetic record names the service, the exact commit that service serves now (read from its 100% revision's release receipt), the test, and its output, and says it passed. Any other commit fails the row.
+- A fallback (narrowed access, the conditional retry, reserve/stage/bind) is accepted only when there is no live observation for the row, and only with `uninducible` saying why the case couldn't be induced live. A live observation always decides; a fallback never replaces an observed violation.
+- `credential-scope-mismatch` and the pre-slice-6 plan are hermetic only.
+
+Each *hermetic* row's record goes in the gate's evidence directory.
 
 ## 4. C5b–C5e, in outline
 

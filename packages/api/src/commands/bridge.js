@@ -206,28 +206,6 @@ export const buildCommandBridge = ({ eligible, getRunner, compileEnvelope, newKe
     // Anonymous: no user and no connection (a connection always comes with
     // its user).
     const anonymous = connectionId === null && !auth?.uid;
-    let verdict;
-    try {
-      verdict = eligibilityOf(await eligible(tasks));
-    } catch (e) {
-      if (!(e instanceof PreflightUnavailable)) throw e;
-      return refusal(`Error: ${e.message}`, "preflight-unavailable");
-    }
-    if (!verdict) return null;
-    // A command with no connection runs only on an api that runs v3
-    // commands; a command-only chain is refused rather than compiled.
-    if (connectionId === null && !scopes) return noFallback("Error: this server can't run a command with no connection", "worker-unsupported");
-    const { lang } = verdict;
-    const note = async outcome => {
-      try {
-        log(`bridge ${JSON.stringify({ lang: normalizeLang(lang), outcome, keyKind: keyKindOf(idempotencyKey), client, ...(connectionId === null ? { connection: "none" } : {}), ...(anonymous ? { anonymous: true } : {}) })}`);
-      } catch { /* telemetry never fails the compile */ }
-    };
-    // Today's restrictions apply to new work only: a chain refused now (some
-    // writes' commands turned off since, or no connection for a write that
-    // needs one) may still be the retry of a key that already holds a
-    // command, which is answered from its record (D2a), never refused.
-    const restricted = verdict.refusal ?? (connectionId === null && connectionRequired(verdict) ? "connection-required" : null);
     // An anonymous caller's key is never its own: every anonymous caller is
     // the same subject, so each anonymous compile gets a fresh key.
     const key = anonymous ? newKey() : (idempotencyKey ?? newKey());
@@ -243,27 +221,53 @@ export const buildCommandBridge = ({ eligible, getRunner, compileEnvelope, newKe
       create,
       anonymous,
     });
-    if (restricted) {
-      if (idempotencyKey && !anonymous) {
-        let held;
-        try {
-          held = await run(false);
-        } catch (e) {
-          if (!(e instanceof PolicyRefused)) throw e;
-          held = null;
-        }
-        if (held?.protocol === "command") {
-          await note("held-served");
-          return compileEnvelope(held);
-        }
-        // A key the legacy path holds compiles as today, unless the chain
-        // is command-only.
-        if (held?.protocol === "legacy") {
-          if (commandOnly) await note("refused:legacy-protocol");
-          return noFallback("Error: this key belongs to a legacy compile; send a new key", "legacy-protocol");
-        }
+    const note = async (outcome, lang) => {
+      try {
+        log(`bridge ${JSON.stringify({ lang: normalizeLang(lang), outcome, keyKind: keyKindOf(idempotencyKey), client, ...(connectionId === null ? { connection: "none" } : {}), ...(anonymous ? { anonymous: true } : {}) })}`);
+      } catch { /* telemetry never fails the compile */ }
+    };
+    // C5 (COMMAND_SCOPES): the caller's key is looked up first, before any
+    // preflight, so the retry of a command it already holds is answered from
+    // its record (D2a) whatever today's flags say and whether or not the
+    // chain's compilers can be reached now. Today's eligibility decides only
+    // new work. Off, the C6 order is unchanged.
+    let held = null;
+    if (scopes && idempotencyKey && !anonymous) {
+      try {
+        held = await run(false);
+      } catch (e) {
+        if (!(e instanceof PolicyRefused)) throw e;
+        held = null;
       }
-      await note(`refused:${restricted}`);
+      if (held?.protocol === "command") {
+        await note("held-served", tasks.find(t => commandsEnabled(t.lang, env))?.lang ?? tasks[0]?.lang);
+        return compileEnvelope(held);
+      }
+    }
+    let verdict;
+    try {
+      verdict = eligibilityOf(await eligible(tasks));
+    } catch (e) {
+      if (!(e instanceof PreflightUnavailable)) throw e;
+      return refusal(`Error: ${e.message}`, "preflight-unavailable");
+    }
+    if (!verdict) return null;
+    const { lang } = verdict;
+    // A key the legacy path holds (looked up above) compiles as today,
+    // unless the chain is command-only.
+    if (held?.protocol === "legacy") {
+      if (commandOnly) await note("refused:legacy-protocol", lang);
+      return noFallback("Error: this key belongs to a legacy compile; send a new key", "legacy-protocol");
+    }
+    // A command with no connection runs only on an api that runs v3
+    // commands; a command-only chain is refused rather than compiled.
+    if (connectionId === null && !scopes) return noFallback("Error: this server can't run a command with no connection", "worker-unsupported");
+    // Today's restrictions refuse new work (a held key was served above): a
+    // write whose commands are off now, or a write that needs a connection
+    // this compile doesn't have.
+    const restricted = verdict.refusal ?? (connectionId === null && connectionRequired(verdict) ? "connection-required" : null);
+    if (restricted) {
+      await note(`refused:${restricted}`, lang);
       return restricted === "connection-required"
         ? refusal("Error: this chain writes through a connection; select one", "connection-required")
         : refusal(`Error: permission denied (${restricted})`, restricted);
@@ -280,11 +284,11 @@ export const buildCommandBridge = ({ eligible, getRunner, compileEnvelope, newKe
           held = null;
         }
         if (held?.protocol === "command") {
-          await note("retired-served");
+          await note("retired-served", lang);
           return compileEnvelope(held);
         }
       }
-      await note("retired-refused");
+      await note("retired-refused", lang);
       return { errors: [failure(`Error: saves through POST /compile are retired for L${normalizeLang(lang)}, send them as POST /command`, "bridge-retired")] };
     }
     let ran;
@@ -292,15 +296,15 @@ export const buildCommandBridge = ({ eligible, getRunner, compileEnvelope, newKe
       ran = await run(true);
     } catch (e) {
       if (!(e instanceof PolicyRefused)) throw e;
-      await note(`refused:${e.reason}`);
+      await note(`refused:${e.reason}`, lang);
       return refusal(`Error: permission denied (${e.reason})`, e.reason);
     }
     if (ran.protocol !== "command") {
       // A key the legacy path holds (D2a): compiled as today, except a
       // command-only chain, which is refused.
-      if (commandOnly) await note("refused:legacy-protocol");
+      if (commandOnly) await note("refused:legacy-protocol", lang);
       return noFallback("Error: this key belongs to a legacy compile; send a new key", "legacy-protocol");
     }
-    await note(ran.state?.status ?? "pending");
+    await note(ran.state?.status ?? "pending", lang);
     return compileEnvelope(ran);
   };

@@ -102,36 +102,57 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
     // A new key needs an eligible chain. A key either protocol already holds
     // is served whatever the flags say now (D2a): otherwise Policy only answers
     // which protocol holds the key, and creates nothing.
-    // C5: the whole chain's verdict, when the rule gives one. A chain whose
-    // writes aren't all allowed now, or that needs a connection it wasn't
-    // given, creates nothing; its key is still looked up, so the retry of a
-    // command it already holds is served from its record (D2a), and only a
-    // new key is refused, with that reason.
-    const verdict = eligibilityOf(await isEligible(tasks));
-    const restricted = verdict?.refusal ?? (!connectionId && connectionRequired(verdict) ? "connection-required" : null);
-    const create = Boolean(verdict) && !restricted;
-    let outcome;
-    try {
-      outcome = await runCommand({
-        policy,
-        run,
-        worker,
-        authToken,
-        connectionId,
-        taskId: id,
-        inputDigest: inputDigest(body.options ?? {}),
-        idempotencyKey,
-        lang,
-        request: JSON.stringify({ id, connectionId, options: body.options ?? {} }),
-        create,
-      });
-    } catch (e) {
-      if (e instanceof PolicyRefused) return refused(res, e.reason === "idempotency-key-reused" ? 409 : 403, e.reason);
-      throw e;
+    const allocate = create => runCommand({
+      policy,
+      run,
+      worker,
+      authToken,
+      connectionId,
+      taskId: id,
+      inputDigest: inputDigest(body.options ?? {}),
+      idempotencyKey,
+      lang,
+      request: JSON.stringify({ id, connectionId, options: body.options ?? {} }),
+      create,
+    });
+    const policyRefusal = e => (e instanceof PolicyRefused ? refused(res, e.reason === "idempotency-key-reused" ? 409 : 403, e.reason) : null);
+    let outcome = null;
+    // C5 (COMMAND_SCOPES): the key is looked up first, before any preflight,
+    // so the retry of a command it holds is served from its record whatever
+    // today's flags say and whether or not the chain's compilers can be
+    // reached now. Then the whole chain's verdict decides new work only: a
+    // chain whose writes aren't all allowed now, or that needs a connection
+    // it wasn't given, is refused with that reason. Off, the C6 order (one
+    // allocation, `create` from eligibility) is unchanged.
+    let restricted = null;
+    if (scopes) {
+      try {
+        const held = await allocate(false);
+        if (held.protocol !== "none") outcome = held;
+      } catch (e) {
+        if (policyRefusal(e)) return;
+        throw e;
+      }
+    }
+    if (!outcome) {
+      const verdict = eligibilityOf(await isEligible(tasks));
+      restricted = verdict?.refusal ?? (!connectionId && connectionRequired(verdict) ? "connection-required" : null);
+      if (restricted) return refused(res, STATUS_OF[classify(restricted).category] ?? 403, restricted);
+      const create = Boolean(verdict);
+      if (scopes && !create) {
+        // Looked up above: nothing holds the key, and nothing is created.
+        outcome = { protocol: "none" };
+      } else {
+        try {
+          outcome = await allocate(create);
+        } catch (e) {
+          if (policyRefusal(e)) return;
+          throw e;
+        }
+      }
     }
     const allocated = outcome;
     if (allocated.protocol === "none") {
-      if (restricted) return refused(res, STATUS_OF[classify(restricted).category] ?? 403, restricted);
       // A chain with a flagged stage but no write is a read: nothing to command.
       const flagged = tasks.some(t => commandsEnabled(t.lang, env));
       return refused(res, 409, flagged ? "no-effects" : "commands-not-enabled");

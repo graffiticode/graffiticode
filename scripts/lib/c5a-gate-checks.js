@@ -15,19 +15,22 @@
 //   v2PlanDigest   { before, after }
 //   v8Artifact     { served }
 //   plans          [{ name, stages: [{ lang, revision, contractVersions, registryVersion }], admitted }]
-//   preSlice6      { reason }                           a plan pinning a pre-slice-6 l0013r
 //   privateOwner   { outcome, reservedSequence, published: { bucket, captureSequence } }
 //   privateNonOwner { outcome, reason }
-//   narrowed       { reason }                           authorize-execution after access narrowed
+//   narrowed       { reason }                           live: authorize-execution after access narrowed
 //   publicAnonymous { outcome, subject, publicCapture, rateLimit: { allowed, refused, attempted } }
 //                    rateLimit from Policy's command-reserve audit for the item (rateLimitFromAudit)
 //   mixed          { invocations, tokens: [{ fn, scopeKinds }] }
-//   mismatches     [{ direction, reason }]               both directions
 //   composition    { outcome, connectionId, contractVersion, itemScopeAuthorized }
-//   conditional    { attempts: [{ decisionId }], finalSequence, newerSequence }
-//   reserveStageBind { order, repeatReserveSame, repeatStageSame, publishedSequence, reservedSequence, outOfOrderFinal, outOfOrderNewer }
+//   conditional    { attempts: [{ decisionId }], finalSequence, newerSequence }   live
+//   reserveStageBind { order, repeatReserveSame, repeatStageSame, publishedSequence, reservedSequence, outOfOrderFinal, outOfOrderNewer }   live
 //   elsewhere      { appspotBefore, appspotAfter, thumbnailsObjects }
-//   oldWorkers     { listedToProduction, sweeperLeases }
+//   oldWorkers     dueObservation(): { v3Fixtures, productionListedV3, scopedListedV3, controlListedToProduction, productionLease }
+//   deployed       { policy, broker, ... }               each service's serving commit
+//   hermetic       { <row>: { service, commit, test, output, passed, result, uninducible?, fixture?, results? } }
+//                  mismatches (results: [{ direction, reason }]) and preSlice6 (fixture, result.reason)
+//                  are hermetic only; narrowed, conditional and reserveStageBind accept a hermetic
+//                  fallback only with no live observation, and with `uninducible` saying why
 //   consoleRoute   [{ caller, status }]                 policy-run and others
 //   proxy          { verifyRollout, at11 }              Step 26's evidence
 //   gateBucket     "graffiticode-c5a-gate"
@@ -82,13 +85,20 @@ export const brokerAuditFilter = invocationId => [
   `jsonPayload.invocationId="${invocationId}"`,
 ].join(" AND ");
 // The public-capture quota from Policy's `command-reserve` audit records for
-// one item: reservations allowed as public captures, and those refused
-// `rate-limited`.
+// one item: the distinct commands whose reservations were allowed as public
+// captures, the refusals `rate-limited`, and whether the first refusal came
+// after the quota's last allowed reservation (by the entries' times).
+const timeOf = e => Date.parse(e?.timestamp ?? e?.jsonPayload?.at ?? "");
 export const rateLimitFromAudit = entries => {
-  const reserves = entries.map(e => e?.jsonPayload ?? {}).filter(r => r.event === "command-reserve");
+  const reserves = entries.filter(e => e?.jsonPayload?.event === "command-reserve");
+  const allowed = reserves.filter(e => e.jsonPayload.outcome === "allowed" && e.jsonPayload.publicCapture === true);
+  const refused = reserves.filter(e => e.jsonPayload.outcome === "denied" && e.jsonPayload.reason === "rate-limited");
+  const lastAllowed = Math.max(...allowed.map(timeOf));
+  const firstRefused = Math.min(...refused.map(timeOf));
   return {
-    allowed: reserves.filter(r => r.outcome === "allowed" && r.publicCapture === true).length,
-    refused: reserves.filter(r => r.outcome === "denied" && r.reason === "rate-limited").length,
+    allowed: new Set(allowed.map(e => e.jsonPayload.commandId)).size,
+    refused: refused.length,
+    refusedAfterQuota: allowed.length > 0 && refused.length > 0 && Number.isFinite(lastAllowed) && Number.isFinite(firstRefused) && firstRefused >= lastAllowed,
   };
 };
 export const policyReserveFilter = (itemId, since) => [
@@ -100,9 +110,52 @@ export const policyReserveFilter = (itemId, since) => [
   `timestamp>="${since}"`,
 ].join(" AND ");
 
+// Policy's due query, as the production api asks it and as a `scopes` worker
+// does, over the gate's pending v3 fixtures and a v2 control
+// (scripts/c5a-gate.js --phase due): which fixtures each query listed, and
+// whether production's query listed the control.
+export const dueObservation = ({ v3Fixtures, control, productionQueries, scopedQueries, productionLease }) => {
+  const listed = queries => [...new Set(queries.flatMap(q => (q.commands ?? []).map(c => c.commandId)))];
+  const production = listed(productionQueries);
+  const scoped = listed(scopedQueries);
+  return {
+    v3Fixtures,
+    productionListedV3: v3Fixtures.filter(id => production.includes(id)),
+    scopedListedV3: v3Fixtures.filter(id => scoped.includes(id)),
+    controlListedToProduction: production.includes(control),
+    productionLease,
+    queries: productionQueries.length + scopedQueries.length,
+  };
+};
+
 // ------------------------------------------------------------------ checks
 
 const has = v => v !== undefined && v !== null;
+
+// Hermetic evidence (the gate amendment): a test run at the commit that is
+// serving now, `{ service, commit, test, output, passed, ... }`, valid only
+// when `commit` is `o.deployed[service]`.
+export const hermeticProblem = (o, row) => {
+  const h = o.hermetic?.[row];
+  if (!h) return `no hermetic evidence for ${row}`;
+  const deployed = o.deployed?.[h.service];
+  if (!h.service || !deployed) return `${row}: the deployed ${h.service ?? "service"} commit wasn't observed`;
+  if (h.commit !== deployed) return `${row}: tested at ${h.commit}, but ${h.service} serves ${deployed}`;
+  if (typeof h.test !== "string" || !h.test || typeof h.output !== "string" || !h.output) return `${row}: the test or its output isn't recorded`;
+  if (h.passed !== true) return `${row}: the test didn't pass`;
+  return null;
+};
+// A live row with a hermetic fallback (the amendment): a live observation,
+// when there is one, decides, and is never replaced. Without one, hermetic
+// evidence that says why the case couldn't be induced live.
+const liveOrFallback = (o, row, judge) => {
+  const live = o[row];
+  if (has(live)) return judge(live);
+  const problem = hermeticProblem(o, row);
+  if (problem) return `not observed live, and ${problem}`;
+  if (typeof o.hermetic[row].uninducible !== "string" || !o.hermetic[row].uninducible) return `${row}: a fallback must say why the case couldn't be induced live`;
+  return judge(o.hermetic[row].result ?? {});
+};
 const same = (a, b) => has(a) && has(b) && JSON.stringify(a) === JSON.stringify(b);
 const versions = v => JSON.stringify([...(v ?? [])].sort((a, b) => a - b));
 
@@ -153,15 +206,17 @@ export const CHECKS = [
   }],
   ["private-non-owner", "a private item is refused for a non-owner, at admission and again at authorize-execution after access is narrowed", o => {
     if (o.privateNonOwner?.outcome !== "failed" || o.privateNonOwner?.reason !== "not-owner") return `non-owner ${o.privateNonOwner?.outcome ?? "not observed"} (${o.privateNonOwner?.reason})`;
-    if (o.narrowed?.reason !== "not-owner") return `after narrowing: ${o.narrowed?.reason ?? "not observed"}`;
-    return true;
+    const narrowed = liveOrFallback(o, "narrowed", n => (n.reason === "not-owner" ? true : `after narrowing: ${n.reason ?? "not observed"}`));
+    return narrowed;
   }],
   ["public-anonymous", "a public item is captured anonymously, rate-limited, and recorded as anonymous with publicCapture", o => {
     const p = o.publicAnonymous;
     if (p?.outcome !== "completed") return `anonymous capture ${p?.outcome ?? "not observed"}`;
     if (p.subject !== "anonymous" || p.publicCapture !== true) return `recorded as ${p.subject}, publicCapture ${p.publicCapture}`;
+    // A fresh fixture: exactly the quota of distinct captures allowed, then
+    // the quota's refusal.
     const q = p.rateLimit;
-    if (!q || !(q.refused >= 1) || !(q.allowed >= 1) || q.allowed > PUBLIC_CAPTURE_LIMIT) return `Policy's reservations for the public item: ${JSON.stringify(q ?? "not observed")}`;
+    if (!q || q.allowed !== PUBLIC_CAPTURE_LIMIT || !(q.refused >= 1) || q.refusedAfterQuota !== true) return `Policy's reservations for the public item: ${JSON.stringify(q ?? "not observed")}; expected ${PUBLIC_CAPTURE_LIMIT} allowed, then rate-limited`;
     return true;
   }],
   ["mixed-chain", "a capture plus an L0176 save is one v3 invocation, each execution token carrying only its own scope", o => {
@@ -174,8 +229,10 @@ export const CHECKS = [
     if (!snap.every(t => same(t.scopeKinds, ["item"])) || !save.every(t => same(t.scopeKinds, ["connection"]))) return "a token carried another stage's scope";
     return true;
   }],
-  ["mismatches", "credential-scope-mismatch holds both ways", o => {
-    const reasons = Object.fromEntries((o.mismatches ?? []).map(m => [m.direction, m.reason]));
+  ["mismatches", "credential-scope-mismatch holds both ways (hermetic: Broker's test at the deployed commit)", o => {
+    const problem = hermeticProblem(o, "mismatches");
+    if (problem) return problem;
+    const reasons = Object.fromEntries((o.hermetic.mismatches.results ?? []).map(m => [m.direction, m.reason]));
     for (const d of ["service-with-connection", "connection-with-item"]) if (reasons[d] !== "credential-scope-mismatch") return `${d}: ${reasons[d] ?? "not observed"}`;
     return true;
   }],
@@ -191,7 +248,14 @@ export const CHECKS = [
       if (!plan?.admitted) return `${name} plan ${plan ? "not admitted" : "not observed"}`;
       if (plan.stages.some(st => (st.lang === "0176" || st.lang === "0000") && versions(st.contractVersions) !== "[1,2]")) return `${name}: an L0176 or L0000 stage isn't at [1, 2]`;
     }
-    if (o.preSlice6?.reason !== "contract-version-unsupported") return `pre-slice-6 plan: ${o.preSlice6?.reason ?? "not observed"}`;
+    // Hermetic: Policy's admission test at the deployed commit, with an
+    // approved l0013r fixture at [1, 2] (an unapproved one tests another
+    // refusal).
+    const pre = hermeticProblem(o, "preSlice6");
+    if (pre) return pre;
+    const fixture = o.hermetic.preSlice6.fixture ?? {};
+    if (fixture.lang !== "0013" || fixture.approved !== true || versions(fixture.contractVersions) !== "[1,2]") return `pre-slice-6 fixture ${JSON.stringify(fixture)}: an approved l0013r at [1, 2] is needed`;
+    if (o.hermetic.preSlice6.result?.reason !== "contract-version-unsupported") return `pre-slice-6 plan: ${o.hermetic.preSlice6.result?.reason ?? "not observed"}`;
     if (!same(o.approvals?.beforeDigest, o.approvals?.afterDigest)) return "earlier approval records changed or weren't read";
     return true;
   }],
@@ -206,19 +270,21 @@ export const CHECKS = [
     return true;
   }],
   ["conditional-retry", "with the older capture published first, the newer's audit shows two execute-step attempts with distinct decision ids, and the object ends on the newer capture", o => {
-    const c = o.conditional;
-    const ids = (c?.attempts ?? []).map(a => a.decisionId);
-    if (ids.length !== 2 || new Set(ids).size !== 2 || ids.some(id => !id)) return `attempts: ${JSON.stringify(ids)}`;
-    if (!has(c.newerSequence) || c.finalSequence !== c.newerSequence) return `ended on ${c.finalSequence}, newer is ${c.newerSequence}`;
-    return true;
+    return liveOrFallback(o, "conditional", c => {
+      const ids = (c?.attempts ?? []).map(a => a.decisionId);
+      if (ids.length !== 2 || new Set(ids).size !== 2 || ids.some(id => !id)) return `attempts: ${JSON.stringify(ids)}`;
+      if (!has(c.newerSequence) || c.finalSequence !== c.newerSequence) return `ended on ${c.finalSequence}, newer is ${c.newerSequence}`;
+      return true;
+    });
   }],
   ["reserve-stage-bind", "reserve, stage and bind run in order; repeats return the recorded state; the published object carries the reserved sequence; an out-of-order pair ends on the newer", o => {
-    const r = o.reserveStageBind;
-    if (!same(r?.order, ["reserve", "stage", "bind"])) return `order ${JSON.stringify(r?.order)}`;
-    if (r.repeatReserveSame !== true || r.repeatStageSame !== true) return "a repeat changed the recorded state";
-    if (!has(r.reservedSequence) || r.publishedSequence !== r.reservedSequence) return `published ${r.publishedSequence}, reserved ${r.reservedSequence}`;
-    if (!has(r.outOfOrderNewer) || r.outOfOrderFinal !== r.outOfOrderNewer) return `out-of-order pair ended on ${r.outOfOrderFinal}`;
-    return true;
+    return liveOrFallback(o, "reserveStageBind", r => {
+      if (!same(r?.order, ["reserve", "stage", "bind"])) return `order ${JSON.stringify(r?.order)}`;
+      if (r.repeatReserveSame !== true || r.repeatStageSame !== true) return "a repeat changed the recorded state";
+      if (!has(r.reservedSequence) || r.publishedSequence !== r.reservedSequence) return `published ${r.publishedSequence}, reserved ${r.reservedSequence}`;
+      if (!has(r.outOfOrderNewer) || r.outOfOrderFinal !== r.outOfOrderNewer) return `out-of-order pair ended on ${r.outOfOrderFinal}`;
+      return true;
+    });
   }],
   ["nothing-elsewhere", "graffiticode.appspot.com's thumbnails are unchanged, and graffiticode-thumbnails gets nothing", o => {
     const e = o.elsewhere;
@@ -226,9 +292,13 @@ export const CHECKS = [
     if (e.thumbnailsObjects !== 0) return `graffiticode-thumbnails holds ${e.thumbnailsObjects}`;
     return true;
   }],
-  ["old-workers", "production's api never lists the gate's v3 commands, and its sweeper leases none", o => {
+  ["old-workers", "Policy's due query, as production asks it, lists none of the gate's pending v3 commands but does list a v2 control; as a scopes worker asks it, lists them all; and production's lease of one is refused", o => {
     const w = o.oldWorkers;
-    if (!w || w.listedToProduction !== 0 || w.sweeperLeases !== 0) return `listed ${w?.listedToProduction}, leased ${w?.sweeperLeases}`;
+    if (!w || !Array.isArray(w.v3Fixtures) || w.v3Fixtures.length === 0) return "no pending v3 fixture observed";
+    if (w.productionListedV3?.length !== 0) return `production's due query listed ${JSON.stringify(w.productionListedV3)}`;
+    if (w.controlListedToProduction !== true) return "production's due query never listed the v2 control, so it proves nothing";
+    if (!same([...w.scopedListedV3 ?? []].sort(), [...w.v3Fixtures].sort())) return `a scopes worker's due query listed ${JSON.stringify(w.scopedListedV3)} of ${JSON.stringify(w.v3Fixtures)}`;
+    if (w.productionLease !== "worker-unsupported") return `production's lease of a v3 fixture: ${w.productionLease ?? "not observed"}`;
     return true;
   }],
   ["console-route", "the console route refuses any caller but policy-run", o => {

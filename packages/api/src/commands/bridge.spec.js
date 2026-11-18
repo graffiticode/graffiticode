@@ -235,7 +235,8 @@ describe("whole-chain eligibility (C5)", () => {
 describe("the bridge (C5)", () => {
   const allocations = [];
   const runner = over => ({
-    policy: { allocate: async a => { allocations.push(a); return { protocol: "command", commandId: "c:1", generation: 1, owned: true }; }, lease: async () => ({}), ...over },
+    // A lookup (create: false) finds nothing held by default; a create allocates.
+    policy: { allocate: async a => { allocations.push(a); return a.create ? { protocol: "command", commandId: "c:1", generation: 1, owned: true } : { protocol: "none" }; }, lease: async () => ({}), ...over },
     run: async ({ commandId }) => ({ commandId, status: "completed" }),
     worker: "w1",
   });
@@ -248,9 +249,11 @@ describe("the bridge (C5)", () => {
   it("runs an L0000 head over an L0013 capture with no connection, as its signed-in user", async () => {
     const envelope = await bridge()({ tasks: [DATA, SNAP], id: "chain", auth: OWNER, authToken: "t", connectionId: null, options: {}, idempotencyKey: "snap:1" });
     expect(envelope.ran.protocol).toBe("command");
-    expect(allocations).toEqual([expect.objectContaining({ connectionId: null, authToken: "t", idempotencyKey: "snap:1", create: true })]);
-    expect(allocations[0]).not.toHaveProperty("anonymous");
-    expect(JSON.parse(allocations[0].request)).toEqual({ id: "chain", connectionId: null, options: {} });
+    // The key is looked up first, then the command created.
+    expect(allocations.map(a => a.create)).toEqual([false, true]);
+    expect(allocations[1]).toEqual(expect.objectContaining({ connectionId: null, authToken: "t", idempotencyKey: "snap:1", create: true }));
+    expect(allocations[1]).not.toHaveProperty("anonymous");
+    expect(JSON.parse(allocations[1].request)).toEqual({ id: "chain", connectionId: null, options: {} });
   });
 
   it("refuses a mixed chain with no connection, allocating nothing", async () => {
@@ -284,6 +287,21 @@ describe("the bridge (C5)", () => {
     allocations.length = 0;
     const fresh = await bridge({ eligible: offNow, getRunner: () => runner({ allocate: async a => { allocations.push(a); return { protocol: "none" }; } }) })(args);
     expect(fresh.errors[0].code).toBe("commands-not-enabled");
+    expect(allocations.map(a => a.create)).toEqual([false]);
+  });
+
+  it("serves a held key's retry before any preflight, so a compiler outage can't strand it", async () => {
+    const held = { protocol: "command", commandId: "c:held", generation: 1, owned: false, reused: true, status: "completed" };
+    let preflights = 0;
+    const down = buildChainEligibility({ preflight: async () => { preflights++; throw new PreflightUnavailable("s0 unreachable"); }, baseUrlFor, env: C5_ENV });
+    const served = await bridge({ eligible: down, getRunner: () => runner({ allocate: async a => { allocations.push(a); return held; } }) })({ tasks: [SNAP, SAVE], id: "chain", auth: OWNER, authToken: "t", connectionId: "conn-1", options: {}, idempotencyKey: "save:1" });
+    expect(served.ran.state).toMatchObject({ commandId: "c:held" });
+    expect(allocations.map(a => a.create)).toEqual([false]);
+    expect(preflights).toBe(0);
+    // A new key still needs its preflight.
+    allocations.length = 0;
+    const fresh = await bridge({ eligible: down })({ tasks: [SNAP, SAVE], id: "chain", auth: OWNER, authToken: "t", connectionId: "conn-1", options: {}, idempotencyKey: "save:2" });
+    expect(fresh.errors[0].code).toBe("preflight-unavailable");
     expect(allocations.map(a => a.create)).toEqual([false]);
   });
 

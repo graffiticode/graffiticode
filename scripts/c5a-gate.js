@@ -17,9 +17,17 @@
 //              rate-limited. Each command's record, reservations and plan are
 //              read from Policy's database with the operator's credentials, and
 //              the published object from the gate bucket.
-//   after      read-only: the same digests again, graffiticode-thumbnails'
-//              object count, and the production api's log lines naming any
-//              gate command (its sweeper must lease none).
+//   due        Policy's due query as the gateway: two pending v3 fixtures
+//              (connectionless captures of the private item, allocated and
+//              never run) and a v2 control (a connection command over
+//              --control-task, an L0176 chain with no write, also never run).
+//              Once their leases expire, the query is asked repeatedly as
+//              production asks it (recording, repairs) and as a `scopes`
+//              worker does, and production's takeover lease of a v3 fixture
+//              is attempted (refused `worker-unsupported`). Production's
+//              sweeper then recovers the control, which writes nothing.
+//   after      read-only: the same digests again, and graffiticode-thumbnails'
+//              object count.
 //   judge      the verdict over the state and every --evidence file, written
 //              to <state dir>/report.json; exit 1 unless it passed.
 //
@@ -27,7 +35,8 @@
 // fixture items and listed in the evidence): --private-task (an L0013 capture
 // of the private item), --public-task (of the public item), --compose-task (an
 // L0000 head over the private capture), --mixed-task (the private capture plus
-// an L0176 save). Observations no gate-api call can make are given as JSON
+// an L0176 save), --control-task (an L0176 chain with no write: the due
+// phase's v2 control). Observations no gate-api call can make are given as JSON
 // files with --evidence (repeatable), merged over what the phases recorded:
 // `canary`, `repairRoundtrip`, `v2PlanDigest`, `v8Artifact`, `preSlice6`,
 // `narrowed`, `mismatches`, `conditional`, `reserveStageBind`, `consoleRoute`,
@@ -35,15 +44,20 @@
 // carry it. A missing one fails its check (c5a-gate-checks.js).
 //
 // Needs canary-window-c5a (Step 29): OpenIdTokenCreator on console-run, to
-// call the private gate api as the console does. Policy's and the revisions
-// databases are read with the operator's own credentials. Nothing here
-// impersonates a compiler or writes anything but through the gate api.
+// call the private gate api as the console does, and on api-run, for the due
+// phase's gateway calls to Policy (as B6's window had). Policy's and the
+// revisions databases are read with the operator's own credentials. Nothing
+// here impersonates a compiler; the only writes are through the gate api and
+// the due phase's never-run command records.
+//
+// A run's baseline is written once: `--phase baseline` refuses a state that
+// already has one, or whose captures have begun (start a new --state).
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { createCanaryEnv, loadDeployServices, http } from "./lib/canary-env.js";
-import { verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planContractVersion, tokensFromAudit, brokerAuditFilter, rateLimitFromAudit, policyReserveFilter } from "./lib/c5a-gate-checks.js";
+import { verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planContractVersion, tokensFromAudit, brokerAuditFilter, rateLimitFromAudit, policyReserveFilter, dueObservation } from "./lib/c5a-gate-checks.js";
 
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {
@@ -51,7 +65,7 @@ const flag = (name, fallback = null) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 const flags = name => args.flatMap((a, i) => (a === name ? [args[i + 1]] : []));
-const PHASES = ["baseline", "captures", "after", "judge"];
+const PHASES = ["baseline", "captures", "due", "after", "judge"];
 const phase = flag("--phase");
 if (!PHASES.includes(phase)) {
   console.error(`usage: c5a-gate.js --phase <${PHASES.join("|")}> [--private-task id --public-task id --compose-task id --mixed-task id] [--evidence file]...`);
@@ -62,6 +76,7 @@ const connectionId = flag("--connection", "conn-686c62bc-b447-4dd8-bba8-60fd2b7a
 const project = flag("--project", "graffiticode");
 const region = flag("--region", "us-central1");
 const consoleAccount = flag("--console-account", "console-run@graffiticode-app.iam.gserviceaccount.com");
+const gatewayAccount = flag("--gateway-account", "api-run@graffiticode.iam.gserviceaccount.com");
 const gateService = flag("--gate-service", "api-c5a-gate");
 const stateFile = flag("--state", new URL("../.gc-deploy/c5a-gate/state.json", import.meta.url).pathname);
 // One past the quota, so a fresh fixture's last anonymous capture is refused.
@@ -69,6 +84,7 @@ const burst = Number(flag("--anonymous-burst", String(PUBLIC_CAPTURE_LIMIT + 1))
 
 const deploy = await loadDeployServices();
 const authUrl = deploy.api.env.AUTH_URL;
+const policyUrl = deploy.api.env.POLICY_URL;
 const { gcloud, accessToken, idToken } = createCanaryEnv({ uid, project, region, authUrl });
 const state = await readFile(stateFile, "utf8").then(JSON.parse, () => ({ runId: randomBytes(4).toString("hex"), observations: {} }));
 const save = async () => {
@@ -213,6 +229,9 @@ const need = name => {
 const key = name => `c5a-gate:${state.runId}:${name}`;
 
 if (phase === "baseline") {
+  // Written once per run, never rebased: a later baseline would hide what
+  // the run's captures changed. (A baseline whose read failed saved nothing.)
+  if (state.baseline || state.capturesStartedAt || state.commands) throw new Error(`this run's baseline is fixed${state.capturesStartedAt ? ` (captures started at ${state.capturesStartedAt})` : ""}; start a new --state`);
   // A baseline read that fails stops here: nothing is compared against it.
   state.baseline = { at: new Date().toISOString(), approvals: await approvalsDigest(), appspot: await appspotListing() };
   console.log(`baseline ${JSON.stringify(state.baseline)}`);
@@ -221,6 +240,9 @@ if (phase === "baseline") {
 
 if (phase === "captures") {
   if (!state.baseline) throw new Error("run --phase baseline first");
+  // Recorded, and saved, before the first write.
+  state.capturesStartedAt ??= new Date().toISOString();
+  await save();
   const plans = [];
   const planOf = async (name, rec) => {
     try {
@@ -295,26 +317,81 @@ if (phase === "captures") {
   await save();
 }
 
+if (phase === "due") {
+  if (!state.capturesStartedAt) throw new Error("run --phase captures first");
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const asGateway = async (user = null) => ({
+    "X-Serverless-Authorization": `Bearer ${await idToken(gatewayAccount, policyUrl)}`,
+    "X-Caller-Identity": await idToken(gatewayAccount, "urn:graffiticode:policy"),
+    ...(user ? { Authorization: `Bearer ${user}` } : {}),
+  });
+  const policy = async (method, route, { body, user = null } = {}) => {
+    const res = await http({ method, url: `${policyUrl}${route}`, headers: await asGateway(user), body });
+    return { status: res.status, data: res.json?.data ?? null, reason: res.json?.error?.reason ?? null };
+  };
+  const fixture = async (name, { id, connection, scopes }) => {
+    const out = await policy("POST", "/v1/commands", {
+      user: await canary(),
+      body: { connectionId: connection, taskId: id, inputDigest: createHash("sha256").update("{}").digest("hex"), idempotencyKey: key(name), lang: "0013", request: JSON.stringify({ id, connectionId: connection, options: {} }), worker: `c5a-gate-fixture:${state.runId}`, create: true, ...(scopes ? { scopes: 1 } : {}) },
+    });
+    if (out.status !== 200 || !out.data?.commandId) throw new Error(`fixture ${name}: ${out.status} ${out.reason}`);
+    return out.data.commandId;
+  };
+  await collect("oldWorkers", async () => {
+    const v3Fixtures = [await fixture("v3-fixture-1", { id: need("--private-task"), connection: null, scopes: true }), await fixture("v3-fixture-2", { id: need("--private-task"), connection: null, scopes: true })];
+    const control = await fixture("v2-control", { id: need("--control-task"), connection: connectionId, scopes: false });
+    // Their leases (60 s) expire; then the due query, as each worker asks it.
+    await sleep(62_000);
+    const productionQueries = [];
+    const scopedQueries = [];
+    for (let i = 0; i < 10 && !productionQueries.some(q => (q.commands ?? []).some(c => c.commandId === control)); i++) {
+      const production = await policy("GET", "/v1/commands-due?limit=50&recording=1&repairs=1");
+      const scoped = await policy("GET", "/v1/commands-due?limit=50&recording=1&repairs=1&scopes=1");
+      if (production.status !== 200 || scoped.status !== 200) throw new Error(`due query: ${production.status}/${scoped.status}`);
+      productionQueries.push(production.data);
+      scopedQueries.push(scoped.data);
+      await sleep(2_000);
+    }
+    // Production's takeover lease of a v3 fixture, with its capabilities.
+    const lease = await policy("POST", `/v1/commands/${encodeURIComponent(v3Fixtures[0])}/lease`, { body: { worker: "c5a-gate-production-probe", generation: 1, takeOver: true, recording: 1, repairs: 1 } });
+    return dueObservation({ v3Fixtures, control, productionQueries, scopedQueries, productionLease: lease.status === 200 ? "leased" : lease.reason });
+  });
+  await save();
+}
+
 if (phase === "after") {
   if (!state.baseline || !state.commands) throw new Error("run --phase baseline and --phase captures first");
   await collect("approvals", async () => ({ ...(state.observations.approvals ?? {}), beforeDigest: state.baseline.approvals, afterDigest: await approvalsDigest() }));
   await collect("elsewhere", async () => ({ appspotBefore: state.baseline.appspot, appspotAfter: await appspotListing(), thumbnailsObjects: await thumbnailsCount() }));
-  // The production api never touches a gate command: no line of its names one.
-  await collect("oldWorkers", async () => {
-    const lines = await logs([
-      "resource.type=\"cloud_run_revision\"",
-      "resource.labels.service_name=\"api\"",
-      `timestamp>="${state.baseline.at}"`,
-      `(${state.commands.map(id => `textPayload:"${id}"`).join(" OR ")})`,
-    ].join(" AND "));
-    return { listedToProduction: lines.filter(l => /due|list/i.test(l.textPayload ?? "")).length, sweeperLeases: lines.filter(l => /recovered|lease/i.test(l.textPayload ?? "")).length };
-  });
   await save();
 }
 
 if (phase === "judge") {
   const merged = { gateBucket: GATE_BUCKET, ...state.observations };
-  for (const file of flags("--evidence")) Object.assign(merged, JSON.parse(await readFile(file, "utf8")));
+  for (const file of flags("--evidence")) {
+    const evidence = JSON.parse(await readFile(file, "utf8"));
+    const { hermetic, ...rest } = evidence;
+    Object.assign(merged, rest);
+    if (hermetic) merged.hermetic = { ...(merged.hermetic ?? {}), ...hermetic };
+  }
+  // The commit each service serves now, from its 100% revision's release
+  // receipt: hermetic evidence must name it.
+  const deployedCommit = async service => {
+    const traffic = JSON.parse(await gcloud(["run", "services", "describe", service, `--region=${region}`, "--format=json"])).status?.traffic ?? [];
+    const revision = traffic.find(t => t.percent === 100)?.revisionName;
+    if (!revision) throw new Error(`${service}: no revision serves 100%`);
+    const receipt = JSON.parse(await readFile(new URL(`../.gc-deploy/releases/${revision.slice(service.length + 1)}.json`, import.meta.url), "utf8"));
+    if (receipt.revision !== revision || !receipt.commit) throw new Error(`${service}: the receipt for ${revision} doesn't name it`);
+    return receipt.commit;
+  };
+  merged.deployed = {};
+  for (const service of ["policy", "broker", "l0013r"]) {
+    try {
+      merged.deployed[service] = await deployedCommit(service);
+    } catch (e) {
+      merged.errors = { ...(merged.errors ?? {}), [`deployed:${service}`]: String(e?.message ?? e) };
+    }
+  }
   // The approved revisions the plans must pin: Step 26's and the compilers'.
   merged.approvals = {
     l0013r: { revision: flag("--l0013r", "l0013r-rmwl2casf-31e8b9"), contractVersions: [3] },

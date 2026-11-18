@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { pinnedStage } from "@graffiticode/common/contract";
 import { createAudit } from "@graffiticode/policy";
-import { CHECKS, verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planStages, tokensFromAudit, rateLimitFromAudit, brokerAuditFilter } from "../lib/c5a-gate-checks.js";
+import { CHECKS, verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planStages, tokensFromAudit, rateLimitFromAudit, brokerAuditFilter, dueObservation } from "../lib/c5a-gate-checks.js";
 
 const approved = { l0013r: { revision: "l0013r-rmwl2casf-31e8b9", contractVersions: [3] }, l0000r: { revision: "l0000r-rmw8gtkc2-830693", contractVersions: [1, 2] }, l0176r: { revision: "l0176r-rmwk08k8n-c74227", contractVersions: [1, 2] }, beforeDigest: "a1", afterDigest: "a1" };
 const stage = (lang, i, over = {}) => ({ stage: `s${i}`, lang, revision: approved[`l${lang}r`].revision, contractVersions: approved[`l${lang}r`].contractVersions, registryVersion: lang === "0000" ? 0 : 9, ...over });
@@ -21,18 +21,21 @@ const PASSING = () => ({
     { name: "mixed", stages: [stage("0013", 0), stage("0176", 1)], admitted: true },
     { name: "composition", stages: [stage("0000", 0), stage("0013", 1)], admitted: true },
   ],
-  preSlice6: { reason: "contract-version-unsupported" },
   privateOwner: { outcome: "completed", reservedSequence: 7, published: { bucket: GATE_BUCKET, captureSequence: 7 } },
   privateNonOwner: { outcome: "failed", reason: "not-owner" },
   narrowed: { reason: "not-owner" },
-  publicAnonymous: { outcome: "completed", subject: "anonymous", publicCapture: true, rateLimit: { allowed: PUBLIC_CAPTURE_LIMIT, refused: 1, attempted: PUBLIC_CAPTURE_LIMIT + 1 } },
+  publicAnonymous: { outcome: "completed", subject: "anonymous", publicCapture: true, rateLimit: { allowed: PUBLIC_CAPTURE_LIMIT, refused: 1, refusedAfterQuota: true, attempted: PUBLIC_CAPTURE_LIMIT + 1 } },
   mixed: { invocations: 1, tokens: [{ fn: "snap", scopeKinds: ["item"] }, { fn: "save-to-itembank", scopeKinds: ["connection"] }] },
-  mismatches: [{ direction: "service-with-connection", reason: "credential-scope-mismatch" }, { direction: "connection-with-item", reason: "credential-scope-mismatch" }],
+  deployed: { policy: "p".repeat(40), broker: "b".repeat(40), l0013r: "l".repeat(40) },
+  hermetic: {
+    mismatches: { service: "broker", commit: "b".repeat(40), test: "packages/broker/src/gcs.spec.ts › credential-scope-mismatch", output: "ok 2 of 2", passed: true, results: [{ direction: "service-with-connection", reason: "credential-scope-mismatch" }, { direction: "connection-with-item", reason: "credential-scope-mismatch" }] },
+    preSlice6: { service: "policy", commit: "p".repeat(40), test: "packages/policy/src/scopes.spec.ts › contract-version-unsupported", output: "ok", passed: true, fixture: { lang: "0013", approved: true, contractVersions: [1, 2] }, result: { reason: "contract-version-unsupported" } },
+  },
   composition: { outcome: "completed", connectionId: null, contractVersion: 3, itemScopeAuthorized: true },
   conditional: { attempts: [{ decisionId: "d1" }, { decisionId: "d2" }], finalSequence: 12, newerSequence: 12 },
   reserveStageBind: { order: ["reserve", "stage", "bind"], repeatReserveSame: true, repeatStageSame: true, publishedSequence: 7, reservedSequence: 7, outOfOrderFinal: 12, outOfOrderNewer: 12 },
   elsewhere: { appspotBefore: "h1", appspotAfter: "h1", thumbnailsObjects: 0 },
-  oldWorkers: { listedToProduction: 0, sweeperLeases: 0 },
+  oldWorkers: { v3Fixtures: ["c:v3a", "c:v3b"], productionListedV3: [], scopedListedV3: ["c:v3a", "c:v3b"], controlListedToProduction: true, productionLease: "worker-unsupported" },
   consoleRoute: [{ caller: "policy-run@graffiticode.iam.gserviceaccount.com", status: 200 }, { caller: "api-run@graffiticode.iam.gserviceaccount.com", status: 403 }, { caller: "anonymous", status: 403 }],
   proxy: { verifyRollout: true, at11: "step26-exception" },
 });
@@ -69,12 +72,18 @@ test("each check fails on its own evidence", () => {
   failsOnly("private-non-owner", o => { o.narrowed = { reason: "allowed" }; });
   failsOnly("public-anonymous", o => { o.publicAnonymous.publicCapture = false; });
   failsOnly("public-anonymous", o => { o.publicAnonymous.rateLimit.refused = 0; });
+  // The reviewer's case: one capture allowed, then twelve refusals.
+  failsOnly("public-anonymous", o => { o.publicAnonymous.rateLimit = { allowed: 1, refused: 12, refusedAfterQuota: true, attempted: 13 }; });
+  failsOnly("public-anonymous", o => { o.publicAnonymous.rateLimit.refusedAfterQuota = false; });
   failsOnly("public-anonymous", o => { delete o.publicAnonymous.rateLimit; });
   failsOnly("mixed-chain", o => { o.mixed.invocations = 2; });
   failsOnly("mixed-chain", o => { o.mixed.tokens[0].scopeKinds = ["item", "connection"]; });
-  failsOnly("mismatches", o => { o.mismatches.pop(); });
+  failsOnly("mismatches", o => { o.hermetic.mismatches.results.pop(); });
+  failsOnly("mismatches", o => { o.hermetic.mismatches.commit = "0".repeat(40); });
   failsOnly("composition", o => { o.composition.connectionId = "conn-1"; });
-  failsOnly("per-stage-contracts", o => { o.preSlice6.reason = "allowed"; });
+  failsOnly("per-stage-contracts", o => { o.hermetic.preSlice6.result.reason = "allowed"; });
+  // An unapproved fixture tests another refusal.
+  failsOnly("per-stage-contracts", o => { o.hermetic.preSlice6.fixture.approved = false; });
   failsOnly("per-stage-contracts", o => { o.approvals.afterDigest = "a2"; });
   failsOnly("conditional-retry", o => { o.conditional.attempts[1].decisionId = "d1"; });
   failsOnly("conditional-retry", o => { o.conditional.finalSequence = 11; });
@@ -82,7 +91,11 @@ test("each check fails on its own evidence", () => {
   failsOnly("reserve-stage-bind", o => { o.reserveStageBind.order = ["stage", "reserve", "bind"]; });
   failsOnly("nothing-elsewhere", o => { o.elsewhere.thumbnailsObjects = 1; });
   failsOnly("nothing-elsewhere", o => { o.elsewhere.appspotAfter = "h2"; });
-  failsOnly("old-workers", o => { o.oldWorkers.sweeperLeases = 1; });
+  failsOnly("old-workers", o => { o.oldWorkers.productionListedV3 = ["c:v3a"]; });
+  failsOnly("old-workers", o => { o.oldWorkers.controlListedToProduction = false; });
+  failsOnly("old-workers", o => { o.oldWorkers.scopedListedV3 = ["c:v3a"]; });
+  failsOnly("old-workers", o => { o.oldWorkers.productionLease = "leased"; });
+  failsOnly("old-workers", o => { o.oldWorkers.v3Fixtures = []; });
   failsOnly("console-route", o => { o.consoleRoute[1].status = 200; });
   failsOnly("proxy", o => { o.proxy.at11 = "pending"; });
 });
@@ -159,8 +172,55 @@ test("execution tokens' scopes come from Broker's execute audit, as the audit wr
 test("the public-capture quota comes from Policy's reservation audit, as the audit writes it", () => {
   const written = [];
   const audit = createAudit({ sink: r => written.push(r), pseudonymize: v => `p:${v}` });
-  for (let i = 0; i < PUBLIC_CAPTURE_LIMIT; i++) audit({ event: "command-reserve", commandId: `c:${"a".repeat(63)}${i % 10}`, itemId: "publicItem000000001", publicCapture: true, outcome: "allowed" });
-  audit({ event: "command-reserve", commandId: `c:${"b".repeat(64)}`, itemId: "publicItem000000001", outcome: "denied", reason: "rate-limited" });
-  const entries = written.map(jsonPayload => ({ jsonPayload }));
-  assert.deepEqual(rateLimitFromAudit(entries), { allowed: PUBLIC_CAPTURE_LIMIT, refused: 1 });
+  const id = i => `c:${i.toString(16).padStart(64, "0")}`;
+  for (let i = 0; i < PUBLIC_CAPTURE_LIMIT; i++) audit({ event: "command-reserve", commandId: id(i), itemId: "publicItem000000001", publicCapture: true, outcome: "allowed" });
+  audit({ event: "command-reserve", commandId: id(99), itemId: "publicItem000000001", outcome: "denied", reason: "rate-limited" });
+  // Cloud Logging entries, a second apart, in order.
+  const entries = written.map((jsonPayload, i) => ({ timestamp: new Date(Date.UTC(2026, 10, 17, 22, 0, i)).toISOString(), jsonPayload }));
+  assert.deepEqual(rateLimitFromAudit(entries), { allowed: PUBLIC_CAPTURE_LIMIT, refused: 1, refusedAfterQuota: true });
+  // One command's repeated reservation counts once; a refusal before the
+  // quota's last allowed one isn't the quota's.
+  const repeated = entries.map((e, i) => (i < PUBLIC_CAPTURE_LIMIT ? { ...e, jsonPayload: { ...e.jsonPayload, commandId: id(0) } } : e));
+  assert.equal(rateLimitFromAudit(repeated).allowed, 1);
+  const early = entries.map((e, i) => (i === PUBLIC_CAPTURE_LIMIT ? { ...e, timestamp: entries[0].timestamp } : e));
+  assert.equal(rateLimitFromAudit(early).refusedAfterQuota, false);
+});
+
+// The owner's second review of #417.
+test("hermetic evidence must name the deployed commit, and a fallback never replaces a live observation", () => {
+  // A live violation stays a violation, whatever the fallback says.
+  failsOnly("private-non-owner", o => {
+    o.narrowed = { reason: "allowed" };
+    o.hermetic.narrowed = { service: "policy", commit: "p".repeat(40), test: "t", output: "ok", passed: true, uninducible: "race", result: { reason: "not-owner" } };
+  });
+  // With no live observation, a valid fallback is accepted...
+  const fallback = PASSING();
+  delete fallback.conditional;
+  fallback.hermetic.conditional = { service: "broker", commit: "b".repeat(40), test: "packages/broker/src/gcs.spec.ts › precondition", output: "ok", passed: true, uninducible: "the older capture couldn't be made to publish first from outside", result: { attempts: [{ decisionId: "d1" }, { decisionId: "d2" }], finalSequence: 2, newerSequence: 2 } };
+  assert.deepEqual(verdict(fallback).checks.filter(c => !c.ok), []);
+  // ...but not without saying why the case couldn't be induced live, nor at
+  // another commit.
+  failsOnly("conditional-retry", o => { delete o.conditional; o.hermetic.conditional = { ...fallback.hermetic.conditional, uninducible: "" }; });
+  failsOnly("conditional-retry", o => { delete o.conditional; o.hermetic.conditional = { ...fallback.hermetic.conditional, commit: "0".repeat(40) }; });
+  failsOnly("reserve-stage-bind", o => { delete o.reserveStageBind; });
+  // No deployed commit observed: no hermetic row can pass.
+  const o = PASSING();
+  delete o.deployed;
+  assert.deepEqual(verdict(o).checks.filter(c => !c.ok).map(c => c.id).sort(), ["mismatches", "per-stage-contracts"]);
+});
+
+test("the due observation comes from the due queries' answers, as each worker asks", () => {
+  const due = dueObservation({
+    v3Fixtures: ["c:v3a", "c:v3b"],
+    control: "c:v2",
+    productionQueries: [{ commands: [{ commandId: "c:other" }] }, { commands: [{ commandId: "c:v2", generation: 1 }] }],
+    scopedQueries: [{ commands: [{ commandId: "c:v3a" }, { commandId: "c:v2" }] }, { commands: [{ commandId: "c:v3b" }] }],
+    productionLease: "worker-unsupported",
+  });
+  assert.deepEqual(due, { v3Fixtures: ["c:v3a", "c:v3b"], productionListedV3: [], scopedListedV3: ["c:v3a", "c:v3b"], controlListedToProduction: true, productionLease: "worker-unsupported", queries: 4 });
+  // The reviewer's case: production listed a v3 command (its lease refused).
+  const leaked = dueObservation({ v3Fixtures: ["c:v3a"], control: "c:v2", productionQueries: [{ commands: [{ commandId: "c:v3a" }, { commandId: "c:v2" }] }], scopedQueries: [{ commands: [{ commandId: "c:v3a" }] }], productionLease: "worker-unsupported" });
+  const o = PASSING();
+  o.oldWorkers = leaked;
+  assert.deepEqual(verdict(o).checks.filter(c => !c.ok).map(c => c.id), ["old-workers"]);
 });

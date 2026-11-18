@@ -7,6 +7,7 @@ import request from "supertest";
 import { buildCommandRouter } from "./command.js";
 import { PolicyRefused } from "../commands/policy-commands.js";
 import { buildChainEligibility } from "../commands/bridge.js";
+import { PreflightUnavailable } from "../admission.js";
 
 const UID = "0xuser";
 const TASKS = [{ lang: "0176", code: { root: "save" } }];
@@ -153,12 +154,17 @@ describe("POST /command with COMMAND_SCOPES", () => {
     return a;
   };
   const CONNECTIONLESS = { id: "task-chain", idempotencyKey: "snap:1" };
+  // With COMMAND_SCOPES the key is looked up (create: false) before anything
+  // else: by default nothing holds it, and a create allocates.
+  const fresh = () => { policy.allocate = async args => { calls.push(["allocate", args]); return args.create ? { protocol: "command", commandId: "c:1", generation: 1, owned: true, status: "pending", leaseExpiresAt: Date.now() + 60_000 } : { protocol: "none" }; }; };
+  beforeEach(fresh);
 
   it("allocates an L0000 head over an L0013 capture with no connection", async () => {
     const res = await post(app(chainOf(["data", "snap"])), CONNECTIONLESS);
     expect(res.status).toBe(200);
-    expect(calls[0][1]).toMatchObject({ connectionId: null, idempotencyKey: "snap:1", lang: "0000", create: true });
-    expect(JSON.parse(calls[0][1].request)).toEqual({ id: "task-chain", connectionId: null, options: {} });
+    expect(calls.map(([, a]) => a.create)).toEqual([false, true]);
+    expect(calls[1][1]).toMatchObject({ connectionId: null, idempotencyKey: "snap:1", lang: "0000", create: true });
+    expect(JSON.parse(calls[1][1].request)).toEqual({ id: "task-chain", connectionId: null, options: {} });
   });
 
   // A new key under a restriction: looked up (create: false), nothing
@@ -172,7 +178,7 @@ describe("POST /command with COMMAND_SCOPES", () => {
     expect(calls.map(([, a]) => a.create)).toEqual([false]);
     expect(runs).toEqual([]);
     // With its connection, it creates and runs.
-    policy.allocate = async args => { calls.push(["allocate", args]); return { protocol: "command", commandId: "c:1", generation: 1, owned: true, status: "pending", leaseExpiresAt: Date.now() + 60_000 }; };
+    fresh();
     expect((await post(app(chainOf(["snap", "save"])), { ...CONNECTIONLESS, connectionId: "conn-1" })).status).toBe(200);
     expect(calls.at(-1)[1]).toMatchObject({ connectionId: "conn-1", create: true });
   });
@@ -193,6 +199,21 @@ describe("POST /command with COMMAND_SCOPES", () => {
     expect(res.body.data).toMatchObject({ commandId: "c:mixed", outcome: "completed" });
     expect(calls.map(([, a]) => a.create)).toEqual([false]);
     expect(runs).toEqual([]);
+  });
+
+  // The owner's second review of #417: a held key's retry never depends on
+  // a compiler being reachable now.
+  it("serves a held key's retry while the chain's compilers can't be preflighted", async () => {
+    policy.allocate = async args => { calls.push(["allocate", args]); return { protocol: "command", commandId: "c:held", generation: 1, owned: false, reused: true, status: "completed", result: { state: "available" }, leaseExpiresAt: Date.now() + 60_000 }; };
+    const a = express();
+    a.use(express.json());
+    a.use((/** @type {any} */ req, _res, next) => { req.auth = { context: { uid: UID } }; next(); });
+    const down = async () => { throw new PreflightUnavailable("s0 unreachable"); };
+    a.use("/command", buildCommandRouter({ taskStorer: { get: async () => chainOf(["snap", "save"]), create: async () => "task-data" }, policy, run: async () => { throw new Error("no run"); }, worker: "w1", env: ENV, eligible: down }));
+    const res = await post(a, { ...CONNECTIONLESS, connectionId: "conn-1" });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ commandId: "c:held", outcome: "completed" });
+    expect(calls.map(([, x]) => x.create)).toEqual([false]);
   });
 
   it("still requires a signed-in user and a key, and a connection without COMMAND_SCOPES", async () => {
