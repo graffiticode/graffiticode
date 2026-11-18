@@ -14,6 +14,13 @@
 //   approvalInventory(docsByLang) -> [{ name, fields }]  stable by document name
 //   inventoryDigest(inventory)    -> canonicalDigest of it (key order never counts)
 //   compareInventories(baseline, current) -> { added, deleted, modified, baselineCount, currentCount, identical }
+//   archiveObservations(state, keys, at)
+//     Before a phase recollects `keys`, moves each one's observation and every
+//     read error belonging to it (`key` and `key.<read>`) into
+//     state.observationHistory[key], and clears those errors.
+//   exactInventory(saved, baselineAt, decode) -> inventory
+//     A saved history read (REST documents per language, with its readTime)
+//     at exactly the baseline: any other time is refused.
 //   historyReadTime(baselineAt, now) -> { readTime, exact }
 //     Firestore serves any read time within the last hour, and older ones
 //     (point-in-time recovery) only on a whole minute: the baseline's own time
@@ -57,9 +64,12 @@ export const bucketObjectCount = async ({ bucket, describe, list }) => {
     throw e;
   }
   const out = await list();
+  // An existing bucket's listing must be JSON: empty output is never "no
+  // objects" (the second #423 review).
+  if (typeof out !== "string" || !out.trim()) throw new Error(`gs://${bucket}: the listing is empty, not JSON`);
   let listed;
   try {
-    listed = JSON.parse(out || "[]");
+    listed = JSON.parse(out);
   } catch {
     throw new Error(`gs://${bucket}: the listing isn't JSON`);
   }
@@ -103,4 +113,21 @@ export const historyReadTime = (baselineAt, now = Date.now()) => {
   if (!Number.isFinite(t)) throw new Error(`baseline time ${baselineAt}`);
   if (now - t < HISTORY_EXACT_WINDOW_MS) return { readTime: new Date(t).toISOString(), exact: true };
   return { readTime: new Date(Math.floor(t / 60_000) * 60_000).toISOString(), exact: false };
+};
+
+export const archiveObservations = (state, keys, at) => {
+  state.observationHistory ??= {};
+  const errors = state.observations?.errors ?? {};
+  for (const key of keys) {
+    const own = Object.fromEntries(Object.entries(errors).filter(([k]) => k === key || k.startsWith(`${key}.`)));
+    const observation = state.observations?.[key] ?? null;
+    if (observation === null && !Object.keys(own).length) continue;
+    (state.observationHistory[key] ??= []).push({ replacedAt: at, observation, errors: own });
+    for (const k of Object.keys(own)) delete errors[k];
+  }
+};
+
+export const exactInventory = (saved, baselineAt, decode) => {
+  if (!saved?.inventory || Date.parse(saved.readTime) !== Date.parse(baselineAt)) throw new Error(`the saved inventory was read at ${saved?.readTime}, not at the baseline ${baselineAt}`);
+  return approvalInventory(Object.fromEntries(Object.entries(saved.inventory).map(([lang, docs]) => [lang, docs.map(d => ({ name: d.name, fields: decode({ mapValue: d }) }))])));
 };

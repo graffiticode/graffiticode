@@ -2,11 +2,14 @@
 // approvals rule (approvalsProblem), offline: the r36074e run's two
 // measurement defects (the owner's review, 2026-11-18).
 import test from "node:test";
+import path from "node:path";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import {
   CommandFailed, runCapturing, isBucketNotFound, bucketObjectCount, collectIndependently,
-  approvalInventory, inventoryDigest, compareInventories, historyReadTime,
+  approvalInventory, inventoryDigest, compareInventories, historyReadTime, archiveObservations, exactInventory,
 } from "../lib/c5a-gate-reads.js";
 import { approvalsProblem } from "../lib/c5a-gate-checks.js";
 
@@ -54,6 +57,10 @@ test("only gcloud's not-found answer for that bucket counts as zero objects", as
   assert.equal(await count(async () => "graffiticode-thumbnails", async () => JSON.stringify([{ url: "gs://graffiticode-thumbnails/a.png" }, { url: "gs://graffiticode-thumbnails/b.png" }])), 2);
   await assert.rejects(count(async () => "graffiticode-thumbnails", async () => "gs://graffiticode-thumbnails/a.png"), /isn't JSON/);
   await assert.rejects(count(async () => "graffiticode-thumbnails", async () => "{}"), /isn't a list/);
+  // The second #423 review: an existing bucket's empty output isn't "no objects".
+  await assert.rejects(count(async () => "graffiticode-thumbnails", async () => ""), /empty, not JSON/);
+  await assert.rejects(count(async () => "graffiticode-thumbnails", async () => " \n"), /empty, not JSON/);
+  await assert.rejects(count(async () => "graffiticode-thumbnails", async () => undefined), /empty, not JSON/);
 });
 
 test("appspot and thumbnails are collected independently", async () => {
@@ -93,7 +100,7 @@ test("history is read at the baseline while Firestore allows it, else the whole 
   assert.deepEqual(historyReadTime(at, Date.parse(at) + 3 * 3600_000), { readTime: "2026-11-18T21:45:00.000Z", exact: false });
 });
 
-const history = (comparison, readTime = "2026-11-18T21:45:00.000Z") => ({ baselineAt: "2026-11-18T21:45:33.773Z", readTime, exact: false, comparison });
+const history = (comparison, readTime = "2026-11-18T21:45:33.773Z") => ({ baselineAt: "2026-11-18T21:45:33.773Z", readTime, exact: true, comparison });
 const SAME = { added: [], deleted: [], modified: [], baselineCount: 42, currentCount: 42, identical: true };
 test("approvals: a canonical baseline compares digests; an old one needs the history comparison", () => {
   assert.equal(approvalsProblem({ beforeDigest: "c1", beforeDigestKind: "canonical", afterDigest: "c1", afterDigestKind: "canonical" }), null);
@@ -105,10 +112,91 @@ test("approvals: a canonical baseline compares digests; an old one needs the his
   assert.match(approvalsProblem({ ...old, history: history({ ...SAME, deleted: ["r9"], identical: false }) }), /deleted \["r9"\]/);
   assert.match(approvalsProblem({ ...old, history: history({ ...SAME, added: ["r9"], identical: false }) }), /added \["r9"\]/);
   assert.match(approvalsProblem({ ...old, history: history({ ...SAME, modified: ["r9"], identical: false }) }), /modified \["r9"\]/);
-  assert.match(approvalsProblem({ ...old, history: history(SAME, "2026-11-18T21:44:00.000Z") }), /not at the baseline/);
-  assert.match(approvalsProblem({ ...old, history: history(SAME, "2026-11-18T21:46:00.000Z") }), /not at the baseline/);
+  // The second #423 review: the rounded minute leaves a gap, so it never passes.
+  assert.match(approvalsProblem({ ...old, history: history(SAME, "2026-11-18T21:45:00.000Z") }), /not exactly at the baseline/);
+  assert.match(approvalsProblem({ ...old, history: history(SAME, "2026-11-18T21:45:33.772Z") }), /not exactly at the baseline/);
+  assert.match(approvalsProblem({ ...old, history: history(SAME, "2026-11-18T21:46:00.000Z") }), /not exactly at the baseline/);
+  assert.match(approvalsProblem({ ...old, history: { ...history(SAME), readTime: undefined } }), /not exactly at the baseline/);
   assert.match(approvalsProblem({ ...old, history: { ...history(SAME), comparison: undefined } }), /comparison wasn't recorded/);
   // A recorded history must match even beside equal canonical digests.
   assert.match(approvalsProblem({ beforeDigest: "c1", beforeDigestKind: "canonical", afterDigest: "c1", afterDigestKind: "canonical", history: history({ ...SAME, modified: ["r1"], identical: false }) }), /modified/);
   assert.match(approvalsProblem(undefined), /weren't read/);
+});
+
+const decode = v => (v == null ? null : "stringValue" in v ? v.stringValue : "integerValue" in v ? Number(v.integerValue) : "arrayValue" in v ? (v.arrayValue.values ?? []).map(decode) : "mapValue" in v ? Object.fromEntries(Object.entries(v.mapValue.fields ?? {}).map(([k, x]) => [k, decode(x)])) : null);
+const rest = (rev, status = "approved") => ({ name: DOC(rev).name, fields: { revision: { stringValue: rev }, status: { stringValue: status } }, updateTime: "2026-11-17T01:35:15Z" });
+test("a saved history read counts only at exactly the baseline", () => {
+  const saved = { readTime: "2026-11-18T21:45:33.773Z", collectedAt: "2026-11-18T22:09:40Z", inventory: { "0176": [rest("r2"), rest("r1")], "0000": [] } };
+  const inv = exactInventory(saved, "2026-11-18T21:45:33.773Z", decode);
+  assert.deepEqual(inv.map(d => d.fields), [{ revision: "r1", status: "approved" }, { revision: "r2", status: "approved" }]);
+  assert.throws(() => exactInventory({ ...saved, readTime: "2026-11-18T21:45:00.000Z" }, "2026-11-18T21:45:33.773Z", decode), /not at the baseline/);
+  assert.throws(() => exactInventory({ readTime: saved.readTime }, saved.readTime, decode), /not at the baseline/);
+});
+
+// The runner's own after-phase block (scripts/c5a-gate.js), run twice with
+// its reads stubbed and no network or files: first a failing thumbnails read,
+// then everything succeeding. The first run's namespaced error must survive
+// in the history (the second #423 review).
+const AFTER = (() => {
+  const script = readFileSync(new URL("../c5a-gate.js", import.meta.url), "utf8");
+  return script.slice(script.indexOf("if (phase === \"after\") {"), script.indexOf("if (phase === \"judge\") {"));
+})();
+const runAfter = async (state, { thumbnails, appspot = async () => "same", flags = {} }) => {
+  const current = approvalInventory({ "0176": [{ name: DOC("r1").name, fields: { revision: "r1", status: "approved" } }] });
+  const collect = async (key, read) => {
+    try {
+      state.observations[key] = await read();
+      if (state.observations.errors) delete state.observations.errors[key];
+    } catch (e) {
+      state.observations.errors = { ...(state.observations.errors ?? {}), [key]: String(e?.message ?? e) };
+    }
+  };
+  const scope = {
+    phase: "after",
+    state,
+    path,
+    stateFile: "/nonexistent/state.json",
+    mkdir: async () => {},
+    writeFile: async () => {},
+    readFile: async () => JSON.stringify({ readTime: state.baseline.at, collectedAt: "x", inventory: { "0176": [rest("r1")] } }),
+    createHash,
+    decode,
+    flag: name => flags[name] ?? null,
+    approvalDocs: async () => current,
+    collect,
+    observe: (key, value) => { state.observations[key] = value; },
+    save: async () => {},
+    historyReadTime: () => ({ readTime: "2026-11-18T21:45:00.000Z", exact: false }),
+    inventoryDigest,
+    compareInventories,
+    collectIndependently,
+    archiveObservations,
+    exactInventory,
+    appspotListing: appspot,
+    thumbnailsCount: thumbnails,
+  };
+  await new Function(...Object.keys(scope), `return (async () => { ${AFTER} })()`)(...Object.values(scope));
+};
+test("a failed after phase, then a successful one: every earlier read error stays in the history", async () => {
+  const state = { baseline: { at: "2026-11-18T21:45:33.773Z", approvals: "legacy", appspot: "same" }, commands: ["c:done"], observations: { errors: { elsewhere: "the r36074e combined failure" } } };
+  await runAfter(state, { thumbnails: async () => { throw new CommandFailed("gcloud", ["storage"], { code: 1, stderr: FORBIDDEN }); } });
+  assert.match(state.observations.errors["elsewhere.thumbnailsObjects"], /403/);
+  assert.equal(state.observations.elsewhere.appspotAfter, "same");
+  assert.equal(state.observations.errors.elsewhere, undefined);
+  assert.deepEqual(state.observationHistory.elsewhere[0].errors, { elsewhere: "the r36074e combined failure" });
+  // The old baseline with no exact history: the approvals row can't pass.
+  assert.match(approvalsProblem(state.observations.approvals), /isn't canonical, and no history comparison/);
+  await runAfter(state, { thumbnails: async () => 0, flags: { "--approvals-at-baseline": "/saved/baseline.raw.json" } });
+  assert.deepEqual(state.observations.elsewhere, { appspotBefore: "same", appspotAfter: "same", thumbnailsObjects: 0 });
+  assert.deepEqual(Object.keys(state.observations.errors).filter(k => k.startsWith("elsewhere")), []);
+  const kept = state.observationHistory.elsewhere;
+  assert.equal(kept.length, 2);
+  assert.match(kept[1].errors["elsewhere.thumbnailsObjects"], /403/);
+  assert.equal(kept[1].observation.appspotAfter, "same");
+  assert.equal(JSON.stringify(state).includes("403"), true);
+  // The saved exact-time inventory decides the approvals row.
+  assert.equal(state.observations.approvals.history.readTime, "2026-11-18T21:45:33.773Z");
+  assert.equal(state.observations.approvals.history.source.file, "/saved/baseline.raw.json");
+  assert.equal(approvalsProblem(state.observations.approvals), null);
+  assert.equal(state.observationHistory.approvals.length, 1);
 });

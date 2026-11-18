@@ -278,8 +278,8 @@ const versions = v => JSON.stringify([...(v ?? [])].sort((a, b) => a - b));
 // ordered by document name, key order never counting) is compared with the
 // after digest. A baseline digest taken the old way (JSON key order counted,
 // so two reads of the same records could differ) proves nothing alone: the
-// complete inventory read from Firestore's history at the baseline (or the
-// whole minute before it) must match today's in membership and canonical
+// complete inventory read from Firestore's history at exactly the baseline
+// must match today's in membership and canonical
 // contents. A history comparison, when recorded, must always match.
 //   approvals { beforeDigest, beforeDigestKind?, afterDigest, afterDigestKind,
 //               history?: { baselineAt, readTime, exact, comparison: compareInventories() } }
@@ -290,8 +290,9 @@ export const approvalsProblem = a => {
     const c = h.comparison;
     if (!c) return "the approval history comparison wasn't recorded";
     if (c.identical !== true) return `approval records changed since the baseline: added ${JSON.stringify(c.added ?? null)}, deleted ${JSON.stringify(c.deleted ?? null)}, modified ${JSON.stringify(c.modified ?? null)}`;
-    const gap = Date.parse(h.baselineAt) - Date.parse(h.readTime);
-    if (!(gap >= 0 && gap < 60_000)) return `the history was read at ${h.readTime}, not at the baseline ${h.baselineAt}`;
+    // Exactly at the baseline: a rounded read leaves a gap in which a record
+    // could change and be restored (the second #423 review).
+    if (!h.readTime || !h.baselineAt || Date.parse(h.readTime) !== Date.parse(h.baselineAt)) return `the history was read at ${h.readTime}, not exactly at the baseline ${h.baselineAt}`;
   }
   if (a.beforeDigestKind === "canonical") {
     if (a.afterDigestKind !== "canonical" || !same(a.beforeDigest, a.afterDigest)) return "earlier approval records changed or weren't read";

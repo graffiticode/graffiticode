@@ -54,6 +54,9 @@
 // and --reference-public are the owner-approved reference renders (PNG) of the
 // two fixture items; each scenario's published capture is read right after its
 // command and must be identical to its item's reference (`images-correct`).
+// --approvals-at-baseline (after) is a saved read of the approval records at
+// exactly the baseline (Firestore history, recorded within the hour), for a
+// run whose baseline digest predates canonical hashing.
 // Audit reads poll, bounded, until Cloud Logging has every record the run
 // expects. Observations no gate-api call can make are given as JSON
 // files with --evidence (repeatable), merged over what the phases recorded:
@@ -79,7 +82,7 @@ import { createCanaryEnv, loadDeployServices, http } from "./lib/canary-env.js";
 import { ensureFixtures, retireFixtures, verifyRetired } from "./lib/c5a-gate-fixtures.js";
 import { verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planContractVersion, tokensFromAudit, brokerAuditFilter, rateLimitFromAudit, policyReserveFilter, dueObservation, pollUntil, reservesCover, imageObservation } from "./lib/c5a-gate-checks.js";
 import { decodePng, imageLooks, compareImages } from "./lib/png.js";
-import { runCapturing, bucketObjectCount, collectIndependently, approvalInventory, inventoryDigest, compareInventories, historyReadTime } from "./lib/c5a-gate-reads.js";
+import { runCapturing, bucketObjectCount, collectIndependently, approvalInventory, inventoryDigest, compareInventories, historyReadTime, archiveObservations, exactInventory } from "./lib/c5a-gate-reads.js";
 
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {
@@ -592,41 +595,45 @@ if (phase === "cleanup") {
 
 if (phase === "after") {
   if (!state.baseline || !state.commands) throw new Error("run --phase baseline and --phase captures first");
-  // A rerun keeps what the earlier after phase recorded, and its read errors.
+  // A rerun keeps what the earlier after phase recorded, with every read error
+  // belonging to it (approvals, elsewhere and elsewhere.<read>).
   const now = new Date().toISOString();
-  state.observationHistory ??= {};
-  for (const k of ["approvals", "elsewhere"]) {
-    if (state.observations[k] || state.observations.errors?.[k]) (state.observationHistory[k] ??= []).push({ replacedAt: now, observation: state.observations[k] ?? null, error: state.observations.errors?.[k] ?? null });
-  }
-  // The approval records now, and the complete inventory at the baseline from
-  // Firestore's history: membership and canonical contents compared. Both
-  // inventories are kept beside the state.
+  archiveObservations(state, ["approvals", "elsewhere"], now);
+  // The approval records now, and the complete inventory at exactly the
+  // baseline: from Firestore's history while the baseline is within the hour,
+  // or a saved exact-time read (--approvals-at-baseline, as recorded within
+  // the hour). A rounded read is never used: a record could change in the
+  // gap and be restored. A canonical baseline needs no history; an old one
+  // fails without it (approvalsProblem). Inventories are kept beside the state.
   await collect("approvals", async () => {
     const current = await approvalDocs();
-    const { readTime, exact } = historyReadTime(state.baseline.at);
-    const atBaseline = await approvalDocs(readTime);
     const dir = path.join(path.dirname(stateFile), "approvals-history");
     await mkdir(dir, { recursive: true });
-    await writeFile(path.join(dir, `inventory-${readTime}.json`), `${JSON.stringify({ readTime, exact, inventory: atBaseline }, null, 2)}\n`);
     await writeFile(path.join(dir, `inventory-current-${now}.json`), `${JSON.stringify({ readAt: now, inventory: current }, null, 2)}\n`);
-    return {
-      beforeDigest: state.baseline.approvals,
-      beforeDigestKind: state.baseline.approvalsDigestKind ?? "json",
-      afterDigest: inventoryDigest(current),
-      afterDigestKind: "canonical",
-      history: { baselineAt: state.baseline.at, readTime, exact, baselineDigest: inventoryDigest(atBaseline), comparison: compareInventories(atBaseline, current) },
-    };
+    const beforeDigestKind = state.baseline.approvalsDigestKind ?? "json";
+    let history = null;
+    const saved = flag("--approvals-at-baseline");
+    if (saved) {
+      const text = await readFile(saved, "utf8");
+      const parsed = JSON.parse(text);
+      const atBaseline = exactInventory(parsed, state.baseline.at, decode);
+      history = { baselineAt: state.baseline.at, readTime: parsed.readTime, exact: true, source: { file: saved, sha256: createHash("sha256").update(text).digest("hex"), collectedAt: parsed.collectedAt ?? null }, baselineDigest: inventoryDigest(atBaseline), comparison: compareInventories(atBaseline, current) };
+    } else {
+      const { readTime, exact } = historyReadTime(state.baseline.at);
+      if (exact) {
+        const atBaseline = await approvalDocs(readTime);
+        await writeFile(path.join(dir, `inventory-${readTime}.json`), `${JSON.stringify({ readTime, exact, inventory: atBaseline }, null, 2)}\n`);
+        history = { baselineAt: state.baseline.at, readTime, exact, source: "firestore history", baselineDigest: inventoryDigest(atBaseline), comparison: compareInventories(atBaseline, current) };
+      }
+    }
+    return { beforeDigest: state.baseline.approvals, beforeDigestKind, afterDigest: inventoryDigest(current), afterDigestKind: "canonical", ...(history ? { history } : {}) };
   });
   // appspot and graffiticode-thumbnails read independently: either result
   // stands when the other read fails.
   const { values, errors } = await collectIndependently({ appspotAfter: appspotListing, thumbnailsObjects: thumbnailsCount });
   observe("elsewhere", { appspotBefore: state.baseline.appspot, ...values });
   state.observations.errors = { ...(state.observations.errors ?? {}) };
-  delete state.observations.errors.elsewhere;
-  for (const name of ["appspotAfter", "thumbnailsObjects"]) {
-    if (errors[name]) state.observations.errors[`elsewhere.${name}`] = errors[name];
-    else delete state.observations.errors[`elsewhere.${name}`];
-  }
+  for (const name of ["appspotAfter", "thumbnailsObjects"]) if (errors[name]) state.observations.errors[`elsewhere.${name}`] = errors[name];
   if (Object.keys(errors).length) console.log(`FAILED to observe elsewhere: ${JSON.stringify(errors)}`);
   await save();
 }
