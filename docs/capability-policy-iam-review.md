@@ -2109,12 +2109,15 @@ The operator mints the first by impersonation, so the operator needs `roles/iam.
 ```
 
 ```bash
+gcloud iam service-accounts add-iam-policy-binding api-run@graffiticode.iam.gserviceaccount.com \
+  --project=graffiticode --member=user:<operator> --role=roles/iam.serviceAccountOpenIdTokenCreator \
+  --condition='title=canary-window-c5a,description=C5a live gate through api-c5a-gate (C5 plan),expression=request.time < timestamp("<grant time + 24h>")'
 gcloud iam service-accounts add-iam-policy-binding console-run@graffiticode-app.iam.gserviceaccount.com \
   --project=graffiticode-app --member=user:<operator> --role=roles/iam.serviceAccountOpenIdTokenCreator \
   --condition='title=canary-window-c5a,description=C5a live gate through api-c5a-gate (C5 plan),expression=request.time < timestamp("<grant time + 24h>")'
 ```
 
-- **No other identity is granted:** not `api-run` (B6 needed it; this gate doesn't call the api's internal routes), and no compiler account. The plan forbids impersonating a compiler.
+- **`api-run` too (amended for #417's review):** the gate's old-worker row is judged from Policy's due query asked as the gateway, and its v3 fixtures and v2 control are allocated as the gateway (`scripts/c5a-gate.js --phase due`). So the window also grants the same conditional `roles/iam.serviceAccountOpenIdTokenCreator` on `api-run@graffiticode.iam.gserviceaccount.com`, as B6's window did, under the same title and expiry. No compiler account is granted: the plan forbids impersonating a compiler.
 - **It expires on its own,** and the gate's reads of Policy's and Broker's databases use the operator's own credentials.
 - **Stale bindings, for a later cleanup (not part of this step):** `console-run`'s policy still holds five expired conditional windows for the operator: `canary-window` (2026-10-24), `-a4`, `-a5`, `-c6` and `-b6` (expired 2026-11-17T08:00Z). They grant nothing now.
 
@@ -2124,7 +2127,7 @@ gcloud iam service-accounts add-iam-policy-binding console-run@graffiticode-app.
   - `gcloud run services get-iam-policy api-c5a-gate` lists exactly `deploy-smoke` and `console-run` as invokers;
   - an unauthenticated request answers 403 (Cloud Run's own page);
   - the serving revision's environment, read from the revision (Step 27's method), carries `COMMANDS_L0013=on`, `COMMAND_SCOPES=on` and `COMPILE_GENERATION_L0013=c5a-gate-1`, and no `SWEEP_*`.
-- **The window:** `gcloud iam service-accounts get-iam-policy console-run@graffiticode-app.iam.gserviceaccount.com` shows `canary-window-c5a` with its expiry. After expiry, minting fails.
+- **The window:** `gcloud iam service-accounts get-iam-policy` on `console-run@graffiticode-app` and on `api-run@graffiticode` shows `canary-window-c5a` with its expiry. After expiry, minting fails.
 - **Production unchanged:** the production api's serving revision has no `COMMANDS_L0013` or `COMMAND_SCOPES`, and the production canary still passes 36/36.
 
 **Retirement, after the gate:**
