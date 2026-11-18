@@ -2034,7 +2034,7 @@ gcloud storage buckets add-iam-policy-binding gs://graffiticode-command-staging 
 - **The staging bucket:** remove the three bindings with `gcloud storage buckets remove-iam-policy-binding`, using the same members and roles. Delete it only if C5a is abandoned: Policy's and Broker's configuration name it.
 - **Removing either bucket** makes staging or publishing fail with an error, which means unavailable, never allowed.
 
-### Step 29: the C5a gate api and the canary window [PROPOSED; held for review]
+### Step 29: the C5a gate api and the canary window [LIVE 2026-11-17–18; retired 2026-11-18]
 
 The gate (C5 plan, "C5a completion gate") runs `scripts/c5a-gate.js` as the canary account through a dedicated api, `api-c5a-gate`, as B6's drive ran through `api-drive` (Step 24). Production is untouched: production `COMMANDS_L0013` stays unset, and its api declares no `scopes`.
 
@@ -2140,6 +2140,79 @@ gcloud iam service-accounts add-iam-policy-binding console-run@graffiticode-app.
 - **Broker's `THUMBNAIL_BUCKET`** still names the deleted gate bucket. Nothing publishes there while production admits no v3 capture command, and C5b switches it before any activation.
 - **`canary-window-c5a`** is left to expire on its condition at 2026-11-19T03:57:32Z, unextended.
 - **Record:** `docs/evidence/c5a-authorization/retirement/` (a snapshot before deletion and `verification.json`).
+
+### Step 30: the thumbnails bucket (C5b) [PROPOSED; held for approval]
+
+C5b slice 2 ([`docs/c5b-thumbnails-bucket-plan.md`](c5b-thumbnails-bucket-plan.md)): Broker's production thumbnail bucket. Nothing reads or writes it until C5d. Production admits no v3 capture command (no `COMMANDS_L0013` or `COMMAND_SCOPES`), `l0013r` keeps uploading to `graffiticode.appspot.com`, and the console keeps reading there. Checked 2026-11-18: `gs://graffiticode-thumbnails` answers 404, and org policy allows a public bucket (`iam.allowedPolicyMemberDomains` allows all; `storage.publicAccessPrevention` isn't enforced for the project).
+
+```bash
+gcloud storage buckets create gs://graffiticode-thumbnails --project=graffiticode \
+  --location=US --default-storage-class=STANDARD \
+  --uniform-bucket-level-access --no-public-access-prevention \
+  --soft-delete-duration=7d
+
+# The bindings: one etag-protected read/modify/write (Step 28: remove-iam-policy-binding
+# doesn't match creation's convenience members). The edit is scripts/c5b/bucket-policy.js:
+# it removes projectEditor and projectViewer and merges the two grants into their roles'
+# bindings, never a duplicate, idempotent; the etag is kept, so a concurrent change fails.
+gcloud storage buckets get-iam-policy gs://graffiticode-thumbnails --format=json > policy-at-creation.json
+node scripts/c5b/bucket-policy.js edit policy-at-creation.json > policy-intended.json
+gcloud storage buckets set-iam-policy gs://graffiticode-thumbnails policy-intended.json
+gcloud storage buckets get-iam-policy gs://graffiticode-thumbnails --format=json > policy-after.json
+node scripts/c5b/bucket-policy.js check policy-after.json   # exits 1 unless exactly the four bindings below
+```
+
+**What it sets:**
+- **Location** `US` (multi-region, as the old bucket), `STANDARD`.
+- **Access:** uniform bucket-level access, with public access prevention `inherited`. Public read needs it off for this bucket.
+- **No versioning:** the generation precondition is the protocol.
+- **Soft delete** of 7 days.
+- **No lifecycle rule.**
+- **Bindings, exactly:**
+  - `roles/storage.legacyBucketOwner` and `roles/storage.legacyObjectOwner`: `projectOwner:graffiticode`;
+  - `roles/storage.objectUser`: `serviceAccount:broker-run@…`. Broker reads `{item}.png`'s generation and metadata and writes under `ifGenerationMatch`; replacing a live object needs `objects.delete`. `objectCreator` can't overwrite, and `objectAdmin` would add IAM changes it doesn't need;
+  - `roles/storage.legacyObjectReader`: `allUsers`. That is object reads only, so the bucket can't be listed anonymously (C5b decision 1). It is **not** `objectViewer`, which includes `storage.objects.list`.
+- **No compiler account** has any role on this bucket, now or later (C5c).
+
+#### Verification
+
+1. **Settings, read back:** `US`, `STANDARD`, `uniform_bucket_level_access: true`, `public_access_prevention: "inherited"`, versioning off or null, soft delete `"604800"`, lifecycle `null`.
+2. **IAM, read back:** `bucket-policy.js check` passes. The three policies (at creation, intended, after) go to the evidence.
+3. **Behaviour.** One-off Cloud Run jobs, each needing approval and deleted after its results are recorded, run [`scripts/c5b/bucket-probe.js`](../scripts/c5b/bucket-probe.js) as the identity under test. The anonymous checks run from the operator's machine with no credentials. Order and expectations, at one run label:
+
+   | As | Check | Expect |
+   |---|---|---|
+   | `broker-run` | `a-create`, `a-metadata`, `a-stale`, `a-overwrite` | 200, 200, 412, 200 |
+   | | `b-create`, `b-delete` | 200, 204 |
+   | | `staging-create` | 403 |
+   | `policy-run` | `create` | 403 |
+   | `l0013r-run` | `create` | 403 |
+   | anonymous | `a-read`, `b-read` | 200, 404 |
+   | | `list-json`, `list-xml` | 401 or 403 |
+
+4. **Cleanup:** after the anonymous checks, the operator removes `c5b-probe/<run>/a.png` explicitly (`gcloud storage rm`). The bucket then lists no objects. The probe output, without tokens, goes to `docs/evidence/c5b/step30/`.
+
+**Rollback:** `gcloud storage rm -r gs://graffiticode-thumbnails`. Before slice 3's copy it is empty, and nothing reads it until C5d.
+
+### Step 31: Broker's thumbnail bucket (C5b) [PROPOSED; held for approval]
+
+C5b slice 4: Broker's `THUMBNAIL_BUCKET` goes from `graffiticode-c5a-gate`, deleted with the gate, to `graffiticode-thumbnails`. It comes after Step 30 and the migration copy.
+
+1. **A reviewed PR** changes only broker's `THUMBNAIL_BUCKET` in `deploy.json`.
+2. **Broker is released from its merge commit** with the deploy CLI (`npm run deploy -- broker`). The `C5a-scopes` floor and `contractMinimum` are unaffected.
+   - Broker's startup refuses only the forbidden names: a thumbnail bucket equal to the staging bucket, or `graffiticode.appspot.com`. It doesn't catch other typos or check that the bucket exists.
+   - The reviewed diff and the read-back below confirm the value.
+
+**Verification:**
+- **The release:** the serving revision's environment shows `THUMBNAIL_BUCKET=graffiticode-thumbnails` (read back); `release-check broker` passes; the receipt names the merge commit.
+- **The rollback target is recorded first:** `npm run rollback -- broker --env production --release <this release's id> --plan` is run before the release is considered done, and its target revision is recorded (today `broker-rmwkzsw86-98e2cf`).
+- **The production canary** passes 36/36.
+- **Production unchanged:** no `COMMANDS_L0013`, `COMMAND_SCOPES` or `INTERPRETER_L0013`. Nothing publishes until C5d, whose staged drive first exercises Broker's publish path here. Step 30's `broker-run` probe has already shown the same calls.
+
+**Rollback:** `npm run rollback -- broker --env production --release <this release's id>`. It names this release's own receipt; the CLI refuses a release that doesn't own current traffic.
+- It restores the revision that names the deleted gate bucket.
+- That's harmless only while production admits no capture: a publish there would fail, and nothing publishes.
+- After C5d starts, roll forward with a config release instead.
 
 ## 4. Verification (read-only)
 
