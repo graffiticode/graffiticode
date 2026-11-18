@@ -19,7 +19,7 @@ import { parseCommandFaults } from "./commands/faults.js";
 import { buildCommandRouter } from "./routes/command.js";
 import { buildSweep, buildSweepAuthorizer, parseSweepConfig } from "./commands/sweep.js";
 import { buildCommandEnvelope } from "./commands/dispatch.js";
-import { buildEligibility, buildCompileEnvelope, buildCommandBridge } from "./commands/bridge.js";
+import { buildEligibility, buildChainEligibility, buildCompileEnvelope, buildCommandBridge, scopesEnabled } from "./commands/bridge.js";
 import { buildGetData as buildRouteGetData } from "./routes/data.js";
 import { buildGoogleIdTokenVerifier } from "@graffiticode/common/caller";
 import { OAuth2Client } from "google-auth-library";
@@ -88,16 +88,20 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   const modelCacheConfig = parseModelCacheConfig(process.env);
   const modelCache = modelCacheConfig.enabled ? buildModelCache({ ttlMs: modelCacheConfig.ttlMs, max: modelCacheConfig.max }) : null;
   // Commands (B5): Policy's command routes, when Policy is configured.
-  const policyCommands = policyUrl ? buildPolicyCommands({ policyUrl, idToken }) : null;
+  // C5: COMMAND_SCOPES=on makes this api run contract v3 commands, declared
+  // on every ownership call (policy-commands.js).
+  const scopes = scopesEnabled(process.env);
+  const policyCommands = policyUrl ? buildPolicyCommands({ policyUrl, idToken, scopes }) : null;
   // C6 (D2): the one eligibility rule both routes use, and the compile bridge.
   // The bridge reaches the worker through `commandRunner`, built below.
   let commandRunner = null;
+  // With COMMAND_SCOPES the whole chain decides (C5); off, the C6 rule.
   const eligible = chainAdmission
-    ? buildEligibility({ preflight: chainAdmission.preflight, baseUrlFor: chainAdmission.baseUrlFor })
+    ? (scopes ? buildChainEligibility : buildEligibility)({ preflight: chainAdmission.preflight, baseUrlFor: chainAdmission.baseUrlFor })
     : null;
   const compileEnvelope = policyCommands ? buildCompileEnvelope({ policy: policyCommands }) : null;
   const commandBridge = policyCommands && eligible
-    ? buildCommandBridge({ eligible, getRunner: () => commandRunner, compileEnvelope })
+    ? buildCommandBridge({ eligible, getRunner: () => commandRunner, compileEnvelope, scopes })
     : null;
   const dataApi = buildDataApi({
     // D2a: a command's key on /compile is answered from its record.

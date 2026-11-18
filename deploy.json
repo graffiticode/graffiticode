@@ -193,6 +193,9 @@
         "module": "verify/api.js"
       },
       "retireTags": true,
+      "removeEnv": [
+        "COMMAND_SCOPES"
+      ],
       "baselines": [
         {
           "milestone": "W1",

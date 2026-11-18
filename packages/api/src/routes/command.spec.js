@@ -6,6 +6,8 @@ import express from "express";
 import request from "supertest";
 import { buildCommandRouter } from "./command.js";
 import { PolicyRefused } from "../commands/policy-commands.js";
+import { buildChainEligibility } from "../commands/bridge.js";
+import { PreflightUnavailable } from "../admission.js";
 
 const UID = "0xuser";
 const TASKS = [{ lang: "0176", code: { root: "save" } }];
@@ -132,5 +134,92 @@ describe("GET /command/:id", () => {
   it("answers 404 for another user's or an unknown command", async () => {
     const res = await request(build({})).get("/command/c%3A9").set({ authorization: "Bearer t" });
     expect(res.status).toBe(404);
+  });
+});
+
+// C5 (COMMAND_SCOPES=on): a command may name no connection when none of its
+// writes needs one; the whole chain decides; a signed-in user is still
+// required (an anonymous capture runs through the compile bridge only).
+describe("POST /command with COMMAND_SCOPES", () => {
+  const ENV = { COMMANDS_L0013: "on", COMMANDS_L0176: "on", COMMAND_SCOPES: "on" };
+  const REQUIRED = { snap: ["snap"], save: ["init", "save-to-itembank"], data: [] };
+  const chainOf = roots => roots.map(root => ({ lang: root === "snap" ? "0013" : root === "save" ? "0176" : "0000", code: { root } }));
+  /** @type {(tasks: object[], env?: Record<string, string>) => any} */
+  const app = (tasks, env = ENV) => {
+    const a = express();
+    a.use(express.json());
+    a.use((/** @type {any} */ req, _res, next) => { req.auth = req.get("authorization") ? { context: { uid: UID } } : { context: null }; next(); });
+    const eligible = buildChainEligibility({ preflight: async ({ code }) => ({ manifest: { requiredFunctions: REQUIRED[code.root] } }), baseUrlFor: async lang => `https://${lang}`, env });
+    a.use("/command", buildCommandRouter({ taskStorer: { get: async () => tasks, create: async () => "task-data" }, policy, run: async args => { runs.push(args); return { commandId: args.commandId, status: "pending" }; }, worker: "w1", env, eligible }));
+    return a;
+  };
+  const CONNECTIONLESS = { id: "task-chain", idempotencyKey: "snap:1" };
+  // With COMMAND_SCOPES the key is looked up (create: false) before anything
+  // else: by default nothing holds it, and a create allocates.
+  const fresh = () => { policy.allocate = async args => { calls.push(["allocate", args]); return args.create ? { protocol: "command", commandId: "c:1", generation: 1, owned: true, status: "pending", leaseExpiresAt: Date.now() + 60_000 } : { protocol: "none" }; }; };
+  beforeEach(fresh);
+
+  it("allocates an L0000 head over an L0013 capture with no connection", async () => {
+    const res = await post(app(chainOf(["data", "snap"])), CONNECTIONLESS);
+    expect(res.status).toBe(200);
+    expect(calls.map(([, a]) => a.create)).toEqual([false, true]);
+    expect(calls[1][1]).toMatchObject({ connectionId: null, idempotencyKey: "snap:1", lang: "0000", create: true });
+    expect(JSON.parse(calls[1][1].request)).toEqual({ id: "task-chain", connectionId: null, options: {} });
+  });
+
+  // A new key under a restriction: looked up (create: false), nothing
+  // created, refused with the restriction.
+  const nothingHeld = () => { policy.allocate = async args => { calls.push(["allocate", args]); return { protocol: "none" }; }; };
+
+  it("refuses a mixed chain that needs a connection, creating nothing", async () => {
+    nothingHeld();
+    const res = await post(app(chainOf(["snap", "save"])), CONNECTIONLESS);
+    expect([res.status, res.body.error.reason]).toEqual([400, "connection-required"]);
+    expect(calls.map(([, a]) => a.create)).toEqual([false]);
+    expect(runs).toEqual([]);
+    // With its connection, it creates and runs.
+    fresh();
+    expect((await post(app(chainOf(["snap", "save"])), { ...CONNECTIONLESS, connectionId: "conn-1" })).status).toBe(200);
+    expect(calls.at(-1)[1]).toMatchObject({ connectionId: "conn-1", create: true });
+  });
+
+  it("refuses a new key for a chain whose writes are only partly allowed", async () => {
+    nothingHeld();
+    const res = await post(app(chainOf(["snap", "save"]), { COMMANDS_L0013: "on", COMMAND_SCOPES: "on" }), { ...CONNECTIONLESS, connectionId: "conn-1" });
+    expect([res.status, res.body.error.reason]).toEqual([403, "commands-not-enabled"]);
+    expect(calls.map(([, a]) => a.create)).toEqual([false]);
+  });
+
+  // The owner's review of #417: L0013's commands turned off while L0176's
+  // stay on must not strand the retry of a mixed command already run.
+  it("serves the retry of a key that holds a command, whatever today's eligibility says", async () => {
+    policy.allocate = async args => { calls.push(["allocate", args]); return { protocol: "command", commandId: "c:mixed", generation: 1, owned: false, reused: true, status: "completed", result: { state: "available" }, leaseExpiresAt: Date.now() + 60_000 }; };
+    const res = await post(app(chainOf(["snap", "save"]), { COMMANDS_L0176: "on", COMMAND_SCOPES: "on" }), { ...CONNECTIONLESS, connectionId: "conn-1" });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ commandId: "c:mixed", outcome: "completed" });
+    expect(calls.map(([, a]) => a.create)).toEqual([false]);
+    expect(runs).toEqual([]);
+  });
+
+  // The owner's second review of #417: a held key's retry never depends on
+  // a compiler being reachable now.
+  it("serves a held key's retry while the chain's compilers can't be preflighted", async () => {
+    policy.allocate = async args => { calls.push(["allocate", args]); return { protocol: "command", commandId: "c:held", generation: 1, owned: false, reused: true, status: "completed", result: { state: "available" }, leaseExpiresAt: Date.now() + 60_000 }; };
+    const a = express();
+    a.use(express.json());
+    a.use((/** @type {any} */ req, _res, next) => { req.auth = { context: { uid: UID } }; next(); });
+    const down = async () => { throw new PreflightUnavailable("s0 unreachable"); };
+    a.use("/command", buildCommandRouter({ taskStorer: { get: async () => chainOf(["snap", "save"]), create: async () => "task-data" }, policy, run: async () => { throw new Error("no run"); }, worker: "w1", env: ENV, eligible: down }));
+    const res = await post(a, { ...CONNECTIONLESS, connectionId: "conn-1" });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ commandId: "c:held", outcome: "completed" });
+    expect(calls.map(([, x]) => x.create)).toEqual([false]);
+  });
+
+  it("still requires a signed-in user and a key, and a connection without COMMAND_SCOPES", async () => {
+    expect((await post(app(chainOf(["snap"])), CONNECTIONLESS, {})).status).toBe(401);
+    expect((await post(app(chainOf(["snap"])), { id: "task-chain" })).status).toBe(400);
+    expect((await post(app(chainOf(["snap"]), { COMMANDS_L0013: "on" }), CONNECTIONLESS)).status).toBe(400);
+    expect(calls).toEqual([]);
   });
 });

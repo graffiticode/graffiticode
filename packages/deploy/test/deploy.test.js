@@ -564,6 +564,26 @@ test("the repository's deploy.json keeps Policy's B6 recording floor", async () 
   assert.deepEqual(floor, { milestone: "B6-recording", commit: "d322c227a019abbe10d50108398764aee8e5d2d0", floor: true });
 });
 
+// C5 (COMMAND_SCOPES): the env is applied with --update-env-vars, which keeps
+// any variable a release doesn't name, so an api entry that doesn't set
+// COMMAND_SCOPES must list it in removeEnv, or a revision that once carried
+// it would keep running v3 commands. An entry that turns on L0013 commands
+// needs it on: without it, Policy never hands that api a v3 command.
+test("every api entry in the repository's deploy.json sets COMMAND_SCOPES or removes it, and L0013 commands need it", async () => {
+  const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
+  const apis = Object.entries(raw.services).filter(([, s]) => /\/services\/api(-[a-z0-9-]+)?$/.test(s.image ?? ""));
+  assert.ok(apis.some(([name]) => name === "api"), "the production api is checked");
+  for (const [name, s] of apis) {
+    const set = Object.prototype.hasOwnProperty.call(s.env ?? {}, "COMMAND_SCOPES");
+    assert.ok(set || (s.removeEnv ?? []).includes("COMMAND_SCOPES"), `${name}: COMMAND_SCOPES is neither set nor in removeEnv`);
+    if (s.env?.COMMANDS_L0013 === "on") assert.equal(s.env.COMMAND_SCOPES, "on", `${name}: COMMANDS_L0013=on needs COMMAND_SCOPES=on`);
+  }
+  // Production runs no v3 command until C5d.
+  assert.equal(raw.services.api.env.COMMAND_SCOPES, undefined);
+  assert.equal(raw.services.api.env.COMMANDS_L0013, undefined);
+  assert.deepEqual(raw.services.api.removeEnv, ["COMMAND_SCOPES"]);
+});
+
 // B6 slice 5 (the owner's review of #389): before any repair exists, Policy's
 // floor is slice 4's merge, the first Policy that guards and settles repairs.
 // Rolling back to slice 3's or slice 2's Policy is refused, with or without
