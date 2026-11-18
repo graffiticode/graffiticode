@@ -35,6 +35,11 @@
 //   consoleRoute   [{ caller, status }]                 policy-run and others
 //   proxy          { verifyRollout, at11 }              Step 26's evidence
 //   gateBucket     "graffiticode-c5a-gate"
+//   images         { references: { private, public: { sha256, width, height } },
+//                    captures: [imageObservation()] }   each scenario's published PNG, read
+//                    right after its command and compared with the owner-approved reference
+//                    render of its item (a correct render is identical to it; the error banner
+//                    the camera photographed before the display-only fix is not)
 
 //   errors         { <observation>: message }           a read that failed; any fails the gate
 //
@@ -110,6 +115,54 @@ export const policyReserveFilter = (itemId, since) => [
   `jsonPayload.itemId="${itemId}"`,
   `timestamp>="${since}"`,
 ].join(" AND ");
+
+// Bounded polling for an audit read (the owner's review of the r381d64 captures:
+// the quota's refusal was audited, but read before Cloud Logging had ingested
+// it). `read()` is retried until `done(value)` or the deadline; the last value
+// is returned either way, with how many reads it took and whether it timed out,
+// so a check still judges what was there.
+export const pollUntil = async ({ read, done, timeoutMs = 180_000, intervalMs = 10_000, sleep = ms => new Promise(r => setTimeout(r, ms)), now = () => Date.now() }) => {
+  const deadline = now() + timeoutMs;
+  let attempts = 0;
+  for (;;) {
+    const value = await read();
+    attempts++;
+    if (done(value)) return { value, attempts, timedOut: false };
+    if (now() + intervalMs > deadline) return { value, attempts, timedOut: true };
+    await sleep(intervalMs);
+  }
+};
+// The quota's audit is complete once every anonymous command the burst
+// allocated has its reserve recorded, allowed or refused.
+export const reservesCover = commandIds => entries => {
+  const audited = new Set(entries.filter(e => e?.jsonPayload?.event === "command-reserve").map(e => e.jsonPayload.commandId));
+  return commandIds.every(id => audited.has(id));
+};
+
+// A scenario's published capture as an image observation: the object's
+// metadata (whose capture it is), what its pixels look like, and how it
+// compares with the reference render of its item (scripts/lib/png.js).
+export const MAX_REDDISH = 0.001;
+// A correct render of the same item is identical (0); the same sheet with one
+// word changed is ~0.97.
+export const MAX_MEAN_DIFF = 0.05;
+export const imageObservation = ({ scenario, expectedCommandIds, object, looks, comparison, reference, sha256 }) => ({
+  scenario,
+  expectedCommandIds,
+  commandId: object?.commandId ?? null,
+  generation: object?.generation ?? null,
+  captureSequence: object?.captureSequence ?? null,
+  sha256,
+  width: looks.width,
+  height: looks.height,
+  reddish: looks.reddish,
+  blue: looks.blue,
+  reference,
+  sameSize: comparison?.sameSize ?? false,
+  identical: comparison?.identical ?? false,
+  meanDiff: comparison?.meanDiff ?? null,
+});
+export const IMAGE_SCENARIOS = Object.freeze({ private: "private", composition: "private", mixed: "private", public: "public" });
 
 // Policy's due query, as the production api asks it and as a `scopes` worker
 // does, over the gate's pending v3 fixtures and a v2 control
@@ -205,6 +258,20 @@ export const CHECKS = [
     if (p?.outcome !== "completed") return `owner's capture ${p?.outcome ?? "not observed"}`;
     if (p.published?.bucket !== (o.gateBucket ?? GATE_BUCKET)) return `published to ${p.published?.bucket}`;
     if (!has(p.reservedSequence) || p.published.captureSequence !== p.reservedSequence) return `published sequence ${p.published?.captureSequence} isn't the reserved ${p.reservedSequence}`;
+    return true;
+  }],
+  ["images-correct", "every scenario's published capture is its item's sheet: its own command's, no error banner, and identical to the approved reference render", o => {
+    const refs = o.images?.references ?? {};
+    for (const kind of new Set(Object.values(IMAGE_SCENARIOS))) if (!refs[kind]?.sha256) return `no approved ${kind} reference image`;
+    const captures = o.images?.captures ?? [];
+    for (const [scenario, kind] of Object.entries(IMAGE_SCENARIOS)) {
+      const c = captures.find(x => x.scenario === scenario);
+      if (!c) return `${scenario}: no published image observed`;
+      if (!Array.isArray(c.expectedCommandIds) || !c.expectedCommandIds.includes(c.commandId)) return `${scenario}: the object is ${c.commandId}'s capture, not this scenario's`;
+      if (c.reference !== kind) return `${scenario}: compared with the ${c.reference} reference, not ${kind}`;
+      if (!(c.reddish < MAX_REDDISH)) return `${scenario}: an error render (${(c.reddish * 100).toFixed(1)}% reddish)`;
+      if (c.sameSize !== true || !(c.meanDiff <= MAX_MEAN_DIFF)) return `${scenario}: differs from the ${kind} reference (${c.width}×${c.height}, mean difference ${c.meanDiff})`;
+    }
     return true;
   }],
   ["private-non-owner", "a private item is refused for a non-owner, at admission and again at authorize-execution after access is narrowed", o => {

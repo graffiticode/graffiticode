@@ -673,6 +673,22 @@ All six slices are merged and released in the order above, and:
 
 Each *hermetic* row's record goes in the gate's evidence directory.
 
+**Captures render display-only; images are evidence** (owner's review of the r381d64 captures, 2026-11-18).
+- **What failed:** the composition's and mixed chain's private captures published a photograph of "failed to post compile <task>".
+  - The shared View (`@graffiticode/l0000-view`) recompiles whenever the Form reports an `update`, and L0179's sheet reports one as its cells become ready. The resulting `POST /compile` was refused, because a render grant covers only `GET /form` and `/data`.
+  - E3's correct image depended on timing: its View assets came from l0179r, and the screenshot was taken before the refusal was painted. When the assets came from the edge cache, the refusal was painted first.
+- **The fix:** a display-only capture context, with render grants unchanged.
+  - Before any page script runs, the camera sets `window.__graffiticodeCapture = { displayOnly: true }` (`languages/l0013/crates/capture/src/browser.rs`), for every capture.
+  - In that context the View loads its data once and never recompiles (`l0000-view` 0.5.1, `src/lib/capture.ts`). Without it, the View behaves as before.
+  - The capture crate's `tests/l0179.rs` runs L0179's real View bundle with cold and cached assets. It requires no `POST /compile` and the settled sheet in the photograph, and runs the released View as a control.
+- **Gate evidence (`images-correct`):** each scenario's published capture is read straight after its command, before the next capture of the item overwrites it. It must:
+  - belong to that command;
+  - show no error banner;
+  - be identical to the owner-approved reference render of its item (`--reference-private`, `--reference-public`; mean difference at most 0.05, where one changed word measures about 0.97).
+- **Captures recorded before the fix stay as they are:** a completed command keeps its recorded error image. Validating the fix needs fresh commands, under a new run.
+- **Audit reads poll:** the quota's and the mixed chain's audit reads poll, bounded, until Cloud Logging has every record the run expects (the 13th reserve was audited, but read before it was ingested).
+- **The non-owner must be able to read the private snap task:** otherwise the api's own task lookup refuses with a 404 before Policy is asked. The non-owner's observation records the HTTP status, so the two refusals can be told apart.
+
 ## 4. C5b–C5e, in outline
 
 Each gets its own detailed slices after C5a.
