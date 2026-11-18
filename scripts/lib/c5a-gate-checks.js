@@ -230,7 +230,8 @@ export const hermeticProblem = (o, row) => {
 };
 // Field-level evidence for a live row with hermetic fallbacks (the #421
 // review). Each field the check judges comes from the live observation when
-// it has one, and a live field always decides, failing or not. A field the
+// the observation has it (present, even as null), and a live field always
+// decides, failing or not. A field the
 // live run didn't observe comes from a hermetic record that lists it in
 // `fields` (or the row's single legacy record, which covers every field):
 // valid at its deployed commit with its verbatim output and its supporting
@@ -246,7 +247,10 @@ export const fieldEvidence = (o, row, fields) => {
   const sources = {};
   const problems = [];
   for (const f of fields) {
-    if (has(live[f])) {
+    // Present in the live observation, even as null: the live value decides
+    // (the second #421 review: a present invalid value must fail).
+    if (Object.prototype.hasOwnProperty.call(live, f)) {
+      if (!has(live[f])) { problems.push(`${row}.${f}: observed live as ${live[f]}`); continue; }
       values[f] = live[f];
       sources[f] = "live";
       continue;
@@ -423,11 +427,21 @@ export const CHECKS = [
     // decides. Without them, the flat fields (live or hermetic) are judged.
     const captures = o.reserveStageBind?.captures;
     if (Array.isArray(captures)) {
-      if (!captures.length) return "no capture's reservation was observed";
-      for (const c of captures) {
+      // Every expected scenario, once, correlated with its image observation:
+      // the same command and object generation (the second #421 review).
+      const imaged = o.images?.captures ?? [];
+      for (const scenario of Object.keys(IMAGE_SCENARIOS)) {
+        const found = captures.filter(c => c.scenario === scenario);
+        if (found.length !== 1) return `${scenario}: ${found.length} reserve/stage/bind observation(s), expected 1`;
+        const c = found[0];
+        const image = imaged.filter(i => i.scenario === scenario);
+        if (image.length !== 1) return `${scenario}: ${image.length} image observation(s) to correlate with`;
+        if (c.commandId !== image[0].commandId || !has(c.objectGeneration) || String(c.objectGeneration) !== String(image[0].generation)) return `${scenario}: observed ${c.commandId} at generation ${c.objectGeneration}, but the image is ${image[0].commandId} at ${image[0].generation}`;
         const problem = rsbCaptureProblem(c);
-        if (problem) return `${c.scenario ?? c.commandId}: ${problem}`;
+        if (problem) return `${scenario}: ${problem}`;
       }
+      const extra = captures.filter(c => !Object.hasOwn(IMAGE_SCENARIOS, c.scenario));
+      if (extra.length) return `unexpected reserve/stage/bind observations ${JSON.stringify(extra.map(c => c.scenario))}`;
       return byFields(o, "reserveStageBind", ["repeatReserveSame", "repeatStageSame", "outOfOrderFinal", "outOfOrderNewer"], r => {
         if (r.repeatReserveSame !== true || r.repeatStageSame !== true) return "a repeat changed the recorded state";
         if (!has(r.outOfOrderNewer) || r.outOfOrderFinal !== r.outOfOrderNewer) return `out-of-order pair ended on ${r.outOfOrderFinal}`;

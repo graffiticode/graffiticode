@@ -428,7 +428,10 @@ test("a live field always decides, and a hermetic record never replaces it", () 
 // Live per-capture evidence (each scenario's object, its own command's
 // reservation and bind for the same occurrence) with the repeats from Policy
 // and the out-of-order pair from Broker.
-const capture = (over = {}) => ({ scenario: "private", commandId: "c:own", objectCommandId: "c:own", occurrenceId: "snap:1", boundOccurrenceId: "snap:1", item: "item-1", reservations: 1, reservedAt: "2026-11-18T21:00:00.000Z", stagedAt: "2026-11-18T21:00:05.000Z", boundAt: "2026-11-18T21:00:06.000Z", reservedSequence: 4, publishedSequence: 4, ...over });
+// One capture per image scenario, each naming the command and generation of
+// that scenario's image observation (PASSING's image(): c:<scenario>, "1").
+const capture = (scenario = "private", over = {}) => ({ scenario, commandId: `c:${scenario}`, objectCommandId: `c:${scenario}`, objectGeneration: "1", occurrenceId: "snap:1", boundOccurrenceId: "snap:1", item: "item-1", reservations: 1, reservedAt: "2026-11-18T21:00:00.000Z", stagedAt: "2026-11-18T21:00:05.000Z", boundAt: "2026-11-18T21:00:06.000Z", reservedSequence: 4, publishedSequence: 4, ...over });
+const SCENARIO_NAMES = ["private", "composition", "mixed", "public"];
 const RSB = () => ({
   records: [
     { fields: ["repeatReserveSame", "repeatStageSame"], service: "policy", commit: "p".repeat(40), test: "packages/policy/src/captures.spec.ts › reserve, stage and bind › run in order, each once", output: jest("captures.spec.ts", "run in order, each once"), passed: true, uninducible: "a repeat needs a crash or takeover", result: { repeatReserveSame: true, repeatStageSame: true } },
@@ -436,21 +439,53 @@ const RSB = () => ({
   ],
 });
 test("reserve/stage/bind: live captures correlated to one occurrence, the rest per field", () => {
-  const live = o => { o.reserveStageBind = { captures: [capture(), capture({ scenario: "composition", commandId: "c:comp", objectCommandId: "c:comp", reservedSequence: 5, publishedSequence: 5 })] }; o.hermetic.reserveStageBind = RSB(); };
+  const live = o => { o.reserveStageBind = { captures: SCENARIO_NAMES.map(n => capture(n)) }; o.hermetic.reserveStageBind = RSB(); };
   const o = PASSING();
   live(o);
   assert.deepEqual(verdict(o).checks.filter(c => !c.ok), []);
   assert.equal(rsbCaptureProblem(capture()), null);
-  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[1].objectCommandId = "c:own"; });
+  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[1].objectCommandId = "c:private"; });
   failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[0].boundOccurrenceId = "snap:2"; });
   failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[0].reservations = 2; });
   failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[0].stagedAt = "2026-11-18T21:00:07.000Z"; });
   failsOnly("reserve-stage-bind", x => { live(x); delete x.reserveStageBind.captures[0].boundAt; });
-  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[1].publishedSequence = 4; });
+  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[1].publishedSequence = 5; });
   failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures = []; });
   failsOnly("reserve-stage-bind", x => { live(x); x.hermetic.reserveStageBind.records[1].commit = "p".repeat(40); });
   failsOnly("reserve-stage-bind", x => { live(x); x.hermetic.reserveStageBind.records[0].uninducible = ""; });
   failsOnly("reserve-stage-bind", x => { live(x); x.hermetic.reserveStageBind.records.pop(); });
   // A live out-of-order observation decides over the Broker record.
   failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.outOfOrderFinal = 5; x.reserveStageBind.outOfOrderNewer = 6; });
+});
+
+// The second #421 review: every scenario must be covered, each correlated
+// with its own image observation; a present live field decides even as null.
+test("reserve/stage/bind needs every image scenario, correlated with its image", () => {
+  const live = (o, names = SCENARIO_NAMES) => { o.reserveStageBind = { captures: names.map(n => capture(n)) }; o.hermetic.reserveStageBind = RSB(); };
+  // The reviewer's false pass: only the private capture.
+  failsOnly("reserve-stage-bind", x => live(x, ["private"]));
+  for (const missing of SCENARIO_NAMES) failsOnly("reserve-stage-bind", x => live(x, SCENARIO_NAMES.filter(n => n !== missing)));
+  failsOnly("reserve-stage-bind", x => live(x, [...SCENARIO_NAMES, "private"]));
+  failsOnly("reserve-stage-bind", x => live(x, [...SCENARIO_NAMES, "extra"]));
+  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[2].objectGeneration = "2"; });
+  failsOnly("reserve-stage-bind", x => { live(x); delete x.reserveStageBind.captures[3].objectGeneration; });
+  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[3] = capture("public", { commandId: "c:other", objectCommandId: "c:other" }); });
+  const o = PASSING();
+  live(o);
+  assert.match(verdict(o).checks.find(c => c.id === "reserve-stage-bind").detail, /^ok$/);
+  live(o, ["private"]);
+  assert.match(verdict(o).checks.find(c => c.id === "reserve-stage-bind").detail, /composition: 0 reserve\/stage\/bind observation/);
+});
+
+test("a live field present as null decides; the fallback never fills it", () => {
+  // The reviewer's false pass: finalSequence: null beside a passing record.
+  failsOnly("conditional-retry", x => { x.conditional = { finalSequence: null }; x.hermetic.conditional = { records: [CONDITIONAL()] }; });
+  failsOnly("conditional-retry", x => { x.conditional = { finalSequence: undefined }; x.hermetic.conditional = { records: [CONDITIONAL()] }; });
+  failsOnly("private-non-owner", x => { x.narrowed = { reason: null }; x.hermetic.narrowed = { ...CONDITIONAL(), fields: undefined, service: "policy", commit: "p".repeat(40), test: "packages/policy/src/scopes.spec.ts › v3 › narrowed", output: jest("scopes.spec.ts", "narrowed"), result: { reason: "not-owner" } }; });
+  const x = PASSING();
+  x.conditional = { finalSequence: null };
+  x.hermetic.conditional = { records: [CONDITIONAL()] };
+  const ev = fieldEvidence(x, "conditional", ["attempts", "finalSequence", "newerSequence"]);
+  assert.deepEqual(ev.problems, ["conditional.finalSequence: observed live as null"]);
+  assert.equal(ev.sources.finalSequence, undefined);
 });
