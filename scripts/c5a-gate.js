@@ -306,10 +306,19 @@ const recordCapture = async ({ scenario, item, observed }) => {
   const reservation = reservations.length === 1 ? reservations[0] : null;
   const bound = reservation ? await doc("policy", `commands/${id}/occurrences/${encodeURIComponent(`${reservation.stage}:${reservation.occurrenceId}`)}`) : null;
   const entry = {
-    scenario, item, commandId, objectCommandId: observed.commandId, objectGeneration: observed.generation,
-    reservations: reservations.length, occurrenceId: reservation?.occurrenceId ?? null, boundOccurrenceId: bound?.occurrenceId ?? null,
-    reservedAt: reservation?.reservedAt ?? null, stagedAt: reservation?.stagedAt ?? null, boundAt: bound?.boundAt ?? null,
-    reservedSequence: reservation?.captureSequence ?? null, publishedSequence: observed.captureSequence,
+    scenario,
+    item,
+    commandId,
+    objectCommandId: observed.commandId,
+    objectGeneration: observed.generation,
+    reservations: reservations.length,
+    occurrenceId: reservation?.occurrenceId ?? null,
+    boundOccurrenceId: bound?.occurrenceId ?? null,
+    reservedAt: reservation?.reservedAt ?? null,
+    stagedAt: reservation?.stagedAt ?? null,
+    boundAt: bound?.boundAt ?? null,
+    reservedSequence: reservation?.captureSequence ?? null,
+    publishedSequence: observed.captureSequence,
   };
   rsbCaptures.push(entry);
   console.log(`reserve/stage/bind ${scenario}: ${JSON.stringify(entry)}`);
