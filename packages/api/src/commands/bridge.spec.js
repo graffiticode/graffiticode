@@ -272,6 +272,21 @@ describe("the bridge (C5)", () => {
     expect(allocations).toEqual([]);
   });
 
+  // The owner's review of #417: a key that already holds a command is served
+  // from its record even when today's eligibility would refuse new work.
+  it("serves a held key's retry when today's eligibility refuses new work, and refuses a new key", async () => {
+    const held = { protocol: "command", commandId: "c:mixed", generation: 1, owned: false, reused: true, status: "completed" };
+    const offNow = buildChainEligibility({ preflight, baseUrlFor, env: { COMMANDS_L0176: "on", COMMAND_SCOPES: "on" } });
+    const args = { tasks: [SNAP, SAVE], id: "chain", auth: OWNER, authToken: "t", connectionId: "conn-1", options: {}, idempotencyKey: "save:1" };
+    const served = await bridge({ eligible: offNow, getRunner: () => runner({ allocate: async a => { allocations.push(a); return held; } }) })(args);
+    expect(served.ran.state).toMatchObject({ commandId: "c:mixed" });
+    expect(allocations.map(a => a.create)).toEqual([false]);
+    allocations.length = 0;
+    const fresh = await bridge({ eligible: offNow, getRunner: () => runner({ allocate: async a => { allocations.push(a); return { protocol: "none" }; } }) })(args);
+    expect(fresh.errors[0].code).toBe("commands-not-enabled");
+    expect(allocations.map(a => a.create)).toEqual([false]);
+  });
+
   it("runs an anonymous capture as an anonymous command, with no token and never the caller's key", async () => {
     await bridge()({ tasks: [SNAP], id: "chain", auth: null, authToken: "ignored", connectionId: null, options: {}, idempotencyKey: "theirs" });
     expect(allocations).toEqual([expect.objectContaining({ anonymous: true, authToken: null, connectionId: null, idempotencyKey: "bridge:fresh" })]);

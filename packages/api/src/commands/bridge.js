@@ -223,14 +223,11 @@ export const buildCommandBridge = ({ eligible, getRunner, compileEnvelope, newKe
         log(`bridge ${JSON.stringify({ lang: normalizeLang(lang), outcome, keyKind: keyKindOf(idempotencyKey), client, ...(connectionId === null ? { connection: "none" } : {}), ...(anonymous ? { anonymous: true } : {}) })}`);
       } catch { /* telemetry never fails the compile */ }
     };
-    if (verdict.refusal) {
-      await note(`refused:${verdict.refusal}`);
-      return refusal(`Error: permission denied (${verdict.refusal})`, verdict.refusal);
-    }
-    if (connectionId === null && connectionRequired(verdict)) {
-      await note("refused:connection-required");
-      return refusal("Error: this chain writes through a connection; select one", "connection-required");
-    }
+    // Today's restrictions apply to new work only: a chain refused now (some
+    // writes' commands turned off since, or no connection for a write that
+    // needs one) may still be the retry of a key that already holds a
+    // command, which is answered from its record (D2a), never refused.
+    const restricted = verdict.refusal ?? (connectionId === null && connectionRequired(verdict) ? "connection-required" : null);
     // An anonymous caller's key is never its own: every anonymous caller is
     // the same subject, so each anonymous compile gets a fresh key.
     const key = anonymous ? newKey() : (idempotencyKey ?? newKey());
@@ -246,6 +243,31 @@ export const buildCommandBridge = ({ eligible, getRunner, compileEnvelope, newKe
       create,
       anonymous,
     });
+    if (restricted) {
+      if (idempotencyKey && !anonymous) {
+        let held;
+        try {
+          held = await run(false);
+        } catch (e) {
+          if (!(e instanceof PolicyRefused)) throw e;
+          held = null;
+        }
+        if (held?.protocol === "command") {
+          await note("held-served");
+          return compileEnvelope(held);
+        }
+        // A key the legacy path holds compiles as today, unless the chain
+        // is command-only.
+        if (held?.protocol === "legacy") {
+          if (commandOnly) await note("refused:legacy-protocol");
+          return noFallback("Error: this key belongs to a legacy compile; send a new key", "legacy-protocol");
+        }
+      }
+      await note(`refused:${restricted}`);
+      return restricted === "connection-required"
+        ? refusal("Error: this chain writes through a connection; select one", "connection-required")
+        : refusal(`Error: permission denied (${restricted})`, restricted);
+    }
     if (!bridgeEnabled(lang, env)) {
       // Retired (D4): nothing new starts from a compile. A key that already
       // holds a command is answered from its record.

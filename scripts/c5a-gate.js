@@ -43,7 +43,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { createCanaryEnv, loadDeployServices, http } from "./lib/canary-env.js";
-import { verdict, GATE_BUCKET } from "./lib/c5a-gate-checks.js";
+import { verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planContractVersion, tokensFromAudit, brokerAuditFilter, rateLimitFromAudit, policyReserveFilter } from "./lib/c5a-gate-checks.js";
 
 const args = process.argv.slice(2);
 const flag = (name, fallback = null) => {
@@ -64,7 +64,8 @@ const region = flag("--region", "us-central1");
 const consoleAccount = flag("--console-account", "console-run@graffiticode-app.iam.gserviceaccount.com");
 const gateService = flag("--gate-service", "api-c5a-gate");
 const stateFile = flag("--state", new URL("../.gc-deploy/c5a-gate/state.json", import.meta.url).pathname);
-const burst = Number(flag("--anonymous-burst", "12"));
+// One past the quota, so a fresh fixture's last anonymous capture is refused.
+const burst = Number(flag("--anonymous-burst", String(PUBLIC_CAPTURE_LIMIT + 1)));
 
 const deploy = await loadDeployServices();
 const authUrl = deploy.api.env.AUTH_URL;
@@ -77,6 +78,18 @@ const save = async () => {
 const observe = (key, value) => {
   state.observations[key] = value;
   console.log(`observed ${key}: ${JSON.stringify(value)}`);
+};
+// Every observation is collected through this: a read that fails is recorded
+// as an error, which fails the gate (observations-read), never as an empty
+// or default value.
+const collect = async (key, read) => {
+  try {
+    observe(key, await read());
+    if (state.observations.errors) delete state.observations.errors[key];
+  } catch (e) {
+    state.observations.errors = { ...(state.observations.errors ?? {}), [key]: String(e?.message ?? e).slice(0, 300) };
+    console.log(`FAILED to observe ${key}: ${state.observations.errors[key]}`);
+  }
 };
 
 // ------------------------------------------------------------- the operator
@@ -120,11 +133,24 @@ const approvalsDigest = async () => {
   for (const lang of ["0176", "0000"]) records[lang] = (await docs("revisions", `languages/${lang}/revisions`)).sort((a, b) => String(a.revision).localeCompare(String(b.revision)));
   return digest(records);
 };
-// graffiticode.appspot.com's thumbnails/: names and generations.
+// graffiticode.appspot.com's thumbnails/: names and generations. A failed
+// read throws.
 const appspotListing = async () => {
-  const out = await gcloud(["storage", "ls", "--json", "gs://graffiticode.appspot.com/thumbnails/"]).catch(() => "[]");
+  const out = await gcloud(["storage", "ls", "--json", "gs://graffiticode.appspot.com/thumbnails/"]);
   const listed = JSON.parse(out || "[]").map(o => [o.url, o.metadata?.generation ?? null]).sort();
+  if (listed.length === 0) throw new Error("the appspot thumbnails listing is empty");
   return digest(listed);
+};
+// graffiticode-thumbnails' object count: 0 when the bucket doesn't exist
+// (C5b creates it); any other failure throws.
+const thumbnailsCount = async () => {
+  const exists = await gcloud(["storage", "buckets", "describe", "gs://graffiticode-thumbnails", "--format=value(name)"]).then(() => true, e => {
+    if (/not found|404/i.test(String(e?.message ?? e))) return false;
+    throw e;
+  });
+  if (!exists) return 0;
+  const out = await gcloud(["storage", "ls", "gs://graffiticode-thumbnails/"]);
+  return out.split("\n").filter(Boolean).length;
 };
 
 // ------------------------------------------------------------ the gate api
@@ -156,18 +182,18 @@ const anonymousCompile = async id => {
 const commandRecord = async commandId => {
   const record = await doc("policy", `commands/${encodeURIComponent(commandId)}`);
   const reservations = record ? await docs("policy", `commands/${encodeURIComponent(commandId)}/reservations`) : [];
-  const plan = record?.admission?.planDigest ? await doc("policy", `plans/${record.admission.planDigest}`) : null;
-  return { record, reservations, plan };
+  // The stored plan document: { plan: { stages, ... }, invocationId, revisions }.
+  const planDoc = record?.admission?.planDigest ? await doc("policy", `plans/${record.admission.planDigest}`) : null;
+  return { record, reservations, planDoc };
 };
-const approvalOf = async (lang, revision) => doc("revisions", `languages/${lang}/revisions/${revision}`);
-const planObservation = async (name, { record, plan }) => {
-  const stages = [];
-  for (const [stage, admitted] of Object.entries(record?.admission?.stages ?? {}).sort()) {
-    const approval = await approvalOf(admitted.lang, admitted.revision);
-    const manifest = (plan?.stages ?? []).find(s => s.stage === stage) ?? {};
-    stages.push({ stage, lang: admitted.lang, revision: admitted.revision, contractVersions: approval?.contractVersions ?? null, registryVersion: manifest.registryVersion ?? null });
+// A scenario's plan, with the approval record of each revision it pins.
+const observePlan = async (name, rec) => {
+  if (!rec.record) throw new Error(`${name}: no command record`);
+  const approvals = {};
+  for (const admitted of Object.values(rec.record.admission?.stages ?? {})) {
+    approvals[`${admitted.lang}/${admitted.revision}`] = await doc("revisions", `languages/${admitted.lang}/revisions/${admitted.revision}`);
   }
-  return { name, stages, admitted: record?.phase === "admitted" || ["completed", "partial", "uncertain"].includes(record?.status) };
+  return planObservation(name, rec, approvals);
 };
 const published = async item => {
   const out = await gcloud(["storage", "objects", "describe", `gs://${GATE_BUCKET}/${item}.png`, "--format=json"]).catch(() => null);
@@ -187,6 +213,7 @@ const need = name => {
 const key = name => `c5a-gate:${state.runId}:${name}`;
 
 if (phase === "baseline") {
+  // A baseline read that fails stops here: nothing is compared against it.
   state.baseline = { at: new Date().toISOString(), approvals: await approvalsDigest(), appspot: await appspotListing() };
   console.log(`baseline ${JSON.stringify(state.baseline)}`);
   await save();
@@ -195,60 +222,73 @@ if (phase === "baseline") {
 if (phase === "captures") {
   if (!state.baseline) throw new Error("run --phase baseline first");
   const plans = [];
+  const planOf = async (name, rec) => {
+    try {
+      plans.push(await observePlan(name, rec));
+    } catch (e) {
+      state.observations.errors = { ...(state.observations.errors ?? {}), [`plan:${name}`]: String(e?.message ?? e) };
+    }
+  };
   // The owner's private capture.
   const owner = await command({ id: need("--private-task"), key: key("private"), userToken: await canary() });
   const ownerRec = await commandRecord(owner.commandId);
-  const reservation = ownerRec.reservations[0] ?? null;
-  observe("privateOwner", { outcome: ownerRec.record?.status ?? owner.outcome, reservedSequence: reservation?.captureSequence ?? null, published: reservation ? await published(reservation.item) : null });
-  plans.push(await planObservation("private", ownerRec));
+  await collect("privateOwner", async () => {
+    const reservation = ownerRec.reservations[0];
+    if (!reservation) throw new Error("the owner's capture has no reservation");
+    const object = await published(reservation.item);
+    if (!object) throw new Error(`nothing published at gs://${GATE_BUCKET}/${reservation.item}.png`);
+    return { outcome: ownerRec.record?.status ?? owner.outcome, reservedSequence: reservation.captureSequence ?? null, published: object };
+  });
+  await planOf("private", ownerRec);
   // A non-owner's capture of the same item: refused at admission.
-  const nonOwnerToken = process.env.C5A_NON_OWNER_TOKEN;
-  if (nonOwnerToken) {
+  await collect("privateNonOwner", async () => {
+    const nonOwnerToken = process.env.C5A_NON_OWNER_TOKEN;
+    if (!nonOwnerToken) throw new Error("set C5A_NON_OWNER_TOKEN to a non-owner's access token");
     const other = await command({ id: need("--private-task"), key: key("non-owner"), userToken: nonOwnerToken });
     const otherRec = other.commandId ? await commandRecord(other.commandId) : { record: null };
-    observe("privateNonOwner", { outcome: otherRec.record?.status ?? other.outcome, reason: otherRec.record?.admissionRefusal?.reason ?? other.reason });
-  } else {
-    console.log("skipped privateNonOwner: set C5A_NON_OWNER_TOKEN to a non-owner's access token");
-  }
+    return { outcome: otherRec.record?.status ?? other.outcome, reason: otherRec.record?.admissionRefusal?.reason ?? other.reason };
+  });
   // The composition: an L0000 head over the private capture, connectionless.
   const composed = await command({ id: need("--compose-task"), key: key("compose"), userToken: await canary() });
   const composedRec = await commandRecord(composed.commandId);
-  observe("composition", {
-    outcome: composedRec.record?.status ?? composed.outcome,
-    connectionId: composedRec.record ? composedRec.record.connectionId : "absent",
-    contractVersion: composedRec.record?.admission?.contractVersion ?? null,
-    itemScopeAuthorized: composedRec.reservations.length > 0 && composedRec.reservations.every(r => r.state === "staged" || r.state === "bound" || r.state === "reserved"),
+  await collect("composition", async () => {
+    if (!composedRec.record) throw new Error("no command record for the composition");
+    return {
+      outcome: composedRec.record.status,
+      connectionId: composedRec.record.connectionId,
+      contractVersion: planContractVersion(composedRec.planDoc),
+      itemScopeAuthorized: composedRec.reservations.length > 0,
+    };
   });
-  plans.push(await planObservation("composition", composedRec));
-  // The mixed chain, through the canary's connection: one invocation.
+  await planOf("composition", composedRec);
+  // The mixed chain, through the canary's connection: one invocation, each
+  // execution token with only its own scope (Broker's execute audit).
   const mixed = await command({ id: need("--mixed-task"), key: key("mixed"), userToken: await canary(), connection: connectionId });
   const mixedRec = await commandRecord(mixed.commandId);
-  const brokerAudit = invocationId => logs([
-    "resource.type=\"cloud_run_revision\"",
-    "resource.labels.service_name=\"broker\"",
-    "jsonPayload.logName=\"security_audit\"",
-    `jsonPayload.inv="${invocationId}"`,
-  ].join(" AND "));
-  const audit = mixedRec.record ? await brokerAudit(mixedRec.record.invocationId) : [];
-  observe("mixed", {
-    invocations: mixedRec.record ? 1 : 0,
-    tokens: audit.filter(e => e.jsonPayload?.fn).map(e => ({ fn: e.jsonPayload.fn, scopeKinds: [...new Set([e.jsonPayload.scp?.kind ?? (e.jsonPayload.conn ? "connection" : null)].filter(Boolean))] })),
+  await collect("mixed", async () => {
+    if (!mixedRec.record) throw new Error("no command record for the mixed chain");
+    const tokens = tokensFromAudit(await logs(brokerAuditFilter(mixedRec.record.invocationId)));
+    if (!tokens.length) throw new Error(`no Broker execute record for ${mixedRec.record.invocationId}`);
+    return { invocations: 1, tokens };
   });
-  plans.push(await planObservation("mixed", mixedRec));
-  // Anonymous captures of the public item, until one is rate-limited.
+  await planOf("mixed", mixedRec);
+  // Anonymous captures of the public item, one past the quota; the quota's
+  // evidence is Policy's own reservation audit for the item.
+  const burstFrom = new Date().toISOString();
   const anonymous = [];
-  for (let i = 0; i < burst; i++) {
-    const out = await anonymousCompile(need("--public-task"));
-    anonymous.push(out);
-    if (out.codes.includes("rate-limited")) break;
-  }
-  const first = anonymous.find(a => a.commandId);
-  const firstRec = first ? await commandRecord(first.commandId) : { record: null, reservations: [] };
-  observe("publicAnonymous", {
-    outcome: firstRec.record?.status ?? first?.outcome ?? null,
-    subject: firstRec.record?.uid ?? null,
-    publicCapture: firstRec.reservations[0]?.publicCapture ?? null,
-    rateLimited: anonymous.some(a => a.codes.includes("rate-limited")),
+  for (let i = 0; i < burst; i++) anonymous.push(await anonymousCompile(need("--public-task")));
+  await collect("publicAnonymous", async () => {
+    const first = anonymous.find(a => a.commandId);
+    if (!first) throw new Error("no anonymous capture allocated a command");
+    const rec = await commandRecord(first.commandId);
+    const item = rec.reservations[0]?.item;
+    if (!item) throw new Error("the first anonymous capture has no reservation");
+    return {
+      outcome: rec.record?.status ?? first.outcome,
+      subject: rec.record?.uid ?? null,
+      publicCapture: rec.reservations[0]?.publicCapture ?? null,
+      rateLimit: { ...rateLimitFromAudit(await logs(policyReserveFilter(item, burstFrom))), attempted: anonymous.length },
+    };
   });
   state.commands = [owner, composed, mixed, ...anonymous].map(c => c.commandId).filter(Boolean);
   observe("plans", plans);
@@ -257,18 +297,18 @@ if (phase === "captures") {
 
 if (phase === "after") {
   if (!state.baseline || !state.commands) throw new Error("run --phase baseline and --phase captures first");
-  const approvals = await approvalsDigest();
-  observe("approvals", { ...(state.observations.approvals ?? {}), beforeDigest: state.baseline.approvals, afterDigest: approvals });
-  const thumbnails = await gcloud(["storage", "ls", "gs://graffiticode-thumbnails/"]).catch(() => "");
-  observe("elsewhere", { appspotBefore: state.baseline.appspot, appspotAfter: await appspotListing(), thumbnailsObjects: thumbnails ? thumbnails.split("\n").filter(Boolean).length : 0 });
+  await collect("approvals", async () => ({ ...(state.observations.approvals ?? {}), beforeDigest: state.baseline.approvals, afterDigest: await approvalsDigest() }));
+  await collect("elsewhere", async () => ({ appspotBefore: state.baseline.appspot, appspotAfter: await appspotListing(), thumbnailsObjects: await thumbnailsCount() }));
   // The production api never touches a gate command: no line of its names one.
-  const lines = await logs([
-    "resource.type=\"cloud_run_revision\"",
-    "resource.labels.service_name=\"api\"",
-    `timestamp>="${state.baseline.at}"`,
-    `(${state.commands.map(id => `textPayload:"${id}"`).join(" OR ")})`,
-  ].join(" AND "));
-  observe("oldWorkers", { listedToProduction: lines.filter(l => /due|list/i.test(l.textPayload ?? "")).length, sweeperLeases: lines.filter(l => /recovered|lease/i.test(l.textPayload ?? "")).length });
+  await collect("oldWorkers", async () => {
+    const lines = await logs([
+      "resource.type=\"cloud_run_revision\"",
+      "resource.labels.service_name=\"api\"",
+      `timestamp>="${state.baseline.at}"`,
+      `(${state.commands.map(id => `textPayload:"${id}"`).join(" OR ")})`,
+    ].join(" AND "));
+    return { listedToProduction: lines.filter(l => /due|list/i.test(l.textPayload ?? "")).length, sweeperLeases: lines.filter(l => /recovered|lease/i.test(l.textPayload ?? "")).length };
+  });
   await save();
 }
 

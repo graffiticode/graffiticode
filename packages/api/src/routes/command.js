@@ -102,13 +102,14 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
     // A new key needs an eligible chain. A key either protocol already holds
     // is served whatever the flags say now (D2a): otherwise Policy only answers
     // which protocol holds the key, and creates nothing.
-    // C5: the whole chain's verdict, when the rule gives one: a chain whose
-    // writes aren't all allowed, or that needs a connection it wasn't given,
-    // is refused before anything is allocated.
+    // C5: the whole chain's verdict, when the rule gives one. A chain whose
+    // writes aren't all allowed now, or that needs a connection it wasn't
+    // given, creates nothing; its key is still looked up, so the retry of a
+    // command it already holds is served from its record (D2a), and only a
+    // new key is refused, with that reason.
     const verdict = eligibilityOf(await isEligible(tasks));
-    if (verdict?.refusal) return refused(res, STATUS_OF[classify(verdict.refusal).category] ?? 403, verdict.refusal);
-    if (!connectionId && connectionRequired(verdict)) return refused(res, STATUS_OF[classify("connection-required").category] ?? 400, "connection-required");
-    const create = Boolean(verdict);
+    const restricted = verdict?.refusal ?? (!connectionId && connectionRequired(verdict) ? "connection-required" : null);
+    const create = Boolean(verdict) && !restricted;
     let outcome;
     try {
       outcome = await runCommand({
@@ -130,6 +131,7 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
     }
     const allocated = outcome;
     if (allocated.protocol === "none") {
+      if (restricted) return refused(res, STATUS_OF[classify(restricted).category] ?? 403, restricted);
       // A chain with a flagged stage but no write is a read: nothing to command.
       const flagged = tasks.some(t => commandsEnabled(t.lang, env));
       return refused(res, 409, flagged ? "no-effects" : "commands-not-enabled");

@@ -3,10 +3,12 @@
 // its evidence is wrong or missing.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CHECKS, verdict, GATE_BUCKET } from "../lib/c5a-gate-checks.js";
+import { pinnedStage } from "@graffiticode/common/contract";
+import { createAudit } from "@graffiticode/policy";
+import { CHECKS, verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planStages, tokensFromAudit, rateLimitFromAudit, brokerAuditFilter } from "../lib/c5a-gate-checks.js";
 
 const approved = { l0013r: { revision: "l0013r-rmwl2casf-31e8b9", contractVersions: [3] }, l0000r: { revision: "l0000r-rmw8gtkc2-830693", contractVersions: [1, 2] }, l0176r: { revision: "l0176r-rmwk08k8n-c74227", contractVersions: [1, 2] }, beforeDigest: "a1", afterDigest: "a1" };
-const stage = (lang, over = {}) => ({ lang, revision: approved[`l${lang}r`].revision, contractVersions: approved[`l${lang}r`].contractVersions, registryVersion: lang === "0000" ? 0 : 9, ...over });
+const stage = (lang, i, over = {}) => ({ stage: `s${i}`, lang, revision: approved[`l${lang}r`].revision, contractVersions: approved[`l${lang}r`].contractVersions, registryVersion: lang === "0000" ? 0 : 9, ...over });
 const PASSING = () => ({
   gateBucket: GATE_BUCKET,
   approvals: structuredClone(approved),
@@ -15,15 +17,15 @@ const PASSING = () => ({
   v2PlanDigest: { before: "p1", after: "p1" },
   v8Artifact: { served: true },
   plans: [
-    { name: "private", stages: [stage("0013")], admitted: true },
-    { name: "mixed", stages: [stage("0013"), stage("0176")], admitted: true },
-    { name: "composition", stages: [stage("0000"), stage("0013")], admitted: true },
+    { name: "private", stages: [stage("0013", 0)], admitted: true },
+    { name: "mixed", stages: [stage("0013", 0), stage("0176", 1)], admitted: true },
+    { name: "composition", stages: [stage("0000", 0), stage("0013", 1)], admitted: true },
   ],
   preSlice6: { reason: "contract-version-unsupported" },
   privateOwner: { outcome: "completed", reservedSequence: 7, published: { bucket: GATE_BUCKET, captureSequence: 7 } },
   privateNonOwner: { outcome: "failed", reason: "not-owner" },
   narrowed: { reason: "not-owner" },
-  publicAnonymous: { outcome: "completed", subject: "anonymous", publicCapture: true, rateLimited: true },
+  publicAnonymous: { outcome: "completed", subject: "anonymous", publicCapture: true, rateLimit: { allowed: PUBLIC_CAPTURE_LIMIT, refused: 1, attempted: PUBLIC_CAPTURE_LIMIT + 1 } },
   mixed: { invocations: 1, tokens: [{ fn: "snap", scopeKinds: ["item"] }, { fn: "save-to-itembank", scopeKinds: ["connection"] }] },
   mismatches: [{ direction: "service-with-connection", reason: "credential-scope-mismatch" }, { direction: "connection-with-item", reason: "credential-scope-mismatch" }],
   composition: { outcome: "completed", connectionId: null, contractVersion: 3, itemScopeAuthorized: true },
@@ -53,8 +55,9 @@ test("a complete observation set passes every check", () => {
 test("nothing observed passes nothing", () => {
   const v = verdict({});
   assert.equal(v.passed, false);
-  assert.deepEqual(v.checks.filter(c => c.ok), []);
-  assert.ok(v.checks.every(c => typeof c.detail === "string" && c.detail !== "ok"));
+  // Only "no read failed" holds of nothing; every other check needs evidence.
+  assert.deepEqual(v.checks.filter(c => c.ok).map(c => c.id), ["observations-read"]);
+  assert.ok(v.checks.filter(c => !c.ok).every(c => typeof c.detail === "string" && c.detail !== "ok"));
 });
 
 test("each check fails on its own evidence", () => {
@@ -65,7 +68,8 @@ test("each check fails on its own evidence", () => {
   failsOnly("private-owner", o => { o.privateOwner.published.bucket = "graffiticode.appspot.com"; });
   failsOnly("private-non-owner", o => { o.narrowed = { reason: "allowed" }; });
   failsOnly("public-anonymous", o => { o.publicAnonymous.publicCapture = false; });
-  failsOnly("public-anonymous", o => { o.publicAnonymous.rateLimited = false; });
+  failsOnly("public-anonymous", o => { o.publicAnonymous.rateLimit.refused = 0; });
+  failsOnly("public-anonymous", o => { delete o.publicAnonymous.rateLimit; });
   failsOnly("mixed-chain", o => { o.mixed.invocations = 2; });
   failsOnly("mixed-chain", o => { o.mixed.tokens[0].scopeKinds = ["item", "connection"]; });
   failsOnly("mismatches", o => { o.mismatches.pop(); });
@@ -90,4 +94,73 @@ test("registry versions and per-stage contracts are judged from the plans' own s
   const o = PASSING();
   o.plans[1].stages[1].contractVersions = [3];
   assert.deepEqual(verdict(o).checks.filter(c => !c.ok).map(c => c.id).sort(), ["per-stage-contracts", "plans-pin-approved"]);
+});
+
+// The owner's review of #417: a failed read never passes as an empty one, and
+// each scenario needs its own languages and stages.
+test("a failed read fails the gate, whatever else was observed", () => {
+  failsOnly("observations-read", o => { o.errors = { elsewhere: "storage permission denied" }; });
+  // The runner records a failed read as an error and no observation: both fail.
+  const o = PASSING();
+  o.errors = { elsewhere: "storage permission denied" };
+  delete o.elsewhere;
+  assert.deepEqual(verdict(o).checks.filter(c => !c.ok).map(c => c.id).sort(), ["nothing-elsewhere", "observations-read"]);
+});
+
+test("every scenario needs its expected stages, and every pinned language its approved revision", () => {
+  // The reviewer's case: no L0000 or L0176 stage, and no approvals named for them.
+  const o = PASSING();
+  for (const p of o.plans) if (p.name !== "private") p.stages = p.stages.filter(st => st.lang === "0013");
+  delete o.approvals.l0000r;
+  delete o.approvals.l0176r;
+  const failed = verdict(o).checks.filter(c => !c.ok).map(c => c.id);
+  assert.equal(verdict(o).passed, false);
+  for (const id of ["scenarios", "plans-pin-approved", "registry-versions"]) assert.ok(failed.includes(id), `${id} should fail: ${failed}`);
+  failsOnly("scenarios", o2 => { o2.plans[2].stages.reverse(); o2.plans[2].stages.forEach((st, i) => { st.stage = `s${i}`; }); });
+  // A mixed chain without its L0176 stage: the scenario fails (and with it the
+  // only L0176 manifest, so registry versions too).
+  const noSave = PASSING();
+  noSave.plans = noSave.plans.filter(p => p.name !== "mixed").concat([{ name: "mixed", stages: [stage("0013", 0)], admitted: true }]);
+  assert.deepEqual(verdict(noSave).checks.filter(c => !c.ok).map(c => c.id).sort(), ["registry-versions", "scenarios"]);
+});
+
+// The adapters, against the shapes the services write.
+test("a plan's stages come from its stored document's `plan`, as Policy commits it", () => {
+  const manifest = lang => ({ stage: lang === "0000" ? "s0" : "s1", lang, sourceDigest: "a".repeat(64), programDigest: "b".repeat(64), optionsDigest: "c".repeat(64), revision: approved[`l${lang}r`].revision, imageDigest: `sha256:${"d".repeat(64)}`, registryVersion: lang === "0000" ? 0 : 9, requiredFunctions: lang === "0013" ? ["snap"] : [] });
+  // packages/policy/src/firestore.ts commitPlan: tx.set(planRef, { plan, invocationId, revisions, createdAt }).
+  const planDoc = { plan: { contractVersion: 3, invocationId: "inv-1", stages: [manifest("0000"), manifest("0013")].map(pinnedStage) }, invocationId: "inv-1", revisions: [], createdAt: "2026-11-17T00:00:00Z" };
+  assert.equal(planStages(planDoc).length, 2);
+  assert.deepEqual(planStages({ stages: planDoc.plan.stages }), [], "a bare stages array is not a stored plan document");
+  const record = { status: "completed", admission: { planDigest: "p", stages: { s1: { lang: "0013", revision: approved.l0013r.revision }, s0: { lang: "0000", revision: approved.l0000r.revision } } } };
+  const approvals = { [`0013/${approved.l0013r.revision}`]: { contractVersions: [3] }, [`0000/${approved.l0000r.revision}`]: { contractVersions: [1, 2] } };
+  assert.deepEqual(planObservation("composition", { record, planDoc }, approvals), {
+    name: "composition",
+    admitted: true,
+    stages: [
+      { stage: "s0", lang: "0000", revision: approved.l0000r.revision, contractVersions: [1, 2], registryVersion: 0 },
+      { stage: "s1", lang: "0013", revision: approved.l0013r.revision, contractVersions: [3], registryVersion: 9 },
+    ],
+  });
+});
+
+test("execution tokens' scopes come from Broker's execute audit, as the audit writes it", () => {
+  const written = [];
+  const audit = createAudit({ sink: r => written.push(r), pseudonymize: v => `p:${v}` });
+  // packages/broker/src/broker.ts's execute record: connectionId from `conn`,
+  // itemId from `scp`, with the operation id's parts.
+  audit({ event: "execute", uid: "u", ownerUid: "u", connectionId: null, lang: "0013", fn: "snap", op: "gcs.put-thumbnail", invocationId: "inv-1a2b", itemId: "privateItem00000001", outcome: "allowed" });
+  audit({ event: "execute", uid: "u", ownerUid: "u", connectionId: "conn-1", lang: "0176", fn: "save-to-itembank", op: "learnosity.write-items", invocationId: "inv-1a2b", outcome: "allowed" });
+  audit({ event: "execute-step", lang: "0013", fn: "snap", op: "gcs.put-thumbnail", invocationId: "inv-1a2b", outcome: "allowed" });
+  const entries = written.map(jsonPayload => ({ jsonPayload: { ...jsonPayload, logName: "security_audit" } }));
+  assert.deepEqual(tokensFromAudit(entries), [{ fn: "snap", scopeKinds: ["item"] }, { fn: "save-to-itembank", scopeKinds: ["connection"] }]);
+  assert.match(brokerAuditFilter("inv-1a2b"), /jsonPayload\.invocationId="inv-1a2b"/);
+});
+
+test("the public-capture quota comes from Policy's reservation audit, as the audit writes it", () => {
+  const written = [];
+  const audit = createAudit({ sink: r => written.push(r), pseudonymize: v => `p:${v}` });
+  for (let i = 0; i < PUBLIC_CAPTURE_LIMIT; i++) audit({ event: "command-reserve", commandId: `c:${"a".repeat(63)}${i % 10}`, itemId: "publicItem000000001", publicCapture: true, outcome: "allowed" });
+  audit({ event: "command-reserve", commandId: `c:${"b".repeat(64)}`, itemId: "publicItem000000001", outcome: "denied", reason: "rate-limited" });
+  const entries = written.map(jsonPayload => ({ jsonPayload }));
+  assert.deepEqual(rateLimitFromAudit(entries), { allowed: PUBLIC_CAPTURE_LIMIT, refused: 1 });
 });

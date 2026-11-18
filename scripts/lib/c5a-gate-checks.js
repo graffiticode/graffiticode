@@ -19,7 +19,8 @@
 //   privateOwner   { outcome, reservedSequence, published: { bucket, captureSequence } }
 //   privateNonOwner { outcome, reason }
 //   narrowed       { reason }                           authorize-execution after access narrowed
-//   publicAnonymous { outcome, subject, publicCapture, rateLimited }
+//   publicAnonymous { outcome, subject, publicCapture, rateLimit: { allowed, refused, attempted } }
+//                    rateLimit from Policy's command-reserve audit for the item (rateLimitFromAudit)
 //   mixed          { invocations, tokens: [{ fn, scopeKinds }] }
 //   mismatches     [{ direction, reason }]               both directions
 //   composition    { outcome, connectionId, contractVersion, itemScopeAuthorized }
@@ -31,8 +32,75 @@
 //   proxy          { verifyRollout, at11 }              Step 26's evidence
 //   gateBucket     "graffiticode-c5a-gate"
 
+//   errors         { <observation>: message }           a read that failed; any fails the gate
+//
+// The adapters below turn stored records and audit entries into these
+// observations; they are tested against the shapes the services write
+// (scripts/test/c5a-gate-checks.test.js).
+
 export const GATE_BUCKET = "graffiticode-c5a-gate";
 const POLICY_RUN = "policy-run@graffiticode.iam.gserviceaccount.com";
+// Policy's public-capture quota (packages/policy/src/policy.ts
+// PUBLIC_CAPTURE_LIMIT): the (limit+1)th reservation in its window is refused.
+export const PUBLIC_CAPTURE_LIMIT = 12;
+// Each scenario's chain, head first: its stages' languages.
+export const SCENARIOS = Object.freeze({ private: ["0013"], composition: ["0000", "0013"], mixed: ["0013", "0176"] });
+
+// ---------------------------------------------------------------- adapters
+
+// A plan's stages from its stored document in Policy's `plans` collection:
+// `{ plan: { contractVersion, stages: [pinned manifest] }, invocationId, revisions }`
+// (policy firestore.ts commitPlan; common contract.ts pinnedStage).
+export const planStages = planDoc => (Array.isArray(planDoc?.plan?.stages) ? planDoc.plan.stages : []);
+export const planContractVersion = planDoc => planDoc?.plan?.contractVersion ?? null;
+// A scenario's plan observation from its command record's admission, its plan
+// document, and the approval records by `${lang}/${revision}`.
+export const planObservation = (name, { record, planDoc }, approvals) => {
+  const manifests = new Map(planStages(planDoc).map(m => [m.stage, m]));
+  const stages = Object.entries(record?.admission?.stages ?? {})
+    .sort(([a], [b]) => Number(a.slice(1)) - Number(b.slice(1)))
+    .map(([stage, admitted]) => ({
+      stage,
+      lang: admitted.lang,
+      revision: admitted.revision,
+      contractVersions: approvals[`${admitted.lang}/${admitted.revision}`]?.contractVersions ?? null,
+      registryVersion: manifests.get(stage)?.registryVersion ?? null,
+    }));
+  return { name, stages, admitted: Boolean(record?.admission) && !record?.admissionRefusal };
+};
+// Execution tokens' scopes from Broker's `execute` audit records (broker.ts:
+// `connectionId` from the token's `conn`, `itemId` from its `scp`), as Cloud
+// Logging entries.
+export const tokensFromAudit = entries => entries
+  .map(e => e?.jsonPayload ?? {})
+  .filter(r => r.event === "execute" && typeof r.fn === "string")
+  .map(r => ({ fn: r.fn, scopeKinds: [...(r.itemId ? ["item"] : []), ...(r.connectionId ? ["connection"] : [])] }));
+export const brokerAuditFilter = invocationId => [
+  "resource.type=\"cloud_run_revision\"",
+  "resource.labels.service_name=\"broker\"",
+  "jsonPayload.logName=\"security_audit\"",
+  `jsonPayload.invocationId="${invocationId}"`,
+].join(" AND ");
+// The public-capture quota from Policy's `command-reserve` audit records for
+// one item: reservations allowed as public captures, and those refused
+// `rate-limited`.
+export const rateLimitFromAudit = entries => {
+  const reserves = entries.map(e => e?.jsonPayload ?? {}).filter(r => r.event === "command-reserve");
+  return {
+    allowed: reserves.filter(r => r.outcome === "allowed" && r.publicCapture === true).length,
+    refused: reserves.filter(r => r.outcome === "denied" && r.reason === "rate-limited").length,
+  };
+};
+export const policyReserveFilter = (itemId, since) => [
+  "resource.type=\"cloud_run_revision\"",
+  "resource.labels.service_name=\"policy\"",
+  "jsonPayload.logName=\"security_audit\"",
+  "jsonPayload.event=\"command-reserve\"",
+  `jsonPayload.itemId="${itemId}"`,
+  `timestamp>="${since}"`,
+].join(" AND ");
+
+// ------------------------------------------------------------------ checks
 
 const has = v => v !== undefined && v !== null;
 const same = (a, b) => has(a) && has(b) && JSON.stringify(a) === JSON.stringify(b);
@@ -40,6 +108,20 @@ const versions = v => JSON.stringify([...(v ?? [])].sort((a, b) => a - b));
 
 // Each check: [id, title, (o) => true | string (why not)].
 export const CHECKS = [
+  ["observations-read", "every observation was read: no read failed", o => {
+    const failed = Object.entries(o.errors ?? {});
+    return failed.length === 0 ? true : `reads failed: ${failed.map(([k, m]) => `${k} (${m})`).join("; ")}`;
+  }],
+  ["scenarios", "each scenario's plan has exactly its expected stages: private [L0013], composition [L0000 head, L0013], mixed [L0013, L0176]", o => {
+    for (const [name, langs] of Object.entries(SCENARIOS)) {
+      const plan = (o.plans ?? []).find(p => p.name === name);
+      if (!plan) return `${name}: no plan observed`;
+      const got = (plan.stages ?? []).map(st => st.lang);
+      const ok = name === "mixed" ? same([...got].sort(), [...langs].sort()) : same(got, langs);
+      if (!ok) return `${name}: stages ${JSON.stringify(got)}, expected ${JSON.stringify(langs)}`;
+    }
+    return true;
+  }],
   ["l0176-unchanged", "L0176 is unchanged: the staged canary passes 36/36, the B6 repair round-trip passes, a v2 plan digest is identical, a v8 artifact is still served", o => {
     if (!o.canary || o.canary.checks !== 36 || o.canary.failed !== 0) return `canary ${o.canary ? `${o.canary.checks - o.canary.failed}/${o.canary.checks}` : "not observed"}`;
     if (o.repairRoundtrip?.passed !== true) return "the repair round-trip didn't pass";
@@ -51,6 +133,8 @@ export const CHECKS = [
     if (!Array.isArray(o.plans) || o.plans.length === 0) return "no plans observed";
     const want = { "0013": "[3]", "0000": "[1,2]", "0176": "[1,2]" };
     const pinned = { "0013": o.approvals?.l0013r, "0000": o.approvals?.l0000r, "0176": o.approvals?.l0176r };
+    const unnamed = Object.entries(pinned).filter(([, a]) => !a?.revision).map(([lang]) => `L${lang}`);
+    if (unnamed.length) return `no approved revision named for ${unnamed.join(", ")}`;
     for (const plan of o.plans) {
       for (const st of plan.stages ?? []) {
         if (!want[st.lang]) continue;
@@ -76,7 +160,8 @@ export const CHECKS = [
     const p = o.publicAnonymous;
     if (p?.outcome !== "completed") return `anonymous capture ${p?.outcome ?? "not observed"}`;
     if (p.subject !== "anonymous" || p.publicCapture !== true) return `recorded as ${p.subject}, publicCapture ${p.publicCapture}`;
-    if (p.rateLimited !== true) return "no anonymous capture was rate-limited";
+    const q = p.rateLimit;
+    if (!q || !(q.refused >= 1) || !(q.allowed >= 1) || q.allowed > PUBLIC_CAPTURE_LIMIT) return `Policy's reservations for the public item: ${JSON.stringify(q ?? "not observed")}`;
     return true;
   }],
   ["mixed-chain", "a capture plus an L0176 save is one v3 invocation, each execution token carrying only its own scope", o => {
@@ -113,7 +198,8 @@ export const CHECKS = [
   ["registry-versions", "manifests report l0000r 0 and l0176r and l0013r 9; the canary's L0185 is 0 beside L0176 at 9", o => {
     const want = { "0000": 0, "0176": 9, "0013": 9 };
     const seen = (o.plans ?? []).flatMap(p => p.stages ?? []).filter(st => has(want[st.lang]));
-    if (!seen.length) return "no manifests observed";
+    const missing = Object.keys(want).filter(lang => !seen.some(st => st.lang === lang));
+    if (missing.length) return `no manifest observed for ${missing.map(l => `L${l}`).join(", ")}`;
     const wrong = seen.find(st => st.registryVersion !== want[st.lang]);
     if (wrong) return `L${wrong.lang} reported ${wrong.registryVersion}`;
     if (o.canary?.l0185RegistryVersion !== 0 || o.canary?.l0176RegistryVersion !== 9) return `canary: L0185 ${o.canary?.l0185RegistryVersion}, L0176 ${o.canary?.l0176RegistryVersion}`;

@@ -647,6 +647,27 @@ All six slices are merged and released in the order above, and:
 
 **Evidence** goes in `docs/evidence/c5a-authorization/`: the release ids, the gate output and the extracts. Then the gate bucket is deleted and the window expires.
 
+**Proposed amendment: how each row's evidence is produced** (owner's review of #417; for review, and until it is reviewed those rows stay failing in `scripts/lib/c5a-gate-checks.js`). The gate never impersonates a compiler or mints a token itself. Rows are produced either by normal programs through `api-c5a-gate` plus reads of Policy's and Broker's records and audit (*live*), or, where a live run can't produce the shape at all, by a hermetic test pinned to the released commit (*hermetic*, an amendment to the gate's "through the released services" wording).
+
+| Row | How | Producer |
+|---|---|---|
+| Private item, owner and non-owner | live | `scripts/c5a-gate.js` captures: the owner's and a non-owner's capture of the private fixture; records, reservations and the gate bucket's object |
+| Refused after access is narrowed | live | the owner's capture started, the fixture item made unreachable to the owner between reservation and publish (the console's item, moved or deleted by the owner), and Policy's `authorize-execution` audit `not-owner` for that operation; if the window between reserve and execute can't be held open from outside, *hermetic* (`packages/policy` authorize-execution with item authority changed after reservation, at the released commit) |
+| Public anonymous, rate-limited | live | the quota plus one anonymous captures of a fresh public fixture; Policy's `command-reserve` audit: `limit` allowed with `publicCapture`, then `rate-limited` |
+| Mixed chain, one invocation, own scopes | live | the mixed program through the canary connection; Broker's `execute` audit by `invocationId` (`itemId` for the capture, `connectionId` for the save) |
+| `credential-scope-mismatch`, both ways | hermetic | an execution token whose credential and scope disagree can't be produced by a compiler that follows its session, and the gate mints none. Broker's tests (`packages/broker`, `credential-scope-mismatch` both directions) run at the released Broker commit, `58adb430`, and their output is the evidence |
+| Composition, connectionless v3 | live | the composed program; the command record (no connection) and its stored plan (`plan.contractVersion` 3) |
+| Per-stage contracts | live, plus hermetic | the mixed and composed plans' stages and the revisions database's approval records (live). A plan pinning a pre-slice-6 `l0013r` can't be formed: no such revision is approved, so nothing pins it. Policy's admission test (`contract-version-unsupported` for an unapproved or pre-`[3]` revision) at the released Policy commit is the evidence |
+| Registry versions | live | the stored plans' pinned manifests (`plan.stages[].registryVersion`) and the staged canary's L0185 → L0176 output |
+| A conditional retry | live | two captures of the public fixture started so that the older reserves first and publishes first: Broker's `execute-step` audit for the newer (two attempts, distinct `decisionId`s) and the gate bucket's object metadata. If the ordering can't be forced from outside, *hermetic* (Broker's `gcs.put-thumbnail` precondition test at `58adb430`) |
+| Reserve, stage, bind | live | Policy's reservation records (`reserved` → `staged` → bound) and its audit for each capture, and the published object's `captureSequence`. A repeated `reserve` or `stage` happens live only on a compiler retry; failing that, *hermetic* (Policy's reservation tests at the released commit) |
+| Nothing written elsewhere | live | `graffiticode.appspot.com/thumbnails/` listing digest before and after, and `graffiticode-thumbnails` absent or empty; any failed read fails the row |
+| Old workers | live | the production api's log lines naming any gate command (none), and its Policy due query by the gateway (never lists a v3 command) |
+| Console route | live | Step 27's `policy-run` probe evidence, and a fresh unauthenticated and wrong-audience probe |
+| Proxy | live (Step 26) | `verify-rollout` and the AT-11 probe under Step 26's recorded exception |
+
+Each *hermetic* row records the test name, the commit, and its output, in the gate's evidence directory.
+
 ## 4. C5b–C5e, in outline
 
 Each gets its own detailed slices after C5a.

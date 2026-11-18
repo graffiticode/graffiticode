@@ -161,18 +161,38 @@ describe("POST /command with COMMAND_SCOPES", () => {
     expect(JSON.parse(calls[0][1].request)).toEqual({ id: "task-chain", connectionId: null, options: {} });
   });
 
-  it("refuses a mixed chain that needs a connection, allocating nothing", async () => {
+  // A new key under a restriction: looked up (create: false), nothing
+  // created, refused with the restriction.
+  const nothingHeld = () => { policy.allocate = async args => { calls.push(["allocate", args]); return { protocol: "none" }; }; };
+
+  it("refuses a mixed chain that needs a connection, creating nothing", async () => {
+    nothingHeld();
     const res = await post(app(chainOf(["snap", "save"])), CONNECTIONLESS);
     expect([res.status, res.body.error.reason]).toEqual([400, "connection-required"]);
-    expect(calls).toEqual([]);
-    // With its connection, it runs.
+    expect(calls.map(([, a]) => a.create)).toEqual([false]);
+    expect(runs).toEqual([]);
+    // With its connection, it creates and runs.
+    policy.allocate = async args => { calls.push(["allocate", args]); return { protocol: "command", commandId: "c:1", generation: 1, owned: true, status: "pending", leaseExpiresAt: Date.now() + 60_000 }; };
     expect((await post(app(chainOf(["snap", "save"])), { ...CONNECTIONLESS, connectionId: "conn-1" })).status).toBe(200);
+    expect(calls.at(-1)[1]).toMatchObject({ connectionId: "conn-1", create: true });
   });
 
-  it("refuses a chain whose writes are only partly allowed", async () => {
+  it("refuses a new key for a chain whose writes are only partly allowed", async () => {
+    nothingHeld();
     const res = await post(app(chainOf(["snap", "save"]), { COMMANDS_L0013: "on", COMMAND_SCOPES: "on" }), { ...CONNECTIONLESS, connectionId: "conn-1" });
     expect([res.status, res.body.error.reason]).toEqual([403, "commands-not-enabled"]);
-    expect(calls).toEqual([]);
+    expect(calls.map(([, a]) => a.create)).toEqual([false]);
+  });
+
+  // The owner's review of #417: L0013's commands turned off while L0176's
+  // stay on must not strand the retry of a mixed command already run.
+  it("serves the retry of a key that holds a command, whatever today's eligibility says", async () => {
+    policy.allocate = async args => { calls.push(["allocate", args]); return { protocol: "command", commandId: "c:mixed", generation: 1, owned: false, reused: true, status: "completed", result: { state: "available" }, leaseExpiresAt: Date.now() + 60_000 }; };
+    const res = await post(app(chainOf(["snap", "save"]), { COMMANDS_L0176: "on", COMMAND_SCOPES: "on" }), { ...CONNECTIONLESS, connectionId: "conn-1" });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ commandId: "c:mixed", outcome: "completed" });
+    expect(calls.map(([, a]) => a.create)).toEqual([false]);
+    expect(runs).toEqual([]);
   });
 
   it("still requires a signed-in user and a key, and a connection without COMMAND_SCOPES", async () => {
