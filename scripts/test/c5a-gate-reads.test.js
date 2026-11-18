@@ -175,6 +175,7 @@ const runAfter = async (state, { thumbnails, appspot = async () => "same", flags
     appspotListing: appspot,
     thumbnailsCount: thumbnails,
   };
+  // eslint-disable-next-line no-new-func -- runs the runner's own after-phase block, its reads stubbed, in this realm (deep equality needs it)
   await new Function(...Object.keys(scope), `return (async () => { ${AFTER} })()`)(...Object.values(scope));
 };
 test("a failed after phase, then a successful one: every earlier read error stays in the history", async () => {
