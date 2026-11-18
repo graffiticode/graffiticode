@@ -239,3 +239,104 @@ export const exclusionProblems = ({ requests = [], ledger = [] }) => {
   }
   return problems;
 };
+
+// The B6 repair round-trip's Broker verdict (docs/evidence/b6-repair-activation/
+// roundtrip.mjs), over Broker's own receipts and security_audit. The original
+// writes A and B; the canary narrows its connection once A has its final
+// outcome, so B must fail without reaching the provider; the repair writes B.
+// The owner's review of 4fe391: where the narrowing lands is timing. B may be
+// refused before Broker (no receipt), or after Broker claimed its receipt but
+// before any dispatch. A claim is not a provider dispatch. Accepted:
+//   B, original  either no receipt and an empty Broker audit, or exactly one
+//                receipt, definitively failed (final outcome `failed`, no
+//                steps) with exactly one execute record, `failed`
+//                `authorization-denied:not-granted`, and no dispatch
+//   A, original  and B, repair: one receipt, succeeded with every registered
+//                dispatch step, each dispatched exactly once, nothing else
+//   A, repair    nothing: no receipt, no Broker record
+// Every operation's evidence must have been read: `receipt` null means read
+// and absent, undefined means not read.
+//
+//   operations: { "A, original" | "B, original" | "A, repair" | "B, repair":
+//     { receipt: null | { claim, outcome: { status, steps } | null, steps: [{ n, step }], attempts },
+//       audit: [{ service, event, outcome, reason, purpose, step }] } }
+//   registeredSteps: the operation's dispatch steps, in order (e.g. learnosity.write-items:
+//     ["questions", "items"]; protected-registry OPERATIONS[op].steps, purpose "dispatch")
+export const ROUNDTRIP_B_REFUSAL = "authorization-denied:not-granted";
+export const roundtripBrokerProblems = ({ operations, registeredSteps }) => {
+  const problems = [];
+  if (!Array.isArray(registeredSteps) || registeredSteps.length === 0) return ["the operation's registered dispatch steps weren't given"];
+  const read = label => {
+    const op = operations?.[label];
+    if (!op || op.receipt === undefined) {
+      problems.push(`${label}: its Broker receipt wasn't read`);
+      return null;
+    }
+    if (!Array.isArray(op.audit)) {
+      problems.push(`${label}: its Broker audit wasn't read`);
+      return null;
+    }
+    for (const e of op.audit) if (e.service !== "broker") problems.push(`${label}: an audit record from ${e.service}`);
+    return op;
+  };
+  const dispatches = op => op.audit.filter(e => e.event === "execute-step" && e.purpose === "dispatch");
+  const executes = op => op.audit.filter(e => e.event === "execute");
+  const nothing = (label, op) => {
+    if (op.receipt !== null) problems.push(`${label}: has a Broker receipt`);
+    if (op.audit.length) problems.push(`${label}: has ${op.audit.length} Broker record(s)`);
+  };
+  const completed = (label, op) => {
+    const r = op.receipt;
+    if (!r?.claim) return problems.push(`${label}: no Broker receipt`);
+    const ex = executes(op);
+    if (ex.length !== 1 || ex[0].outcome !== "allowed") problems.push(`${label}: execute records ${JSON.stringify(ex.map(e => e.outcome))}, expected one allowed`);
+    const counts = {};
+    for (const d of dispatches(op)) counts[d.step] = (counts[d.step] ?? 0) + 1;
+    for (const step of registeredSteps) if (counts[step] !== 1) problems.push(`${label}: dispatched ${step} ${counts[step] ?? 0} time(s), expected once`);
+    for (const step of Object.keys(counts)) if (!registeredSteps.includes(step)) problems.push(`${label}: dispatched an unregistered step ${step}`);
+    if (r.outcome?.status !== "succeeded") problems.push(`${label}: final outcome ${r.outcome?.status ?? "absent"}, expected succeeded`);
+    else if (JSON.stringify(r.outcome.steps) !== JSON.stringify(registeredSteps)) problems.push(`${label}: outcome steps ${JSON.stringify(r.outcome.steps)}`);
+    if (JSON.stringify((r.steps ?? []).map(s => s.step)) !== JSON.stringify(registeredSteps)) problems.push(`${label}: step records ${JSON.stringify((r.steps ?? []).map(s => s.step))}`);
+  };
+  const bOriginal = op => {
+    const label = "B, original";
+    if (op.receipt === null) {
+      // Refused before Broker: no receipt and no Broker record of any kind
+      // (the #421 review: a denied execute or a signing step isn't "nothing").
+      if (op.audit.length) problems.push(`${label}: no receipt, but Broker recorded ${JSON.stringify(op.audit.map(e => `${e.event}:${e.outcome}${e.purpose ? `:${e.purpose}` : ""}`))}`);
+      return;
+    }
+    const r = op.receipt;
+    if (!r.claim) return problems.push(`${label}: a receipt without its claim`);
+    if (!r.outcome) return problems.push(`${label}: claimed, with no final outcome (uncertain)`);
+    if (r.outcome.status !== "failed") problems.push(`${label}: final outcome ${r.outcome.status}, expected failed`);
+    if ((r.outcome.steps ?? []).length) problems.push(`${label}: its outcome lists completed steps ${JSON.stringify(r.outcome.steps)}`);
+    if ((r.steps ?? []).length) problems.push(`${label}: has step records ${JSON.stringify(r.steps.map(s => s.step))}`);
+    if (r.attempts) problems.push(`${label}: has ${r.attempts} step attempt(s)`);
+    const ex = executes(op);
+    if (ex.length !== 1) problems.push(`${label}: ${ex.length} execute records, expected exactly one`);
+    else if (ex[0].outcome !== "failed" || ex[0].reason !== ROUNDTRIP_B_REFUSAL) problems.push(`${label}: execute ${ex[0].outcome} ${ex[0].reason}, expected failed ${ROUNDTRIP_B_REFUSAL}`);
+    if (dispatches(op).length) problems.push(`${label}: dispatched ${JSON.stringify(dispatches(op).map(d => d.step))}`);
+    const other = op.audit.filter(e => e.event !== "execute");
+    if (other.length) problems.push(`${label}: other Broker records ${JSON.stringify(other.map(e => `${e.event}:${e.outcome}`))}`);
+  };
+  const aO = read("A, original");
+  const bO = read("B, original");
+  const aR = read("A, repair");
+  const bR = read("B, repair");
+  if (aO) completed("A, original", aO);
+  if (bO) bOriginal(bO);
+  if (aR) nothing("A, repair", aR);
+  if (bR) completed("B, repair", bR);
+  return problems;
+};
+// roundtripBrokerProblems' operations from an extraction
+// ({ opids, receipts: { label: { claim, outcome, steps, attempts } }, audit: [{ opid, ... }] }):
+// a receipt without a claim was read and is absent (null).
+export const roundtripOperations = evidence => Object.fromEntries(Object.entries(evidence.opids ?? {}).map(([label, opid]) => {
+  const r = evidence.receipts?.[label];
+  return [label, {
+    receipt: r === undefined ? undefined : r.claim ? { claim: r.claim, outcome: r.outcome ?? null, steps: r.steps ?? [], attempts: r.attempts ?? 0 } : (r.outcome || (r.steps ?? []).length ? { claim: null, outcome: r.outcome ?? null, steps: r.steps ?? [], attempts: r.attempts ?? 0 } : null),
+    audit: Array.isArray(evidence.audit) ? evidence.audit.filter(e => e.opid === opid) : undefined,
+  }];
+}));

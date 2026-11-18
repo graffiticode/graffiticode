@@ -191,31 +191,98 @@ export const dueObservation = ({ v3Fixtures, control, productionQueries, scopedQ
 const has = v => v !== undefined && v !== null;
 
 // Hermetic evidence (the gate amendment): a test run at the commit that is
-// serving now, `{ service, commit, test, output, passed, ... }`, valid only
-// when `commit` is `o.deployed[service]`.
+// serving now, `{ service, commit, test, output, passed, supporting?, ... }`,
+// valid only when `commit` is `o.deployed[service]` and `output` is the test's
+// verbatim jest output showing it passed. `test` is "file › describe › title"
+// (or ">"); several titles in one record are joined by "; ". Each
+// `supporting` entry ({ service, commit, test, output, passed }) is held to
+// the same rules against its own service's deployed commit (#421 review).
+const testParts = test => String(test).split(/\s[›>]\s/);
+export const verbatimProblem = (test, output) => {
+  const parts = testParts(test);
+  const file = parts[0].split("/").pop();
+  const titles = parts.length > 1 ? parts.at(-1).split(/;\s*/).map(t => t.trim()).filter(Boolean) : [];
+  if (!file || !titles.length) return `the test "${test}" doesn't name a file and a test`;
+  if (!new RegExp(`^PASS \\S*${file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m").test(output)) return `the output doesn't show ${file} passing`;
+  if (/^FAIL /m.test(output) || output.includes("✕")) return "the output shows a failure";
+  const missing = titles.filter(t => !output.includes(`✓ ${t}`));
+  if (missing.length) return `the output doesn't show ${JSON.stringify(missing)} passing`;
+  return null;
+};
+const recordProblem = (o, h, label) => {
+  const deployed = o.deployed?.[h.service];
+  if (!h.service || !deployed) return `${label}: the deployed ${h.service ?? "service"} commit wasn't observed`;
+  if (h.commit !== deployed) return `${label}: tested at ${h.commit}, but ${h.service} serves ${deployed}`;
+  if (typeof h.test !== "string" || !h.test || typeof h.output !== "string" || !h.output) return `${label}: the test or its output isn't recorded`;
+  if (h.passed !== true) return `${label}: the test didn't pass`;
+  const verbatim = verbatimProblem(h.test, h.output);
+  if (verbatim) return `${label}: ${verbatim}`;
+  for (const [i, sup] of (h.supporting ?? []).entries()) {
+    const problem = recordProblem(o, { ...sup, supporting: [] }, `${label} (supporting ${i + 1})`);
+    if (problem) return problem;
+  }
+  return null;
+};
 export const hermeticProblem = (o, row) => {
   const h = o.hermetic?.[row];
   if (!h) return `no hermetic evidence for ${row}`;
-  const deployed = o.deployed?.[h.service];
-  if (!h.service || !deployed) return `${row}: the deployed ${h.service ?? "service"} commit wasn't observed`;
-  if (h.commit !== deployed) return `${row}: tested at ${h.commit}, but ${h.service} serves ${deployed}`;
-  if (typeof h.test !== "string" || !h.test || typeof h.output !== "string" || !h.output) return `${row}: the test or its output isn't recorded`;
-  if (h.passed !== true) return `${row}: the test didn't pass`;
-  return null;
+  return recordProblem(o, h, row);
 };
-// A live row with a hermetic fallback (the amendment): a live observation,
-// when there is one, decides, and is never replaced. Without one, hermetic
-// evidence that says why the case couldn't be induced live.
-const liveOrFallback = (o, row, judge) => {
-  const live = o[row];
-  if (has(live)) return judge(live);
-  const problem = hermeticProblem(o, row);
-  if (problem) return `not observed live, and ${problem}`;
-  if (typeof o.hermetic[row].uninducible !== "string" || !o.hermetic[row].uninducible) return `${row}: a fallback must say why the case couldn't be induced live`;
-  return judge(o.hermetic[row].result ?? {});
+// Field-level evidence for a live row with hermetic fallbacks (the #421
+// review). Each field the check judges comes from the live observation when
+// it has one, and a live field always decides, failing or not. A field the
+// live run didn't observe comes from a hermetic record that lists it in
+// `fields` (or the row's single legacy record, which covers every field):
+// valid at its deployed commit with its verbatim output and its supporting
+// entries, saying why it couldn't be induced live, and giving the field's
+// value in `result`.
+//   o.hermetic[row] = { service, commit, test, output, passed, uninducible, result, supporting? }
+//                   | { records: [{ fields: [..], service, commit, ..., result }] }
+export const fieldEvidence = (o, row, fields) => {
+  const live = has(o[row]) ? o[row] : {};
+  const h = o.hermetic?.[row];
+  const records = !h ? [] : Array.isArray(h.records) ? h.records : [{ ...h, fields: h.fields ?? fields }];
+  const values = {};
+  const sources = {};
+  const problems = [];
+  for (const f of fields) {
+    if (has(live[f])) {
+      values[f] = live[f];
+      sources[f] = "live";
+      continue;
+    }
+    const rec = records.find(r => (r.fields ?? []).includes(f));
+    if (!rec) { problems.push(`${row}.${f}: not observed live, and no hermetic evidence for it`); continue; }
+    const problem = recordProblem(o, rec, `${row}.${f}`);
+    if (problem) { problems.push(`not observed live, and ${problem}`); continue; }
+    if (typeof rec.uninducible !== "string" || !rec.uninducible) { problems.push(`${row}.${f}: a fallback must say why the case couldn't be induced live`); continue; }
+    if (!has(rec.result?.[f])) { problems.push(`${row}.${f}: its hermetic record gives no result for it`); continue; }
+    values[f] = rec.result[f];
+    sources[f] = `${rec.service}@${String(rec.commit).slice(0, 8)}`;
+  }
+  return { values, sources, problems };
+};
+const byFields = (o, row, fields, judge) => {
+  const { values, problems } = fieldEvidence(o, row, fields);
+  return problems.length ? problems.join("; ") : judge(values);
 };
 const same = (a, b) => has(a) && has(b) && JSON.stringify(a) === JSON.stringify(b);
 const versions = v => JSON.stringify([...(v ?? [])].sort((a, b) => a - b));
+
+// One capture's live reserve/stage/bind evidence, correlated to one
+// occurrence: the published object's command, that command's reservation for
+// the object's item ({ occurrenceId, reservedAt, stagedAt, captureSequence })
+// and its bind record for the same occurrence ({ boundAt }).
+//   { scenario, commandId, objectCommandId, occurrenceId, boundOccurrenceId, item,
+//     reservedAt, stagedAt, boundAt, reservedSequence, publishedSequence, reservations }
+export const rsbCaptureProblem = c => {
+  if (!c.commandId || c.objectCommandId !== c.commandId) return `the object names ${c.objectCommandId}, not ${c.commandId}`;
+  if (c.reservations !== 1) return `${c.reservations ?? 0} reservations for the item`;
+  if (!c.occurrenceId || c.boundOccurrenceId !== c.occurrenceId) return `the bind is for ${c.boundOccurrenceId}, not ${c.occurrenceId}`;
+  if (!(c.reservedAt && c.stagedAt && c.boundAt && c.reservedAt < c.stagedAt && c.stagedAt < c.boundAt)) return `order: reserved ${c.reservedAt}, staged ${c.stagedAt}, bound ${c.boundAt}`;
+  if (!has(c.reservedSequence) || c.publishedSequence !== c.reservedSequence) return `published ${c.publishedSequence}, reserved ${c.reservedSequence}`;
+  return null;
+};
 
 // Each check: [id, title, (o) => true | string (why not)].
 export const CHECKS = [
@@ -279,8 +346,7 @@ export const CHECKS = [
   }],
   ["private-non-owner", "a private item is refused for a non-owner, at admission and again at authorize-execution after access is narrowed", o => {
     if (o.privateNonOwner?.outcome !== "failed" || o.privateNonOwner?.reason !== "not-owner") return `non-owner ${o.privateNonOwner?.outcome ?? "not observed"} (${o.privateNonOwner?.reason})`;
-    const narrowed = liveOrFallback(o, "narrowed", n => (n.reason === "not-owner" ? true : `after narrowing: ${n.reason ?? "not observed"}`));
-    return narrowed;
+    return byFields(o, "narrowed", ["reason"], n => (n.reason === "not-owner" ? true : `after narrowing: ${n.reason ?? "not observed"}`));
   }],
   ["public-anonymous", "a public item is captured anonymously, rate-limited, and recorded as anonymous with publicCapture", o => {
     const p = o.publicAnonymous;
@@ -343,7 +409,7 @@ export const CHECKS = [
     return true;
   }],
   ["conditional-retry", "with the older capture published first, the newer's audit shows two execute-step attempts with distinct decision ids, and the object ends on the newer capture", o => {
-    return liveOrFallback(o, "conditional", c => {
+    return byFields(o, "conditional", ["attempts", "finalSequence", "newerSequence"], c => {
       const ids = (c?.attempts ?? []).map(a => a.decisionId);
       if (ids.length !== 2 || new Set(ids).size !== 2 || ids.some(id => !id)) return `attempts: ${JSON.stringify(ids)}`;
       if (!has(c.newerSequence) || c.finalSequence !== c.newerSequence) return `ended on ${c.finalSequence}, newer is ${c.newerSequence}`;
@@ -351,7 +417,24 @@ export const CHECKS = [
     });
   }],
   ["reserve-stage-bind", "reserve, stage and bind run in order; repeats return the recorded state; the published object carries the reserved sequence; an out-of-order pair ends on the newer", o => {
-    return liveOrFallback(o, "reserveStageBind", r => {
+    // Live, per capture: each scenario's published object, its own command's
+    // reservation and bind for the same occurrence. Every capture must be in
+    // order, and published with its reserved sequence; a failing capture
+    // decides. Without them, the flat fields (live or hermetic) are judged.
+    const captures = o.reserveStageBind?.captures;
+    if (Array.isArray(captures)) {
+      if (!captures.length) return "no capture's reservation was observed";
+      for (const c of captures) {
+        const problem = rsbCaptureProblem(c);
+        if (problem) return `${c.scenario ?? c.commandId}: ${problem}`;
+      }
+      return byFields(o, "reserveStageBind", ["repeatReserveSame", "repeatStageSame", "outOfOrderFinal", "outOfOrderNewer"], r => {
+        if (r.repeatReserveSame !== true || r.repeatStageSame !== true) return "a repeat changed the recorded state";
+        if (!has(r.outOfOrderNewer) || r.outOfOrderFinal !== r.outOfOrderNewer) return `out-of-order pair ended on ${r.outOfOrderFinal}`;
+        return true;
+      });
+    }
+    return byFields(o, "reserveStageBind", ["order", "repeatReserveSame", "repeatStageSame", "publishedSequence", "reservedSequence", "outOfOrderFinal", "outOfOrderNewer"], r => {
       if (!same(r?.order, ["reserve", "stage", "bind"])) return `order ${JSON.stringify(r?.order)}`;
       if (r.repeatReserveSame !== true || r.repeatStageSame !== true) return "a repeat changed the recorded state";
       if (!has(r.reservedSequence) || r.publishedSequence !== r.reservedSequence) return `published ${r.publishedSequence}, reserved ${r.reservedSequence}`;

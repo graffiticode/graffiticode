@@ -1,0 +1,503 @@
+{
+ "v2": [
+  {
+   "recorded": {
+    "digest": "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+    "plan": {
+     "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+     "taskIds": [
+      "oID5t5FO4edv84iCS067",
+      "4mZxmCDvPlT83ZiTKW9o"
+     ],
+     "inputDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+     "stages": [
+      {
+       "stage": "s0",
+       "lang": "0176",
+       "sourceDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "programDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0176r-rmw9k415k-ebe71b",
+       "imageDigest": "sha256:e7948a532dedad82f77b7ec4753482b898c6361047bac49f4202088ab521c7af",
+       "registryVersion": 8,
+       "requiredFunctions": [
+        "init"
+       ]
+      },
+      {
+       "stage": "s1",
+       "lang": "0000",
+       "sourceDigest": "b49c5a3f1ba7916a1ec0112cf4495165cc2cb720cf62c12e0d8f7c68be127e7c",
+       "programDigest": "b49c5a3f1ba7916a1ec0112cf4495165cc2cb720cf62c12e0d8f7c68be127e7c",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0000r-rmw8gtkc2-830693",
+       "imageDigest": "sha256:88e220a1376ebdd83e1b3105536fc36629ba82deef37d439d8d17e72e28895c9",
+       "registryVersion": 0,
+       "requiredFunctions": []
+      }
+     ],
+     "invocationId": "inv-b16a3f71-16c2-4c90-9942-8f987d1bce37",
+     "contractVersion": 2,
+     "registryVersion": 8
+    },
+    "invocationId": "inv-b16a3f71-16c2-4c90-9942-8f987d1bce37"
+   },
+   "before": {
+    "recordedDigest": "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+    "invocationId": "inv-b16a3f71-16c2-4c90-9942-8f987d1bce37",
+    "registryVersion": 8,
+    "admitted": true,
+    "planDigest": "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+    "plan": {
+     "contractVersion": 2,
+     "invocationId": "inv-b16a3f71-16c2-4c90-9942-8f987d1bce37",
+     "taskIds": [
+      "oID5t5FO4edv84iCS067",
+      "4mZxmCDvPlT83ZiTKW9o"
+     ],
+     "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+     "inputDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+     "registryVersion": 8,
+     "stages": [
+      {
+       "stage": "s0",
+       "lang": "0176",
+       "sourceDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "programDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0176r-rmw9k415k-ebe71b",
+       "imageDigest": "sha256:e7948a532dedad82f77b7ec4753482b898c6361047bac49f4202088ab521c7af",
+       "registryVersion": 8,
+       "requiredFunctions": [
+        "init"
+       ]
+      },
+      {
+       "stage": "s1",
+       "lang": "0000",
+       "sourceDigest": "b49c5a3f1ba7916a1ec0112cf4495165cc2cb720cf62c12e0d8f7c68be127e7c",
+       "programDigest": "b49c5a3f1ba7916a1ec0112cf4495165cc2cb720cf62c12e0d8f7c68be127e7c",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0000r-rmw8gtkc2-830693",
+       "imageDigest": "sha256:88e220a1376ebdd83e1b3105536fc36629ba82deef37d439d8d17e72e28895c9",
+       "registryVersion": 0,
+       "requiredFunctions": []
+      }
+     ]
+    },
+    "recomputed": "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b"
+   },
+   "after": {
+    "recordedDigest": "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+    "invocationId": "inv-b16a3f71-16c2-4c90-9942-8f987d1bce37",
+    "registryVersion": 9,
+    "admitted": true,
+    "planDigest": "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+    "plan": {
+     "contractVersion": 2,
+     "invocationId": "inv-b16a3f71-16c2-4c90-9942-8f987d1bce37",
+     "taskIds": [
+      "oID5t5FO4edv84iCS067",
+      "4mZxmCDvPlT83ZiTKW9o"
+     ],
+     "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+     "inputDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+     "registryVersion": 8,
+     "stages": [
+      {
+       "stage": "s0",
+       "lang": "0176",
+       "sourceDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "programDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0176r-rmw9k415k-ebe71b",
+       "imageDigest": "sha256:e7948a532dedad82f77b7ec4753482b898c6361047bac49f4202088ab521c7af",
+       "registryVersion": 8,
+       "requiredFunctions": [
+        "init"
+       ]
+      },
+      {
+       "stage": "s1",
+       "lang": "0000",
+       "sourceDigest": "b49c5a3f1ba7916a1ec0112cf4495165cc2cb720cf62c12e0d8f7c68be127e7c",
+       "programDigest": "b49c5a3f1ba7916a1ec0112cf4495165cc2cb720cf62c12e0d8f7c68be127e7c",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0000r-rmw8gtkc2-830693",
+       "imageDigest": "sha256:88e220a1376ebdd83e1b3105536fc36629ba82deef37d439d8d17e72e28895c9",
+       "registryVersion": 0,
+       "requiredFunctions": []
+      }
+     ]
+    },
+    "recomputed": "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b"
+   }
+  },
+  {
+   "recorded": {
+    "digest": "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+    "plan": {
+     "taskIds": [
+      "wtArwhjzbfslWjjxCKXJ"
+     ],
+     "invocationId": "inv-1a23f7a3-4992-4670-951d-bbadb2137171",
+     "stages": [
+      {
+       "stage": "s0",
+       "lang": "0176",
+       "sourceDigest": "6511f68b9a2d668a9fc644f6727e08237beb6168cf43456b5992773bb1c65161",
+       "programDigest": "6511f68b9a2d668a9fc644f6727e08237beb6168cf43456b5992773bb1c65161",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0176r-rmwe83rgw-eae49e",
+       "imageDigest": "sha256:221db98801704faec822d267dfeab98be76ce44ef6199a16070ea568084d85c6",
+       "registryVersion": 8,
+       "requiredFunctions": [
+        "init",
+        "save-to-itembank"
+       ]
+      }
+     ],
+     "contractVersion": 2,
+     "registryVersion": 8,
+     "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+     "inputDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    "invocationId": "inv-1a23f7a3-4992-4670-951d-bbadb2137171"
+   },
+   "before": {
+    "recordedDigest": "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+    "invocationId": "inv-1a23f7a3-4992-4670-951d-bbadb2137171",
+    "registryVersion": 8,
+    "admitted": true,
+    "planDigest": "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+    "plan": {
+     "contractVersion": 2,
+     "invocationId": "inv-1a23f7a3-4992-4670-951d-bbadb2137171",
+     "taskIds": [
+      "wtArwhjzbfslWjjxCKXJ"
+     ],
+     "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+     "inputDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+     "registryVersion": 8,
+     "stages": [
+      {
+       "stage": "s0",
+       "lang": "0176",
+       "sourceDigest": "6511f68b9a2d668a9fc644f6727e08237beb6168cf43456b5992773bb1c65161",
+       "programDigest": "6511f68b9a2d668a9fc644f6727e08237beb6168cf43456b5992773bb1c65161",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0176r-rmwe83rgw-eae49e",
+       "imageDigest": "sha256:221db98801704faec822d267dfeab98be76ce44ef6199a16070ea568084d85c6",
+       "registryVersion": 8,
+       "requiredFunctions": [
+        "init",
+        "save-to-itembank"
+       ]
+      }
+     ]
+    },
+    "recomputed": "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b"
+   },
+   "after": {
+    "recordedDigest": "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+    "invocationId": "inv-1a23f7a3-4992-4670-951d-bbadb2137171",
+    "registryVersion": 9,
+    "admitted": true,
+    "planDigest": "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+    "plan": {
+     "contractVersion": 2,
+     "invocationId": "inv-1a23f7a3-4992-4670-951d-bbadb2137171",
+     "taskIds": [
+      "wtArwhjzbfslWjjxCKXJ"
+     ],
+     "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+     "inputDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+     "registryVersion": 8,
+     "stages": [
+      {
+       "stage": "s0",
+       "lang": "0176",
+       "sourceDigest": "6511f68b9a2d668a9fc644f6727e08237beb6168cf43456b5992773bb1c65161",
+       "programDigest": "6511f68b9a2d668a9fc644f6727e08237beb6168cf43456b5992773bb1c65161",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0176r-rmwe83rgw-eae49e",
+       "imageDigest": "sha256:221db98801704faec822d267dfeab98be76ce44ef6199a16070ea568084d85c6",
+       "registryVersion": 8,
+       "requiredFunctions": [
+        "init",
+        "save-to-itembank"
+       ]
+      }
+     ]
+    },
+    "recomputed": "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b"
+   }
+  },
+  {
+   "recorded": {
+    "digest": "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff",
+    "plan": {
+     "contractVersion": 2,
+     "inputDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+     "registryVersion": 8,
+     "stages": [
+      {
+       "stage": "s0",
+       "lang": "0176",
+       "sourceDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "programDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0176r-rmwe83rgw-eae49e",
+       "imageDigest": "sha256:221db98801704faec822d267dfeab98be76ce44ef6199a16070ea568084d85c6",
+       "registryVersion": 8,
+       "requiredFunctions": [
+        "init"
+       ]
+      }
+     ],
+     "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+     "invocationId": "inv-1d7ad360-25f1-45dd-9647-dd93b49d34b0",
+     "taskIds": [
+      "oID5t5FO4edv84iCS067"
+     ]
+    },
+    "invocationId": "inv-1d7ad360-25f1-45dd-9647-dd93b49d34b0"
+   },
+   "before": {
+    "recordedDigest": "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff",
+    "invocationId": "inv-1d7ad360-25f1-45dd-9647-dd93b49d34b0",
+    "registryVersion": 8,
+    "admitted": true,
+    "planDigest": "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff",
+    "plan": {
+     "contractVersion": 2,
+     "invocationId": "inv-1d7ad360-25f1-45dd-9647-dd93b49d34b0",
+     "taskIds": [
+      "oID5t5FO4edv84iCS067"
+     ],
+     "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+     "inputDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+     "registryVersion": 8,
+     "stages": [
+      {
+       "stage": "s0",
+       "lang": "0176",
+       "sourceDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "programDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0176r-rmwe83rgw-eae49e",
+       "imageDigest": "sha256:221db98801704faec822d267dfeab98be76ce44ef6199a16070ea568084d85c6",
+       "registryVersion": 8,
+       "requiredFunctions": [
+        "init"
+       ]
+      }
+     ]
+    },
+    "recomputed": "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff"
+   },
+   "after": {
+    "recordedDigest": "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff",
+    "invocationId": "inv-1d7ad360-25f1-45dd-9647-dd93b49d34b0",
+    "registryVersion": 9,
+    "admitted": true,
+    "planDigest": "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff",
+    "plan": {
+     "contractVersion": 2,
+     "invocationId": "inv-1d7ad360-25f1-45dd-9647-dd93b49d34b0",
+     "taskIds": [
+      "oID5t5FO4edv84iCS067"
+     ],
+     "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+     "inputDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+     "registryVersion": 8,
+     "stages": [
+      {
+       "stage": "s0",
+       "lang": "0176",
+       "sourceDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "programDigest": "cd808491788f6fc350fe9d0181569f0ceb3b98f962d69d242dbca96e9794fe7c",
+       "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+       "revision": "l0176r-rmwe83rgw-eae49e",
+       "imageDigest": "sha256:221db98801704faec822d267dfeab98be76ce44ef6199a16070ea568084d85c6",
+       "registryVersion": 8,
+       "requiredFunctions": [
+        "init"
+       ]
+      }
+     ]
+    },
+    "recomputed": "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff"
+   }
+  }
+ ],
+ "provenance": {
+  "artifact": {
+   "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+   "ownerUid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+   "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+   "taskId": "eyJ0YXNrSWRzIjpbIm9JRDV0NUZPNGVkdjg0aUNTMDY3Il19+eyJ0YXNrSWRzIjpbIjJ2emt6VTZ5NVNSNGZGTEw3VXhvIl19",
+   "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+   "seq": 1,
+   "registryVersion": 8,
+   "form": "envelope",
+   "createdAt": "2026-11-16T18:27:13.764Z",
+   "contentDigest": "dccc72c83c957885a119f83568b68d7298bc73d39e0ac9a5b07d1e3383afea8d",
+   "recomputedDigest": "dccc72c83c957885a119f83568b68d7298bc73d39e0ac9a5b07d1e3383afea8d",
+   "updateTime": "2026-11-16T18:27:13.990219Z",
+   "createTime": "2026-11-16T18:27:13.990219Z"
+  },
+  "head": {
+   "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+   "seq": 1
+  },
+  "plan": {
+   "registryVersion": 8,
+   "revisions": [
+    "l0176r-rmwe83rgw-eae49e",
+    "l0000r-rmw8gtkc2-830693"
+   ],
+   "stages": [
+    {
+     "lang": "0176",
+     "revision": "l0176r-rmwe83rgw-eae49e",
+     "registryVersion": 8
+    },
+    {
+     "lang": "0000",
+     "revision": "l0000r-rmw8gtkc2-830693",
+     "registryVersion": 0
+    }
+   ]
+  },
+  "apiWindows": [
+   {
+    "revision": "api-rmwb8xt08-142ee3",
+    "commit": "6a1a3840d2702228dcb9a006364460b7f0804be0",
+    "registryVersion": 8,
+    "from": "2026-11-10T22:25:32.851Z",
+    "until": "2026-11-10T23:51:25.327Z"
+   },
+   {
+    "revision": "api-rmwbc563i-c27acc",
+    "commit": "926139da5fe40f8f98d645cf39b6036aff1746f8",
+    "registryVersion": 8,
+    "from": "2026-11-10T23:51:25.327Z",
+    "until": "2026-11-11T00:57:57.024Z"
+   },
+   {
+    "revision": "api-rmwbehsjy-cbe600",
+    "commit": "26117c3ac13a8f0d8f51fb502083961d7811ca51",
+    "registryVersion": 8,
+    "from": "2026-11-11T00:57:57.024Z",
+    "until": "2026-11-11T18:30:04.027Z"
+   },
+   {
+    "revision": "api-rmwcg1nkb-9870c7",
+    "commit": "debaf25cdee1877bab06a5847ecc7e49a4eb778b",
+    "registryVersion": 8,
+    "from": "2026-11-11T18:30:04.027Z",
+    "until": "2026-11-11T19:57:20.760Z"
+   },
+   {
+    "revision": "api-rmwcj466p-96c675",
+    "commit": "8de6641f929856dcfc01b3cf21f68ab752dc42d0",
+    "registryVersion": 8,
+    "from": "2026-11-11T19:57:20.760Z",
+    "until": "2026-11-11T22:38:03.486Z"
+   },
+   {
+    "revision": "api-rmwcov5os-ec3eb6",
+    "commit": "0a073d46a170fc7bb1313f685ae3c514301cac92",
+    "registryVersion": 8,
+    "from": "2026-11-11T22:38:03.486Z",
+    "until": "2026-11-12T02:56:00.919Z"
+   },
+   {
+    "revision": "api-rmwcqsbwn-8d1a9b",
+    "commit": "fc0d447ba585d80b0e5a214bb6378b3403bf59d1",
+    "registryVersion": 8,
+    "from": "2026-11-12T02:56:00.919Z",
+    "until": "2026-11-12T19:54:20.500Z"
+   },
+   {
+    "revision": "api-rmwdyh9de-00edf4",
+    "commit": "e06d17935624fa9baa027cb883297a266ba7c611",
+    "registryVersion": 8,
+    "from": "2026-11-12T19:54:20.500Z",
+    "until": "2026-11-12T21:14:58.598Z"
+   },
+   {
+    "revision": "api-rmwe179az-dc8f27",
+    "commit": "f7e194288f317f7d6c3c572537735ce17bc24a30",
+    "registryVersion": 8,
+    "from": "2026-11-12T21:14:58.598Z",
+    "until": "2026-11-13T18:51:01.638Z"
+   },
+   {
+    "revision": "api-rmwfbfpg3-a8a20e",
+    "commit": "d5b0e8ab5c96bd41c27f36a6ad3983169ca29ef1",
+    "registryVersion": 8,
+    "from": "2026-11-13T18:51:01.638Z",
+    "until": "2026-11-13T22:59:24.262Z"
+   },
+   {
+    "revision": "api-rmwfhnmt8-b8ed83",
+    "commit": "2ce1433542edc995787dede3683a5527a5218171",
+    "registryVersion": 8,
+    "from": "2026-11-13T22:59:24.262Z",
+    "until": "2026-11-14T00:00:01.697Z"
+   },
+   {
+    "revision": "api-rmwfmheue-b24633",
+    "commit": "7d0f65b70880260e1743ad5a76be50f433656333",
+    "registryVersion": 8,
+    "from": "2026-11-14T00:00:01.697Z",
+    "until": "2026-11-15T18:46:21.043Z"
+   },
+   {
+    "revision": "api-rmwh6ru3u-cd1743",
+    "commit": "18467f95ec4ad4e766f30021ac4b826a850bddae",
+    "registryVersion": 8,
+    "from": "2026-11-15T18:46:21.043Z",
+    "until": "2026-11-17T17:11:29.706Z"
+   },
+   {
+    "revision": "api-rmwkxlbvy-b5fa92",
+    "commit": "3b6b4a50d25d5d7ed8f510c51b68483c71202f78",
+    "registryVersion": 9,
+    "from": "2026-11-17T17:11:29.706Z",
+    "until": null
+   }
+  ]
+ },
+ "registry": {
+  "command": {
+   "commandId": "c:0f8fc69b8d69d4f2eac6f0b7e05e81ff227cced4d4772081cdfcee56355bfe01",
+   "admission": {
+    "planDigest": "85573157adaed273aeb096f2615494320699df1bb559f96d8a2d38dfcfc0f387"
+   }
+  },
+  "planDigest": "85573157adaed273aeb096f2615494320699df1bb559f96d8a2d38dfcfc0f387",
+  "revisions": [
+   "l0176r-rmwk08k8n-c74227",
+   "l0185r-rmwczv08x-e43ac0"
+  ],
+  "stages": [
+   {
+    "stage": "s0",
+    "lang": "0176",
+    "revision": "l0176r-rmwk08k8n-c74227",
+    "imageDigest": "sha256:0b6ac1bcfbd3faff6bc50cb245d74f19d175cebedbdd17b6c81743d89e4ef4bc",
+    "registryVersion": 9
+   },
+   {
+    "stage": "s1",
+    "lang": "0185",
+    "revision": "l0185r-rmwczv08x-e43ac0",
+    "imageDigest": "sha256:749e34c0806b48e19d19556e5bb9430078b922f48d566c301f68b6b6a79ab508",
+    "registryVersion": 0
+   }
+  ]
+ }
+}
