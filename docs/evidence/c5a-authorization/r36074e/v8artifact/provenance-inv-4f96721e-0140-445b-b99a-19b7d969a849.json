@@ -1,0 +1,52 @@
+{
+  "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+  "readAt": "2026-11-18T20:10:51.565Z",
+  "artifact": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "ownerUid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+    "taskId": "eyJ0YXNrSWRzIjpbIm9JRDV0NUZPNGVkdjg0aUNTMDY3Il19+eyJ0YXNrSWRzIjpbIjJ2emt6VTZ5NVNSNGZGTEw3VXhvIl19",
+    "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+    "seq": 1,
+    "registryVersion": 8,
+    "form": "envelope",
+    "createdAt": "2026-11-16T18:27:13.764Z",
+    "contentDigest": "dccc72c83c957885a119f83568b68d7298bc73d39e0ac9a5b07d1e3383afea8d",
+    "recomputedDigest": "dccc72c83c957885a119f83568b68d7298bc73d39e0ac9a5b07d1e3383afea8d",
+    "updateTime": "2026-11-16T18:27:13.990219Z",
+    "createTime": "2026-11-16T18:27:13.990219Z"
+  },
+  "head": {
+    "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+    "seq": 1
+  },
+  "invocation": {
+    "createdAt": "2026-11-16T18:27:10.444Z",
+    "contract": 2,
+    "planDigest": "a1101e13cffe8eca2602e4d3b5e02c70348f4f0c78624f1b315273de4b39edac",
+    "protocol": "legacy",
+    "seq": 1,
+    "taskId": "eyJ0YXNrSWRzIjpbIm9JRDV0NUZPNGVkdjg0aUNTMDY3Il19+eyJ0YXNrSWRzIjpbIjJ2emt6VTZ5NVNSNGZGTEw3VXhvIl19",
+    "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd"
+  },
+  "plan": {
+    "registryVersion": 8,
+    "revisions": [
+      "l0176r-rmwe83rgw-eae49e",
+      "l0000r-rmw8gtkc2-830693"
+    ],
+    "stages": [
+      {
+        "lang": "0176",
+        "revision": "l0176r-rmwe83rgw-eae49e",
+        "registryVersion": 8
+      },
+      {
+        "lang": "0000",
+        "revision": "l0000r-rmw8gtkc2-830693",
+        "registryVersion": 0
+      }
+    ]
+  },
+  "apiLogs": []
+}

@@ -1,0 +1,64 @@
+(node:13217) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/gcs.spec.ts
+  credential and scope (decision 5)
+    ✓ refuses a service operation whose token selects a connection (4 ms)
+    ✓ refuses a connection operation whose token selects an item
+    ✓ refuses a payload for another item than the token's, before the claim (1 ms)
+    ✓ refuses a snap token that names no command, whose staging it couldn't find (1 ms)
+    ✓ refuses a snap token spent by another language's compiler
+    ✓ records the selected scope in a v3 receipt's binding, and leaves a v2 binding as it was (3 ms)
+    ✓ refuses to be built with an operation whose credential disagrees with the registry (10 ms)
+  publishing (decision 8)
+    ✓ publishes the first capture, with its sequence on the object and a stable result (1 ms)
+    ✓ completes an older capture arriving after a newer one with its own result, writing nothing (1 ms)
+    ✓ replaces an object with no sequence, as the migration copy leaves (decision 8)
+    ✓ ends a 412 race on the newer capture: the older wins first, the newer retries under a fresh decision (2 ms)
+    ✓ fails `precondition-contention` after four 412s, never having written
+    ✓ stops when Policy refuses the next attempt, recording what the earlier ones observed (2 ms)
+    ✓ records an upload whose response was lost as uncertain
+    ✓ answers a retry of a written operation from its receipt, reading and writing nothing (1 ms)
+  staging (decision 9)
+    ✓ refuses missing staged bytes with no claim, definitely, before claiming
+    ✓ refuses staged bytes that don't match the bound digest, before claiming
+    ✓ refuses, as unavailable, when staging can't be read now
+    ✓ reads each stage's own staged object when two stages share an occurrence id
+    ✓ never reads staging once a claim exists: deleted after a dropped outcome, the retry replays and reconciliation resolves applied (1 ms)
+  reconciliation (decisions 5 and 8)
+    ✓ resolves a dropped outcome applied after a newer capture, with exactly the result the undropped run returned (1 ms)
+    ✓ resolves a crash between the upload and its outcome applied, and the retry writes nothing (1 ms)
+    ✓ leaves a capture unresolved while the published sequence is lower, since an upload could still land
+    ✓ keeps an item's receipts and a connection's apart (1 ms)
+  configuration
+    ✓ takes both buckets together, and never the legacy one (1 ms)
+    ✓ refuses a snap token when no buckets are configured
+  the Cloud Storage client
+    ✓ reads metadata and bytes, absent as null (2 ms)
+    ✓ uploads with the generation precondition, and tells a 412, a refusal and an unknown failure apart
+    ✓ does everything asynchronous while preparing: send calls fetch before awaiting anything
+  review of #401
+    ✓ doesn't publish when authority is revoked while the attempt is prepared (1 ms)
+    ✓ doesn't start an upload once preparation has used up the deadline
+    ✓ refuses to prepare past the deadline, before any authorization (1 ms)
+    ✓ runs a Policy-authorized anonymous public capture, and audits its provenance
+    ✓ keeps anonymous to its narrow terms: never L0176, never a connection, never a user's subject (2 ms)
+    ✓ replays a concurrent winner when staging disappears while this request reads it
+    ✓ replays a concurrent claim too when staging can't be read now (1 ms)
+  reopening a run that stopped before dispatch (7e)
+    ✓ aborts a run whose authorization was unavailable, and runs the operation again with a fresh token (1 ms)
+    ✓ starts the next run once, when two requests reopen it together (1 ms)
+    ✓ aborts a run whose metadata read failed, before any authorization
+    ✓ refuses a reopened run whose staging has gone, definitely, starting no run (1 ms)
+    ✓ records a failure, as always, once any request was authorized for dispatch
+    ✓ leaves a connection write's failure before dispatch recorded, as before
+  an abort whose acknowledgment was lost (7e)
+    ✓ never lets the older run record a failure while its successor publishes
+    ✓ refuses the older run as temporary when its successor already finished (1 ms)
+    ✓ records the failure when the lost abort never committed
+    ✓ makes abort, outcome and the next run exclude each other in the store
+
+Test Suites: 1 passed, 1 total
+Tests:       46 passed, 46 total
+Snapshots:   0 total
+Time:        0.708 s
+Ran all test suites matching /src\/gcs.spec.ts/i.

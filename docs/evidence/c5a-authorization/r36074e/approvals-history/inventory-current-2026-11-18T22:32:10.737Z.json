@@ -1,0 +1,1139 @@
+{
+  "readAt": "2026-11-18T22:32:10.737Z",
+  "inventory": [
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000-rmupvrtl5-da1639",
+      "fields": {
+        "tagUrl": "https://rmupvrtl5-da1639---l0000-sja7fatcta-uc.a.run.app",
+        "lang": "0000",
+        "service": "l0000",
+        "tagRemovedAt": "2026-10-13T16:20:48.737Z",
+        "approvedAt": "2026-10-07T16:53:20.271Z",
+        "unrecoverable": [],
+        "retiringSince": "2026-10-13T16:05:44.349Z",
+        "commit": "64dd214979d0b29f5f43606cbc0f6b498ce8fccc",
+        "retiredBy": "<operator>",
+        "retiringBy": "<operator>",
+        "tag": "rmupvrtl5-da1639",
+        "revision": "l0000-rmupvrtl5-da1639",
+        "imageDigest": "sha256:d8c3a39be51a4e26d05c3e1d9ff01d3817017f845335af9488663e27b5d1003f",
+        "retiredAt": "2026-10-13T16:05:45.399Z",
+        "releaseId": "rmupvrtl5-da1639",
+        "retirementId": "23a1dfac-236e-411c-83d7-948321beb84f",
+        "status": "retired",
+        "contractVersions": [
+          1
+        ]
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000-rmv5mguhi-2678e5",
+      "fields": {
+        "tagUrl": "https://rmv5mguhi-2678e5---l0000-sja7fatcta-uc.a.run.app",
+        "approvedAt": "2026-10-12T19:08:47.272Z",
+        "retiredBy": "<operator>",
+        "imageDigest": "sha256:225321bd4353cc931dcdb291a308838ab79231a687c9f993ad7e49e8b805e262",
+        "tag": "rmv5mguhi-2678e5",
+        "service": "l0000",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "unrecoverable": [],
+        "retiringBy": "<operator>",
+        "commit": "7ff60213fd7c6554221b688d6eaab89b7df3bed0",
+        "retirementId": "54cb564f-f710-4b40-879f-76491c67142f",
+        "retiringSince": "2026-10-19T18:35:00.860Z",
+        "revision": "l0000-rmv5mguhi-2678e5",
+        "lang": "0000",
+        "retiredAt": "2026-10-19T18:35:06.500Z",
+        "releaseId": "rmv5mguhi-2678e5",
+        "tagRemovedAt": "2026-10-19T18:50:10.563Z",
+        "status": "retired"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000-rmvff9nxw-476f53",
+      "fields": {
+        "lang": "0000",
+        "commit": "3b34a0a1ae5872d593cc84984a811431fa927fce",
+        "retirementId": "b4014c4b-7384-4fce-8ea4-42e0a8b08151",
+        "unrecoverable": [],
+        "contractVersions": [
+          1,
+          2
+        ],
+        "retiringSince": "2026-10-19T18:50:12.472Z",
+        "tagUrl": "https://rmvff9nxw-476f53---l0000-sja7fatcta-uc.a.run.app",
+        "retiredBy": "<operator>",
+        "releaseId": "rmvff9nxw-476f53",
+        "retiredAt": "2026-10-19T18:50:13.236Z",
+        "imageDigest": "sha256:15b618a6fd3daa6cdaef6330889d9c7268fbfc74ce8b64b44e61094fb8395733",
+        "retiringBy": "<operator>",
+        "service": "l0000",
+        "tag": "rmvff9nxw-476f53",
+        "status": "retired",
+        "approvedAt": "2026-10-19T15:44:59.904Z",
+        "tagRemovedAt": "2026-10-19T20:03:04.679Z",
+        "revision": "l0000-rmvff9nxw-476f53"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000-rmvfgwjmz-7d3d25",
+      "fields": {
+        "service": "l0000",
+        "revision": "l0000-rmvfgwjmz-7d3d25",
+        "lang": "0000",
+        "tagRemovedAt": "2026-10-26T16:04:17.614Z",
+        "imageDigest": "sha256:b2c4176fe98ad192daf1c4be91f34cbf1fbafde56efacce6b255492078711df0",
+        "status": "retired",
+        "unrecoverable": [],
+        "tag": "rmvfgwjmz-7d3d25",
+        "retiredAt": "2026-10-26T15:49:13.648Z",
+        "retiringSince": "2026-10-26T15:49:09.960Z",
+        "releaseId": "rmvfgwjmz-7d3d25",
+        "retiredBy": "<operator>",
+        "tagUrl": "https://rmvfgwjmz-7d3d25---l0000-sja7fatcta-uc.a.run.app",
+        "approvedAt": "2026-10-19T16:33:57.022Z",
+        "commit": "8e3e9673307d3b4aadfb4128d2aca3e34f63d054",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "retirementId": "8f4df187-9f6b-4783-9f94-6865b6e8748d",
+        "retiringBy": "<operator>"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000-rmvpfi6qb-d4d645",
+      "fields": {
+        "lang": "0000",
+        "tag": "rmvpfi6qb-d4d645",
+        "tagUrl": "https://rmvpfi6qb-d4d645---l0000-sja7fatcta-uc.a.run.app",
+        "releaseId": "rmvpfi6qb-d4d645",
+        "revision": "l0000-rmvpfi6qb-d4d645",
+        "service": "l0000",
+        "commit": "79c3baf1420cd0ae5d6c8d6a459f057a7a28fa25",
+        "imageDigest": "sha256:c5bc9ed7cb467b4b4db697a0ab9d0e210da24fc599daebf9fe650de924c39bbf",
+        "approvedAt": "2026-10-26T15:48:46.144Z",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "status": "approved"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000r-rmvtunrmt-288aeb",
+      "fields": {
+        "commit": "f857696d28fce49b033e53c0ae70b8bd29c158de",
+        "lang": "0000",
+        "releaseId": "rmvtunrmt-288aeb",
+        "revision": "l0000r-rmvtunrmt-288aeb",
+        "status": "approved",
+        "tag": "rmvtunrmt-288aeb",
+        "tagUrl": "https://rmvtunrmt-288aeb---l0000r-sja7fatcta-uc.a.run.app",
+        "imageDigest": "sha256:32d9a5b5a61302f995548d5e02dde0ae4b1f04a6edc524ca95dff1908d007a35",
+        "approvedAt": "2026-10-29T18:15:18.568Z",
+        "service": "l0000r",
+        "contractVersions": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000r-rmvtxygjb-e4b84f",
+      "fields": {
+        "status": "approved",
+        "commit": "bbc09dbe58d425f900bf1e2204adea39218741b7",
+        "imageDigest": "sha256:b254da432e89a8fd83a77edd0869408abdf824bebdb02e8339712845cc8159fd",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "revision": "l0000r-rmvtxygjb-e4b84f",
+        "approvedAt": "2026-10-29T19:46:59.722Z",
+        "tag": "rmvtxygjb-e4b84f",
+        "tagUrl": "https://rmvtxygjb-e4b84f---l0000r-sja7fatcta-uc.a.run.app",
+        "releaseId": "rmvtxygjb-e4b84f",
+        "lang": "0000",
+        "service": "l0000r"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000r-rmvv1zoul-c9a437",
+      "fields": {
+        "commit": "3b33873d659c9a1ebdcfe4ad69c293b7eaba4b3d",
+        "status": "approved",
+        "imageDigest": "sha256:df261726d269c6648638048187f964ccbf8551bdb03cd2a0bbdd8bdc8eaf8484",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "lang": "0000",
+        "tag": "rmvv1zoul-c9a437",
+        "tagUrl": "https://rmvv1zoul-c9a437---l0000r-sja7fatcta-uc.a.run.app",
+        "approvedAt": "2026-10-30T14:26:53.168Z",
+        "service": "l0000r",
+        "revision": "l0000r-rmvv1zoul-c9a437",
+        "releaseId": "rmvv1zoul-c9a437"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000r-rmw45hiib-056178",
+      "fields": {
+        "service": "l0000r",
+        "lang": "0000",
+        "tagUrl": "https://rmw45hiib-056178---l0000r-sja7fatcta-uc.a.run.app",
+        "releaseId": "rmw45hiib-056178",
+        "revision": "l0000r-rmw45hiib-056178",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "tag": "rmw45hiib-056178",
+        "commit": "b970159338e1675647e48c2eee5fd774df06d393",
+        "imageDigest": "sha256:34f58d73ab352a99f06d4a5cd39677841b9fc85d81404654c0ad316ed861c693",
+        "status": "approved",
+        "approvedAt": "2026-11-05T23:14:49.059Z"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000r-rmw6otj5l-10bd8f",
+      "fields": {
+        "lang": "0000",
+        "revision": "l0000r-rmw6otj5l-10bd8f",
+        "imageDigest": "sha256:35b5f4ea6cb6d084fb6886d581ac2c9b4d89876640177bb38ecfd4e0ce66902b",
+        "commit": "fb684e1a767e1e23f8e5c1625115d3ef58228abe",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "tag": "rmw6otj5l-10bd8f",
+        "releaseId": "rmw6otj5l-10bd8f",
+        "status": "approved",
+        "approvedAt": "2026-11-07T18:01:35.014Z",
+        "tagUrl": "https://rmw6otj5l-10bd8f---l0000r-sja7fatcta-uc.a.run.app",
+        "service": "l0000r"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000r-rmw7zi7jk-5b89ad",
+      "fields": {
+        "releaseId": "rmw7zi7jk-5b89ad",
+        "lang": "0000",
+        "commit": "29da96839c743d46c07a438b73179117ceaf11a7",
+        "tag": "rmw7zi7jk-5b89ad",
+        "status": "approved",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "imageDigest": "sha256:0712a84a12871eeb6875b4ebc3327d7bf3048f36fe9d673407a59339f7bb4950",
+        "revision": "l0000r-rmw7zi7jk-5b89ad",
+        "approvedAt": "2026-11-08T15:39:37.963Z",
+        "tagUrl": "https://rmw7zi7jk-5b89ad---l0000r-sja7fatcta-uc.a.run.app",
+        "service": "l0000r"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0000/revisions/l0000r-rmw8gtkc2-830693",
+      "fields": {
+        "imageDigest": "sha256:88e220a1376ebdd83e1b3105536fc36629ba82deef37d439d8d17e72e28895c9",
+        "tag": "rmw8gtkc2-830693",
+        "releaseId": "rmw8gtkc2-830693",
+        "status": "approved",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "commit": "2df3522168f07a177d9dd6b8a83e2eea9ccbcdfd",
+        "approvedAt": "2026-11-08T23:43:49.249Z",
+        "service": "l0000r",
+        "lang": "0000",
+        "tagUrl": "https://rmw8gtkc2-830693---l0000r-sja7fatcta-uc.a.run.app",
+        "revision": "l0000r-rmw8gtkc2-830693"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmuxb8bkg-02e234",
+      "fields": {
+        "retiringBy": "<operator>",
+        "tagRemovedAt": "2026-10-13T16:18:51.081Z",
+        "retiringSince": "2026-10-13T16:03:44.089Z",
+        "approvedAt": "2026-10-07T16:52:35.201Z",
+        "retiredAt": "2026-10-13T16:03:45.230Z",
+        "imageDigest": "sha256:336ee0474e3c20f296fffbe88e4c2642025718c596801234a91f02ea79b5ce5d",
+        "tagUrl": "https://rmuxb8bkg-02e234---l0176-sja7fatcta-uc.a.run.app",
+        "commit": "3150f4c2bcb08946f605be6af5c4b867b1edb6e9",
+        "tag": "rmuxb8bkg-02e234",
+        "retirementId": "733b8221-98a9-481c-8d1e-6f32ac6c3401",
+        "releaseId": "rmuxb8bkg-02e234",
+        "retiredBy": "<operator>",
+        "revision": "l0176-rmuxb8bkg-02e234",
+        "lang": "0176",
+        "contractVersions": [
+          1
+        ],
+        "status": "retired",
+        "service": "l0176",
+        "unrecoverable": []
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmv5moqn6-73db6d",
+      "fields": {
+        "retirementId": "5d46ce77-7199-4cc7-811b-1308a2c7cd4c",
+        "service": "l0176",
+        "unrecoverable": [
+          "3d1f515fd0287e9bdfb529d11612d94611d80a75315e93658479ec15dba49beb"
+        ],
+        "revision": "l0176-rmv5moqn6-73db6d",
+        "commit": "7ff60213fd7c6554221b688d6eaab89b7df3bed0",
+        "retiredAt": "2026-10-13T22:09:55.343Z",
+        "lang": "0176",
+        "selfCancelledAt": "2026-10-13T21:55:19.691Z",
+        "retiringBy": "<operator>",
+        "approvedAt": "2026-10-12T19:14:42.760Z",
+        "status": "retired",
+        "imageDigest": "sha256:8c56254d92c3e121211aba0af5095bd2fa5c6ec20a075ea50a6490491fc95128",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "tag": "rmv5moqn6-73db6d",
+        "selfCancelledBy": "<operator>",
+        "lastReport": [
+          "3d1f515fd0287e9bdfb529d11612d94611d80a75315e93658479ec15dba49beb"
+        ],
+        "tagRemovedAt": "2026-10-13T22:24:59.050Z",
+        "retiredBy": "<operator>",
+        "tagUrl": "https://rmv5moqn6-73db6d---l0176-sja7fatcta-uc.a.run.app",
+        "releaseId": "rmv5moqn6-73db6d",
+        "retiringSince": "2026-10-13T22:09:51.651Z"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmv5qckjx-5d3c21",
+      "fields": {
+        "retiredAt": "2026-10-13T22:09:58.562Z",
+        "imageDigest": "sha256:9988bb4492321e2e2d585223e6c6caf8dce7f065d09be97a9cc0a2d4a243aa56",
+        "unrecoverable": [
+          "a046288921460552e6b166b7e4e966ff5d23f91f48c89d73c7be7096cfbe9e0c",
+          "ccfd37683adbe1c1808e0aab25ebf5698bc7b9d417ce20f0a417d91683a558e2"
+        ],
+        "tagUrl": "https://rmv5qckjx-5d3c21---l0176-sja7fatcta-uc.a.run.app",
+        "service": "l0176",
+        "lang": "0176",
+        "retiringBy": "<operator>",
+        "selfCancelledAt": "2026-10-13T21:55:41.863Z",
+        "retirementId": "f2eed319-8baa-4892-aadb-25f48c0087bb",
+        "approvedAt": "2026-10-12T20:56:44.477Z",
+        "status": "retired",
+        "retiredBy": "<operator>",
+        "releaseId": "rmv5qckjx-5d3c21",
+        "lastReport": [
+          "a046288921460552e6b166b7e4e966ff5d23f91f48c89d73c7be7096cfbe9e0c",
+          "ccfd37683adbe1c1808e0aab25ebf5698bc7b9d417ce20f0a417d91683a558e2"
+        ],
+        "selfCancelledBy": "<operator>",
+        "commit": "cd7198b13f10f3402f47d7275b7e6e5b634fb813",
+        "tagRemovedAt": "2026-10-13T22:25:03.690Z",
+        "tag": "rmv5qckjx-5d3c21",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "retiringSince": "2026-10-13T22:09:51.696Z",
+        "revision": "l0176-rmv5qckjx-5d3c21"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmv5ty3bz-c06749",
+      "fields": {
+        "selfCancelledAt": "2026-10-13T21:55:42.613Z",
+        "imageDigest": "sha256:014ae4cca494a1b68c5c82e8513bb90a06a456b7be6906a394d4ef0d898280ed",
+        "retiringSince": "2026-10-13T22:09:51.637Z",
+        "approvedAt": "2026-10-12T22:38:10.138Z",
+        "tagUrl": "https://rmv5ty3bz-c06749---l0176-sja7fatcta-uc.a.run.app",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "retiredAt": "2026-10-13T22:09:59.288Z",
+        "retirementId": "656f6b3e-25e0-4325-83fe-5ab650fc27a6",
+        "lang": "0176",
+        "retiringBy": "<operator>",
+        "service": "l0176",
+        "lastReport": [
+          "0011e7e0f5a57c5b332decdd6caf658e6c07777498a0c9819b680cb87df9a13d",
+          "0493e622c28eecf39ac95605b010af3b62987780ec4df42157cef9047eacc67c",
+          "7bdc34ad82dcc5067e2faa89fcca4b293a4afca3357ed6c07e2323e1f9a4dc3f",
+          "9ec2a71c286184445381ad559f79becd40fb3961c684d23499c23fbbf6c9b230"
+        ],
+        "commit": "1567ef39e8721c70bb22416821620718a3022c4d",
+        "retiredBy": "<operator>",
+        "releaseId": "rmv5ty3bz-c06749",
+        "tagRemovedAt": "2026-10-13T22:25:03.698Z",
+        "tag": "rmv5ty3bz-c06749",
+        "revision": "l0176-rmv5ty3bz-c06749",
+        "selfCancelledBy": "<operator>",
+        "status": "retired",
+        "unrecoverable": [
+          "0011e7e0f5a57c5b332decdd6caf658e6c07777498a0c9819b680cb87df9a13d",
+          "0493e622c28eecf39ac95605b010af3b62987780ec4df42157cef9047eacc67c",
+          "7bdc34ad82dcc5067e2faa89fcca4b293a4afca3357ed6c07e2323e1f9a4dc3f",
+          "9ec2a71c286184445381ad559f79becd40fb3961c684d23499c23fbbf6c9b230"
+        ]
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmv73kqzv-03d0e4",
+      "fields": {
+        "retiringBy": "<operator>",
+        "retiredAt": "2026-10-13T22:09:55.237Z",
+        "approvedAt": "2026-10-13T19:55:00.568Z",
+        "retiringSince": "2026-10-13T22:09:51.683Z",
+        "selfCancelledBy": "<operator>",
+        "retirementId": "a499d852-b0b8-451a-a14d-8a9dd8985b64",
+        "tag": "rmv73kqzv-03d0e4",
+        "tagUrl": "https://rmv73kqzv-03d0e4---l0176-sja7fatcta-uc.a.run.app",
+        "lang": "0176",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "unrecoverable": [
+          "abcfd5dfb553989af2199c20151d09cef0acb4327682084c4030885bd85171c8"
+        ],
+        "retiredBy": "<operator>",
+        "commit": "fdf217683bcdda7e41aedd95eabd4f52f27aef86",
+        "releaseId": "rmv73kqzv-03d0e4",
+        "service": "l0176",
+        "selfCancelledAt": "2026-10-13T21:55:38.570Z",
+        "imageDigest": "sha256:d0a72120ff42218a89a15f469f8bf9be5f099af281aa1030c1e9f693de87b6d5",
+        "status": "retired",
+        "lastReport": [
+          "abcfd5dfb553989af2199c20151d09cef0acb4327682084c4030885bd85171c8"
+        ],
+        "revision": "l0176-rmv73kqzv-03d0e4",
+        "tagRemovedAt": "2026-10-13T22:33:06.294Z"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmv77l8sj-2e0569",
+      "fields": {
+        "commit": "d52cf66e86f3eda1fcb845e61bc79012aa5564ee",
+        "service": "l0176",
+        "retiringSince": "2026-10-16T18:21:19.334Z",
+        "status": "retired",
+        "retiredAt": "2026-10-16T18:21:33.569Z",
+        "retiringBy": "<operator>",
+        "approvedAt": "2026-10-13T21:47:18.509Z",
+        "tagRemovedAt": "2026-10-16T18:36:37.590Z",
+        "selfCancelledAt": "2026-10-16T18:03:40.689Z",
+        "revision": "l0176-rmv77l8sj-2e0569",
+        "selfCancelledBy": "<operator>",
+        "tag": "rmv77l8sj-2e0569",
+        "lang": "0176",
+        "lastReport": [
+          "300b6ddd3676d76e4d665cd1d30c8a74774f08f25c6e55938761421cec1359b3",
+          "56a976caf6a166ecc8c7ba6a9b9017041884fe367858eac53165e58eafe4ad63",
+          "7a61572405056b5cedfc2f9179f41a339aee29908e92a3109a188df8a2ddf9bc",
+          "8a8c760bd508b3701a10a6dbf7d2d8c7b14c87cd320b39c950c876e06e16e58e",
+          "8f70ff022c73b81400123955dfe38cb57448b3aabc13aa478964942798184762"
+        ],
+        "retiredBy": "<operator>",
+        "imageDigest": "sha256:9bcecbfb8d9ee753820dd731d9e1c1e98e6f075e01bb017c633103fbfb260b8c",
+        "releaseId": "rmv77l8sj-2e0569",
+        "retirementId": "80561a65-50b6-46ad-9602-65b550801efd",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "tagUrl": "https://rmv77l8sj-2e0569---l0176-sja7fatcta-uc.a.run.app",
+        "unrecoverable": [
+          "300b6ddd3676d76e4d665cd1d30c8a74774f08f25c6e55938761421cec1359b3",
+          "56a976caf6a166ecc8c7ba6a9b9017041884fe367858eac53165e58eafe4ad63",
+          "7a61572405056b5cedfc2f9179f41a339aee29908e92a3109a188df8a2ddf9bc",
+          "8a8c760bd508b3701a10a6dbf7d2d8c7b14c87cd320b39c950c876e06e16e58e",
+          "8f70ff022c73b81400123955dfe38cb57448b3aabc13aa478964942798184762"
+        ]
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmv9xzfol-ab9092",
+      "fields": {
+        "selfCancelledAt": "2026-10-16T17:48:05.617Z",
+        "releaseId": "rmv9xzfol-ab9092",
+        "tagUrl": "https://rmv9xzfol-ab9092---l0176-sja7fatcta-uc.a.run.app",
+        "retiringSince": "2026-10-16T18:05:52.653Z",
+        "retiredBy": "<operator>",
+        "lang": "0176",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "lastReport": [
+          "03194e1f3e417322658863611db2e88361702eb25c4b2dd716109489c493afca",
+          "c42c4b2d0e11c389aafad982ec1057b3efacce369633f75a2452b87b0ea867a8"
+        ],
+        "tagRemovedAt": "2026-10-16T18:21:01.729Z",
+        "retiringBy": "<operator>",
+        "status": "retired",
+        "imageDigest": "sha256:1ef674bbb78c505a1d36179f1645f41597f972705037fe30836611d9717ad571",
+        "retiredAt": "2026-10-16T18:05:57.737Z",
+        "tag": "rmv9xzfol-ab9092",
+        "approvedAt": "2026-10-15T19:42:05.674Z",
+        "retirementId": "c97828f4-d430-4111-9d42-64390081f7d6",
+        "selfCancelledBy": "<operator>",
+        "revision": "l0176-rmv9xzfol-ab9092",
+        "commit": "949105676950b931a5c8cabb34afdef3ec152274",
+        "unrecoverable": [
+          "03194e1f3e417322658863611db2e88361702eb25c4b2dd716109489c493afca",
+          "c42c4b2d0e11c389aafad982ec1057b3efacce369633f75a2452b87b0ea867a8"
+        ],
+        "service": "l0176"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmvb8ctjo-5b985c",
+      "fields": {
+        "retiringSince": "2026-10-16T17:48:07.845Z",
+        "approvedAt": "2026-10-16T17:35:24.174Z",
+        "tagUrl": "https://rmvb8ctjo-5b985c---l0176-sja7fatcta-uc.a.run.app",
+        "lang": "0176",
+        "retiringBy": "<operator>",
+        "releaseId": "rmvb8ctjo-5b985c",
+        "retiredBy": "<operator>",
+        "imageDigest": "sha256:c1a8d058c6611e7cd0b681b0f82d81293d4ff86e3510d8c05468350852f65293",
+        "service": "l0176",
+        "tagRemovedAt": "2026-10-16T18:03:13.891Z",
+        "tag": "rmvb8ctjo-5b985c",
+        "status": "retired",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "retirementId": "002dd7b3-2196-44e9-a6f3-3aa7b9247c0a",
+        "retiredAt": "2026-10-16T17:48:09.210Z",
+        "unrecoverable": [],
+        "revision": "l0176-rmvb8ctjo-5b985c",
+        "commit": "532d58ededed519e44bc11810764232a90b99e76"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmvb9akkt-5b79e9",
+      "fields": {
+        "lastReport": [
+          "03bb0e6ee83a46d510eeda70659c55c53adcb19a45576a6179a90f588041497d",
+          "0584f6d4ae9cd0f405d4dc14e971cb5d229926be14794c77b9124ce4967257c2",
+          "27a354a5a5edb6c8efbb9c362c59461c058ff5709fe83d93e0ed121971fcfb37",
+          "3a05a4c86bb852d6c522378e672fbc7a0780e651a55d55662abbb4696f40f55e",
+          "3a69e4efc0b74bfd8063bbc8ebee39f9e84a4d6232b761aea6b06fda9c0c4ffc",
+          "40218c272baaa2b196b6e489fcc5d94fe4567b012072dae7e1fcd5b621d18d8a",
+          "40a78ce4400eaa992f3099ab8354235302fe5419d36bfb76081a191d66f2a1d1",
+          "716419269eff7802522119860aa25d8424a031468e32d607cf4539228e846e8d",
+          "73b4fbc00bf99cade449924675e12109292a4db92c3575eef7eeaacff26903a4",
+          "80ea3d2905aceae7773a3e3b2e1757993f16fdd6d60708b7a82ff10bb3222baa",
+          "857fb2689ae2fc6ff6e40913647bc7ce28e0a1d0ce3dcd9594f9ccb80b89d4ea",
+          "8e024dfe66c0f6894baab8bf74701e27b99b25fc16b91112eb527835ae58b24f",
+          "9045a1cf2c2d4428b52dc1333ce75c823f9d1e6a9ed2df2989d7d2f8ea3df6bd",
+          "965e67ffc070384b9233679c708d044339fe1b340141d4aed845daf826452fc5",
+          "b5ea4df6a71d6842552edca440945f550f1220be4ec7d21d0822f311b3a07e32",
+          "bf41cbaed5158349f79e81a373d1f797af2ebf7f9fb21efcf84e0583fccfda7c",
+          "cd9c0b2d694d2a98d29a4bf666933e594116913432c161d07b1047ca6a77e365",
+          "d29876b68747a57e1a31b46688d70a6b9c8d09bd02beb97e340541272022f274",
+          "e3254d4e266d30712f46ed071c46a7e7a98fc9666a323961a9e5910fa35742a7",
+          "e7fce8536f6ccd6f586287e51c4a48e8266efbd6bbdaba3c4649fdaa7fa23416",
+          "ebf6834fad5cd2cd89d5d6b1a67c08532efeeda4dc4c8ee8d0e674c3ca216b17",
+          "efdc2442ce53dc17a7e0106dd8e07b159791f71706c3f667bf1b58d19c271ac5",
+          "fa8c4508d98a5d4e6def383b4001d66a88e06d926d2a9db65c66d3903de48989"
+        ],
+        "imageDigest": "sha256:adedbb73f13e08e5fc5b84b5b003bc8847e81e74183d9233360c520f4428c533",
+        "selfCancelledBy": "<operator>",
+        "commit": "4a650783bf38a22f1c6235e3ba05e00dae065b6d",
+        "service": "l0176",
+        "retiringSince": "2026-10-18T21:07:58.706Z",
+        "status": "retired",
+        "retiredAt": "2026-10-18T21:08:10.876Z",
+        "tag": "rmvb9akkt-5b79e9",
+        "revision": "l0176-rmvb9akkt-5b79e9",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "unrecoverable": [
+          "03bb0e6ee83a46d510eeda70659c55c53adcb19a45576a6179a90f588041497d",
+          "0584f6d4ae9cd0f405d4dc14e971cb5d229926be14794c77b9124ce4967257c2",
+          "27a354a5a5edb6c8efbb9c362c59461c058ff5709fe83d93e0ed121971fcfb37",
+          "3a05a4c86bb852d6c522378e672fbc7a0780e651a55d55662abbb4696f40f55e",
+          "3a69e4efc0b74bfd8063bbc8ebee39f9e84a4d6232b761aea6b06fda9c0c4ffc",
+          "40218c272baaa2b196b6e489fcc5d94fe4567b012072dae7e1fcd5b621d18d8a",
+          "40a78ce4400eaa992f3099ab8354235302fe5419d36bfb76081a191d66f2a1d1",
+          "716419269eff7802522119860aa25d8424a031468e32d607cf4539228e846e8d",
+          "73b4fbc00bf99cade449924675e12109292a4db92c3575eef7eeaacff26903a4",
+          "80ea3d2905aceae7773a3e3b2e1757993f16fdd6d60708b7a82ff10bb3222baa",
+          "857fb2689ae2fc6ff6e40913647bc7ce28e0a1d0ce3dcd9594f9ccb80b89d4ea",
+          "8e024dfe66c0f6894baab8bf74701e27b99b25fc16b91112eb527835ae58b24f",
+          "9045a1cf2c2d4428b52dc1333ce75c823f9d1e6a9ed2df2989d7d2f8ea3df6bd",
+          "965e67ffc070384b9233679c708d044339fe1b340141d4aed845daf826452fc5",
+          "b5ea4df6a71d6842552edca440945f550f1220be4ec7d21d0822f311b3a07e32",
+          "bf41cbaed5158349f79e81a373d1f797af2ebf7f9fb21efcf84e0583fccfda7c",
+          "cd9c0b2d694d2a98d29a4bf666933e594116913432c161d07b1047ca6a77e365",
+          "d29876b68747a57e1a31b46688d70a6b9c8d09bd02beb97e340541272022f274",
+          "e3254d4e266d30712f46ed071c46a7e7a98fc9666a323961a9e5910fa35742a7",
+          "e7fce8536f6ccd6f586287e51c4a48e8266efbd6bbdaba3c4649fdaa7fa23416",
+          "ebf6834fad5cd2cd89d5d6b1a67c08532efeeda4dc4c8ee8d0e674c3ca216b17",
+          "efdc2442ce53dc17a7e0106dd8e07b159791f71706c3f667bf1b58d19c271ac5",
+          "fa8c4508d98a5d4e6def383b4001d66a88e06d926d2a9db65c66d3903de48989"
+        ],
+        "tagUrl": "https://rmvb9akkt-5b79e9---l0176-sja7fatcta-uc.a.run.app",
+        "approvedAt": "2026-10-16T17:46:54.927Z",
+        "retiringBy": "<operator>",
+        "lang": "0176",
+        "releaseId": "rmvb9akkt-5b79e9",
+        "selfCancelledAt": "2026-10-18T21:07:46.405Z",
+        "retirementId": "3f40902d-85cb-4cde-a549-a074b6cc4988",
+        "retiredBy": "<operator>"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmveaui2m-804996",
+      "fields": {
+        "status": "retired",
+        "retiringSince": "2026-10-19T18:47:29.039Z",
+        "tagRemovedAt": "2026-10-19T20:00:34.748Z",
+        "retiredAt": "2026-10-19T18:47:43.435Z",
+        "retiringBy": "<operator>",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "commit": "1a8d828f3ab7b8fb1b86fd6e01ee659617f5ce08",
+        "service": "l0176",
+        "approvedAt": "2026-10-18T20:52:47.830Z",
+        "tag": "rmveaui2m-804996",
+        "selfCancelledBy": "<operator>",
+        "retirementId": "58099b9b-9557-4784-a663-821fe595ecbc",
+        "tagUrl": "https://rmveaui2m-804996---l0176-sja7fatcta-uc.a.run.app",
+        "selfCancelledAt": "2026-10-19T18:35:14.052Z",
+        "lang": "0176",
+        "lastReport": [
+          "0d9dd10ec7b36577d652bb6694052549be0284ad7f353838386f1b75c022c3ea",
+          "0eeb5cf516807fb24a9493fff173a112bcb43e86c3756d88a596195317a170da",
+          "256e0d0db8f33357d7ce64472e5c8a2c616d8774a762960c396c316b894541d7",
+          "27a09c3ac16006bd936b809d76b3368d0da4c0023f1543541efdf9a260bcab4c",
+          "29bb04410288536f0335d6a665de5ed4437dc4414c1c742a8e57c9de02a264db",
+          "2b3d98e6f8f00050715a59859a1fd1736aa3d593659a607ac3be22ed3dde87b3",
+          "2b4bb1bf04ff6424cc1fbb1c7bfe864cc3b6fb1ce24185d583f4d17b7bf90492",
+          "2f448acd90da8dac53648ded9bc72313a231cf21cb488ef84074505c96e8763e",
+          "30894e83eb2117ed2a6cffb4f6f06b4408e9c84b93628073d9f02e367a54ddf0",
+          "37adbe0bc0ade18c295c2a1b56ff0e2ebd71b75aa09a0a2acb241e576bc6cbf0",
+          "427c65a4437e3aa79e7991018fbd8aca59ec81565d1456888e17a04c09577097",
+          "463a464db91740ae4df22fc7ad03464f45926ac9c110a807f96fe860794007d6",
+          "542f8f436c321550f8b870e59c8974ca95278e12ad823bc8d8f0ad34a77b8765",
+          "5c857d5ceb9067f3d59d9d47065a5868f71be8a343d10f5769dd84d84fe528ec",
+          "6d13d3b086351be35ea524ed8a1db50d975daae348bf678c3a99689527b0c285",
+          "6de19f48edf914eb01c97e48056fe9357e29d4a0eb5e6ac1cfbacd3590ea15ac",
+          "7e93587f3bc4ab9f4541c14b8e1599ce3e42ac14ef4ceae00fba92ab468d744a",
+          "89ff1d2da544a343aee4ea5995f60404f6fe6b99e38214b7273aea125191a84c",
+          "8c03a8d826efb8c330cc68903568789991641f16231e7fbd7a20a7db2b2ec2f7",
+          "8e00c4c52a6855da49072511b55419b7cb6121c5dcd2aa09a31dbc1bcfd769c8",
+          "97cf283e7e3d2d8338700136b54439492e44b6115b466288ad00a007554fcbc4",
+          "9df0cf953e6097d8b82cab9814ef028ebfd8569e76a1cd0ede0a79a58f66fdc3",
+          "a26fb52ef5cb13c837ce426355cf9eee41a8b7f022474367e22ed65f9751fbbd",
+          "a3e2b99bccccd4374eefd43a92194535e57e9b2841e4118cdeca681cdb5c502a",
+          "a807c4b249631109b808499d281b5a02a7ea1ffa98e3a93c3cecf5a8969f0fd2",
+          "aa97c1b8e9640b5616ef52b136c226ec52b386e815ecd47ea2f62d01a8cecac6",
+          "ae1717f7cd5f519df09ea6db6938e01cd177e541b83f1bcb55a4890b43d9b192",
+          "b5a4db7435fd46fed6e6d7d3999c634714aa47dc6ad61a67d9035140e3e37bf1",
+          "bd649fbc2179d0c6b4df4ccff5ca61602eed76c2c76ff26e0253271618dc6ace",
+          "c1280a8228ef51151fe61062e3faf34f5a74de98bf6b49466341665b595358fb",
+          "c561c08914bd24be8877c2cc2e58da3c546c5a56b7fc40f64b08dbf59f766fa4",
+          "d16c182b1d07d2394fa2f72aa3baa1f26e279a9f2477eb968b62aea54d4841f4",
+          "d413322e536d95fd7152366a0ca1469417b5ad39d62c76456fbe185290ba49fc",
+          "e1c67eea4d313a6d5ec8657ea1a74948596f268026fb78f0c5c3a7ff4cbba88d",
+          "e56d0e0a88150f4c843300f6a04cd1edae55d92639bcc0cc3ebe1148d2f17e2f",
+          "ee94c7cb50c70702a86de97990a467d54e99e49675c2ff6e68194e1d1d00beab",
+          "f59a01a7c197f321d7b9a6c44da858d11f7a4bf190b375195854d942cc321f67"
+        ],
+        "releaseId": "rmveaui2m-804996",
+        "imageDigest": "sha256:fd6eba39ade32e82e682025b58edab50f631c5b7253b7eaa6b8279ac2e06ba01",
+        "retiredBy": "<operator>",
+        "revision": "l0176-rmveaui2m-804996",
+        "unrecoverable": [
+          "0d9dd10ec7b36577d652bb6694052549be0284ad7f353838386f1b75c022c3ea",
+          "0eeb5cf516807fb24a9493fff173a112bcb43e86c3756d88a596195317a170da",
+          "256e0d0db8f33357d7ce64472e5c8a2c616d8774a762960c396c316b894541d7",
+          "27a09c3ac16006bd936b809d76b3368d0da4c0023f1543541efdf9a260bcab4c",
+          "29bb04410288536f0335d6a665de5ed4437dc4414c1c742a8e57c9de02a264db",
+          "2b3d98e6f8f00050715a59859a1fd1736aa3d593659a607ac3be22ed3dde87b3",
+          "2b4bb1bf04ff6424cc1fbb1c7bfe864cc3b6fb1ce24185d583f4d17b7bf90492",
+          "2f448acd90da8dac53648ded9bc72313a231cf21cb488ef84074505c96e8763e",
+          "30894e83eb2117ed2a6cffb4f6f06b4408e9c84b93628073d9f02e367a54ddf0",
+          "37adbe0bc0ade18c295c2a1b56ff0e2ebd71b75aa09a0a2acb241e576bc6cbf0",
+          "427c65a4437e3aa79e7991018fbd8aca59ec81565d1456888e17a04c09577097",
+          "463a464db91740ae4df22fc7ad03464f45926ac9c110a807f96fe860794007d6",
+          "542f8f436c321550f8b870e59c8974ca95278e12ad823bc8d8f0ad34a77b8765",
+          "5c857d5ceb9067f3d59d9d47065a5868f71be8a343d10f5769dd84d84fe528ec",
+          "6d13d3b086351be35ea524ed8a1db50d975daae348bf678c3a99689527b0c285",
+          "6de19f48edf914eb01c97e48056fe9357e29d4a0eb5e6ac1cfbacd3590ea15ac",
+          "7e93587f3bc4ab9f4541c14b8e1599ce3e42ac14ef4ceae00fba92ab468d744a",
+          "89ff1d2da544a343aee4ea5995f60404f6fe6b99e38214b7273aea125191a84c",
+          "8c03a8d826efb8c330cc68903568789991641f16231e7fbd7a20a7db2b2ec2f7",
+          "8e00c4c52a6855da49072511b55419b7cb6121c5dcd2aa09a31dbc1bcfd769c8",
+          "97cf283e7e3d2d8338700136b54439492e44b6115b466288ad00a007554fcbc4",
+          "9df0cf953e6097d8b82cab9814ef028ebfd8569e76a1cd0ede0a79a58f66fdc3",
+          "a26fb52ef5cb13c837ce426355cf9eee41a8b7f022474367e22ed65f9751fbbd",
+          "a3e2b99bccccd4374eefd43a92194535e57e9b2841e4118cdeca681cdb5c502a",
+          "a807c4b249631109b808499d281b5a02a7ea1ffa98e3a93c3cecf5a8969f0fd2",
+          "aa97c1b8e9640b5616ef52b136c226ec52b386e815ecd47ea2f62d01a8cecac6",
+          "ae1717f7cd5f519df09ea6db6938e01cd177e541b83f1bcb55a4890b43d9b192",
+          "b5a4db7435fd46fed6e6d7d3999c634714aa47dc6ad61a67d9035140e3e37bf1",
+          "bd649fbc2179d0c6b4df4ccff5ca61602eed76c2c76ff26e0253271618dc6ace",
+          "c1280a8228ef51151fe61062e3faf34f5a74de98bf6b49466341665b595358fb",
+          "c561c08914bd24be8877c2cc2e58da3c546c5a56b7fc40f64b08dbf59f766fa4",
+          "d16c182b1d07d2394fa2f72aa3baa1f26e279a9f2477eb968b62aea54d4841f4",
+          "d413322e536d95fd7152366a0ca1469417b5ad39d62c76456fbe185290ba49fc",
+          "e1c67eea4d313a6d5ec8657ea1a74948596f268026fb78f0c5c3a7ff4cbba88d",
+          "e56d0e0a88150f4c843300f6a04cd1edae55d92639bcc0cc3ebe1148d2f17e2f",
+          "ee94c7cb50c70702a86de97990a467d54e99e49675c2ff6e68194e1d1d00beab",
+          "f59a01a7c197f321d7b9a6c44da858d11f7a4bf190b375195854d942cc321f67"
+        ]
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmvff1jxi-304c74",
+      "fields": {
+        "tagUrl": "https://rmvff1jxi-304c74---l0176-sja7fatcta-uc.a.run.app",
+        "tagRemovedAt": "2026-10-19T18:50:20.803Z",
+        "service": "l0176",
+        "retiringSince": "2026-10-19T18:35:16.179Z",
+        "retiredAt": "2026-10-19T18:35:16.964Z",
+        "tag": "rmvff1jxi-304c74",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "unrecoverable": [],
+        "lang": "0176",
+        "status": "retired",
+        "retirementId": "12516d3f-9ae6-46f2-84ad-ca414b91e0ff",
+        "imageDigest": "sha256:c791a42a38d86ef44bed372ce4e7f226ff32b331368ae435bc5f2a9eb854de80",
+        "approvedAt": "2026-10-19T15:38:47.004Z",
+        "commit": "3b34a0a1ae5872d593cc84984a811431fa927fce",
+        "retiredBy": "<operator>",
+        "retiringBy": "<operator>",
+        "releaseId": "rmvff1jxi-304c74",
+        "revision": "l0176-rmvff1jxi-304c74"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmvfi4uea-92fed3",
+      "fields": {
+        "retiredAt": "2026-10-26T16:10:32.050Z",
+        "selfCancelledBy": "<operator>",
+        "commit": "370cb417762ec6cc69753a31824b458c96bf3155",
+        "tagRemovedAt": "2026-10-26T16:25:36.215Z",
+        "lastReport": [
+          "c3d6b8db03ff769fbe617cca1a2ded63778018449ef3d622f35f4a35f50bf7d7"
+        ],
+        "imageDigest": "sha256:1aeecb3596440e8707d0f2907fa428de743698f273a6b1eff13ad77b627c332e",
+        "service": "l0176",
+        "retiringSince": "2026-10-26T16:10:26.028Z",
+        "status": "retired",
+        "retiredBy": "<operator>",
+        "retirementId": "e93f7783-f5bb-4aa6-b1a9-59ac38b1ac90",
+        "unrecoverable": [
+          "c3d6b8db03ff769fbe617cca1a2ded63778018449ef3d622f35f4a35f50bf7d7"
+        ],
+        "releaseId": "rmvfi4uea-92fed3",
+        "lang": "0176",
+        "revision": "l0176-rmvfi4uea-92fed3",
+        "tagUrl": "https://rmvfi4uea-92fed3---l0176-sja7fatcta-uc.a.run.app",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "retiringBy": "<operator>",
+        "approvedAt": "2026-10-19T18:20:19.401Z",
+        "tag": "rmvfi4uea-92fed3",
+        "selfCancelledAt": "2026-10-26T15:32:04.059Z"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmvjta1ir-f3bff1",
+      "fields": {
+        "revision": "l0176-rmvjta1ir-f3bff1",
+        "status": "retired",
+        "releaseId": "rmvjta1ir-f3bff1",
+        "retiredBy": "<operator>",
+        "lang": "0176",
+        "tag": "rmvjta1ir-f3bff1",
+        "retirementId": "f9bc5277-08bc-4f60-a0d7-a3c5c718e2f7",
+        "commit": "5b96bf029b355d818be858a31d80142ed011d07b",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "retiringSince": "2026-10-26T15:32:20.783Z",
+        "tagUrl": "https://rmvjta1ir-f3bff1---l0176-sja7fatcta-uc.a.run.app",
+        "retiredAt": "2026-10-26T15:32:23.096Z",
+        "unrecoverable": [],
+        "imageDigest": "sha256:b45f852f0e4ff2476e36f784162bb35bf5d49728035aab673b536adf6d5a5250",
+        "retiringBy": "<operator>",
+        "service": "l0176",
+        "tagRemovedAt": "2026-10-26T15:47:27.165Z",
+        "approvedAt": "2026-10-22T17:28:41.053Z"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmvk0xthp-4d4815",
+      "fields": {
+        "releaseId": "rmvk0xthp-4d4815",
+        "lang": "0176",
+        "selfCancelledAt": "2026-10-26T15:47:39.273Z",
+        "retiredBy": "<operator>",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "tag": "rmvk0xthp-4d4815",
+        "tagUrl": "https://rmvk0xthp-4d4815---l0176-sja7fatcta-uc.a.run.app",
+        "tagRemovedAt": "2026-10-26T16:40:50.875Z",
+        "lastReport": [
+          "095963d7c97a4f64f14a98fc3ef1fe4cbf25b624fa281e27dcfdfc062b0aa524",
+          "4adea2568363913719bc9de9e9d54fe6ab7972f2d247bdf8de94c0f7e7e9ef29"
+        ],
+        "retiringSince": "2026-10-26T16:25:38.491Z",
+        "retirementId": "dae99675-c684-4265-bef9-62d462ae9eca",
+        "status": "retired",
+        "retiredAt": "2026-10-26T16:25:46.762Z",
+        "retiringBy": "<operator>",
+        "revision": "l0176-rmvk0xthp-4d4815",
+        "approvedAt": "2026-10-22T21:02:38.915Z",
+        "unrecoverable": [
+          "095963d7c97a4f64f14a98fc3ef1fe4cbf25b624fa281e27dcfdfc062b0aa524",
+          "4adea2568363913719bc9de9e9d54fe6ab7972f2d247bdf8de94c0f7e7e9ef29"
+        ],
+        "imageDigest": "sha256:4591df7d8deb29e3d22a0d216ceb9a8579c31cf2d9d42bf0c2e1e8a4fbe9c86c",
+        "commit": "60e58c14ba4319e129cc57ede53cbc10ba58b8b6",
+        "selfCancelledBy": "<operator>",
+        "service": "l0176"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmvlgyz79-a1b488",
+      "fields": {
+        "retiringSince": "2026-10-26T15:55:15.428Z",
+        "tag": "rmvlgyz79-a1b488",
+        "retiredAt": "2026-10-26T15:55:17.881Z",
+        "tagRemovedAt": "2026-10-26T16:10:22.685Z",
+        "retiringBy": "<operator>",
+        "lang": "0176",
+        "service": "l0176",
+        "tagUrl": "https://rmvlgyz79-a1b488---l0176-sja7fatcta-uc.a.run.app",
+        "approvedAt": "2026-10-23T21:19:22.143Z",
+        "retirementId": "3d67fa61-676d-4eeb-b3b8-ac4f47686237",
+        "imageDigest": "sha256:fe4c25f67f27a7e5ceebcb040bd42cbd42bb7c594e4beb39810a4159909c1ab3",
+        "revision": "l0176-rmvlgyz79-a1b488",
+        "commit": "0ea78fb416f97d9b0019b097619a80b3cf3e8e81",
+        "releaseId": "rmvlgyz79-a1b488",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "retiredBy": "<operator>",
+        "unrecoverable": [],
+        "status": "retired"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmvpfpy2g-38df14",
+      "fields": {
+        "commit": "79c3baf1420cd0ae5d6c8d6a459f057a7a28fa25",
+        "releaseId": "rmvpfpy2g-38df14",
+        "service": "l0176",
+        "imageDigest": "sha256:3083c827e148f0b05241853187a482379cb53c81af494830e949d66ed9fc3d12",
+        "approvedAt": "2026-10-26T15:54:50.733Z",
+        "lang": "0176",
+        "status": "approved",
+        "tag": "rmvpfpy2g-38df14",
+        "revision": "l0176-rmvpfpy2g-38df14",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "tagUrl": "https://rmvpfpy2g-38df14---l0176-sja7fatcta-uc.a.run.app"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmvu5zsuh-8b885d",
+      "fields": {
+        "revision": "l0176-rmvu5zsuh-8b885d",
+        "commit": "3b33873d659c9a1ebdcfe4ad69c293b7eaba4b3d",
+        "approvedAt": "2026-10-29T23:23:34.117Z",
+        "releaseId": "rmvu5zsuh-8b885d",
+        "status": "approved",
+        "service": "l0176",
+        "tagUrl": "https://rmvu5zsuh-8b885d---l0176-sja7fatcta-uc.a.run.app",
+        "tag": "rmvu5zsuh-8b885d",
+        "lang": "0176",
+        "imageDigest": "sha256:32abc7d19a53ea6c0e233e244fecffd09d463a9ea2d6beb1edf0a9ff6554ede5",
+        "contractVersions": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176-rmvv31tuj-fa4690",
+      "fields": {
+        "imageDigest": "sha256:7431b0944939f5b3f2b2fab02fd90de2901c08508a4680797611277f479cbaf6",
+        "commit": "177d7b7f1928c7da9e954e35a542de17fc96206c",
+        "service": "l0176",
+        "revision": "l0176-rmvv31tuj-fa4690",
+        "releaseId": "rmvv31tuj-fa4690",
+        "status": "approved",
+        "tag": "rmvv31tuj-fa4690",
+        "tagUrl": "https://rmvv31tuj-fa4690---l0176-sja7fatcta-uc.a.run.app",
+        "lang": "0176",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "approvedAt": "2026-10-30T14:46:55.195Z"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-drive-rmw9qbqjr-751fe1",
+      "fields": {
+        "service": "l0176r-drive",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "commit": "4e31be617054598f06586a8e133b9b50da205039",
+        "releaseId": "rmw9qbqjr-751fe1",
+        "tagUrl": "https://rmw9qbqjr-751fe1---l0176r-drive-sja7fatcta-uc.a.run.app",
+        "imageDigest": "sha256:99ff0995fdc2d43f5eddb12877c271b9f91bcfef6bb4869dc082ace21297f74f",
+        "lang": "0176",
+        "revision": "l0176r-drive-rmw9qbqjr-751fe1",
+        "tag": "rmw9qbqjr-751fe1",
+        "approvedAt": "2026-11-09T20:57:33.487Z",
+        "status": "approved"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-drive-rmwgzicgi-ac4468",
+      "fields": {
+        "commit": "edf39b71a9d4aa6808b3ed4709b09869845d1046",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "lang": "0176",
+        "imageDigest": "sha256:447b713ecdd7e9096d48f10a91f6f84167f9150338e3689b0a894e91e266fed9",
+        "approvedAt": "2026-11-14T22:48:18.410Z",
+        "status": "approved",
+        "service": "l0176r-drive",
+        "releaseId": "rmwgzicgi-ac4468",
+        "revision": "l0176r-drive-rmwgzicgi-ac4468",
+        "tag": "rmwgzicgi-ac4468",
+        "tagUrl": "https://rmwgzicgi-ac4468---l0176r-drive-sja7fatcta-uc.a.run.app"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-rmw15gmir-6bba5a",
+      "fields": {
+        "commit": "412426543ad82ba707139dda55c0059a8260a897",
+        "service": "l0176r",
+        "lang": "0176",
+        "revision": "l0176r-rmw15gmir-6bba5a",
+        "status": "approved",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "imageDigest": "sha256:7346c8b6d578ba7c7c17cac7220beb0a308b812b8053442d13e9fb707e70d7ed",
+        "releaseId": "rmw15gmir-6bba5a",
+        "tag": "rmw15gmir-6bba5a",
+        "approvedAt": "2026-11-03T20:47:58.428Z",
+        "tagUrl": "https://rmw15gmir-6bba5a---l0176r-sja7fatcta-uc.a.run.app"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-rmw18bcvb-0b20c8",
+      "fields": {
+        "tagUrl": "https://rmw18bcvb-0b20c8---l0176r-sja7fatcta-uc.a.run.app",
+        "approvedAt": "2026-11-03T22:07:49.081Z",
+        "revision": "l0176r-rmw18bcvb-0b20c8",
+        "imageDigest": "sha256:f46aa50f05184fb4d9ab2fe6d2adcf29f1dcaa8ec968026688bf3f9c6555dd24",
+        "status": "approved",
+        "releaseId": "rmw18bcvb-0b20c8",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "service": "l0176r",
+        "tag": "rmw18bcvb-0b20c8",
+        "lang": "0176",
+        "commit": "cb152b01b1be2ebd73727dfbb9074555352225a3"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-rmw46f0ff-9ab389",
+      "fields": {
+        "tag": "rmw46f0ff-9ab389",
+        "approvedAt": "2026-11-05T23:40:50.145Z",
+        "commit": "b970159338e1675647e48c2eee5fd774df06d393",
+        "imageDigest": "sha256:4aed68442a37527a8a359a02bb0984aa479daf9c519b54066b5c2bc87ed4aa18",
+        "lang": "0176",
+        "status": "approved",
+        "service": "l0176r",
+        "releaseId": "rmw46f0ff-9ab389",
+        "revision": "l0176r-rmw46f0ff-9ab389",
+        "tagUrl": "https://rmw46f0ff-9ab389---l0176r-sja7fatcta-uc.a.run.app",
+        "contractVersions": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-rmw6pnkt6-44f06f",
+      "fields": {
+        "lang": "0176",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "approvedAt": "2026-11-07T18:15:07.105Z",
+        "tagUrl": "https://rmw6pnkt6-44f06f---l0176r-sja7fatcta-uc.a.run.app",
+        "service": "l0176r",
+        "status": "approved",
+        "imageDigest": "sha256:a28c4b7c20b50818f6e46d009a381b63472a70a44ba97c55de39bf6bfdd014a1",
+        "revision": "l0176r-rmw6pnkt6-44f06f",
+        "tag": "rmw6pnkt6-44f06f",
+        "commit": "fb684e1a767e1e23f8e5c1625115d3ef58228abe",
+        "releaseId": "rmw6pnkt6-44f06f"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-rmw80cyjl-f43927",
+      "fields": {
+        "releaseId": "rmw80cyjl-f43927",
+        "status": "approved",
+        "tagUrl": "https://rmw80cyjl-f43927---l0176r-sja7fatcta-uc.a.run.app",
+        "imageDigest": "sha256:cc02c499c30428e5f706bc23098a456f53f5b9f502f7da20f2307a301310e8cd",
+        "approvedAt": "2026-11-08T16:17:46.924Z",
+        "tag": "rmw80cyjl-f43927",
+        "commit": "29da96839c743d46c07a438b73179117ceaf11a7",
+        "revision": "l0176r-rmw80cyjl-f43927",
+        "lang": "0176",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "service": "l0176r"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-rmw8hfslc-bab486",
+      "fields": {
+        "tagUrl": "https://rmw8hfslc-bab486---l0176r-sja7fatcta-uc.a.run.app",
+        "imageDigest": "sha256:5da2ef132d404cbce888541b2981ed55971cb185604c87ff7589517ed4ed3981",
+        "revision": "l0176r-rmw8hfslc-bab486",
+        "releaseId": "rmw8hfslc-bab486",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "status": "approved",
+        "approvedAt": "2026-11-08T23:57:26.560Z",
+        "service": "l0176r",
+        "tag": "rmw8hfslc-bab486",
+        "lang": "0176",
+        "commit": "2df3522168f07a177d9dd6b8a83e2eea9ccbcdfd"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-rmw9k415k-ebe71b",
+      "fields": {
+        "approvedAt": "2026-11-09T18:07:57.828Z",
+        "revision": "l0176r-rmw9k415k-ebe71b",
+        "commit": "e48854a6549e4a06fd468957f0ba84a161c8e0f6",
+        "service": "l0176r",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "status": "approved",
+        "lang": "0176",
+        "tagUrl": "https://rmw9k415k-ebe71b---l0176r-sja7fatcta-uc.a.run.app",
+        "releaseId": "rmw9k415k-ebe71b",
+        "tag": "rmw9k415k-ebe71b",
+        "imageDigest": "sha256:e7948a532dedad82f77b7ec4753482b898c6361047bac49f4202088ab521c7af"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-rmwduyn6c-c054b7",
+      "fields": {
+        "tag": "rmwduyn6c-c054b7",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "imageDigest": "sha256:a808247f424625d6583e321e620b23e03427ed5580bf24cb63500ec5a44dc946",
+        "tagUrl": "https://rmwduyn6c-c054b7---l0176r-sja7fatcta-uc.a.run.app",
+        "lang": "0176",
+        "service": "l0176r",
+        "status": "approved",
+        "releaseId": "rmwduyn6c-c054b7",
+        "revision": "l0176r-rmwduyn6c-c054b7",
+        "approvedAt": "2026-11-12T18:14:15.948Z",
+        "commit": "d15bddaf9e56af4a44b43e879c4b168e59d9b49b"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-rmwe83rgw-eae49e",
+      "fields": {
+        "approvedAt": "2026-11-13T00:22:31.523Z",
+        "releaseId": "rmwe83rgw-eae49e",
+        "status": "approved",
+        "tagUrl": "https://rmwe83rgw-eae49e---l0176r-sja7fatcta-uc.a.run.app",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "service": "l0176r",
+        "commit": "07944db9bf90297bd739c694284837a63bfe6f2b",
+        "lang": "0176",
+        "imageDigest": "sha256:221db98801704faec822d267dfeab98be76ce44ef6199a16070ea568084d85c6",
+        "revision": "l0176r-rmwe83rgw-eae49e",
+        "tag": "rmwe83rgw-eae49e"
+      }
+    },
+    {
+      "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-rmwk08k8n-c74227",
+      "fields": {
+        "status": "approved",
+        "tagUrl": "https://rmwk08k8n-c74227---l0176r-sja7fatcta-uc.a.run.app",
+        "releaseId": "rmwk08k8n-c74227",
+        "approvedAt": "2026-11-17T01:35:14.654Z",
+        "imageDigest": "sha256:0b6ac1bcfbd3faff6bc50cb245d74f19d175cebedbdd17b6c81743d89e4ef4bc",
+        "commit": "6918feca6cb693aa7a9b7b805a625eefa21daac0",
+        "revision": "l0176r-rmwk08k8n-c74227",
+        "lang": "0176",
+        "contractVersions": [
+          1,
+          2
+        ],
+        "tag": "rmwk08k8n-c74227",
+        "service": "l0176r"
+      }
+    }
+  ]
+}

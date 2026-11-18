@@ -1,0 +1,62 @@
+(node:34474) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/scopes.spec.ts
+  intent scopes (decision 1)
+    ○ skipped reads a bare string as a connection, and objects as connection, static item or bound item
+    ○ skipped requires an item scope of a service function, and refuses one on a connection function
+  allocation without a connection (decisions 1 and 4)
+    ○ skipped allocates a connectionless command only for a worker that runs v3 commands, and marks it so
+    ○ skipped allocates an anonymous command with the anonymous subject and no connection, and nothing else anonymous
+    ○ skipped refuses a repair of a v3 command
+  the scopes worker capability (§3)
+    ○ skipped hands a v3 command only to a worker that declares scopes: listed, renewed, taken over
+    ○ skipped marks a connection command when an installed model declares an item-scoped intent, before admission
+    ○ skipped ends an older owner's lease when the command becomes v3, so it can't finish it
+    ○ skipped keeps a v3 owner's lease when its command becomes v3
+    ○ skipped leaves a connection command whose models declare no item scope to any worker
+    ○ skipped answers an older worker's v3 admission as temporary, records no refusal, and marks the command
+    ○ skipped reads a model's item-scoped intents for the mark
+  v3 admission (decisions 1, 3, 6, 10)
+    ○ skipped admits an L0000 head over an L0013 capture of the owner's private item, with no connection
+    ○ skipped refuses a non-owner's capture of a private item, and admits a public one under the exception
+    ○ skipped admits an anonymous capture only of a public item
+    ○ skipped refuses an item it can't establish, and never allows without item authority
+    ○ skipped answers an item-authority outage as temporary, and admits once it is back
+    ○ skipped refuses a connectionless chain with a connection-scoped stage, `connection-required`
+    ○ skipped admits a mixed chain as one v3 plan holding the connection and the item
+    ○ skipped refuses a connection scope that names another connection
+    ○ skipped puts a bound item in no plan, and still requires contract 3 of its stage
+    ○ skipped never admits an item-scoped function outside a command
+    the per-stage contract rule (decision 10)
+      ✓ needs 3 of a stage with an item-scoped intent (6 ms)
+      ✓ takes 2 or 3 of a v3 plan's other stages (4 ms)
+      ✓ checks a connection-only plan exactly as before: v2, the same digest, and 2 required (3 ms)
+    mixed registry versions, with Policy at registry 9 (decision 10)
+      ○ skipped admits L0185 at 0 beside L0176 at 9, and refuses L0185 at 9
+      ○ skipped admits L0000 at 0 over L0013 at 9, and refuses L0013 at 8 beside L0176 at 9
+  item authority (decision 3)
+    ○ skipped asks the console's route as Policy, for one item, and reads its answers
+    ○ skipped is unavailable, never allowing, on anything but an answer
+  audit (§3 records)
+    ○ skipped records no connection for a command without one, and a capture's exception
+    ○ skipped names the item an admission refused
+  v3 execution (decisions 5 and 6)
+    ○ skipped gives an item-only stage a session with no connection, bound to its plan
+    ○ skipped mints each token of a mixed chain for its own scope only
+    ○ skipped authorizes a capture's attempts as the registry allows them, each with its own decision
+    ○ skipped refuses a second attempt of a step that isn't conditional
+    ○ skipped refuses an owner's capture at authorize-execution once the item has changed owner
+    ○ skipped answers an item-authority outage at mint and authorize-execution as temporary, recording nothing
+    ○ skipped runs an anonymous capture of a public item as `anonymous`, and refuses it once the item is private
+    ○ skipped refuses a bound item's bind, and so its mint, until its occurrence is reserved
+    ○ skipped refuses a token selecting another scope than its occurrence's, and a v3 session that isn't a command's
+    ○ skipped refuses an anonymous session that names a connection
+    ○ skipped reconciles a user's own captures of an item by its item scope
+  Broker's reconcile client (C5)
+    ○ skipped sends an item scope, or a connection, never both
+
+Test Suites: 1 passed, 1 total
+Tests:       40 skipped, 3 passed, 43 total
+Snapshots:   0 total
+Time:        0.319 s
+Ran all test suites matching /src\/scopes.spec.ts/i with tests matching "per-stage contract rule".

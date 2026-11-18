@@ -1,0 +1,53 @@
+{
+  "at": "2026-11-18T15:29:24.304Z",
+  "program": "snap item \"7vwaCAIyMNCJEzgIfyYY\" {}..",
+  "postedAs": "a35c2c8948de39fd03bb60d9d44259612dc56470",
+  "status": 200,
+  "returnedId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+  "sameTask": true,
+  "before": {
+    "snap": {
+      "doc": "zjy8eEXLUna2vdLNh97v",
+      "acls": {
+        "uids": {
+          "995cc0bc98105563168b7fbee7b1e59a4256331c": true
+        },
+        "public": false
+      },
+      "count": "1"
+    },
+    "sheet": {
+      "doc": "wFmmKzCNbsEpmWuBvaOy",
+      "acls": {
+        "uids": {
+          "995cc0bc98105563168b7fbee7b1e59a4256331c": true
+        },
+        "public": false
+      },
+      "count": "1"
+    }
+  },
+  "after": {
+    "snap": {
+      "doc": "zjy8eEXLUna2vdLNh97v",
+      "acls": {
+        "public": false,
+        "uids": {
+          "995cc0bc98105563168b7fbee7b1e59a4256331c": true,
+          "a35c2c8948de39fd03bb60d9d44259612dc56470": true
+        }
+      },
+      "count": "2"
+    },
+    "sheet": {
+      "doc": "wFmmKzCNbsEpmWuBvaOy",
+      "acls": {
+        "public": false,
+        "uids": {
+          "995cc0bc98105563168b7fbee7b1e59a4256331c": true
+        }
+      },
+      "count": "1"
+    }
+  }
+}

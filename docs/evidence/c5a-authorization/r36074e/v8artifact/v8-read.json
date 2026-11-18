@@ -1,0 +1,107 @@
+{
+  "row": "v8Artifact",
+  "at": "2026-11-18T20:39:40.277Z",
+  "api": "https://api.graffiticode.org",
+  "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+  "readInvocationId": "inv-f20b261d-d10a-4e2b-98c0-a476dde833d3",
+  "readOps": [
+    {
+      "opid": "inv-f20b261d-d10a-4e2b-98c0-a476dde833d3/read/prog.0",
+      "op": "learnosity.sign-questions-preview",
+      "event": "execute-step",
+      "purpose": "sign",
+      "outcome": "allowed",
+      "decisionId": "0729fcf7-eb87-4d68-a045-b508f810e766"
+    },
+    {
+      "opid": "inv-f20b261d-d10a-4e2b-98c0-a476dde833d3/read/prog.0",
+      "op": "learnosity.sign-questions-preview",
+      "event": "execute",
+      "purpose": null,
+      "outcome": "allowed",
+      "decisionId": null
+    }
+  ],
+  "before": {
+    "binding": {
+      "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+      "ownerUid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+      "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+      "taskId": "eyJ0YXNrSWRzIjpbIm9JRDV0NUZPNGVkdjg0aUNTMDY3Il19+eyJ0YXNrSWRzIjpbIjJ2emt6VTZ5NVNSNGZGTEw3VXhvIl19",
+      "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+      "seq": 1,
+      "registryVersion": 8
+    },
+    "contentDigest": "dccc72c83c957885a119f83568b68d7298bc73d39e0ac9a5b07d1e3383afea8d",
+    "recomputed": "dccc72c83c957885a119f83568b68d7298bc73d39e0ac9a5b07d1e3383afea8d",
+    "updateTime": "2026-11-16T18:27:13.990219Z",
+    "head": {
+      "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+      "seq": 1
+    }
+  },
+  "after": {
+    "binding": {
+      "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+      "ownerUid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+      "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+      "taskId": "eyJ0YXNrSWRzIjpbIm9JRDV0NUZPNGVkdjg0aUNTMDY3Il19+eyJ0YXNrSWRzIjpbIjJ2emt6VTZ5NVNSNGZGTEw3VXhvIl19",
+      "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+      "seq": 1,
+      "registryVersion": 8
+    },
+    "contentDigest": "dccc72c83c957885a119f83568b68d7298bc73d39e0ac9a5b07d1e3383afea8d",
+    "recomputed": "dccc72c83c957885a119f83568b68d7298bc73d39e0ac9a5b07d1e3383afea8d",
+    "updateTime": "2026-11-16T18:27:13.990219Z",
+    "head": {
+      "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+      "seq": 1
+    }
+  },
+  "served": {
+    "status": 200,
+    "errors": [],
+    "servedDataDigest": "87e8e97b9d715860e714780ddbbd6edc31300a87b2e31d4392ecbe3b592cbfd1",
+    "added": [
+      "request"
+    ]
+  },
+  "broker": {
+    "truncated": false,
+    "entries": [
+      {
+        "at": "2026-11-18T20:39:45.082476Z",
+        "service": "broker",
+        "invocationId": "inv-f20b261d-d10a-4e2b-98c0-a476dde833d3",
+        "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+        "opid": "inv-f20b261d-d10a-4e2b-98c0-a476dde833d3/read/prog.0",
+        "op": "learnosity.sign-questions-preview",
+        "event": "execute-step",
+        "outcome": "allowed",
+        "purpose": "sign",
+        "step": "sign",
+        "decisionId": "0729fcf7-eb87-4d68-a045-b508f810e766"
+      },
+      {
+        "at": "2026-11-18T20:39:45.082853Z",
+        "service": "broker",
+        "invocationId": "inv-f20b261d-d10a-4e2b-98c0-a476dde833d3",
+        "connectionId": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+        "opid": "inv-f20b261d-d10a-4e2b-98c0-a476dde833d3/read/prog.0",
+        "op": "learnosity.sign-questions-preview",
+        "event": "execute",
+        "outcome": "allowed",
+        "purpose": null,
+        "step": null,
+        "decisionId": null
+      }
+    ],
+    "complete": true,
+    "polls": 3,
+    "seenAt": "2026-11-18T20:39:56.676Z"
+  },
+  "problems": [],
+  "observation": {
+    "served": true
+  }
+}

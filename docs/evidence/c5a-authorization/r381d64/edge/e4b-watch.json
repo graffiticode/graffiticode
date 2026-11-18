@@ -1,0 +1,112 @@
+[
+  {
+    "published": {
+      "object": "gs://graffiticode-c5a-gate/7vwaCAIyMNCJEzgIfyYY.png",
+      "generation": "1794975618957559",
+      "created": "2026-11-18T04:20:18+0000",
+      "custom": {
+        "captureSequence": "2",
+        "commandId": "c:0b0bf0853b5da16bd27888460eb61d8d6909729900e7f826bd275abfdfca7176",
+        "item": "7vwaCAIyMNCJEzgIfyYY",
+        "sha256": "f859ea777a47520cdb7abf9304fbfcc8ce9ab1f2da57b0580d7a530f741f197b"
+      },
+      "seenAt": "2026-11-18T04:20:20.029Z"
+    }
+  },
+  {
+    "label": "E4b A1 #1",
+    "url": "https://api.graffiticode.org/form?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&lang=0179",
+    "at": "2026-11-18T04:20:20.446Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "a5c42e99caffce84-SJC",
+      "date": "Wed, 18 Nov 2026 04:20:20 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  },
+  {
+    "label": "E4b A1' #1",
+    "url": "https://api.graffiticode.org/form?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+    "at": "2026-11-18T04:20:20.696Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "a5c42e9bec47ce84-SJC",
+      "date": "Wed, 18 Nov 2026 04:20:20 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  },
+  {
+    "label": "E4b A2 #1",
+    "url": "https://api.graffiticode.org/data?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&generations=%40L0179%3Dinterp-4",
+    "at": "2026-11-18T04:20:20.992Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "BYPASS",
+      "cf-ray": "a5c42e9d7d08ce84-SJC",
+      "date": "Wed, 18 Nov 2026 04:20:20 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  },
+  {
+    "label": "E4b A1 #2",
+    "url": "https://api.graffiticode.org/form?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&lang=0179",
+    "at": "2026-11-18T04:20:21.186Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "a5c42e9f5de0ce84-SJC",
+      "date": "Wed, 18 Nov 2026 04:20:21 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  },
+  {
+    "label": "E4b A1' #2",
+    "url": "https://api.graffiticode.org/form?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+    "at": "2026-11-18T04:20:21.392Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "a5c42ea08e79ce84-SJC",
+      "date": "Wed, 18 Nov 2026 04:20:21 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  },
+  {
+    "label": "E4b A2 #2",
+    "url": "https://api.graffiticode.org/data?id=eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19&generations=%40L0179%3Dinterp-4",
+    "at": "2026-11-18T04:20:21.575Z",
+    "status": 404,
+    "headers": {
+      "cache-control": "no-store",
+      "cf-cache-status": "BYPASS",
+      "cf-ray": "a5c42ea1df29ce84-SJC",
+      "date": "Wed, 18 Nov 2026 04:20:21 GMT",
+      "content-type": "application/json; charset=utf-8"
+    },
+    "bodyBytes": 75,
+    "bodySha256": "86920f11f3c0244a224ad167f08ac8a1d646de11600a23e0a75838721ad088c3",
+    "problems": []
+  }
+]

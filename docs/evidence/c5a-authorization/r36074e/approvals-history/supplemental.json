@@ -1,0 +1,29 @@
+{
+  "kind": "supplemental (the owner: recorded beside, never replacing, the baseline)",
+  "baseline": {
+    "at": "2026-11-18T21:45:33.773Z",
+    "recordedDigest": "7e995b5c48039afa362404069d2130b502cef168c569100c53743d24ab08646c",
+    "recordedDigestKind": "json (key order counted)"
+  },
+  "history": {
+    "readTime": "2026-11-18T21:45:33.773Z",
+    "exact": true,
+    "collectedAt": "2026-11-18T22:09:40.145Z",
+    "digest": "35f781bf9344b303d6f8c24d373a6a50a064831770cf9a10ca503a4aef43616c",
+    "count": 42
+  },
+  "current": {
+    "collectedAt": "2026-11-18T22:09:40.986Z",
+    "digest": "35f781bf9344b303d6f8c24d373a6a50a064831770cf9a10ca503a4aef43616c",
+    "count": 42
+  },
+  "comparison": {
+    "added": [],
+    "deleted": [],
+    "modified": [],
+    "baselineCount": 42,
+    "currentCount": 42,
+    "identical": true
+  },
+  "latestUpdateTimeAtBaseline": "2026-11-17T01:35:15.250006Z"
+}

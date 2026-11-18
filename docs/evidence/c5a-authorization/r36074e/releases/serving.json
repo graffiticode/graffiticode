@@ -1,0 +1,176 @@
+{
+  "readAt": "2026-11-18T22:44:38.979Z",
+  "services": {
+    "api": {
+      "project": "graffiticode",
+      "traffic": [
+        {
+          "revision": "api-rmwkxlbvy-b5fa92",
+          "percent": 100
+        }
+      ],
+      "commit": "3b6b4a50d25d5d7ed8f510c51b68483c71202f78",
+      "image": null,
+      "dirty": false,
+      "flags": {
+        "CHAIN_ADMISSION": "all",
+        "CHAIN_ADMISSION_CONNECTIONS": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+        "BASE_URL_L0179": "https://l0179r-sja7fatcta-uc.a.run.app",
+        "COMPILE_GENERATION_L0179": "interp-4",
+        "BASE_URL_L0013": "https://l0013r-sja7fatcta-uc.a.run.app",
+        "COMPILE_GENERATION_L0013": "rust-1",
+        "INTERPRETER_L0179": "on",
+        "COMMANDS_L0176": "on",
+        "REPAIR_L0176": "on"
+      }
+    },
+    "api-c5a-gate": {
+      "project": "graffiticode",
+      "traffic": [
+        {
+          "revision": "api-c5a-gate-rmwlgsr21-0a71e4",
+          "percent": 100
+        }
+      ],
+      "commit": "43c0996436176ec0a30501bff29434a6858f8982",
+      "image": null,
+      "dirty": false,
+      "flags": {
+        "CHAIN_ADMISSION": "all",
+        "CHAIN_ADMISSION_CONNECTIONS": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+        "COMMANDS_L0176": "on",
+        "REPAIR_L0176": "on",
+        "BASE_URL_L0179": "https://l0179r-sja7fatcta-uc.a.run.app",
+        "COMPILE_GENERATION_L0179": "interp-4",
+        "INTERPRETER_L0179": "on",
+        "BASE_URL_L0013": "https://l0013r-sja7fatcta-uc.a.run.app",
+        "COMPILE_GENERATION_L0013": "c5a-gate-1",
+        "COMMANDS_L0013": "on",
+        "COMMAND_SCOPES": "on"
+      }
+    },
+    "policy": {
+      "project": "graffiticode",
+      "traffic": [
+        {
+          "revision": "policy-rmwl4or99-166557",
+          "percent": 100
+        }
+      ],
+      "commit": "f6132821c5a654c2bfd3fce10ca7b5a5e328bdc2",
+      "image": null,
+      "dirty": false,
+      "flags": {
+        "POLICY_MIN_CONTRACT_VERSION": "2"
+      }
+    },
+    "broker": {
+      "project": "graffiticode",
+      "traffic": [
+        {
+          "revision": "broker-rmwkzsw86-98e2cf",
+          "percent": 100
+        }
+      ],
+      "commit": "58adb43055b4a8ed6fb2d9d9e750db291cea9bb8",
+      "image": null,
+      "dirty": false,
+      "flags": {
+        "THUMBNAIL_BUCKET": "graffiticode-c5a-gate"
+      }
+    },
+    "l0013r": {
+      "project": "graffiticode",
+      "traffic": [
+        {
+          "revision": "l0013r-rmwmhjmoi-17a112",
+          "percent": 100
+        }
+      ],
+      "commit": "6124cf96e6895734838175f0306db0af2620d326",
+      "image": null,
+      "dirty": false,
+      "flags": {
+        "THUMBNAIL_BUCKET": "graffiticode.appspot.com"
+      }
+    },
+    "l0176r": {
+      "project": "graffiticode",
+      "traffic": [
+        {
+          "revision": "l0176r-rmwk08k8n-c74227",
+          "percent": 100
+        }
+      ],
+      "commit": "6918feca6cb693aa7a9b7b805a625eefa21daac0",
+      "image": null,
+      "dirty": false,
+      "flags": {}
+    },
+    "l0179r": {
+      "project": "graffiticode",
+      "traffic": [
+        {
+          "revision": "l0179r-rmwmgl5h5-c576b4",
+          "percent": 100
+        }
+      ],
+      "commit": "6124cf96e6895734838175f0306db0af2620d326",
+      "image": null,
+      "dirty": false,
+      "flags": {}
+    },
+    "l0000r": {
+      "project": "graffiticode",
+      "traffic": [
+        {
+          "revision": "l0000r-rmw8gtkc2-830693",
+          "percent": 100
+        }
+      ],
+      "commit": null,
+      "image": null,
+      "dirty": null,
+      "flags": {}
+    },
+    "l0185r": {
+      "project": "graffiticode",
+      "traffic": [
+        {
+          "revision": "l0185r-rmwczv08x-e43ac0",
+          "percent": 100
+        }
+      ],
+      "commit": "7d6a74cf190701a8edf1c1b95be627dbc03dbc87",
+      "image": null,
+      "dirty": false,
+      "flags": {}
+    },
+    "console": {
+      "project": "graffiticode-app",
+      "traffic": [
+        {
+          "revision": "console-rmwjw7o6n-d368e9",
+          "percent": 100
+        }
+      ],
+      "commit": null,
+      "image": null,
+      "dirty": null,
+      "flags": {}
+    },
+    "app": {
+      "project": "graffiticode-app",
+      "traffic": [
+        {
+          "revision": "app-rmwjwsu2n-067a1a",
+          "percent": 100
+        }
+      ],
+      "commit": null,
+      "image": null,
+      "dirty": null,
+      "flags": {}
+    }
+  }
+}

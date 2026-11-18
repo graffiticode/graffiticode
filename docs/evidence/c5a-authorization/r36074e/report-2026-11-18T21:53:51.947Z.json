@@ -1,0 +1,740 @@
+{
+  "runId": "efb34d9b",
+  "at": "2026-11-18T21:53:51.947Z",
+  "passed": false,
+  "checks": [
+    {
+      "id": "observations-read",
+      "title": "every observation was read: no read failed",
+      "ok": false,
+      "detail": "reads failed: elsewhere (gcloud storage buckets describe failed (1))"
+    },
+    {
+      "id": "scenarios",
+      "title": "each scenario's plan has exactly its expected stages: private [L0013], composition [L0000 head, L0013], mixed [L0013, L0176]",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "l0176-unchanged",
+      "title": "L0176 is unchanged: the staged canary passes 36/36, the B6 repair round-trip passes, a v2 plan digest is identical, a v8 artifact is still served",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "plans-pin-approved",
+      "title": "every plan pins approved revisions: l0013r at [3], l0000r and l0176r at [1, 2]",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "private-owner",
+      "title": "a private item is captured by its owner, published in the gate bucket with its reserved sequence",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "images-correct",
+      "title": "every scenario's published capture is its item's sheet: its own command's, no error banner, and identical to the approved reference render",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "private-non-owner",
+      "title": "a private item is refused for a non-owner, at admission and again at authorize-execution after access is narrowed",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "public-anonymous",
+      "title": "a public item is captured anonymously, rate-limited, and recorded as anonymous with publicCapture",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "mixed-chain",
+      "title": "a capture plus an L0176 save is one v3 invocation, each execution token carrying only its own scope",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "mismatches",
+      "title": "credential-scope-mismatch holds both ways (hermetic: Broker's test at the deployed commit)",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "composition",
+      "title": "an L0000 head over an L0013 capture of the private item runs as a connectionless v3 command, its item scope authorized",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "per-stage-contracts",
+      "title": "mixed and composed plans pin [1, 2] for L0176 and L0000 and are admitted; a pre-slice-6 l0013r is refused; earlier approval records are byte-identical",
+      "ok": false,
+      "detail": "earlier approval records changed or weren't read"
+    },
+    {
+      "id": "registry-versions",
+      "title": "manifests report l0000r 0 and l0176r and l0013r 9; the canary's L0185 is 0 beside L0176 at 9",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "conditional-retry",
+      "title": "with the older capture published first, the newer's audit shows two execute-step attempts with distinct decision ids, and the object ends on the newer capture",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "reserve-stage-bind",
+      "title": "reserve, stage and bind run in order; repeats return the recorded state; the published object carries the reserved sequence; an out-of-order pair ends on the newer",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "nothing-elsewhere",
+      "title": "graffiticode.appspot.com's thumbnails are unchanged, and graffiticode-thumbnails gets nothing",
+      "ok": false,
+      "detail": "the appspot thumbnails listing changed or wasn't read"
+    },
+    {
+      "id": "old-workers",
+      "title": "Policy's due query, as production asks it, lists none of the gate's pending v3 commands but does list a v2 control; as a scopes worker asks it, lists them all; and production's lease of one is refused",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "fixtures-retired",
+      "title": "nothing the run allocated is left executable: the due phase's fixtures and the quota burst's commands are finished, none listed by any due query",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "console-route",
+      "title": "the console route refuses any caller but policy-run",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "proxy",
+      "title": "the proxy lets l0013r reach Policy and Broker and nothing else new",
+      "ok": true,
+      "detail": "ok"
+    }
+  ],
+  "observations": {
+    "gateBucket": "graffiticode-c5a-gate",
+    "privateOwner": {
+      "outcome": "completed",
+      "reservedSequence": 4,
+      "published": {
+        "bucket": "graffiticode-c5a-gate",
+        "captureSequence": 4,
+        "generation": "1795038397756527"
+      }
+    },
+    "privateNonOwner": {
+      "outcome": "failed",
+      "reason": "not-owner",
+      "status": 200,
+      "commandId": "c:21f417cad501f4f89b18d34204380d3a4e8443d1bd77586a64c2483f7f2b1eb6"
+    },
+    "composition": {
+      "outcome": "completed",
+      "connectionId": null,
+      "contractVersion": 3,
+      "itemScopeAuthorized": true
+    },
+    "mixed": {
+      "invocations": 1,
+      "tokens": [
+        {
+          "fn": "snap",
+          "scopeKinds": [
+            "item"
+          ]
+        },
+        {
+          "fn": "save-to-itembank",
+          "scopeKinds": [
+            "connection"
+          ]
+        }
+      ],
+      "auditPoll": {
+        "attempts": 1,
+        "timedOut": false
+      }
+    },
+    "fixtureCleanup": {
+      "fixtures": [
+        "c:3d6dbfbdec95169254b99cb901dc7ee2cc8907b571f454e7106861ce5f04ca33",
+        "c:4cdf628202d679a7bd6617c10c7ffdc5e68a4e38933a0fbbb74eb0f0f9d0c71d",
+        "c:1aa03682e01977ad082143bee78bcef70ecfc4dc994e6693e06e68fd8b874cc7",
+        "c:7231614f3b74b1413770cb2ee23dbd863754c27cd5017bb4438ce999c582cea5",
+        "c:7fa7ab8f2e7a41f05a5ca5aeeb3a479259a2a51a8e33698d174134b49642d0d9",
+        "c:82087f09f5e19c0364e9d0fa454b24a8a6f84d5ff4f3d2aeb19a270f54ba75ce",
+        "c:f4a2b8c8f4a67afe996dd489a6421f7d6a28db5886c64c494f38d0fa9c2faf98",
+        "c:1f75d28c571c6c149e4bbc5a43183ff36fd29e7feff5f4a7d5859f8d62c8382f",
+        "c:4b275dfb2852e71ea4b735c84c3ff5d2f49b9a4056af1be2fd381209e79c3c7a",
+        "c:7d2fa98959389918d3c41fbffc8aed04d08d2e717ce22f8f40e214a113a3d6fa",
+        "c:cbd06c8b0ea13c9129793ebf9ad178bfe283f61795c5b0f9d65ed5b4f96c2ddf",
+        "c:37765f16073276c3e137a08119d68334a7796ac8551f7e3031d6fd32d3ac4dec",
+        "c:59ac8feb90e7f05ca70fd86ba65fc17133d9a65b884b1861220a21b17ecf4ebe",
+        "c:f14153522ecb95293a968e19bdfa4ec1d87662292cf38301e5f2ca3217db4f40",
+        "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+        "c:9f5ec63dea0ef5e52cffe8bac68af9c4fb30ffd101d74d0c216049c34e58bde5"
+      ],
+      "statuses": {
+        "c:3d6dbfbdec95169254b99cb901dc7ee2cc8907b571f454e7106861ce5f04ca33": "failed",
+        "c:4cdf628202d679a7bd6617c10c7ffdc5e68a4e38933a0fbbb74eb0f0f9d0c71d": "failed",
+        "c:1aa03682e01977ad082143bee78bcef70ecfc4dc994e6693e06e68fd8b874cc7": "failed",
+        "c:7231614f3b74b1413770cb2ee23dbd863754c27cd5017bb4438ce999c582cea5": "completed",
+        "c:7fa7ab8f2e7a41f05a5ca5aeeb3a479259a2a51a8e33698d174134b49642d0d9": "completed",
+        "c:82087f09f5e19c0364e9d0fa454b24a8a6f84d5ff4f3d2aeb19a270f54ba75ce": "completed",
+        "c:f4a2b8c8f4a67afe996dd489a6421f7d6a28db5886c64c494f38d0fa9c2faf98": "completed",
+        "c:1f75d28c571c6c149e4bbc5a43183ff36fd29e7feff5f4a7d5859f8d62c8382f": "completed",
+        "c:4b275dfb2852e71ea4b735c84c3ff5d2f49b9a4056af1be2fd381209e79c3c7a": "completed",
+        "c:7d2fa98959389918d3c41fbffc8aed04d08d2e717ce22f8f40e214a113a3d6fa": "completed",
+        "c:cbd06c8b0ea13c9129793ebf9ad178bfe283f61795c5b0f9d65ed5b4f96c2ddf": "completed",
+        "c:37765f16073276c3e137a08119d68334a7796ac8551f7e3031d6fd32d3ac4dec": "completed",
+        "c:59ac8feb90e7f05ca70fd86ba65fc17133d9a65b884b1861220a21b17ecf4ebe": "completed",
+        "c:f14153522ecb95293a968e19bdfa4ec1d87662292cf38301e5f2ca3217db4f40": "completed",
+        "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690": "completed",
+        "c:9f5ec63dea0ef5e52cffe8bac68af9c4fb30ffd101d74d0c216049c34e58bde5": "failed"
+      },
+      "listedAfter": []
+    },
+    "publicAnonymous": {
+      "outcome": "completed",
+      "subject": "anonymous",
+      "publicCapture": true,
+      "rateLimit": {
+        "allowed": 12,
+        "refused": 1,
+        "refusedAfterQuota": true,
+        "attempted": 13
+      },
+      "commandIds": [
+        "c:7231614f3b74b1413770cb2ee23dbd863754c27cd5017bb4438ce999c582cea5",
+        "c:7fa7ab8f2e7a41f05a5ca5aeeb3a479259a2a51a8e33698d174134b49642d0d9",
+        "c:82087f09f5e19c0364e9d0fa454b24a8a6f84d5ff4f3d2aeb19a270f54ba75ce",
+        "c:f4a2b8c8f4a67afe996dd489a6421f7d6a28db5886c64c494f38d0fa9c2faf98",
+        "c:1f75d28c571c6c149e4bbc5a43183ff36fd29e7feff5f4a7d5859f8d62c8382f",
+        "c:4b275dfb2852e71ea4b735c84c3ff5d2f49b9a4056af1be2fd381209e79c3c7a",
+        "c:7d2fa98959389918d3c41fbffc8aed04d08d2e717ce22f8f40e214a113a3d6fa",
+        "c:cbd06c8b0ea13c9129793ebf9ad178bfe283f61795c5b0f9d65ed5b4f96c2ddf",
+        "c:37765f16073276c3e137a08119d68334a7796ac8551f7e3031d6fd32d3ac4dec",
+        "c:59ac8feb90e7f05ca70fd86ba65fc17133d9a65b884b1861220a21b17ecf4ebe",
+        "c:f14153522ecb95293a968e19bdfa4ec1d87662292cf38301e5f2ca3217db4f40",
+        "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+        "c:9f5ec63dea0ef5e52cffe8bac68af9c4fb30ffd101d74d0c216049c34e58bde5"
+      ],
+      "auditPoll": {
+        "attempts": 1,
+        "timedOut": false
+      }
+    },
+    "plans": [
+      {
+        "name": "private",
+        "stages": [
+          {
+            "stage": "s0",
+            "lang": "0013",
+            "revision": "l0013r-rmwmhjmoi-17a112",
+            "contractVersions": [
+              3
+            ],
+            "registryVersion": 9
+          }
+        ],
+        "admitted": true
+      },
+      {
+        "name": "composition",
+        "stages": [
+          {
+            "stage": "s0",
+            "lang": "0000",
+            "revision": "l0000r-rmw8gtkc2-830693",
+            "contractVersions": [
+              1,
+              2
+            ],
+            "registryVersion": 0
+          },
+          {
+            "stage": "s1",
+            "lang": "0013",
+            "revision": "l0013r-rmwmhjmoi-17a112",
+            "contractVersions": [
+              3
+            ],
+            "registryVersion": 9
+          }
+        ],
+        "admitted": true
+      },
+      {
+        "name": "mixed",
+        "stages": [
+          {
+            "stage": "s0",
+            "lang": "0013",
+            "revision": "l0013r-rmwmhjmoi-17a112",
+            "contractVersions": [
+              3
+            ],
+            "registryVersion": 9
+          },
+          {
+            "stage": "s1",
+            "lang": "0176",
+            "revision": "l0176r-rmwk08k8n-c74227",
+            "contractVersions": [
+              1,
+              2
+            ],
+            "registryVersion": 9
+          }
+        ],
+        "admitted": true
+      }
+    ],
+    "images": {
+      "references": {
+        "private": {
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/scripts/test/fixtures/c5a-private-sheet.png",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "width": 1024,
+          "height": 152
+        },
+        "public": {
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/scripts/test/fixtures/c5a-public-sheet.png",
+          "sha256": "db1481a6a0fbc97760f6bb029c00cd40b66558f0d7498c59f30bbda890ff13d1",
+          "width": 1024,
+          "height": 152
+        }
+      },
+      "captures": [
+        {
+          "scenario": "private",
+          "expectedCommandIds": [
+            "c:544d4e99b029e07d1c3ae95941c03b3ab03add1017562ef557ff80a181e8b3f4"
+          ],
+          "commandId": "c:544d4e99b029e07d1c3ae95941c03b3ab03add1017562ef557ff80a181e8b3f4",
+          "generation": "1795038397756527",
+          "captureSequence": 4,
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "width": 1024,
+          "height": 152,
+          "reddish": 0.000006424753289473684,
+          "blue": 4839,
+          "transparent": 0,
+          "reference": "private",
+          "sameSize": true,
+          "identical": true,
+          "meanDiff": 0,
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/.gc-deploy/c5a-gate/r36074e/images/private-1795038397756527.png"
+        },
+        {
+          "scenario": "composition",
+          "expectedCommandIds": [
+            "c:91608f1ccd3f49c4ebb04771c1fa095c72d9cd27ee0ced99e24b709e948f6f91"
+          ],
+          "commandId": "c:91608f1ccd3f49c4ebb04771c1fa095c72d9cd27ee0ced99e24b709e948f6f91",
+          "generation": "1795038420029051",
+          "captureSequence": 5,
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "width": 1024,
+          "height": 152,
+          "reddish": 0.000006424753289473684,
+          "blue": 4839,
+          "transparent": 0,
+          "reference": "private",
+          "sameSize": true,
+          "identical": true,
+          "meanDiff": 0,
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/.gc-deploy/c5a-gate/r36074e/images/composition-1795038420029051.png"
+        },
+        {
+          "scenario": "mixed",
+          "expectedCommandIds": [
+            "c:34f2972fceadbe6f5aaf5434fb4d159302dbb760c6613c7084602b1d80ed6917"
+          ],
+          "commandId": "c:34f2972fceadbe6f5aaf5434fb4d159302dbb760c6613c7084602b1d80ed6917",
+          "generation": "1795038439870721",
+          "captureSequence": 6,
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "width": 1024,
+          "height": 152,
+          "reddish": 0.000006424753289473684,
+          "blue": 4839,
+          "transparent": 0,
+          "reference": "private",
+          "sameSize": true,
+          "identical": true,
+          "meanDiff": 0,
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/.gc-deploy/c5a-gate/r36074e/images/mixed-1795038439870721.png"
+        },
+        {
+          "scenario": "public",
+          "expectedCommandIds": [
+            "c:7231614f3b74b1413770cb2ee23dbd863754c27cd5017bb4438ce999c582cea5",
+            "c:7fa7ab8f2e7a41f05a5ca5aeeb3a479259a2a51a8e33698d174134b49642d0d9",
+            "c:82087f09f5e19c0364e9d0fa454b24a8a6f84d5ff4f3d2aeb19a270f54ba75ce",
+            "c:f4a2b8c8f4a67afe996dd489a6421f7d6a28db5886c64c494f38d0fa9c2faf98",
+            "c:1f75d28c571c6c149e4bbc5a43183ff36fd29e7feff5f4a7d5859f8d62c8382f",
+            "c:4b275dfb2852e71ea4b735c84c3ff5d2f49b9a4056af1be2fd381209e79c3c7a",
+            "c:7d2fa98959389918d3c41fbffc8aed04d08d2e717ce22f8f40e214a113a3d6fa",
+            "c:cbd06c8b0ea13c9129793ebf9ad178bfe283f61795c5b0f9d65ed5b4f96c2ddf",
+            "c:37765f16073276c3e137a08119d68334a7796ac8551f7e3031d6fd32d3ac4dec",
+            "c:59ac8feb90e7f05ca70fd86ba65fc17133d9a65b884b1861220a21b17ecf4ebe",
+            "c:f14153522ecb95293a968e19bdfa4ec1d87662292cf38301e5f2ca3217db4f40",
+            "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+            "c:9f5ec63dea0ef5e52cffe8bac68af9c4fb30ffd101d74d0c216049c34e58bde5"
+          ],
+          "commandId": "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+          "generation": "1795038553049259",
+          "captureSequence": 24,
+          "sha256": "db1481a6a0fbc97760f6bb029c00cd40b66558f0d7498c59f30bbda890ff13d1",
+          "width": 1024,
+          "height": 152,
+          "reddish": 0.000006424753289473684,
+          "blue": 4839,
+          "transparent": 0,
+          "reference": "public",
+          "sameSize": true,
+          "identical": true,
+          "meanDiff": 0,
+          "file": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/.gc-deploy/c5a-gate/r36074e/images/public-1795038553049259.png"
+        }
+      ]
+    },
+    "reserveStageBind": {
+      "captures": [
+        {
+          "scenario": "private",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "commandId": "c:544d4e99b029e07d1c3ae95941c03b3ab03add1017562ef557ff80a181e8b3f4",
+          "objectCommandId": "c:544d4e99b029e07d1c3ae95941c03b3ab03add1017562ef557ff80a181e8b3f4",
+          "objectGeneration": "1795038397756527",
+          "reservations": 1,
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "boundOccurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "reservedAt": "2026-11-18T21:46:26.817Z",
+          "stagedAt": "2026-11-18T21:46:35.821Z",
+          "boundAt": "2026-11-18T21:46:36.015Z",
+          "reservedSequence": 4,
+          "publishedSequence": 4
+        },
+        {
+          "scenario": "composition",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "commandId": "c:91608f1ccd3f49c4ebb04771c1fa095c72d9cd27ee0ced99e24b709e948f6f91",
+          "objectCommandId": "c:91608f1ccd3f49c4ebb04771c1fa095c72d9cd27ee0ced99e24b709e948f6f91",
+          "objectGeneration": "1795038420029051",
+          "reservations": 1,
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "boundOccurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "reservedAt": "2026-11-18T21:46:54.545Z",
+          "stagedAt": "2026-11-18T21:46:58.512Z",
+          "boundAt": "2026-11-18T21:46:58.667Z",
+          "reservedSequence": 5,
+          "publishedSequence": 5
+        },
+        {
+          "scenario": "mixed",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "commandId": "c:34f2972fceadbe6f5aaf5434fb4d159302dbb760c6613c7084602b1d80ed6917",
+          "objectCommandId": "c:34f2972fceadbe6f5aaf5434fb4d159302dbb760c6613c7084602b1d80ed6917",
+          "objectGeneration": "1795038439870721",
+          "reservations": 1,
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "boundOccurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "reservedAt": "2026-11-18T21:47:13.938Z",
+          "stagedAt": "2026-11-18T21:47:18.495Z",
+          "boundAt": "2026-11-18T21:47:18.622Z",
+          "reservedSequence": 6,
+          "publishedSequence": 6
+        },
+        {
+          "scenario": "public",
+          "item": "wbyfys3akpc4yEGFrnuu",
+          "commandId": "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+          "objectCommandId": "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690",
+          "objectGeneration": "1795038553049259",
+          "reservations": 1,
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "boundOccurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "reservedAt": "2026-11-18T21:49:07.656Z",
+          "stagedAt": "2026-11-18T21:49:11.701Z",
+          "boundAt": "2026-11-18T21:49:11.828Z",
+          "reservedSequence": 24,
+          "publishedSequence": 24
+        }
+      ]
+    },
+    "oldWorkers": {
+      "v3Fixtures": [
+        "c:3d6dbfbdec95169254b99cb901dc7ee2cc8907b571f454e7106861ce5f04ca33",
+        "c:4cdf628202d679a7bd6617c10c7ffdc5e68a4e38933a0fbbb74eb0f0f9d0c71d"
+      ],
+      "control": "c:1aa03682e01977ad082143bee78bcef70ecfc4dc994e6693e06e68fd8b874cc7",
+      "productionListedV3": [],
+      "scopedListedV3": [
+        "c:3d6dbfbdec95169254b99cb901dc7ee2cc8907b571f454e7106861ce5f04ca33",
+        "c:4cdf628202d679a7bd6617c10c7ffdc5e68a4e38933a0fbbb74eb0f0f9d0c71d"
+      ],
+      "controlListedToProduction": true,
+      "controlListedToScoped": true,
+      "productionLease": "worker-unsupported",
+      "queries": 2
+    },
+    "approvals": {
+      "l0013r": {
+        "revision": "l0013r-rmwmhjmoi-17a112",
+        "contractVersions": [
+          3
+        ]
+      },
+      "l0000r": {
+        "revision": "l0000r-rmw8gtkc2-830693",
+        "contractVersions": [
+          1,
+          2
+        ]
+      },
+      "l0176r": {
+        "revision": "l0176r-rmwk08k8n-c74227",
+        "contractVersions": [
+          1,
+          2
+        ]
+      },
+      "beforeDigest": "7e995b5c48039afa362404069d2130b502cef168c569100c53743d24ab08646c",
+      "afterDigest": "121c0b7835c79b7e2673897541ca860fd1cacfdfa361143edbb41166ce936e0c"
+    },
+    "errors": {
+      "elsewhere": "gcloud storage buckets describe failed (1)"
+    },
+    "hermetic": {
+      "mismatches": {
+        "service": "broker",
+        "commit": "58adb43055b4a8ed6fb2d9d9e750db291cea9bb8",
+        "at": "2026-11-18T03:49:00.646Z",
+        "test": "packages/broker/src/gcs.spec.ts > credential and scope (decision 5) > refuses a service operation whose token selects a connection; refuses a connection operation whose token selects an item",
+        "output": "(node:34413) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nPASS src/gcs.spec.ts\n  credential and scope (decision 5)\n    ✓ refuses a service operation whose token selects a connection (4 ms)\n    ✓ refuses a connection operation whose token selects an item\n    ✓ refuses a payload for another item than the token's, before the claim (1 ms)\n    ✓ refuses a snap token that names no command, whose staging it couldn't find (1 ms)\n    ✓ refuses a snap token spent by another language's compiler\n    ✓ records the selected scope in a v3 receipt's binding, and leaves a v2 binding as it was (3 ms)\n    ✓ refuses to be built with an operation whose credential disagrees with the registry (10 ms)\n  publishing (decision 8)\n    ✓ ends a 412 race on the newer capture: the older wins first, the newer retries under a fresh decision (1 ms)\n    ○ skipped publishes the first capture, with its sequence on the object and a stable result\n    ○ skipped completes an older capture arriving after a newer one with its own result, writing nothing\n    ○ skipped replaces an object with no sequence, as the migration copy leaves (decision 8)\n    ○ skipped fails `precondition-contention` after four 412s, never having written\n    ○ skipped stops when Policy refuses the next attempt, recording what the earlier ones observed\n    ○ skipped records an upload whose response was lost as uncertain\n    ○ skipped answers a retry of a written operation from its receipt, reading and writing nothing\n  staging (decision 9)\n    ○ skipped refuses missing staged bytes with no claim, definitely, before claiming\n    ○ skipped refuses staged bytes that don't match the bound digest, before claiming\n    ○ skipped refuses, as unavailable, when staging can't be read now\n    ○ skipped reads each stage's own staged object when two stages share an occurrence id\n    ○ skipped never reads staging once a claim exists: deleted after a dropped outcome, the retry replays and reconciliation resolves applied\n  reconciliation (decisions 5 and 8)\n    ○ skipped resolves a dropped outcome applied after a newer capture, with exactly the result the undropped run returned\n    ○ skipped resolves a crash between the upload and its outcome applied, and the retry writes nothing\n    ○ skipped leaves a capture unresolved while the published sequence is lower, since an upload could still land\n    ○ skipped keeps an item's receipts and a connection's apart\n  configuration\n    ○ skipped takes both buckets together, and never the legacy one\n    ○ skipped refuses a snap token when no buckets are configured\n  the Cloud Storage client\n    ○ skipped reads metadata and bytes, absent as null\n    ○ skipped uploads with the generation precondition, and tells a 412, a refusal and an unknown failure apart\n    ○ skipped does everything asynchronous while preparing: send calls fetch before awaiting anything\n  review of #401\n    ○ skipped doesn't publish when authority is revoked while the attempt is prepared\n    ○ skipped doesn't start an upload once preparation has used up the deadline\n    ○ skipped refuses to prepare past the deadline, before any authorization\n    ○ skipped runs a Policy-authorized anonymous public capture, and audits its provenance\n    ○ skipped keeps anonymous to its narrow terms: never L0176, never a connection, never a user's subject\n    ○ skipped replays a concurrent winner when staging disappears while this request reads it\n    ○ skipped replays a concurrent claim too when staging can't be read now\n  reopening a run that stopped before dispatch (7e)\n    ○ skipped aborts a run whose authorization was unavailable, and runs the operation again with a fresh token\n    ○ skipped starts the next run once, when two requests reopen it together\n    ○ skipped aborts a run whose metadata read failed, before any authorization\n    ○ skipped refuses a reopened run whose staging has gone, definitely, starting no run\n    ○ skipped records a failure, as always, once any request was authorized for dispatch\n    ○ skipped leaves a connection write's failure before dispatch recorded, as before\n  an abort whose acknowledgment was lost (7e)\n    ○ skipped never lets the older run record a failure while its successor publishes\n    ○ skipped refuses the older run as temporary when its successor already finished\n    ○ skipped records the failure when the lost abort never committed\n    ○ skipped makes abort, outcome and the next run exclude each other in the store\n\nTest Suites: 1 passed, 1 total\nTests:       38 skipped, 8 passed, 46 total\nSnapshots:   0 total\nTime:        0.474 s\nRan all test suites matching /src\\/gcs.spec.ts/i with tests matching \"credential and scope|ends a 412 race\".\n",
+        "passed": true,
+        "results": [
+          {
+            "direction": "service-with-connection",
+            "reason": "credential-scope-mismatch"
+          },
+          {
+            "direction": "connection-with-item",
+            "reason": "credential-scope-mismatch"
+          }
+        ]
+      },
+      "preSlice6": {
+        "service": "policy",
+        "commit": "f6132821c5a654c2bfd3fce10ca7b5a5e328bdc2",
+        "at": "2026-11-18T03:49:00.646Z",
+        "test": "packages/policy/src/scopes.spec.ts > the per-stage contract rule (decision 10) > needs 3 of a stage with an item-scoped intent",
+        "output": "(node:34474) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nPASS src/scopes.spec.ts\n  intent scopes (decision 1)\n    ○ skipped reads a bare string as a connection, and objects as connection, static item or bound item\n    ○ skipped requires an item scope of a service function, and refuses one on a connection function\n  allocation without a connection (decisions 1 and 4)\n    ○ skipped allocates a connectionless command only for a worker that runs v3 commands, and marks it so\n    ○ skipped allocates an anonymous command with the anonymous subject and no connection, and nothing else anonymous\n    ○ skipped refuses a repair of a v3 command\n  the scopes worker capability (§3)\n    ○ skipped hands a v3 command only to a worker that declares scopes: listed, renewed, taken over\n    ○ skipped marks a connection command when an installed model declares an item-scoped intent, before admission\n    ○ skipped ends an older owner's lease when the command becomes v3, so it can't finish it\n    ○ skipped keeps a v3 owner's lease when its command becomes v3\n    ○ skipped leaves a connection command whose models declare no item scope to any worker\n    ○ skipped answers an older worker's v3 admission as temporary, records no refusal, and marks the command\n    ○ skipped reads a model's item-scoped intents for the mark\n  v3 admission (decisions 1, 3, 6, 10)\n    ○ skipped admits an L0000 head over an L0013 capture of the owner's private item, with no connection\n    ○ skipped refuses a non-owner's capture of a private item, and admits a public one under the exception\n    ○ skipped admits an anonymous capture only of a public item\n    ○ skipped refuses an item it can't establish, and never allows without item authority\n    ○ skipped answers an item-authority outage as temporary, and admits once it is back\n    ○ skipped refuses a connectionless chain with a connection-scoped stage, `connection-required`\n    ○ skipped admits a mixed chain as one v3 plan holding the connection and the item\n    ○ skipped refuses a connection scope that names another connection\n    ○ skipped puts a bound item in no plan, and still requires contract 3 of its stage\n    ○ skipped never admits an item-scoped function outside a command\n    the per-stage contract rule (decision 10)\n      ✓ needs 3 of a stage with an item-scoped intent (6 ms)\n      ✓ takes 2 or 3 of a v3 plan's other stages (4 ms)\n      ✓ checks a connection-only plan exactly as before: v2, the same digest, and 2 required (3 ms)\n    mixed registry versions, with Policy at registry 9 (decision 10)\n      ○ skipped admits L0185 at 0 beside L0176 at 9, and refuses L0185 at 9\n      ○ skipped admits L0000 at 0 over L0013 at 9, and refuses L0013 at 8 beside L0176 at 9\n  item authority (decision 3)\n    ○ skipped asks the console's route as Policy, for one item, and reads its answers\n    ○ skipped is unavailable, never allowing, on anything but an answer\n  audit (§3 records)\n    ○ skipped records no connection for a command without one, and a capture's exception\n    ○ skipped names the item an admission refused\n  v3 execution (decisions 5 and 6)\n    ○ skipped gives an item-only stage a session with no connection, bound to its plan\n    ○ skipped mints each token of a mixed chain for its own scope only\n    ○ skipped authorizes a capture's attempts as the registry allows them, each with its own decision\n    ○ skipped refuses a second attempt of a step that isn't conditional\n    ○ skipped refuses an owner's capture at authorize-execution once the item has changed owner\n    ○ skipped answers an item-authority outage at mint and authorize-execution as temporary, recording nothing\n    ○ skipped runs an anonymous capture of a public item as `anonymous`, and refuses it once the item is private\n    ○ skipped refuses a bound item's bind, and so its mint, until its occurrence is reserved\n    ○ skipped refuses a token selecting another scope than its occurrence's, and a v3 session that isn't a command's\n    ○ skipped refuses an anonymous session that names a connection\n    ○ skipped reconciles a user's own captures of an item by its item scope\n  Broker's reconcile client (C5)\n    ○ skipped sends an item scope, or a connection, never both\n\nTest Suites: 1 passed, 1 total\nTests:       40 skipped, 3 passed, 43 total\nSnapshots:   0 total\nTime:        0.319 s\nRan all test suites matching /src\\/scopes.spec.ts/i with tests matching \"per-stage contract rule\".\n",
+        "passed": true,
+        "fixture": {
+          "lang": "0013",
+          "approved": true,
+          "contractVersions": [
+            1,
+            2
+          ]
+        },
+        "result": {
+          "reason": "contract-version-unsupported"
+        }
+      },
+      "narrowed": {
+        "service": "policy",
+        "commit": "f6132821c5a654c2bfd3fce10ca7b5a5e328bdc2",
+        "test": "packages/policy/src/scopes.spec.ts › v3 execution (decisions 5 and 6) › refuses an owner's capture at authorize-execution once the item has changed owner",
+        "output": "(node:13102) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nPASS src/scopes.spec.ts\n  intent scopes (decision 1)\n    ✓ reads a bare string as a connection, and objects as connection, static item or bound item (4 ms)\n    ✓ requires an item scope of a service function, and refuses one on a connection function (1 ms)\n  allocation without a connection (decisions 1 and 4)\n    ✓ allocates a connectionless command only for a worker that runs v3 commands, and marks it so (2 ms)\n    ✓ allocates an anonymous command with the anonymous subject and no connection, and nothing else anonymous (3 ms)\n    ✓ refuses a repair of a v3 command (1 ms)\n  the scopes worker capability (§3)\n    ✓ hands a v3 command only to a worker that declares scopes: listed, renewed, taken over (1 ms)\n    ✓ marks a connection command when an installed model declares an item-scoped intent, before admission (1 ms)\n    ✓ ends an older owner's lease when the command becomes v3, so it can't finish it (1 ms)\n    ✓ keeps a v3 owner's lease when its command becomes v3 (1 ms)\n    ✓ leaves a connection command whose models declare no item scope to any worker\n    ✓ answers an older worker's v3 admission as temporary, records no refusal, and marks the command (1 ms)\n    ✓ reads a model's item-scoped intents for the mark\n  v3 admission (decisions 1, 3, 6, 10)\n    ✓ admits an L0000 head over an L0013 capture of the owner's private item, with no connection (1 ms)\n    ✓ refuses a non-owner's capture of a private item, and admits a public one under the exception (1 ms)\n    ✓ admits an anonymous capture only of a public item (1 ms)\n    ✓ refuses an item it can't establish, and never allows without item authority\n    ✓ answers an item-authority outage as temporary, and admits once it is back (1 ms)\n    ✓ refuses a connectionless chain with a connection-scoped stage, `connection-required`\n    ✓ admits a mixed chain as one v3 plan holding the connection and the item (1 ms)\n    ✓ refuses a connection scope that names another connection\n    ✓ puts a bound item in no plan, and still requires contract 3 of its stage\n    ✓ never admits an item-scoped function outside a command (2 ms)\n    the per-stage contract rule (decision 10)\n      ✓ needs 3 of a stage with an item-scoped intent (1 ms)\n      ✓ takes 2 or 3 of a v3 plan's other stages (1 ms)\n      ✓ checks a connection-only plan exactly as before: v2, the same digest, and 2 required\n    mixed registry versions, with Policy at registry 9 (decision 10)\n      ✓ admits L0185 at 0 beside L0176 at 9, and refuses L0185 at 9 (1 ms)\n      ✓ admits L0000 at 0 over L0013 at 9, and refuses L0013 at 8 beside L0176 at 9\n  item authority (decision 3)\n    ✓ asks the console's route as Policy, for one item, and reads its answers (1 ms)\n    ✓ is unavailable, never allowing, on anything but an answer (7 ms)\n  audit (§3 records)\n    ✓ records no connection for a command without one, and a capture's exception\n    ✓ names the item an admission refused (1 ms)\n  v3 execution (decisions 5 and 6)\n    ✓ gives an item-only stage a session with no connection, bound to its plan (1 ms)\n    ✓ mints each token of a mixed chain for its own scope only (3 ms)\n    ✓ authorizes a capture's attempts as the registry allows them, each with its own decision (3 ms)\n    ✓ refuses a second attempt of a step that isn't conditional (1 ms)\n    ✓ refuses an owner's capture at authorize-execution once the item has changed owner (2 ms)\n    ✓ answers an item-authority outage at mint and authorize-execution as temporary, recording nothing (1 ms)\n    ✓ runs an anonymous capture of a public item as `anonymous`, and refuses it once the item is private (2 ms)\n    ✓ refuses a bound item's bind, and so its mint, until its occurrence is reserved\n    ✓ refuses a token selecting another scope than its occurrence's, and a v3 session that isn't a command's (2 ms)\n    ✓ refuses an anonymous session that names a connection (1 ms)\n    ✓ reconciles a user's own captures of an item by its item scope\n  Broker's reconcile client (C5)\n    ✓ sends an item scope, or a connection, never both\n\nTest Suites: 1 passed, 1 total\nTests:       43 passed, 43 total\nSnapshots:   0 total\nTime:        0.727 s\nRan all test suites matching /src\\/scopes.spec.ts/i.\n",
+        "passed": true,
+        "uninducible": "Policy answers not-owner at authorize-execution only when the item still exists and is no longer the command's subject's (packages/policy/src/item-authority.ts:109-112, policy.ts:1460-1468). No approved interface changes an item's owner: the console's updateItem fields exclude it (graffiticode-app packages/console/src/utils/swr/fetchers.ts:543-575) and the owner is the item's path; deleting it answers item-not-found, making it public leaves it the owner's, and retargeting answers render-target-changed. Even an owner change couldn't be placed between reservation and authorize-execution: No approved interface pauses, holds or reorders execution inside a command: the gate can only start commands through api-c5a-gate, as the owner, a non-owner or anonymously, and read Policy's and Broker's records. Reserve, render, stage, bind, mint and Broker's authorize-and-publish run back to back inside one l0013r run (languages/l0013/crates/core/src/lib.rs:296-312, packages/broker/src/gcs.ts:240-283), and production Broker has no fault or hook interface (the beforeUpload hook exists only in the spec's fake storage).",
+        "result": {
+          "reason": "not-owner"
+        }
+      },
+      "conditional": {
+        "records": [
+          {
+            "fields": [
+              "attempts",
+              "finalSequence",
+              "newerSequence"
+            ],
+            "service": "broker",
+            "commit": "58adb43055b4a8ed6fb2d9d9e750db291cea9bb8",
+            "test": "packages/broker/src/gcs.spec.ts › publishing (decision 8) › ends a 412 race on the newer capture: the older wins first, the newer retries under a fresh decision",
+            "output": "(node:13217) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nPASS src/gcs.spec.ts\n  credential and scope (decision 5)\n    ✓ refuses a service operation whose token selects a connection (4 ms)\n    ✓ refuses a connection operation whose token selects an item\n    ✓ refuses a payload for another item than the token's, before the claim (1 ms)\n    ✓ refuses a snap token that names no command, whose staging it couldn't find (1 ms)\n    ✓ refuses a snap token spent by another language's compiler\n    ✓ records the selected scope in a v3 receipt's binding, and leaves a v2 binding as it was (3 ms)\n    ✓ refuses to be built with an operation whose credential disagrees with the registry (10 ms)\n  publishing (decision 8)\n    ✓ publishes the first capture, with its sequence on the object and a stable result (1 ms)\n    ✓ completes an older capture arriving after a newer one with its own result, writing nothing (1 ms)\n    ✓ replaces an object with no sequence, as the migration copy leaves (decision 8)\n    ✓ ends a 412 race on the newer capture: the older wins first, the newer retries under a fresh decision (2 ms)\n    ✓ fails `precondition-contention` after four 412s, never having written\n    ✓ stops when Policy refuses the next attempt, recording what the earlier ones observed (2 ms)\n    ✓ records an upload whose response was lost as uncertain\n    ✓ answers a retry of a written operation from its receipt, reading and writing nothing (1 ms)\n  staging (decision 9)\n    ✓ refuses missing staged bytes with no claim, definitely, before claiming\n    ✓ refuses staged bytes that don't match the bound digest, before claiming\n    ✓ refuses, as unavailable, when staging can't be read now\n    ✓ reads each stage's own staged object when two stages share an occurrence id\n    ✓ never reads staging once a claim exists: deleted after a dropped outcome, the retry replays and reconciliation resolves applied (1 ms)\n  reconciliation (decisions 5 and 8)\n    ✓ resolves a dropped outcome applied after a newer capture, with exactly the result the undropped run returned (1 ms)\n    ✓ resolves a crash between the upload and its outcome applied, and the retry writes nothing (1 ms)\n    ✓ leaves a capture unresolved while the published sequence is lower, since an upload could still land\n    ✓ keeps an item's receipts and a connection's apart (1 ms)\n  configuration\n    ✓ takes both buckets together, and never the legacy one (1 ms)\n    ✓ refuses a snap token when no buckets are configured\n  the Cloud Storage client\n    ✓ reads metadata and bytes, absent as null (2 ms)\n    ✓ uploads with the generation precondition, and tells a 412, a refusal and an unknown failure apart\n    ✓ does everything asynchronous while preparing: send calls fetch before awaiting anything\n  review of #401\n    ✓ doesn't publish when authority is revoked while the attempt is prepared (1 ms)\n    ✓ doesn't start an upload once preparation has used up the deadline\n    ✓ refuses to prepare past the deadline, before any authorization (1 ms)\n    ✓ runs a Policy-authorized anonymous public capture, and audits its provenance\n    ✓ keeps anonymous to its narrow terms: never L0176, never a connection, never a user's subject (2 ms)\n    ✓ replays a concurrent winner when staging disappears while this request reads it\n    ✓ replays a concurrent claim too when staging can't be read now (1 ms)\n  reopening a run that stopped before dispatch (7e)\n    ✓ aborts a run whose authorization was unavailable, and runs the operation again with a fresh token (1 ms)\n    ✓ starts the next run once, when two requests reopen it together (1 ms)\n    ✓ aborts a run whose metadata read failed, before any authorization\n    ✓ refuses a reopened run whose staging has gone, definitely, starting no run (1 ms)\n    ✓ records a failure, as always, once any request was authorized for dispatch\n    ✓ leaves a connection write's failure before dispatch recorded, as before\n  an abort whose acknowledgment was lost (7e)\n    ✓ never lets the older run record a failure while its successor publishes\n    ✓ refuses the older run as temporary when its successor already finished (1 ms)\n    ✓ records the failure when the lost abort never committed\n    ✓ makes abort, outcome and the next run exclude each other in the store\n\nTest Suites: 1 passed, 1 total\nTests:       46 passed, 46 total\nSnapshots:   0 total\nTime:        0.708 s\nRan all test suites matching /src\\/gcs.spec.ts/i.\n",
+            "passed": true,
+            "supporting": [
+              {
+                "service": "policy",
+                "commit": "f6132821c5a654c2bfd3fce10ca7b5a5e328bdc2",
+                "test": "packages/policy/src/scopes.spec.ts › v3 execution (decisions 5 and 6) › authorizes a capture's attempts as the registry allows them, each with its own decision",
+                "output": "(node:13102) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nPASS src/scopes.spec.ts\n  intent scopes (decision 1)\n    ✓ reads a bare string as a connection, and objects as connection, static item or bound item (4 ms)\n    ✓ requires an item scope of a service function, and refuses one on a connection function (1 ms)\n  allocation without a connection (decisions 1 and 4)\n    ✓ allocates a connectionless command only for a worker that runs v3 commands, and marks it so (2 ms)\n    ✓ allocates an anonymous command with the anonymous subject and no connection, and nothing else anonymous (3 ms)\n    ✓ refuses a repair of a v3 command (1 ms)\n  the scopes worker capability (§3)\n    ✓ hands a v3 command only to a worker that declares scopes: listed, renewed, taken over (1 ms)\n    ✓ marks a connection command when an installed model declares an item-scoped intent, before admission (1 ms)\n    ✓ ends an older owner's lease when the command becomes v3, so it can't finish it (1 ms)\n    ✓ keeps a v3 owner's lease when its command becomes v3 (1 ms)\n    ✓ leaves a connection command whose models declare no item scope to any worker\n    ✓ answers an older worker's v3 admission as temporary, records no refusal, and marks the command (1 ms)\n    ✓ reads a model's item-scoped intents for the mark\n  v3 admission (decisions 1, 3, 6, 10)\n    ✓ admits an L0000 head over an L0013 capture of the owner's private item, with no connection (1 ms)\n    ✓ refuses a non-owner's capture of a private item, and admits a public one under the exception (1 ms)\n    ✓ admits an anonymous capture only of a public item (1 ms)\n    ✓ refuses an item it can't establish, and never allows without item authority\n    ✓ answers an item-authority outage as temporary, and admits once it is back (1 ms)\n    ✓ refuses a connectionless chain with a connection-scoped stage, `connection-required`\n    ✓ admits a mixed chain as one v3 plan holding the connection and the item (1 ms)\n    ✓ refuses a connection scope that names another connection\n    ✓ puts a bound item in no plan, and still requires contract 3 of its stage\n    ✓ never admits an item-scoped function outside a command (2 ms)\n    the per-stage contract rule (decision 10)\n      ✓ needs 3 of a stage with an item-scoped intent (1 ms)\n      ✓ takes 2 or 3 of a v3 plan's other stages (1 ms)\n      ✓ checks a connection-only plan exactly as before: v2, the same digest, and 2 required\n    mixed registry versions, with Policy at registry 9 (decision 10)\n      ✓ admits L0185 at 0 beside L0176 at 9, and refuses L0185 at 9 (1 ms)\n      ✓ admits L0000 at 0 over L0013 at 9, and refuses L0013 at 8 beside L0176 at 9\n  item authority (decision 3)\n    ✓ asks the console's route as Policy, for one item, and reads its answers (1 ms)\n    ✓ is unavailable, never allowing, on anything but an answer (7 ms)\n  audit (§3 records)\n    ✓ records no connection for a command without one, and a capture's exception\n    ✓ names the item an admission refused (1 ms)\n  v3 execution (decisions 5 and 6)\n    ✓ gives an item-only stage a session with no connection, bound to its plan (1 ms)\n    ✓ mints each token of a mixed chain for its own scope only (3 ms)\n    ✓ authorizes a capture's attempts as the registry allows them, each with its own decision (3 ms)\n    ✓ refuses a second attempt of a step that isn't conditional (1 ms)\n    ✓ refuses an owner's capture at authorize-execution once the item has changed owner (2 ms)\n    ✓ answers an item-authority outage at mint and authorize-execution as temporary, recording nothing (1 ms)\n    ✓ runs an anonymous capture of a public item as `anonymous`, and refuses it once the item is private (2 ms)\n    ✓ refuses a bound item's bind, and so its mint, until its occurrence is reserved\n    ✓ refuses a token selecting another scope than its occurrence's, and a v3 session that isn't a command's (2 ms)\n    ✓ refuses an anonymous session that names a connection (1 ms)\n    ✓ reconciles a user's own captures of an item by its item scope\n  Broker's reconcile client (C5)\n    ✓ sends an item scope, or a connection, never both\n\nTest Suites: 1 passed, 1 total\nTests:       43 passed, 43 total\nSnapshots:   0 total\nTime:        0.727 s\nRan all test suites matching /src\\/scopes.spec.ts/i.\n",
+                "passed": true
+              }
+            ],
+            "uninducible": "The race needs the older capture's upload to land between the newer's metadata read and its conditional upload inside Broker (packages/broker/src/gcs.ts:246-273), within one Policy authorize call. No approved interface pauses, holds or reorders execution inside a command: the gate can only start commands through api-c5a-gate, as the owner, a non-owner or anonymously, and read Policy's and Broker's records. Reserve, render, stage, bind, mint and Broker's authorize-and-publish run back to back inside one l0013r run (languages/l0013/crates/core/src/lib.rs:296-312, packages/broker/src/gcs.ts:240-283), and production Broker has no fault or hook interface (the beforeUpload hook exists only in the spec's fake storage). Owner captures of the private item, which the public quota doesn't limit, can be started back to back, but nothing approved can hold either one at a step, so the interleaving can't be induced; a run that happened to observe it would decide live.",
+            "resultBasis": "the test asserts B's attempts [[1, precondition-failed], [2, published]] with two distinct decision ids (Broker's receipts and its execute-step audit), B is sequence 6 and the object ends on captureSequence 6; the supporting Policy test shows each attempt gets its own decision. The decision ids here name the attempts the test asserts distinct; their values come from the spec's fake Policy.",
+            "result": {
+              "attempts": [
+                {
+                  "decisionId": "attempt 1 (precondition-failed)"
+                },
+                {
+                  "decisionId": "attempt 2 (published)"
+                }
+              ],
+              "newerSequence": 6,
+              "finalSequence": 6
+            }
+          }
+        ]
+      },
+      "reserveStageBind": {
+        "records": [
+          {
+            "fields": [
+              "repeatReserveSame",
+              "repeatStageSame"
+            ],
+            "service": "policy",
+            "commit": "f6132821c5a654c2bfd3fce10ca7b5a5e328bdc2",
+            "test": "packages/policy/src/captures.spec.ts › reserve, stage and bind (decision 9) › run in order, each once: a repeat answers what is recorded",
+            "output": "(node:13164) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nPASS src/captures.spec.ts\n  reserve, stage and bind (decision 9)\n    ✓ run in order, each once: a repeat answers what is recorded (10 ms)\n    ✓ takes each capture of an item the next sequence, across commands (2 ms)\n    ✓ binds only exactly the reserved and staged arguments (6 ms)\n    ✓ binds only the digest of exactly the reserved and staged payload (5 ms)\n    ✓ refuses a bind with no reservation (1 ms)\n    ✓ refuses staging without a reservation, and anything but a PNG (1 ms)\n    ✓ stages two stages with the same occurrence id separately (1 ms)\n    ✓ answers staging that can't be reached as temporary, staging nothing (1 ms)\n    crashes at each boundary\n      ✓ after the staging object is written, before the record: the retry adopts the bytes staged first (15 ms)\n      ✓ refuses a stale worker at reserve, stage and bind; its staging object, if it won, is adopted (2 ms)\n  bound items, authorized at reservation (decision 1)\n    ✓ refuses a non-owner's private item at reservation, recorded on the occurrence (1 ms)\n    ✓ reserves a non-owner's public item under the exception, and the owner's own\n    ✓ needs the item for a bound intent, and the intent's own for a static one (1 ms)\n    ✓ answers an item-authority outage as temporary, recording nothing (1 ms)\n  the public-capture rate limit (decision 4)\n    ✓ allows 12 public captures of an item an hour, across signed-in non-owners and anonymous callers, and refuses the 13th (4 ms)\n    ✓ counts a reservation once, however often it is repeated (2 ms)\n  the live check against the reservation (decision 9)\n    ✓ refuses a capture reserved as the owner's once only the exception would allow it (2 ms)\n  render grants\n    ✓ grants a private capture its pinned task, bound to the capture, for five minutes at most (3 ms)\n    ✓ grants nothing for a public item, the owner's or anyone else's (1 ms)\n    ✓ refuses a private item with no task to render, recorded on the occurrence\n    ✓ renews on recovery after checking the item again, for the same pinned task (1 ms)\n    ✓ never retargets: an item now naming another task is refused, recorded (1 ms)\n    ✓ refuses renewal once the item changed owner, and a stale worker's at all (1 ms)\n    ✓ answers an item-authority outage at renewal as temporary, recording nothing\n    ✓ renews nothing for a finished command (1 ms)\n    ✓ renews nothing when the command is taken over while item authority is asked (1 ms)\n    ✓ issues nothing to a worker taken over between the decision's own reads\n    ✓ records each issued grant on its reservation (1 ms)\n    ✓ issues a first grant only if the command still stands once the reservation is recorded (1 ms)\n    ✓ grants nothing once the capture is staged: nothing is rendered again\n  the staging client\n    ✓ creates once, adopts nothing itself, and reads back (2 ms)\n\nTest Suites: 1 passed, 1 total\nTests:       31 passed, 31 total\nSnapshots:   0 total\nTime:        0.217 s\nRan all test suites matching /src\\/captures.spec.ts/i.\n",
+            "passed": true,
+            "uninducible": "A repeated reserve or stage of one occurrence happens only when the same occurrence runs again after a crash or a takeover: l0013r reserves once and stages only an unstaged reservation (languages/l0013/crates/core/src/lib.rs:296-305), and the api answers a repeated idempotency key from the recorded command without running it. No approved interface pauses, holds or reorders execution inside a command: the gate can only start commands through api-c5a-gate, as the owner, a non-owner or anonymously, and read Policy's and Broker's records. Reserve, render, stage, bind, mint and Broker's authorize-and-publish run back to back inside one l0013r run (languages/l0013/crates/core/src/lib.rs:296-312, packages/broker/src/gcs.ts:240-283), and production Broker has no fault or hook interface (the beforeUpload hook exists only in the spec's fake storage).",
+            "result": {
+              "repeatReserveSame": true,
+              "repeatStageSame": true
+            }
+          },
+          {
+            "fields": [
+              "outOfOrderNewer",
+              "outOfOrderFinal"
+            ],
+            "service": "broker",
+            "commit": "58adb43055b4a8ed6fb2d9d9e750db291cea9bb8",
+            "test": "packages/broker/src/gcs.spec.ts › publishing (decision 8) › completes an older capture arriving after a newer one with its own result, writing nothing",
+            "output": "(node:13217) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nPASS src/gcs.spec.ts\n  credential and scope (decision 5)\n    ✓ refuses a service operation whose token selects a connection (4 ms)\n    ✓ refuses a connection operation whose token selects an item\n    ✓ refuses a payload for another item than the token's, before the claim (1 ms)\n    ✓ refuses a snap token that names no command, whose staging it couldn't find (1 ms)\n    ✓ refuses a snap token spent by another language's compiler\n    ✓ records the selected scope in a v3 receipt's binding, and leaves a v2 binding as it was (3 ms)\n    ✓ refuses to be built with an operation whose credential disagrees with the registry (10 ms)\n  publishing (decision 8)\n    ✓ publishes the first capture, with its sequence on the object and a stable result (1 ms)\n    ✓ completes an older capture arriving after a newer one with its own result, writing nothing (1 ms)\n    ✓ replaces an object with no sequence, as the migration copy leaves (decision 8)\n    ✓ ends a 412 race on the newer capture: the older wins first, the newer retries under a fresh decision (2 ms)\n    ✓ fails `precondition-contention` after four 412s, never having written\n    ✓ stops when Policy refuses the next attempt, recording what the earlier ones observed (2 ms)\n    ✓ records an upload whose response was lost as uncertain\n    ✓ answers a retry of a written operation from its receipt, reading and writing nothing (1 ms)\n  staging (decision 9)\n    ✓ refuses missing staged bytes with no claim, definitely, before claiming\n    ✓ refuses staged bytes that don't match the bound digest, before claiming\n    ✓ refuses, as unavailable, when staging can't be read now\n    ✓ reads each stage's own staged object when two stages share an occurrence id\n    ✓ never reads staging once a claim exists: deleted after a dropped outcome, the retry replays and reconciliation resolves applied (1 ms)\n  reconciliation (decisions 5 and 8)\n    ✓ resolves a dropped outcome applied after a newer capture, with exactly the result the undropped run returned (1 ms)\n    ✓ resolves a crash between the upload and its outcome applied, and the retry writes nothing (1 ms)\n    ✓ leaves a capture unresolved while the published sequence is lower, since an upload could still land\n    ✓ keeps an item's receipts and a connection's apart (1 ms)\n  configuration\n    ✓ takes both buckets together, and never the legacy one (1 ms)\n    ✓ refuses a snap token when no buckets are configured\n  the Cloud Storage client\n    ✓ reads metadata and bytes, absent as null (2 ms)\n    ✓ uploads with the generation precondition, and tells a 412, a refusal and an unknown failure apart\n    ✓ does everything asynchronous while preparing: send calls fetch before awaiting anything\n  review of #401\n    ✓ doesn't publish when authority is revoked while the attempt is prepared (1 ms)\n    ✓ doesn't start an upload once preparation has used up the deadline\n    ✓ refuses to prepare past the deadline, before any authorization (1 ms)\n    ✓ runs a Policy-authorized anonymous public capture, and audits its provenance\n    ✓ keeps anonymous to its narrow terms: never L0176, never a connection, never a user's subject (2 ms)\n    ✓ replays a concurrent winner when staging disappears while this request reads it\n    ✓ replays a concurrent claim too when staging can't be read now (1 ms)\n  reopening a run that stopped before dispatch (7e)\n    ✓ aborts a run whose authorization was unavailable, and runs the operation again with a fresh token (1 ms)\n    ✓ starts the next run once, when two requests reopen it together (1 ms)\n    ✓ aborts a run whose metadata read failed, before any authorization\n    ✓ refuses a reopened run whose staging has gone, definitely, starting no run (1 ms)\n    ✓ records a failure, as always, once any request was authorized for dispatch\n    ✓ leaves a connection write's failure before dispatch recorded, as before\n  an abort whose acknowledgment was lost (7e)\n    ✓ never lets the older run record a failure while its successor publishes\n    ✓ refuses the older run as temporary when its successor already finished (1 ms)\n    ✓ records the failure when the lost abort never committed\n    ✓ makes abort, outcome and the next run exclude each other in the store\n\nTest Suites: 1 passed, 1 total\nTests:       46 passed, 46 total\nSnapshots:   0 total\nTime:        0.708 s\nRan all test suites matching /src\\/gcs.spec.ts/i.\n",
+            "passed": true,
+            "uninducible": "The older capture's publish must reach Broker after the newer's. No approved interface pauses, holds or reorders execution inside a command: the gate can only start commands through api-c5a-gate, as the owner, a non-owner or anonymously, and read Policy's and Broker's records. Reserve, render, stage, bind, mint and Broker's authorize-and-publish run back to back inside one l0013r run (languages/l0013/crates/core/src/lib.rs:296-312, packages/broker/src/gcs.ts:240-283), and production Broker has no fault or hook interface (the beforeUpload hook exists only in the spec's fake storage). A run that happened to observe it would decide live.",
+            "resultBasis": "the newer (captureSequence 6) is published, the older (5) then arrives, is observed newer-present and writes nothing; the published object is unchanged, still the newer's 6.",
+            "result": {
+              "outOfOrderNewer": 6,
+              "outOfOrderFinal": 6
+            }
+          }
+        ]
+      }
+    },
+    "canary": {
+      "execution": "canary-qvw98",
+      "at": "2026-11-18T19:22:39Z",
+      "flags": "--chain-admission --after-cutover --command --l0185-tail",
+      "checks": 36,
+      "failed": 0,
+      "l0185RegistryVersion": 0,
+      "l0176RegistryVersion": 9,
+      "registryEvidence": {
+        "commandId": "c:0f8fc69b8d69d4f2eac6f0b7e05e81ff227cced4d4772081cdfcee56355bfe01",
+        "planDigest": "85573157adaed273aeb096f2615494320699df1bb559f96d8a2d38dfcfc0f387",
+        "digestVerified": true,
+        "revisions": [
+          "l0176r-rmwk08k8n-c74227",
+          "l0185r-rmwczv08x-e43ac0"
+        ]
+      }
+    },
+    "repairRoundtrip": {
+      "passed": true,
+      "run": "4fe391",
+      "target": "production api-rmwkxlbvy-b5fa92",
+      "recorded": "9/11",
+      "revisedVerdict": "11/11",
+      "basis": "owner-accepted timing variant; rejudge.mjs over the extracted Broker evidence (r36074e/l0176)"
+    },
+    "v2PlanDigest": {
+      "before": [
+        "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+        "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+        "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff"
+      ],
+      "after": [
+        "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+        "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+        "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff"
+      ],
+      "commits": {
+        "before": "2ce1433542edc995787dede3683a5527a5218171",
+        "after": "f6132821c5a654c2bfd3fce10ca7b5a5e328bdc2"
+      },
+      "plans": [
+        "034077ccfd4d7decbc0499bf63953debe4ac1c34b029108a428c08ee3159cb2b",
+        "011a23515f4e46dff813d4dd531d73790fd3eef652301af282420b1854a4b25b",
+        "01fb877e02fe3c0308cdb334285f4e71e294661a754ad5531487dd28355a13ff"
+      ]
+    },
+    "v8Artifact": {
+      "served": true,
+      "invocationId": "inv-4f96721e-0140-445b-b99a-19b7d969a849",
+      "readInvocationId": "inv-f20b261d-d10a-4e2b-98c0-a476dde833d3",
+      "at": "2026-11-18T20:39:40.277Z"
+    },
+    "consoleRoute": [
+      {
+        "caller": "policy-run@graffiticode.iam.gserviceaccount.com",
+        "status": 200,
+        "source": "step27 c5a-item-authority-probe-ppbkf 2026-11-17T19:55:36.643Z"
+      },
+      {
+        "caller": "anonymous",
+        "status": 403,
+        "label": "unauthenticated",
+        "at": "2026-11-18T21:46:39.518Z"
+      },
+      {
+        "caller": "api-run@graffiticode.iam.gserviceaccount.com",
+        "status": 403,
+        "label": "api-run, route audience",
+        "at": "2026-11-18T21:46:39.907Z"
+      },
+      {
+        "caller": "console-run@graffiticode-app.iam.gserviceaccount.com",
+        "status": 403,
+        "label": "console-run, wrong audience",
+        "at": "2026-11-18T21:46:40.167Z"
+      }
+    ],
+    "consoleRouteStep27WrongAudience": 403,
+    "proxy": {
+      "verifyRollout": true,
+      "at11": "step26-exception",
+      "basis": "docs/capability-policy-iam-review.md, AT-11 collector item 11: Step 26 under a scoped owner exception (no DNS log or control)"
+    },
+    "deployed": {
+      "policy": "f6132821c5a654c2bfd3fce10ca7b5a5e328bdc2",
+      "broker": "58adb43055b4a8ed6fb2d9d9e750db291cea9bb8",
+      "l0013r": "6124cf96e6895734838175f0306db0af2620d326"
+    }
+  }
+}

@@ -1,0 +1,47 @@
+(node:34536) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/captures.spec.ts
+  reserve, stage and bind (decision 9)
+    ✓ run in order, each once: a repeat answers what is recorded (9 ms)
+    ✓ takes each capture of an item the next sequence, across commands (3 ms)
+    ✓ binds only exactly the reserved and staged arguments (5 ms)
+    ✓ binds only the digest of exactly the reserved and staged payload (5 ms)
+    ✓ refuses a bind with no reservation (1 ms)
+    ✓ refuses staging without a reservation, and anything but a PNG (1 ms)
+    ✓ stages two stages with the same occurrence id separately (1 ms)
+    ✓ answers staging that can't be reached as temporary, staging nothing (1 ms)
+    crashes at each boundary
+      ✓ after the staging object is written, before the record: the retry adopts the bytes staged first (15 ms)
+      ✓ refuses a stale worker at reserve, stage and bind; its staging object, if it won, is adopted (2 ms)
+  bound items, authorized at reservation (decision 1)
+    ✓ refuses a non-owner's private item at reservation, recorded on the occurrence (1 ms)
+    ✓ reserves a non-owner's public item under the exception, and the owner's own
+    ✓ needs the item for a bound intent, and the intent's own for a static one (1 ms)
+    ✓ answers an item-authority outage as temporary, recording nothing (1 ms)
+  the public-capture rate limit (decision 4)
+    ✓ allows 12 public captures of an item an hour, across signed-in non-owners and anonymous callers, and refuses the 13th (4 ms)
+    ✓ counts a reservation once, however often it is repeated (2 ms)
+  the live check against the reservation (decision 9)
+    ✓ refuses a capture reserved as the owner's once only the exception would allow it (1 ms)
+  render grants
+    ✓ grants a private capture its pinned task, bound to the capture, for five minutes at most (3 ms)
+    ✓ grants nothing for a public item, the owner's or anyone else's (1 ms)
+    ✓ refuses a private item with no task to render, recorded on the occurrence (1 ms)
+    ✓ renews on recovery after checking the item again, for the same pinned task (1 ms)
+    ✓ never retargets: an item now naming another task is refused, recorded (1 ms)
+    ✓ refuses renewal once the item changed owner, and a stale worker's at all
+    ✓ answers an item-authority outage at renewal as temporary, recording nothing (1 ms)
+    ✓ renews nothing for a finished command (1 ms)
+    ✓ renews nothing when the command is taken over while item authority is asked (1 ms)
+    ✓ issues nothing to a worker taken over between the decision's own reads
+    ✓ records each issued grant on its reservation (1 ms)
+    ✓ issues a first grant only if the command still stands once the reservation is recorded (1 ms)
+    ✓ grants nothing once the capture is staged: nothing is rendered again
+  the staging client
+    ✓ creates once, adopts nothing itself, and reads back (3 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       31 passed, 31 total
+Snapshots:   0 total
+Time:        0.216 s
+Ran all test suites matching /src\/captures.spec.ts/i.

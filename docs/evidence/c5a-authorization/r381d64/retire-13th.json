@@ -1,0 +1,63 @@
+{
+  "command": "c:399e8095f07904917f3de189a3ab0655610e48120267b2a45211471a46857457",
+  "startedAt": "2026-11-18T15:28:50.996Z",
+  "finishedAt": "2026-11-18T15:28:54.415Z",
+  "before": {
+    "commandId": "c:399e8095f07904917f3de189a3ab0655610e48120267b2a45211471a46857457",
+    "invocationId": "inv-9efc9673-28e0-408e-9be3-7b87211e3631",
+    "seq": 13,
+    "protocol": "command",
+    "kind": "command",
+    "lang": "0013",
+    "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+    "connectionId": null,
+    "phase": "admitted",
+    "status": "pending",
+    "result": {
+      "state": "none",
+      "digest": null
+    },
+    "publication": {
+      "state": "none",
+      "resultDigest": null
+    },
+    "generation": 1,
+    "leaseExpiresAt": 1794975811202,
+    "runRef": null
+  },
+  "statuses": {
+    "c:399e8095f07904917f3de189a3ab0655610e48120267b2a45211471a46857457": "failed"
+  },
+  "verified": {
+    "fixtures": [
+      "c:399e8095f07904917f3de189a3ab0655610e48120267b2a45211471a46857457"
+    ],
+    "statuses": {
+      "c:399e8095f07904917f3de189a3ab0655610e48120267b2a45211471a46857457": "failed"
+    },
+    "listedAfter": []
+  },
+  "after": {
+    "commandId": "c:399e8095f07904917f3de189a3ab0655610e48120267b2a45211471a46857457",
+    "invocationId": "inv-9efc9673-28e0-408e-9be3-7b87211e3631",
+    "seq": 13,
+    "protocol": "command",
+    "kind": "command",
+    "lang": "0013",
+    "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+    "connectionId": null,
+    "phase": "admitted",
+    "status": "failed",
+    "result": {
+      "state": "unavailable",
+      "digest": null
+    },
+    "publication": {
+      "state": "none",
+      "resultDigest": null
+    },
+    "generation": 2,
+    "leaseExpiresAt": 1795015791846,
+    "runRef": null
+  }
+}
