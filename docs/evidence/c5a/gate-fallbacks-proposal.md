@@ -1,6 +1,14 @@
 # C5a gate: proposed fallback explanations and evidence (for review)
 
-This is a proposal only. Nothing here is applied, and `hermetic-fallbacks.DRAFT.json` is unchanged.
+**Status (owner's review of #421):** approved and implemented.
+- `scripts/lib/c5a-gate-checks.js` now judges these rows field by field (`fieldEvidence`):
+  - a live field always decides, failing or not;
+  - every record, and every `supporting` entry, is checked against its own service's deployed commit, its test and its verbatim jest output (`verbatimProblem`);
+  - `reserve-stage-bind` takes order and both sequences live, per capture, from the same occurrence (`rsbCaptureProblem`; the runner's `recordCapture`).
+- The records, with output captured verbatim at policy f6132821 and broker 58adb430, are in the gate's evidence directory (`hermetic-fallbacks.json`, built by `r36074e/hermetic/build-fallbacks.mjs`).
+- Two corrections from the review are applied below:
+  - `narrowed` cites the private-owner test.
+  - The conditional-race explanation rests on there being no approved way to pause or reorder execution. Owner captures of the private item aren't limited by the public quota.
 
 **Scope.** It covers three rows of `scripts/lib/c5a-gate-checks.js`:
 - `private-non-owner`'s "after narrowing" part (`narrowed`);
@@ -93,9 +101,7 @@ This follows `packages/broker/src/gcs.ts:240-283`:
   - Each capture's arrival at Broker follows a full l0013r run: reserve, a headless-Chrome render of variable length, stage, bind and mint (`l0013 core lib.rs:296-312`).
   - The gate can only start commands. It can't hold either at a step, and production Broker has no fault or hook interface (the `beforeUpload` hook exists only in the spec's fake storage).
   - Sequences are assigned at reserve (`packages/policy/src/command-records.ts:522-524`), so the older is whichever reserved first, also outside the gate's control.
-- **Trying by chance is also ruled out.**
-  - Each try costs public-capture quota, at most 12 per item per hour (`policy.ts:75`), and a published capture.
-  - Hitting the window by chance is improbable, so it isn't a bounded way to induce the case.
+- **The quota is not the reason.** Owner captures of the private item aren't limited by the public quota, so pairs of captures can be started back to back. What the gate lacks is any approved way to pause, hold or reorder either capture at a step, so the interleaving can't be induced; it can only happen by chance.
 - **What would count anyway:** if a gate run did observe such a pair, its live observation would decide. That would be Broker's `execute-step` audit for the newer, with two attempts and distinct `decisionId`s, plus the object's metadata.
 
 **The fields the check judges, and their evidence**
@@ -114,7 +120,7 @@ This follows `packages/broker/src/gcs.ts:240-283`:
   "test": "packages/broker/src/gcs.spec.ts > publishing (decision 8) > ends a 412 race on the newer capture: the older wins first, the newer retries under a fresh decision",
   "supporting": [{ "service": "policy", "commit": "f6132821c5a654c2bfd3fce10ca7b5a5e328bdc2", "test": "packages/policy/src/scopes.spec.ts > v3 execution (decisions 5 and 6) > authorizes a capture's attempts as the registry allows them, each with its own decision" }],
   "output": "<jest output of gcs.spec.ts at 58adb430: PASS, 46/46, verbatim>", "passed": true,
-  "uninducible": "The race needs the older capture's upload to land between the newer's metadata read and its upload inside Broker (gcs.ts:246-273), a window of one Policy authorize call. Through the approved interfaces the gate can only start commands. Each capture reaches Broker after a full l0013r run with a variable-length headless render (l0013 core lib.rs:296-312), production Broker has no fault or hook interface, and sequences are assigned at reserve (command-records.ts:522-524). Trying by chance is bounded by the 12-per-hour public quota (policy.ts:75) and isn't a way to induce it.",
+  "uninducible": "The race needs the older capture's upload to land between the newer's metadata read and its upload inside Broker (gcs.ts:246-273), a window of one Policy authorize call. Through the approved interfaces the gate can only start commands. Each capture reaches Broker after a full l0013r run with a variable-length headless render (l0013 core lib.rs:296-312), production Broker has no fault or hook interface, and sequences are assigned at reserve (command-records.ts:522-524). Owner captures of the private item aren't limited by the public quota and can be started back to back, but nothing approved can hold either at a step, so the interleaving can't be induced.",
   "result": { "attempts": [{ "decisionId": "decision (attempt 1, precondition-failed)" }, { "decisionId": "decision (attempt 2, published)" }], "newerSequence": 6, "finalSequence": 6 } } }
 ```
 

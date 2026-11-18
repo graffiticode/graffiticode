@@ -7,12 +7,15 @@ import { pinnedStage } from "@graffiticode/common/contract";
 import { createAudit } from "@graffiticode/policy";
 import { readFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
-import { CHECKS, verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planStages, tokensFromAudit, rateLimitFromAudit, brokerAuditFilter, dueObservation, pollUntil, reservesCover, imageObservation, MAX_MEAN_DIFF, MAX_REDDISH } from "../lib/c5a-gate-checks.js";
+import { CHECKS, verdict, GATE_BUCKET, PUBLIC_CAPTURE_LIMIT, planObservation, planStages, tokensFromAudit, rateLimitFromAudit, brokerAuditFilter, dueObservation, pollUntil, reservesCover, imageObservation, MAX_MEAN_DIFF, MAX_REDDISH, verbatimProblem, fieldEvidence, rsbCaptureProblem } from "../lib/c5a-gate-checks.js";
 import { decodePng, imageLooks, compareImages } from "../lib/png.js";
 
 // The quota burst's commands: the quota's completed captures, then the one
 // refused its reservation (retired: failed).
 const QUOTA = Array.from({ length: PUBLIC_CAPTURE_LIMIT + 1 }, (_, i) => `c:anon${i + 1}`);
+// Verbatim jest output of a passing test (the #421 review): the file's PASS
+// line and a tick for each title the record names.
+const jest = (file, ...titles) => `PASS src/${file}\n  describe\n${titles.map(t => `    ✓ ${t} (3 ms)`).join("\n")}\n\nTests:       ${titles.length} passed`;
 const image = scenario => ({ scenario, expectedCommandIds: [`c:${scenario}`], commandId: `c:${scenario}`, generation: "1", captureSequence: 1, sha256: "s", width: 1024, height: 152, reddish: 0, blue: 4839, transparent: 0, reference: scenario === "public" ? "public" : "private", sameSize: true, identical: true, meanDiff: 0 });
 
 const approved = { l0013r: { revision: "l0013r-rmwl2casf-31e8b9", contractVersions: [3] }, l0000r: { revision: "l0000r-rmw8gtkc2-830693", contractVersions: [1, 2] }, l0176r: { revision: "l0176r-rmwk08k8n-c74227", contractVersions: [1, 2] }, beforeDigest: "a1", afterDigest: "a1" };
@@ -36,8 +39,8 @@ const PASSING = () => ({
   mixed: { invocations: 1, tokens: [{ fn: "snap", scopeKinds: ["item"] }, { fn: "save-to-itembank", scopeKinds: ["connection"] }] },
   deployed: { policy: "p".repeat(40), broker: "b".repeat(40), l0013r: "l".repeat(40) },
   hermetic: {
-    mismatches: { service: "broker", commit: "b".repeat(40), test: "packages/broker/src/gcs.spec.ts › credential-scope-mismatch", output: "ok 2 of 2", passed: true, results: [{ direction: "service-with-connection", reason: "credential-scope-mismatch" }, { direction: "connection-with-item", reason: "credential-scope-mismatch" }] },
-    preSlice6: { service: "policy", commit: "p".repeat(40), test: "packages/policy/src/scopes.spec.ts › contract-version-unsupported", output: "ok", passed: true, fixture: { lang: "0013", approved: true, contractVersions: [1, 2] }, result: { reason: "contract-version-unsupported" } },
+    mismatches: { service: "broker", commit: "b".repeat(40), test: "packages/broker/src/gcs.spec.ts › credential and scope › refuses a service operation with a connection; refuses a connection operation with an item", output: jest("gcs.spec.ts", "refuses a service operation with a connection", "refuses a connection operation with an item"), passed: true, results: [{ direction: "service-with-connection", reason: "credential-scope-mismatch" }, { direction: "connection-with-item", reason: "credential-scope-mismatch" }] },
+    preSlice6: { service: "policy", commit: "p".repeat(40), test: "packages/policy/src/scopes.spec.ts › the per-stage contract rule › refuses a pre-slice-6 l0013r", output: jest("scopes.spec.ts", "refuses a pre-slice-6 l0013r"), passed: true, fixture: { lang: "0013", approved: true, contractVersions: [1, 2] }, result: { reason: "contract-version-unsupported" } },
   },
   composition: { outcome: "completed", connectionId: null, contractVersion: 3, itemScopeAuthorized: true },
   conditional: { attempts: [{ decisionId: "d1" }, { decisionId: "d2" }], finalSequence: 12, newerSequence: 12 },
@@ -219,12 +222,12 @@ test("hermetic evidence must name the deployed commit, and a fallback never repl
   // A live violation stays a violation, whatever the fallback says.
   failsOnly("private-non-owner", o => {
     o.narrowed = { reason: "allowed" };
-    o.hermetic.narrowed = { service: "policy", commit: "p".repeat(40), test: "t", output: "ok", passed: true, uninducible: "race", result: { reason: "not-owner" } };
+    o.hermetic.narrowed = { service: "policy", commit: "p".repeat(40), test: "packages/policy/src/scopes.spec.ts › v3 › narrowed", output: jest("scopes.spec.ts", "narrowed"), passed: true, uninducible: "race", result: { reason: "not-owner" } };
   });
   // With no live observation, a valid fallback is accepted...
   const fallback = PASSING();
   delete fallback.conditional;
-  fallback.hermetic.conditional = { service: "broker", commit: "b".repeat(40), test: "packages/broker/src/gcs.spec.ts › precondition", output: "ok", passed: true, uninducible: "the older capture couldn't be made to publish first from outside", result: { attempts: [{ decisionId: "d1" }, { decisionId: "d2" }], finalSequence: 2, newerSequence: 2 } };
+  fallback.hermetic.conditional = { service: "broker", commit: "b".repeat(40), test: "packages/broker/src/gcs.spec.ts › publishing › precondition", output: jest("gcs.spec.ts", "precondition"), passed: true, uninducible: "the older capture couldn't be made to publish first from outside", result: { attempts: [{ decisionId: "d1" }, { decisionId: "d2" }], finalSequence: 2, newerSequence: 2 } };
   assert.deepEqual(verdict(fallback).checks.filter(c => !c.ok), []);
   // ...but not without saying why the case couldn't be induced live, nor at
   // another commit.
@@ -365,4 +368,89 @@ test("an audit read polls until every expected record is ingested, and no longer
   const stuck = await pollUntil({ read: async () => reads[0], done: reservesCover(ids), timeoutMs: 30_000, intervalMs: 10_000, ...clock });
   assert.deepEqual([stuck.attempts, stuck.timedOut, stuck.value.length], [4, true, 2]);
   assert.ok(t <= 30_000);
+});
+
+// The #421 review: field-level evidence. Every record (and every supporting
+// entry) at its own service's deployed commit with verbatim output; a live
+// field always decides; each capture's order and sequences from one occurrence.
+test("hermetic output must be the test's verbatim passing jest output", () => {
+  const T = "packages/policy/src/scopes.spec.ts › v3 › first; second";
+  assert.equal(verbatimProblem(T, jest("scopes.spec.ts", "first", "second")), null);
+  assert.match(verbatimProblem(T, "ok 2 of 2"), /doesn't show scopes.spec.ts passing/);
+  assert.match(verbatimProblem(T, jest("scopes.spec.ts", "first")), /\["second"\]/);
+  assert.match(verbatimProblem(T, `${jest("scopes.spec.ts", "first", "second")}\nFAIL src/other.spec.ts`), /shows a failure/);
+  assert.match(verbatimProblem(T, `${jest("scopes.spec.ts", "first", "second")}\n    ✕ third`), /shows a failure/);
+  assert.match(verbatimProblem("packages/policy/src/scopes.spec.ts", jest("scopes.spec.ts", "x")), /doesn't name a file and a test/);
+  failsOnly("mismatches", o => { o.hermetic.mismatches.output = "ok 2 of 2"; });
+  failsOnly("per-stage-contracts", o => { o.hermetic.preSlice6.output = jest("scopes.spec.ts", "another test"); });
+});
+
+const CONDITIONAL = () => ({
+  fields: ["attempts", "finalSequence", "newerSequence"],
+  service: "broker",
+  commit: "b".repeat(40),
+  test: "packages/broker/src/gcs.spec.ts › publishing › ends a 412 race",
+  output: jest("gcs.spec.ts", "ends a 412 race"),
+  passed: true,
+  uninducible: "no approved interface pauses or reorders execution",
+  supporting: [{ service: "policy", commit: "p".repeat(40), test: "packages/policy/src/scopes.spec.ts › v3 › each with its own decision", output: jest("scopes.spec.ts", "each with its own decision"), passed: true }],
+  result: { attempts: [{ decisionId: "d1" }, { decisionId: "d2" }], finalSequence: 6, newerSequence: 6 },
+});
+test("supporting entries are checked against their own service, deployed commit, test and output", () => {
+  const ok = o => { delete o.conditional; o.hermetic.conditional = { records: [CONDITIONAL()] }; };
+  const o = PASSING();
+  ok(o);
+  assert.deepEqual(verdict(o).checks.filter(c => !c.ok), []);
+  failsOnly("conditional-retry", x => { ok(x); x.hermetic.conditional.records[0].supporting[0].commit = "b".repeat(40); });
+  failsOnly("conditional-retry", x => { ok(x); x.hermetic.conditional.records[0].supporting[0].output = "ok"; });
+  failsOnly("conditional-retry", x => { ok(x); x.hermetic.conditional.records[0].supporting[0].passed = false; });
+  failsOnly("conditional-retry", x => { ok(x); x.hermetic.conditional.records[0].supporting[0].service = "nowhere"; });
+  failsOnly("conditional-retry", x => { ok(x); delete x.hermetic.conditional.records[0].result.newerSequence; });
+  failsOnly("conditional-retry", x => { ok(x); x.hermetic.conditional.records[0].fields = ["attempts", "finalSequence"]; });
+});
+
+test("a live field always decides, and a hermetic record never replaces it", () => {
+  // A partial live observation: its failing field decides even beside a passing record.
+  failsOnly("conditional-retry", x => { x.conditional = { finalSequence: 5 }; x.hermetic.conditional = { records: [CONDITIONAL()] }; });
+  const x = PASSING();
+  x.conditional = { finalSequence: 5 };
+  x.hermetic.conditional = { records: [CONDITIONAL()] };
+  const ev = fieldEvidence(x, "conditional", ["attempts", "finalSequence", "newerSequence"]);
+  assert.deepEqual(ev.sources, { attempts: "broker@bbbbbbbb", finalSequence: "live", newerSequence: "broker@bbbbbbbb" });
+  assert.equal(ev.values.finalSequence, 5);
+  // A passing live field is used too, the rest from the record.
+  const y = PASSING();
+  y.conditional = { finalSequence: 6 };
+  y.hermetic.conditional = { records: [CONDITIONAL()] };
+  assert.deepEqual(verdict(y).checks.filter(c => !c.ok), []);
+});
+
+// Live per-capture evidence (each scenario's object, its own command's
+// reservation and bind for the same occurrence) with the repeats from Policy
+// and the out-of-order pair from Broker.
+const capture = (over = {}) => ({ scenario: "private", commandId: "c:own", objectCommandId: "c:own", occurrenceId: "snap:1", boundOccurrenceId: "snap:1", item: "item-1", reservations: 1, reservedAt: "2026-11-18T21:00:00.000Z", stagedAt: "2026-11-18T21:00:05.000Z", boundAt: "2026-11-18T21:00:06.000Z", reservedSequence: 4, publishedSequence: 4, ...over });
+const RSB = () => ({
+  records: [
+    { fields: ["repeatReserveSame", "repeatStageSame"], service: "policy", commit: "p".repeat(40), test: "packages/policy/src/captures.spec.ts › reserve, stage and bind › run in order, each once", output: jest("captures.spec.ts", "run in order, each once"), passed: true, uninducible: "a repeat needs a crash or takeover", result: { repeatReserveSame: true, repeatStageSame: true } },
+    { fields: ["outOfOrderNewer", "outOfOrderFinal"], service: "broker", commit: "b".repeat(40), test: "packages/broker/src/gcs.spec.ts › publishing › completes an older capture", output: jest("gcs.spec.ts", "completes an older capture"), passed: true, uninducible: "no approved interface reorders execution", result: { outOfOrderNewer: 6, outOfOrderFinal: 6 } },
+  ],
+});
+test("reserve/stage/bind: live captures correlated to one occurrence, the rest per field", () => {
+  const live = o => { o.reserveStageBind = { captures: [capture(), capture({ scenario: "composition", commandId: "c:comp", objectCommandId: "c:comp", reservedSequence: 5, publishedSequence: 5 })] }; o.hermetic.reserveStageBind = RSB(); };
+  const o = PASSING();
+  live(o);
+  assert.deepEqual(verdict(o).checks.filter(c => !c.ok), []);
+  assert.equal(rsbCaptureProblem(capture()), null);
+  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[1].objectCommandId = "c:own"; });
+  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[0].boundOccurrenceId = "snap:2"; });
+  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[0].reservations = 2; });
+  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[0].stagedAt = "2026-11-18T21:00:07.000Z"; });
+  failsOnly("reserve-stage-bind", x => { live(x); delete x.reserveStageBind.captures[0].boundAt; });
+  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures[1].publishedSequence = 4; });
+  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.captures = []; });
+  failsOnly("reserve-stage-bind", x => { live(x); x.hermetic.reserveStageBind.records[1].commit = "p".repeat(40); });
+  failsOnly("reserve-stage-bind", x => { live(x); x.hermetic.reserveStageBind.records[0].uninducible = ""; });
+  failsOnly("reserve-stage-bind", x => { live(x); x.hermetic.reserveStageBind.records.pop(); });
+  // A live out-of-order observation decides over the Broker record.
+  failsOnly("reserve-stage-bind", x => { live(x); x.reserveStageBind.outOfOrderFinal = 5; x.reserveStageBind.outOfOrderNewer = 6; });
 });

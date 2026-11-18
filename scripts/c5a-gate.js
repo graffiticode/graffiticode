@@ -289,6 +289,30 @@ const snapshotImage = async ({ scenario, item, expectedCommandIds, kind }) => {
   });
   images.push({ ...observed, file });
   console.log(`image ${scenario}: ${JSON.stringify(observed)}`);
+  await recordCapture({ scenario, item, observed }).catch(e => {
+    rsbCaptures.push({ scenario, item, error: String(e?.message ?? e).slice(0, 200) });
+  });
+};
+// The live reserve/stage/bind evidence of each scenario's published capture
+// (the #421 review): the command the object names, that command's reservation
+// for the item and its bind record for the same occurrence, so the order and
+// both sequences belong to one occurrence (rsbCaptureProblem judges it).
+const rsbCaptures = [];
+const recordCapture = async ({ scenario, item, observed }) => {
+  const commandId = observed.commandId;
+  if (!commandId) throw new Error("the object names no command");
+  const id = encodeURIComponent(commandId);
+  const reservations = (await docs("policy", `commands/${id}/reservations`)).filter(r => r.item === item);
+  const reservation = reservations.length === 1 ? reservations[0] : null;
+  const bound = reservation ? await doc("policy", `commands/${id}/occurrences/${encodeURIComponent(`${reservation.stage}:${reservation.occurrenceId}`)}`) : null;
+  const entry = {
+    scenario, item, commandId, objectCommandId: observed.commandId, objectGeneration: observed.generation,
+    reservations: reservations.length, occurrenceId: reservation?.occurrenceId ?? null, boundOccurrenceId: bound?.occurrenceId ?? null,
+    reservedAt: reservation?.reservedAt ?? null, stagedAt: reservation?.stagedAt ?? null, boundAt: bound?.boundAt ?? null,
+    reservedSequence: reservation?.captureSequence ?? null, publishedSequence: observed.captureSequence,
+  };
+  rsbCaptures.push(entry);
+  console.log(`reserve/stage/bind ${scenario}: ${JSON.stringify(entry)}`);
 };
 const recordImages = async () => {
   for (const kind of ["private", "public"]) await reference(kind);
@@ -478,6 +502,11 @@ if (phase === "captures") {
   state.commands = [owner, composed, mixed, ...anonymous].map(c => c.commandId).filter(Boolean);
   observe("plans", plans);
   await collect("images", recordImages);
+  await collect("reserveStageBind", async () => {
+    const failed = rsbCaptures.filter(c => c.error);
+    if (failed.length) throw new Error(`reserve/stage/bind reads failed: ${failed.map(c => `${c.scenario}: ${c.error}`).join("; ")}`);
+    return { captures: rsbCaptures };
+  });
   await save();
 }
 
