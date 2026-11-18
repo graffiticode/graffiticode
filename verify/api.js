@@ -10,6 +10,13 @@
 //
 // Not covered here: compiles through a connection or a publication (the
 // verification account holds none), and policy/broker allowed paths.
+//
+// A private service (api-c5a-gate, Step 29) is reached only with the CLI's
+// invocation credential, `ctx.headers` (X-Serverless-Authorization): it goes
+// on every request to the candidate, the application-anonymous probe
+// included, and never to AUTH_URL. The user's own token stays in
+// Authorization, separate from it. A public service's `ctx.headers` is empty,
+// so its requests are unchanged.
 
 import { randomBytes } from "node:crypto";
 import { accessTokenFor, VERIFY_UID } from "./auth.js";
@@ -20,8 +27,10 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export default async ctx => {
   const { fetch, candidateUrl: base, config, cloud, log } = ctx;
+  // Cloud Run invocation only: never a user credential.
+  const { Authorization: _a, authorization: _b, ...invoke } = ctx.headers ?? {};
   const token = await accessTokenFor({ fetch, cloud, base: new URL(config.env.AUTH_URL) });
-  const auth = { Authorization: token };
+  const auth = { ...invoke, Authorization: token };
   const value = { verify: `run-${Date.now().toString(36)}-${randomBytes(4).toString("hex")}`, uid: VERIFY_UID };
 
   // A fresh private task compiles, uncached.
@@ -37,7 +46,7 @@ export default async ctx => {
   // and the 404 is never cacheable (see setNoStoreCacheHeaders). The body is
   // pinned exactly, category included: a "permission" category here would
   // tell an anonymous caller the private task exists.
-  const anonymous = await request({ fetch, base, path: `/data?id=${encodeURIComponent(id)}` });
+  const anonymous = await request({ fetch, base, path: `/data?id=${encodeURIComponent(id)}`, headers: invoke });
   check(anonymous.status === 404 && same(anonymous.json, { status: "error", error: { code: 404, message: "", category: "malformed" } }),
     `GET /data (anonymous, private task): expected 404 {code:404,message:"",category:"malformed"}, got ${anonymous.status} ${anonymous.text.slice(0, 200)}`);
   log("  GET /data: 404 for an anonymous caller on a private task");
