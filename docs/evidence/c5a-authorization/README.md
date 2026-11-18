@@ -43,7 +43,27 @@ Both earlier results are kept here unchanged, with their original file and direc
 - Only `api-c5a-gate` carries `COMMANDS_L0013=on`, `COMMAND_SCOPES=on` and `COMPILE_GENERATION_L0013=c5a-gate-1`.
 - Broker publishes to `graffiticode-c5a-gate` (`THUMBNAIL_BUCKET`). l0013r's legacy uploader still names `graffiticode.appspot.com`, whose `thumbnails/` listing the gate showed unchanged.
 
-**Held:** production activation, any window extension, and retiring the gate's infrastructure. Retiring means deleting `api-c5a-gate` and the `graffiticode-c5a-gate` bucket, which waits for this evidence to be merged.
+**Held:** production activation and any window extension.
+
+## Retirement (2026-11-18, after this evidence merged as `b12f5a3e`)
+
+The record is in `retirement/`. `verification.json` holds the results, the other files are a read-only snapshot taken before deletion, and `REDACTIONS.txt` records one redacted email.
+1. **Nothing left to archive.**
+   - Every file of the local gate directory is here.
+   - The gate bucket held two current objects and no older versions: the private item at generation `1795038439870721` (`c:34f2972f…`, sequence 6) and the public item at `1795038553049259` (`c:a9fbbf7a…`, sequence 24). Both match `r36074e/images/mixed-1795038439870721.png` and `public-1795038553049259.png` byte for byte.
+   - The gate api's release receipt (`rmwlgsr21-0a71e4`) is added to `retirement/`.
+2. **Deleted:**
+   - `api-c5a-gate` at 22:59:51Z, with its revisions and invokers;
+   - `gs://graffiticode-c5a-gate` at 23:00:02Z, with its two objects.
+
+   Both answer not found afterwards. The `deploy.json` entry is removed.
+3. **Production:**
+   - canary `canary-9jqm2` passed 36/36;
+   - the production api (`api-rmwkxlbvy-b5fa92`) still has no `COMMANDS_L0013`, `COMMAND_SCOPES` or `INTERPRETER_L0013`, with `COMPILE_GENERATION_L0013=rust-1`.
+4. **Kept:** `graffiticode-command-staging`, and the permanent C5a IAM and proxy configuration.
+5. **Still to note:**
+   - Broker's `THUMBNAIL_BUCKET` still names `graffiticode-c5a-gate`. Nothing publishes there while production admits no v3 capture command, and C5b switches it.
+   - `canary-window-c5a` expires on its condition at 2026-11-19T03:57:32Z. It was not extended.
 
 ## Each check, and whether its evidence is live or hermetic
 

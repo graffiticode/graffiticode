@@ -1,0 +1,1 @@
+api-c5a-gate-service.json  original-sha256 8ee4e055aa25ffe697c058614589112762b69f70583f8e760fea7b009cf57e47  replaced 2 operator email(s) with <operator> (Cloud Run creator/modifier annotations)

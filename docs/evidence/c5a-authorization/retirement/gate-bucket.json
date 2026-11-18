@@ -1,0 +1,16 @@
+{
+  "creation_time": "2026-11-17T22:36:13+0000",
+  "default_storage_class": "STANDARD",
+  "generation": 1794954973285596520,
+  "location": "US-CENTRAL1",
+  "location_type": "region",
+  "metageneration": 3,
+  "name": "graffiticode-c5a-gate",
+  "public_access_prevention": "enforced",
+  "soft_delete_policy": {
+    "retentionDurationSeconds": "0"
+  },
+  "storage_url": "gs://graffiticode-c5a-gate/",
+  "uniform_bucket_level_access": true,
+  "update_time": "2026-11-17T22:47:05+0000"
+}

@@ -1,0 +1,29 @@
+{
+  "approvedBy": "the owner, after #424 merged as b12f5a3e",
+  "archived": {
+    "check": "every file of the local gate directory (.gc-deploy/c5a-gate) is in docs/evidence/c5a-authorization (#424); the gate bucket's two remaining objects match archived images byte for byte",
+    "objects": [
+      { "object": "gs://graffiticode-c5a-gate/7vwaCAIyMNCJEzgIfyYY.png", "generation": "1795038439870721", "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba", "commandId": "c:34f2972fceadbe6f5aaf5434fb4d159302dbb760c6613c7084602b1d80ed6917", "captureSequence": 6, "archived": "r36074e/images/mixed-1795038439870721.png" },
+      { "object": "gs://graffiticode-c5a-gate/wbyfys3akpc4yEGFrnuu.png", "generation": "1795038553049259", "sha256": "db1481a6a0fbc97760f6bb029c00cd40b66558f0d7498c59f30bbda890ff13d1", "commandId": "c:a9fbbf7ad490f81316779b216e1e758de65a83047d2af8e70db5a5ad37c16690", "captureSequence": 24, "archived": "r36074e/images/public-1795038553049259.png" }
+    ],
+    "noncurrentVersions": 0,
+    "snapshotBeforeDeletion": ["api-c5a-gate-service.json", "api-c5a-gate-iam.json", "api-c5a-gate-revisions.txt", "api-c5a-gate-release-rmwlgsr21-0a71e4.json", "gate-bucket.json", "gate-bucket-iam.json", "gate-bucket-objects.json"]
+  },
+  "deleted": [
+    { "what": "Cloud Run service api-c5a-gate (revisions api-c5a-gate-rmwlgsr21-0a71e4 from 43c09964, api-c5a-gate-00001-sbt placeholder; invokers console-run, deploy-smoke)", "at": "2026-11-18T22:59:51Z", "after": "gcloud run services describe api-c5a-gate: Cannot find service" },
+    { "what": "bucket gs://graffiticode-c5a-gate with its 2 objects (broker-run objectUser went with it)", "at": "2026-11-18T23:00:02Z", "after": "gcloud storage buckets describe: gs://graffiticode-c5a-gate not found: 404" }
+  ],
+  "kept": {
+    "stagingBucket": "graffiticode-command-staging (and staging.graffiticode.appspot.com), untouched",
+    "permanentC5aConfiguration": "Policy, Broker, l0013r and l0176r releases and their IAM and proxy configuration (Steps 2-28) are unchanged",
+    "fixtureItems": "the canary-owned fixture items and tasks (fixtures.json) are not deleted"
+  },
+  "production": {
+    "canary": { "execution": "canary-9jqm2", "startedAt": "2026-11-18T23:00:24Z", "flags": "--chain-admission --after-cutover --command --l0185-tail", "result": "canary passed (36 checks)", "succeeded": 1 },
+    "api": { "revision": "api-rmwkxlbvy-b5fa92", "COMMANDS_L0013": "unset", "COMMAND_SCOPES": "unset", "INTERPRETER_L0013": "unset", "COMPILE_GENERATION_L0013": "rust-1" }
+  },
+  "notes": [
+    "Broker's THUMBNAIL_BUCKET still names graffiticode-c5a-gate. Nothing publishes there: production has no COMMANDS_L0013 or COMMAND_SCOPES, so no v3 capture command is admitted. C5b switches it (plan section 4) before any activation.",
+    "canary-window-c5a (the operator's OpenIdTokenCreator on console-run and api-run, IAM condition request.time < 2026-11-19T03:57:32Z) is left to expire, as approved; it was not extended."
+  ]
+}
