@@ -162,6 +162,70 @@ describe("data", () => {
     );
   });
 
+  // C5 (COMMAND_SCOPES; docs/c5-l0013-commands-plan.md): a compile with no
+  // connection asks the bridge when this api runs v3 commands, and an L0013
+  // chain with L0013's commands on never reaches the legacy compile (and its
+  // direct upload) unless the bridge leaves it there.
+  describe("a compile with no connection (C5)", () => {
+    const withEnv = async (vars, fn) => {
+      const saved = Object.fromEntries(Object.keys(vars).map(k => [k, process.env[k]]));
+      Object.assign(process.env, vars);
+      try {
+        return await fn();
+      } finally {
+        for (const [k, v] of Object.entries(saved)) {
+          if (v === undefined) delete process.env[k];
+          else process.env[k] = v;
+        }
+      }
+    };
+    const L0013 = { ...TASK1, lang: "0013" };
+    const C5 = { COMMAND_SCOPES: "on", COMMANDS_L0013: "on" };
+
+    it("answers the bridge's refusal and never compiles", async () => {
+      const id = await taskStorer.create({ task: L0013 });
+      const refusal = { errors: [{ message: "Error: permission denied (not-owner)", code: "not-owner" }] };
+      const commandBridge = /** @type {any} */ (jest.fn()).mockResolvedValue(refusal);
+      const api = /** @type {any} */ (buildDataApi(/** @type {any} */ ({ compile, commandBridge })));
+      await withEnv(C5, async () => {
+        await expect(api.get({ taskStorer, compileStorer, id, auth: { uid: "u1" }, authToken: "t" })).resolves.toEqual(refusal);
+      });
+      expect(commandBridge).toHaveBeenCalledWith(expect.objectContaining({ id, connectionId: null, auth: { uid: "u1" } }));
+      expect(compile).not.toHaveBeenCalled();
+    });
+
+    it("compiles as today what the bridge leaves (a chain that captures nothing)", async () => {
+      const id = await taskStorer.create({ task: L0013 });
+      const commandBridge = /** @type {any} */ (jest.fn()).mockResolvedValue(null);
+      mockCompileData(DATA1);
+      const api = /** @type {any} */ (buildDataApi(/** @type {any} */ ({ compile, commandBridge })));
+      await withEnv(C5, async () => {
+        await expect(api.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA1);
+      });
+      expect(commandBridge).toHaveBeenCalledTimes(1);
+      expect(compile).toHaveBeenCalledTimes(1);
+    });
+
+    it("refuses an L0013 chain with its commands on and no bridge to run them", async () => {
+      const id = await taskStorer.create({ task: L0013 });
+      const api = /** @type {any} */ (buildDataApi(/** @type {any} */ ({ compile })));
+      await withEnv({ COMMANDS_L0013: "on" }, async () => {
+        const out = await api.get({ taskStorer, compileStorer, id });
+        expect(out.errors[0]).toMatchObject({ code: "policy-unavailable" });
+      });
+      expect(compile).not.toHaveBeenCalled();
+    });
+
+    it("leaves every connectionless compile alone with the flags off", async () => {
+      const id = await taskStorer.create({ task: L0013 });
+      const commandBridge = jest.fn();
+      mockCompileData(DATA1);
+      const api = /** @type {any} */ (buildDataApi(/** @type {any} */ ({ compile, commandBridge })));
+      await expect(api.get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA1);
+      expect(commandBridge).not.toHaveBeenCalled();
+    });
+  });
+
   describe("a language that answers cache: false", () => {
     it("should strip the directive and not cache the compile", async () => {
       const id = await taskStorer.create({ task: TASK1 });

@@ -2,6 +2,12 @@
 //
 //   POST /command { id, connectionId, idempotencyKey, data?, options? }
 //     -> { commandId, outcome, result, statusUrl }
+//     C5 (COMMAND_SCOPES=on): `connectionId` may be omitted for a chain none
+//     of whose writes needs a connection (an L0013 capture, or an L0000 head
+//     over one); a chain with a write that does is refused
+//     `connection-required`. The whole chain decides eligibility
+//     (bridge.js buildChainEligibility). A signed-in user is always required
+//     here: an anonymous capture runs through the compile bridge only.
 //   GET  /command/:id -> the same, for the command's own user
 //
 // The key is required. A new key allocates a command only when the chain is
@@ -34,7 +40,7 @@ import { classify } from "@graffiticode/common/failures";
 import { PolicyRefused } from "../commands/policy-commands.js";
 import { normalizeLang } from "../admission.js";
 import { legacyOutcome } from "../commands/dispatch.js";
-import { commandsEnabled, runCommand } from "../commands/bridge.js";
+import { commandsEnabled, connectionRequired, eligibilityOf, runCommand, scopesEnabled } from "../commands/bridge.js";
 
 export { commandsEnabled };
 
@@ -83,8 +89,10 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
     const authToken = parseAuthTokenFromRequest(req);
     const body = req.body ?? {};
     const connectionId = parseConnectionId(body.connectionId, { auth });
-    if (!connectionId) throw new InvalidArgumentError("a command needs a connection");
-    const idempotencyKey = parseIdempotencyKey(req.get("Idempotency-Key") ?? body.idempotencyKey, { connectionId });
+    // C5: only an api that runs v3 commands takes one with no connection.
+    const scopes = scopesEnabled(env);
+    if (!connectionId && !scopes) throw new InvalidArgumentError("a command needs a connection");
+    const idempotencyKey = parseIdempotencyKey(req.get("Idempotency-Key") ?? body.idempotencyKey, { connectionId, connectionless: scopes });
     if (!idempotencyKey) throw new InvalidArgumentError("a command needs an idempotency key");
     if (typeof body.id !== "string" || !body.id) throw new InvalidArgumentError("a command needs the id of the task chain it runs");
     const { id } = await withData({ auth, id: body.id, data: body.data, req });
@@ -94,25 +102,54 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
     // A new key needs an eligible chain. A key either protocol already holds
     // is served whatever the flags say now (D2a): otherwise Policy only answers
     // which protocol holds the key, and creates nothing.
-    const create = Boolean(await isEligible(tasks));
-    let outcome;
-    try {
-      outcome = await runCommand({
-        policy,
-        run,
-        worker,
-        authToken,
-        connectionId,
-        taskId: id,
-        inputDigest: inputDigest(body.options ?? {}),
-        idempotencyKey,
-        lang,
-        request: JSON.stringify({ id, connectionId, options: body.options ?? {} }),
-        create,
-      });
-    } catch (e) {
-      if (e instanceof PolicyRefused) return refused(res, e.reason === "idempotency-key-reused" ? 409 : 403, e.reason);
-      throw e;
+    const allocate = create => runCommand({
+      policy,
+      run,
+      worker,
+      authToken,
+      connectionId,
+      taskId: id,
+      inputDigest: inputDigest(body.options ?? {}),
+      idempotencyKey,
+      lang,
+      request: JSON.stringify({ id, connectionId, options: body.options ?? {} }),
+      create,
+    });
+    const policyRefusal = e => (e instanceof PolicyRefused ? refused(res, e.reason === "idempotency-key-reused" ? 409 : 403, e.reason) : null);
+    let outcome = null;
+    // C5 (COMMAND_SCOPES): the key is looked up first, before any preflight,
+    // so the retry of a command it holds is served from its record whatever
+    // today's flags say and whether or not the chain's compilers can be
+    // reached now. Then the whole chain's verdict decides new work only: a
+    // chain whose writes aren't all allowed now, or that needs a connection
+    // it wasn't given, is refused with that reason. Off, the C6 order (one
+    // allocation, `create` from eligibility) is unchanged.
+    let restricted = null;
+    if (scopes) {
+      try {
+        const held = await allocate(false);
+        if (held.protocol !== "none") outcome = held;
+      } catch (e) {
+        if (policyRefusal(e)) return;
+        throw e;
+      }
+    }
+    if (!outcome) {
+      const verdict = eligibilityOf(await isEligible(tasks));
+      restricted = verdict?.refusal ?? (!connectionId && connectionRequired(verdict) ? "connection-required" : null);
+      if (restricted) return refused(res, STATUS_OF[classify(restricted).category] ?? 403, restricted);
+      const create = Boolean(verdict);
+      if (scopes && !create) {
+        // Looked up above: nothing holds the key, and nothing is created.
+        outcome = { protocol: "none" };
+      } else {
+        try {
+          outcome = await allocate(create);
+        } catch (e) {
+          if (policyRefusal(e)) return;
+          throw e;
+        }
+      }
     }
     const allocated = outcome;
     if (allocated.protocol === "none") {

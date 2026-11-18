@@ -537,6 +537,15 @@ It is **proven live** by a gate that creates the first v3 records. The rollback 
      - outside a command session, snap is unchanged.
    - **Deploy test:** `test:deploy` covers `l0013r`'s pinnable entry and the floor report's rule.
 
+7. **The api, for the gate** (added 2026-11-17, after the release phase: the six slices had no api work, so the gate couldn't run; IAM review Step 29). Behind `COMMAND_SCOPES=on`, which only `api-c5a-gate` sets:
+   - **One capability setting.** The Policy client declares `scopes: 1` on allocation, admission, lease (renewal and takeover) and the due query. Off, every request is byte for byte what it was.
+   - **Connectionless commands.** `POST /command` and the compile bridge accept a chain with no connection when none of its writes needs one: an L0013 capture, or an L0000 head over one. A mixed chain with an L0176 save is refused `connection-required` without its connection.
+   - **Whole-chain eligibility.** Every stage in a language with a write function is preflighted. A chain whose writes are only partly in command-enabled languages is refused `commands-not-enabled`, never split.
+   - **Anonymous public capture through the bridge only.** An anonymous compile allocates with `anonymous: true` and no user token, always under a fresh key. `POST /command` still requires a user.
+   - **No fallback to L0013's direct upload.** Once L0013's commands are on, an L0013 chain that the bridge doesn't run as a command is refused (`legacy-protocol`, `worker-unsupported`, `policy-unavailable`) instead of reaching the legacy compile. One that captures nothing compiles as today.
+   - **The deploy guard.** The production `api` lists `COMMAND_SCOPES` in `removeEnv`. A deploy test requires every api entry to set it or remove it, and `COMMANDS_L0013=on` to come with `COMMAND_SCOPES=on`.
+   - **`scripts/c5a-gate.js`** collects the gate's observations through `api-c5a-gate` and the operator's reads. `scripts/lib/c5a-gate-checks.js` judges them, and is tested offline. Observations no gate-api call can make (the mismatch probes, the narrowed refusal, the pre-slice-6 plan, the conditional pair, the console-route and proxy evidence) are given as evidence files, and the verdict fails closed without them.
+
 ### Release order (C5a)
 
 **Steps 1–6 are released (complete 2026-11-17).** Revisions, canaries and rollback targets: [`docs/evidence/c5a/README.md`](evidence/c5a/README.md). The live gate (step 7) is pending.
@@ -637,6 +646,32 @@ All six slices are merged and released in the order above, and:
 **The proxy** lets `l0013r` reach Policy and Broker and nothing else new (`verify-rollout.js`, the AT-11 probe).
 
 **Evidence** goes in `docs/evidence/c5a-authorization/`: the release ids, the gate output and the extracts. Then the gate bucket is deleted and the window expires.
+
+**Proposed amendment: how each row's evidence is produced** (owner's review of #417; for review, and until it is reviewed those rows stay failing in `scripts/lib/c5a-gate-checks.js`). The gate never impersonates a compiler or mints a token itself. Rows are produced either by normal programs through `api-c5a-gate` plus reads of Policy's and Broker's records and audit (*live*), or, where a live run can't produce the shape at all, by a hermetic test pinned to the released commit (*hermetic*, an amendment to the gate's "through the released services" wording).
+
+| Row | How | Producer |
+|---|---|---|
+| Private item, owner and non-owner | live | `scripts/c5a-gate.js` captures: the owner's and a non-owner's capture of the private fixture; records, reservations and the gate bucket's object |
+| Refused after access is narrowed | live | the owner's capture started, the fixture item made unreachable to the owner between reservation and publish (the console's item, moved or deleted by the owner), and Policy's `authorize-execution` audit `not-owner` for that operation; if the window between reserve and execute can't be held open from outside, *hermetic* (`packages/policy` authorize-execution with item authority changed after reservation, at the released commit) |
+| Public anonymous, rate-limited | live | the quota plus one anonymous captures of a fresh public fixture; Policy's `command-reserve` audit: exactly `limit` (12) distinct commands allowed with `publicCapture`, then `rate-limited` after the last of them |
+| Mixed chain, one invocation, own scopes | live | the mixed program through the canary connection; Broker's `execute` audit by `invocationId` (`itemId` for the capture, `connectionId` for the save) |
+| `credential-scope-mismatch`, both ways | hermetic | an execution token whose credential and scope disagree can't be produced by a compiler that follows its session, and the gate mints none. Broker's tests (`packages/broker`, `credential-scope-mismatch` both directions) run at the released Broker commit, `58adb430`, and their output is the evidence |
+| Composition, connectionless v3 | live | the composed program; the command record (no connection) and its stored plan (`plan.contractVersion` 3) |
+| Per-stage contracts | live, plus hermetic | the mixed and composed plans' stages and the revisions database's approval records (live). A plan pinning a pre-slice-6 `l0013r` can't be formed live: no such revision is approved. Policy's admission test at the deployed Policy commit is the evidence, with an *approved* `l0013r` fixture at `[1, 2]` (an unapproved revision tests a different refusal), refused `contract-version-unsupported` |
+| Registry versions | live | the stored plans' pinned manifests (`plan.stages[].registryVersion`) and the staged canary's L0185 → L0176 output |
+| A conditional retry | live | two captures of the public fixture started so that the older reserves first and publishes first: Broker's `execute-step` audit for the newer (two attempts, distinct `decisionId`s) and the gate bucket's object metadata. If the ordering can't be forced from outside, *hermetic* (Broker's `gcs.put-thumbnail` precondition test at `58adb430`) |
+| Reserve, stage, bind | live | Policy's reservation records (`reserved` → `staged` → bound) and its audit for each capture, and the published object's `captureSequence`. A repeated `reserve` or `stage` happens live only on a compiler retry; failing that, *hermetic* (Policy's reservation tests at the released commit) |
+| Nothing written elsewhere | live | `graffiticode.appspot.com/thumbnails/` listing digest before and after, and `graffiticode-thumbnails` absent or empty; any failed read fails the row |
+| Old workers | live | Policy's due query as the gateway (`--phase due`): two pending v3 fixtures (connectionless captures, allocated and never run) and a v2 control (a connection command over an L0176 chain with no write, never run). Once their leases expire, the query as production asks it (`recording`, `repairs`) must list the control and none of the v3 fixtures; as a `scopes` worker asks it, all three; and production's takeover lease of a v3 fixture is refused `worker-unsupported`. The fixtures never stay executable: each id is saved as it is allocated, and every fixture is then retired without running (a fenced takeover, never under another worker's live lease, and an empty finish, recorded `failed`), even when the phase fails part-way; `--phase cleanup` reruns that alone. The gate isn't retired until every fixture is finished and no due query lists one (`fixtures-retired`). The gateway calls need `canary-window-c5a` to cover `api-run` as well as `console-run` (Step 29 amended accordingly) |
+| Console route | live | Step 27's `policy-run` probe evidence, and a fresh unauthenticated and wrong-audience probe |
+| Proxy | live (Step 26) | `verify-rollout` and the AT-11 probe under Step 26's recorded exception |
+
+**Hermetic evidence rules** (owner's second review of #417, enforced by `scripts/lib/c5a-gate-checks.js`):
+- A hermetic record names the service, the exact commit that service serves now (read from its 100% revision's release receipt), the test, and its output, and says it passed. Any other commit fails the row.
+- A fallback (narrowed access, the conditional retry, reserve/stage/bind) is accepted only when there is no live observation for the row, and only with `uninducible` saying why the case couldn't be induced live. A live observation always decides; a fallback never replaces an observed violation.
+- `credential-scope-mismatch` and the pre-slice-6 plan are hermetic only.
+
+Each *hermetic* row's record goes in the gate's evidence directory.
 
 ## 4. C5b–C5e, in outline
 
