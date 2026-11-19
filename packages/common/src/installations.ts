@@ -132,6 +132,7 @@ export const itemObjectName = (installation: string, item: string): string =>
 //       "itemAuthority": { "url": "https://…", "audience": "https://…" },
 //       "actAsSecret": "act-as-grant-secret:1",     Secret Manager name:version
 //       "internalKey": "internal-api-key:3",
+//       "internalKeyPrevious": "internal-api-key:2", optional: during a rotation
 //       "internalRoutes": ["linked-emails"]          grants beyond the default
 //     }
 //   ]
@@ -173,6 +174,10 @@ export type InstallationEntry = {
   itemAuthority: { url: string; audience: string };
   actAsSecret: string;
   internalKey: string;
+  // The internal key being rotated out, still accepted (I5a, decision B):
+  // the same secret name as internalKey, at another version. Null when no
+  // rotation is under way.
+  internalKeyPrevious: string | null;
   internalRoutes: GrantableInternalRoute[];
 };
 
@@ -250,7 +255,8 @@ export const parseInstallationRegistry = (input: unknown, { secretExists }: Pars
   // one Google identity belongs to one installation. It may hold roles at
   // several services, but only within that installation.
   const callerOwner = new Map<string, string>();
-  const secretOwner = new Map<string, string>();
+  // Which installation and purpose each secret name belongs to.
+  const secretOwner = new Map<string, { id: string; purpose: "actAsSecret" | "internalKey"; refs: string[] }>();
 
   for (const raw of doc.installations) {
     if (!isPlainObject(raw)) throw new InstallationError("registry: an installation must be an object");
@@ -258,7 +264,7 @@ export const parseInstallationRegistry = (input: unknown, { secretExists }: Pars
     if (!isInstallationId(id)) throw new InstallationError("registry: an installation has an invalid id");
     const where = `installation ${id}`;
     if (Object.prototype.hasOwnProperty.call(installations, id)) throw new InstallationError(`${where}: listed twice`);
-    onlyKeys(where, raw, ["id", "callers", "itemAuthority", "actAsSecret", "internalKey", "internalRoutes"],
+    onlyKeys(where, raw, ["id", "callers", "itemAuthority", "actAsSecret", "internalKey", "internalKeyPrevious", "internalRoutes"],
       ["id", "callers", "itemAuthority", "actAsSecret", "internalKey"]);
 
     if (!isPlainObject(raw.callers)) throw new InstallationError(`${where}: callers must be an object`);
@@ -288,22 +294,38 @@ export const parseInstallationRegistry = (input: unknown, { secretExists }: Pars
       audience: httpsUrl(`${where} itemAuthority.audience`, raw.itemAuthority.audience),
     };
 
-    const secret = (field: "actAsSecret" | "internalKey"): string => {
+    const secret = (field: "actAsSecret" | "internalKey" | "internalKeyPrevious"): string => {
       const ref = raw[field];
       if (typeof ref !== "string" || !SECRET_REF_RE.test(ref)) {
         throw new InstallationError(`${where}: ${field} must be a pinned secret reference (name:version)`);
       }
-      // A secret held by two installations would make its owner ambiguous,
-      // whatever the version.
+      // A secret held by two installations, or for two purposes, would make
+      // its owner ambiguous, whatever the version. The one exception is a
+      // rotation: an entry's internalKeyPrevious may be another version of
+      // its own internalKey's name.
+      const purpose = field === "actAsSecret" ? "actAsSecret" : "internalKey";
       const name = ref.slice(0, ref.lastIndexOf(":"));
       const owner = secretOwner.get(name);
-      if (owner !== undefined) throw new InstallationError(`${where}: ${field} ${name} is also used by ${owner}`);
-      secretOwner.set(name, `${id} (${field})`);
+      if (owner !== undefined) {
+        const rotation = field === "internalKeyPrevious" && owner.id === id && owner.purpose === "internalKey";
+        if (!rotation) throw new InstallationError(`${where}: ${field} ${name} is also used by ${owner.id} (${owner.purpose})`);
+        if (owner.refs.includes(ref)) throw new InstallationError(`${where}: ${field} ${ref} is the current internalKey`);
+        owner.refs.push(ref);
+      } else {
+        secretOwner.set(name, { id, purpose, refs: [ref] });
+      }
       if (secretExists && !secretExists(ref)) throw new InstallationError(`${where}: ${field} ${ref} does not exist`);
       return ref;
     };
     const actAsSecret = secret("actAsSecret");
     const internalKey = secret("internalKey");
+    // A previous key is only ever another version of the current one: an
+    // unrelated name would add an accepted credential by mistake.
+    const sameName = (ref: unknown) => typeof ref === "string" && ref.slice(0, ref.lastIndexOf(":")) === internalKey.slice(0, internalKey.lastIndexOf(":"));
+    if (raw.internalKeyPrevious !== undefined && SECRET_REF_RE.test(String(raw.internalKeyPrevious)) && !sameName(raw.internalKeyPrevious)) {
+      throw new InstallationError(`${where}: internalKeyPrevious must be another version of internalKey's secret`);
+    }
+    const internalKeyPrevious = raw.internalKeyPrevious === undefined ? null : secret("internalKeyPrevious");
 
     const routes = raw.internalRoutes ?? [];
     if (!Array.isArray(routes)) throw new InstallationError(`${where}: internalRoutes must be a list`);
@@ -316,7 +338,7 @@ export const parseInstallationRegistry = (input: unknown, { secretExists }: Pars
       internalRoutes.push(route);
     }
 
-    installations[id] = { id, callers, itemAuthority, actAsSecret, internalKey, internalRoutes };
+    installations[id] = { id, callers, itemAuthority, actAsSecret, internalKey, internalKeyPrevious, internalRoutes };
   }
 
   // Records without an installation are Graffiticode's, so it must be known.
