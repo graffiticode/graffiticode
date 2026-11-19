@@ -140,9 +140,10 @@ The survey was taken at `78621ec8`, with the claims below spot-checked.
 - **Internal keys are authorized by route.** Auth accepts a key per installation (`internalKey`) and knows whose each key is. A key's owner decides only what that key may reach, and each route lists its installations:
   - **Graffiticode only:**
     - the legacy OAuth routers (`/oauth-tokens`, `/oauth-clients`, `/oauth-pending`, `/oauth-codes`);
-    - every `/oauth-migration/v1` route, the inventory included, before and after the seal.
+    - every `/oauth-migration/v1` route, the inventory included, before and after the seal;
+    - `/v1/refresh-tokens/clean-expired`'s internal-key fallback (its own `CLEANUP_API_KEY` is unchanged, [I5a](#i5a-auths-preparation-inert)).
 
-    These hold Graffiticode's legacy records, and no other installation ever has any there.
+    These hold Graffiticode's legacy records or auth's own maintenance, and no other installation ever has any there.
   - **Granted explicitly:** every other internal route (`/linked-emails` internal, `/authenticate/internal/exists`, and any later one) is reachable only by the installations its entry in the registry grants. A route with no grant for an installation refuses its key (403), as if the key were wrong.
   - `INTERNAL_API_KEY` stays Graffiticode's. Auth's authenticator only skips user-token parsing for internal-key requests (`auth/src/routes/auth.js:10`). Authorization stays with each route, which now checks the key's installation too.
 
@@ -192,7 +193,7 @@ The survey was taken at `78621ec8`, with the claims below spot-checked.
 ## Sequencing
 
 This fits the backend's existing order. It doesn't disturb C5:
-- C5d's staged drive and activation change Policy's command allocation. The boundary's Policy slices (I2) land after C5d activation step 5. Until then, only the inert slices (I1) and documentation proceed.
+- C5d's staged drive and activation change Policy's command allocation. The boundary's Policy slices (I2) land after C5d activation step 5. Until then, only the inert slices (I1, I5a) and documentation proceed.
 - D-3 (W1) builds on the registry. Its "registered client identity" is the installation's registered caller (I-2). So the boundary's I1–I3 come before D-3's scope work, as W1's first step, and D-3's binding adds the scope digest beside the installation.
 
 | Slice | Repo | Contents | Behavior change | Gate |
@@ -203,9 +204,82 @@ This fits the backend's existing order. It doesn't disturb C5:
 | I2b | broker | Object names and evidence per installation, from the token's claim (Graffiticode's unchanged). Item validation aligned with Policy's on one shared pattern (common). Policy then allows item-scoped intents for registered installations | Graffiticode items with `:` or `.` become publishable | Broker floor; the same-item and collision tests (below) |
 | I3 | api | Verify `X-Caller-Identity` against the registry, attest the installation to Policy, check `act` against it. A user-token-only request is treated as Graffiticode **while the registry lists only Graffiticode** | none | API floor plus `requires` |
 | I4 | graffiticode-app | The console, MCP, REST and app servers send `X-Caller-Identity` to the API (core's `identityToken`); their accounts are entered in the registry | none | the frontends' baseline; API logs show every command request attested |
+| I5a | common, auth | Unused helpers and their tests: credential loading, route authorization, grant compatibility ([I5a](#i5a-auths-preparation-inert)) | none (inert) | unit tests; nothing outside the specs imports them |
 | I5 | auth | act-as v2; internal keys per installation, authorized by route (legacy OAuth and migration Graffiticode-only); v1 is Graffiticode's only | none for Graffiticode | auth floor; the internal-key tests (below) |
 | I6 | operator | Backfill (I-6). Remove `INSTALLATION_IDENTITY_LENIENT` and add it to `removeEnv` and `forbiddenEnv` for api, policy and auth, then release them: every protected path (I-8), `/compile` and `/data` included, refuses a missing identity | the switch | backfill counts; `release-check` on every enforcing service (no lenient revision reachable); the registry check (I-1); the strict-identity and configuration-rollback tests (below) |
 | I7 | operator | Register the second installation (P6) | Artcompiler can call | everything above deployed; P6's own gate |
+
+## I5a: auth's preparation (inert)
+
+*Amendment, 2026-11-19.* I5 changes auth's startup, its internal routes and the tokens it issues, so it waits with the other enforcing slices. I5a lands now. Like I1, nothing outside its specs imports it.
+
+### What auth has today
+
+**Internal key.** `requireInternalAuth` accepts `INTERNAL_API_KEY` on these routes:
+- the legacy OAuth routers: `/oauth-tokens`, `/oauth-clients`, `/oauth-pending`, `/oauth-codes`;
+- `/oauth-migration/v1`;
+- `/linked-emails/internal*`;
+- `/authenticate/internal/exists/:address`;
+- `/v1/refresh-tokens/clean-expired`. `requireCleanupAuth` takes `CLEANUP_API_KEY`, but falls back to the internal key when the cleanup key's header is absent. I-5's list missed this route.
+
+**Act-as.** `/internal/act-as` takes no internal key: it checks the caller identity against `ACT_AS_CALLERS` and a v1 grant under `ACT_AS_GRANT_SECRET`. The token it issues carries `act: { sub, purpose, subject }`.
+
+**The API.** `/oauth/verify` returns the whole token, `act` included. The API keeps only `uid` (`api/src/auth.js`), so an act-as token is accepted wherever a user token is.
+
+### What I5a adds (unused)
+
+1. **Rotation in the registry** (common, a change to I1's parser; decision B). An entry may carry `internalKeyPrevious`.
+   - **Allowed:** the same secret name as that entry's `internalKey`, at a different version. Nothing else may share a name.
+   - **Still refused:** a name reused across installations, or across credential purposes (an act-as secret and an internal key).
+2. **Credential loading** (common). `loadInstallationCredentials(registry, resolve)` takes each entry's `actAsSecret`, `internalKey` and `internalKeyPrevious` references, resolves them to values, and returns a frozen, null-prototype map from installation to credentials. Startup must refuse when:
+   - a reference doesn't resolve;
+   - an act-as secret is shorter than 32 characters;
+   - any two loaded values are equal: across installations, across purposes, or a current and a previous key. Distinct names don't guarantee distinct values, and a shared value would make a key's owner ambiguous.
+
+   `resolve` turns a pinned reference into its value. In I5a it is injected; the production adapter is I5's (decision A). `internalKeyOwner(credentials, presented)` compares a presented key, in constant time, against every installation's current and previous keys. It compares every key, not stopping at the first match, and returns the owner or null.
+3. **Route authorization** (common). Auth's internal routes are listed once by id:
+   - **Graffiticode only:** `oauth-tokens`, `oauth-clients`, `oauth-pending`, `oauth-codes`, `oauth-migration` and `refresh-tokens-cleanup`;
+   - **Grantable:** `linked-emails` and `authenticate-exists`, as I1's parser already allows.
+
+   `internalRouteAllows(registry, route, installation)` answers yes for Graffiticode on the Graffiticode-only routes, and on a grantable route only when the installation's entry grants it. It answers no for an unknown route. To leave Graffiticode's behavior unchanged, its registry entry must grant both grantable routes.
+4. **Grant compatibility** (common). `verifyPresentedActAsGrant({ credentials, caller, token, expect })`.
+   - **`caller`** is the authenticated result of `createCallerIdentity`, configured with `registryCallers(registry, "actAs")`: a verified service identity carrying its installation. It is never an entry chosen from request data.
+   - **Version.** The token's unverified payload selects the version: a `v2` grant carries `i`, and a v1 grant doesn't. The signature is then verified under that version's MAC domain. Since the domains differ, picking the wrong version only fails.
+   - **v2.** Verified with the presenting caller's installation's secret, and `i` must equal that installation (`installation-mismatch`).
+   - **v1.** Accepted only when the presenting caller is Graffiticode's, under Graffiticode's secret. Any other caller gets `v1-not-accepted`.
+   - **The result** names the installation, for the `act` claim I5 will issue.
+5. **Tests** (unit only), for each item above:
+   - rotation:
+     - a current and a previous version of one name are accepted for one installation's internal key;
+     - that name is refused across installations or purposes;
+     - during rotation, both keys resolve to their owner;
+     - once the previous reference is removed, the old key resolves to nobody;
+   - credentials: equal values (across installations, across purposes, current and previous), a short secret, an unresolved reference;
+   - keys: owner lookup, and that every key is compared;
+   - routes: every route id against Graffiticode, a granted installation and an ungranted one;
+   - grants: v1 and v2 from each installation's caller, a v2 grant under the wrong secret or naming the wrong installation, and v1 from a non-Graffiticode caller.
+
+### What waits for I5 (after C5d activation step 5)
+
+- **Startup:** auth mounts the pinned registry, refuses an invalid one, loads credentials, and checks `identityLeniency`.
+- **Startup, the production resolver (decision A).**
+  - gc-deploy owns `PINNED_SECRETS`: on every release it writes the variable from `deploy.json`'s `secrets`, overwriting any value already present.
+  - Before promotion, it verifies the map against the candidate revision's actual secret mounts.
+  - A user-supplied or stale value never establishes a binding: a mismatch refuses the candidate.
+- **Routing:**
+  - `requireInternalAuth` is replaced by a per-route check: `internalKeyOwner`, then `internalRouteAllows`. A key that is valid but not authorized for the route is refused with 403.
+  - The cleanup route keeps today's precedence. A request carrying `X-Cleanup-API-Key` is judged by that header alone, so an invalid cleanup key fails even when a valid internal key accompanies it. Only a request without that header falls back to the internal key, and now only to Graffiticode's.
+- **Issuance:**
+  - `/internal/act-as` takes its callers from the registry, replacing `ACT_AS_CALLERS`, and verifies with `verifyPresentedActAsGrant`;
+  - the issued token's `act` claim gains `installation`;
+  - the auth floor `I-installations`.
+- **The API, coordinated (I3):** the API keeps `act` from `/oauth/verify` and refuses a request whose `act.installation` disagrees with its attested installation. An `act` without an installation, issued before I5 within its 5-minute lifetime, is Graffiticode's (I-3). Auth may issue the claim before the API reads it, because only Graffiticode is registered until I7. A second installation is registered only after both I3 and I5 are deployed.
+
+### Decisions taken (owner, 2026-11-19)
+
+- **A. How a reference becomes a value.** Cloud Run exposes secrets as environment variables, which don't carry their reference, so gc-deploy writes `PINNED_SECRETS`: a non-secret JSON map from variable to pinned reference. gc-deploy alone owns the variable, overwrites it on every release, and verifies it against the candidate revision's actual secret mounts. A user-supplied or stale value never establishes a binding, and the loader refuses a reference the service doesn't pin. The production adapter lands with I5. I5a's resolver is injected.
+- **B. Rotating an installation's internal key.** An optional `internalKeyPrevious` per entry replaces Graffiticode's `INTERNAL_API_KEY_PREVIOUS`. It may share its name with that entry's `internalKey` at another version. Reuse across installations or purposes, and equal resolved values, stay refused. Both keys work during a rotation, and removing the previous reference stops accepting the old key.
+- **C. The cleanup route.** Its internal-key fallback is Graffiticode-only from I5, and today's header precedence is kept: an invalid cleanup header fails even with a valid internal key. Removing the fallback entirely is a separate cleanup.
 
 ## Cross-installation rejection tests
 
@@ -233,7 +307,10 @@ These run in Policy's and the API's suites against two registered test installat
 - **Internal keys:**
   - B's key is refused (403) by every legacy OAuth route and every `/oauth-migration/v1` route, the inventory included, both before and after the seal;
   - B's key is refused by any internal route the registry doesn't grant it;
-  - Graffiticode's key still works where it does today.
+  - Graffiticode's key still works where it does today, `/v1/refresh-tokens/clean-expired`'s fallback included;
+  - a v1 grant presented by a non-Graffiticode caller is refused (I5a);
+  - B's key is refused by the cleanup route's fallback, and an invalid `X-Cleanup-API-Key` fails even beside a valid internal key;
+  - during a rotation, the current and previous keys both work, and removing the previous reference stops accepting the old one.
 - **The registry across services:** `release-check` fails while api, policy and auth pin different registry versions. A service that doesn't know an installation refuses it.
 - **Untagged records:** a record written before the change is readable and replayable by Graffiticode, and invisible to B, before and after the backfill.
 - **Graffiticode keys are unchanged:** retrying a save key issued before the change returns the same command id and the same protocol (`legacy` or `command`), with zero provider writes. This covers a completed save, a failed one (retried only through its own path), and a queued `connection_write`.
