@@ -371,17 +371,29 @@ fn exit(armed: &Armed) -> String {
 /// stale generation, the signal to continue (to its own staging, which Policy refuses too).
 /// Any other answer keeps it waiting, up to the bound, where it logs `no-takeover` and
 /// continues.
+///
+/// The bound is one monotonic deadline over the sleeps and each probe's own wait, so a slow or
+/// hanging Policy request can't hold the stall past it: a probe still unanswered at the deadline
+/// is dropped.
 async fn stall(cx: &mut Evaluator<'_>, armed: &Armed, occurrence: &str, item: &str) {
     armed.warn("stalling until the takeover");
-    for _ in 0..armed.probes() {
-        armed.sleep().await;
-        match cx.exec().reserve_capture(occurrence, item).await {
-            Err(error) if error.reason() == Some(STALE_GENERATION) => {
+    let deadline = armed.deadline();
+    while !armed.remaining(deadline).is_zero() {
+        armed.sleep_until_probe(deadline).await;
+        if armed.remaining(deadline).is_zero() {
+            break;
+        }
+        match armed.before(deadline, cx.exec().reserve_capture(occurrence, item)).await {
+            Some(Err(error)) if error.reason() == Some(STALE_GENERATION) => {
                 armed.warn("takeover observed");
                 return;
             }
-            Ok(_) => {}
-            Err(error) => armed.warn(&format!("probe refused ({error}), still waiting")),
+            Some(Ok(_)) => {}
+            Some(Err(error)) => armed.warn(&format!("probe refused ({error}), still waiting")),
+            None => {
+                armed.warn("probe unanswered at the bound");
+                break;
+            }
         }
     }
     armed.warn("no-takeover");

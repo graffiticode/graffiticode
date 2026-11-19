@@ -17,13 +17,18 @@
 //!   occurrence under its generation-1 session: before a takeover the repeat answers the
 //!   recorded reservation (state-neutral); after one Policy refuses it as `stale-generation`,
 //!   which is the signal to continue to its own staging (which Policy must also refuse). If no
-//!   takeover is seen within [`STALL_BOUND`], it logs `no-takeover` and continues.
+//!   takeover is seen within [`STALL_BOUND`], it logs `no-takeover` and continues. The bound is
+//!   a monotonic deadline covering the sleeps and each probe's own wait: a slow or hanging
+//!   Policy request can't hold the stall past it.
 //!
 //! The production service (`K_SERVICE=l0013r`) refuses to start with the variable set, as
 //! Broker's `BROKER_FAULTS` and the api's `API_COMMAND_FAULTS` are refused on theirs.
 
 use std::collections::HashMap;
+use std::future::{Future, poll_fn};
+use std::pin::pin;
 use std::sync::Arc;
+use std::task::Poll;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -75,6 +80,8 @@ pub trait FaultRuntime: Send + Sync {
     /// with an error, so nothing after the fault point runs either way.
     fn exit(&self, fault: CaptureFault, command: &str);
     async fn sleep(&self, duration: Duration);
+    /// Monotonic time since a fixed origin: the stall's deadline is measured on it.
+    fn now(&self) -> Duration;
     /// One warning line, logged as `WARN`.
     fn warn(&self, line: &str);
 }
@@ -183,13 +190,39 @@ impl Armed {
         self.faults.runtime.warn(&if detail.is_empty() { line } else { format!("{line}: {detail}") });
     }
 
-    pub async fn sleep(&self) {
-        self.faults.runtime.sleep(self.faults.probe_interval).await;
+    /// The stall's deadline, from now, on the runtime's monotonic clock.
+    pub fn deadline(&self) -> Duration {
+        self.faults.runtime.now() + self.faults.stall_bound
     }
 
-    /// How many probes fit in the bound.
-    pub fn probes(&self) -> u32 {
-        let interval = self.faults.probe_interval.as_millis().max(1);
-        u32::try_from(self.faults.stall_bound.as_millis() / interval).unwrap_or(u32::MAX)
+    /// What is left before `deadline` (zero once it has passed).
+    pub fn remaining(&self, deadline: Duration) -> Duration {
+        deadline.saturating_sub(self.faults.runtime.now())
+    }
+
+    /// The wait before the next probe: the probe interval, never past `deadline`.
+    pub async fn sleep_until_probe(&self, deadline: Duration) {
+        let wait = self.remaining(deadline).min(self.faults.probe_interval);
+        self.faults.runtime.sleep(wait).await;
+    }
+
+    /// `work`, unless `deadline` comes first: `None` then, and `work` is dropped unanswered.
+    pub async fn before<F: Future>(&self, deadline: Duration, work: F) -> Option<F::Output> {
+        let left = self.remaining(deadline);
+        if left.is_zero() {
+            return None;
+        }
+        let mut work = pin!(work);
+        let mut timer = pin!(self.faults.runtime.sleep(left));
+        poll_fn(|cx| {
+            if let Poll::Ready(output) = work.as_mut().poll(cx) {
+                return Poll::Ready(Some(output));
+            }
+            if timer.as_mut().poll(cx).is_ready() {
+                return Poll::Ready(None);
+            }
+            Poll::Pending
+        })
+        .await
     }
 }

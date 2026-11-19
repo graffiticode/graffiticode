@@ -164,7 +164,7 @@ The service and account do not exist until provisioned. To do what `snap` does, 
 
 - `exit-after-reserve`: the process exits (status 86, after logging `WARN capture fault <kind> command <id>`) once `reserve_capture` returns, before rendering.
 - `exit-after-stage`: it exits after staging, before `invoke`.
-- `stall-before-stage`: after rendering, before staging, the request is held open until the takeover is observed. Every 10 s it repeats `reserve_capture` for its occurrence under its generation-1 session; before a takeover that answers the recorded reservation, and after one Policy refuses it as `stale-generation`, the signal to continue to its own staging (which Policy refuses too). If nothing is refused within 240 s it logs `no-takeover` and continues.
+- `stall-before-stage`: after rendering, before staging, the request is held open until the takeover is observed. Every 10 s it repeats `reserve_capture` for its occurrence under its generation-1 session; before a takeover that answers the recorded reservation, and after one Policy refuses it as `stale-generation`, the signal to continue to its own staging (which Policy refuses too). If nothing is refused within 240 s it logs `no-takeover` and continues. The 240 s is one monotonic deadline covering the sleeps and each probe's own wait: a probe still unanswered at the deadline is dropped (`probe unanswered at the bound`), so a slow or hanging Policy request can't hold the stall past it.
 
 Unset or blank, nothing changes.
 

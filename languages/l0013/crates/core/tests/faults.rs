@@ -75,6 +75,10 @@ struct Policy {
     staged: Arc<Mutex<HashMap<String, StagedDigest>>>,
     /// The takeover happens on this reserve call (1-based), counting every call.
     takeover_at: Option<usize>,
+    /// Each probe (every reserve after the first) answers only after this long.
+    probe_latency: Option<Duration>,
+    /// From this reserve call (1-based) on, Policy never answers.
+    hang_from: Option<usize>,
     taken_over: Arc<Mutex<bool>>,
 }
 
@@ -118,6 +122,13 @@ impl PolicyClient for Policy {
 
     async fn reserve(&self, session: &str, request: &ReserveRequest) -> Result<Reservation, ProtectedCallError> {
         self.calls.lock().unwrap().push("reserve".into());
+        let nth = self.calls().iter().filter(|c| *c == "reserve").count();
+        if self.hang_from.is_some_and(|from| nth >= from) {
+            std::future::pending::<()>().await;
+        }
+        if let Some(latency) = self.probe_latency.filter(|_| nth > 1) {
+            tokio::time::sleep(latency).await;
+        }
         if self.takeover_at == Some(self.calls().iter().filter(|c| *c == "reserve").count()) {
             *self.taken_over.lock().unwrap() = true;
         }
@@ -158,12 +169,25 @@ impl PolicyClient for Policy {
     }
 }
 
-/// What the faults did to the "process".
-#[derive(Clone, Default)]
+/// What the faults did to the "process". Its clock and sleeps are tokio's, paused in these
+/// tests, so virtual time moves only as the stall and the fake Policy wait.
+#[derive(Clone)]
 struct Runtime {
     exits: Arc<Mutex<Vec<(CaptureFault, String)>>>,
     sleeps: Arc<Mutex<Vec<Duration>>>,
     warnings: Arc<Mutex<Vec<String>>>,
+    origin: tokio::time::Instant,
+}
+
+impl Default for Runtime {
+    fn default() -> Self {
+        Self {
+            exits: Arc::default(),
+            sleeps: Arc::default(),
+            warnings: Arc::default(),
+            origin: tokio::time::Instant::now(),
+        }
+    }
 }
 
 #[async_trait]
@@ -174,6 +198,11 @@ impl FaultRuntime for Runtime {
 
     async fn sleep(&self, duration: Duration) {
         self.sleeps.lock().unwrap().push(duration);
+        tokio::time::sleep(duration).await;
+    }
+
+    fn now(&self) -> Duration {
+        self.origin.elapsed()
     }
 
     fn warn(&self, line: &str) {
@@ -243,7 +272,7 @@ fn untouched(run: &Run) {
     assert!(run.runtime.warnings.lock().unwrap().is_empty());
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn exit_after_reserve_exits_its_target_at_generation_1_before_rendering() {
     let run = run(&[('a', CaptureFault::ExitAfterReserve)], 'a', 1, Policy::default()).await;
     assert!(!run.ok);
@@ -256,7 +285,7 @@ async fn exit_after_reserve_exits_its_target_at_generation_1_before_rendering() 
     );
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn exit_after_stage_exits_its_target_at_generation_1_before_invoking() {
     let run = run(&[('a', CaptureFault::ExitAfterStage)], 'a', 1, Policy::default()).await;
     assert!(!run.ok);
@@ -269,7 +298,7 @@ async fn exit_after_stage_exits_its_target_at_generation_1_before_invoking() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn no_fault_fires_at_generation_2() {
     for fault in CaptureFault::ALL {
         untouched(&run(&[('a', fault)], 'a', 2, Policy::default()).await);
@@ -277,14 +306,14 @@ async fn no_fault_fires_at_generation_2() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn no_fault_fires_for_an_untargeted_command() {
     for fault in CaptureFault::ALL {
         untouched(&run(&[('a', fault)], 'b', 1, Policy::default()).await);
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn no_fault_fires_for_a_session_without_command_claims() {
     for fault in CaptureFault::ALL {
         let run =
@@ -293,7 +322,7 @@ async fn no_fault_fires_for_a_session_without_command_claims() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn the_generation_2_takeover_of_an_exited_capture_completes_from_what_was_staged() {
     // One map for the run: generation 1 exits after staging, generation 2 finishes.
     let targets = [('a', CaptureFault::ExitAfterStage)];
@@ -307,7 +336,7 @@ async fn the_generation_2_takeover_of_an_exited_capture_completes_from_what_was_
     assert_eq!(takeover.calls[2..], ["reserve", "bind", "invoke"]);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn stall_before_stage_continues_only_once_its_probe_is_refused_as_stale() {
     // The takeover lands with the third probe (the fourth reservation).
     let policy = Policy { takeover_at: Some(4), ..Policy::default() };
@@ -324,7 +353,7 @@ async fn stall_before_stage_continues_only_once_its_probe_is_refused_as_stale() 
     assert_eq!(warnings, [format!("{prefix}: stalling until the takeover"), format!("{prefix}: takeover observed")]);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn stall_before_stage_probes_are_state_neutral_before_the_takeover() {
     let policy = Policy { takeover_at: Some(3), ..Policy::default() };
     let _ = run(&[('a', CaptureFault::StallBeforeStage)], 'a', 1, policy.clone()).await;
@@ -332,7 +361,7 @@ async fn stall_before_stage_probes_are_state_neutral_before_the_takeover() {
     assert_eq!(policy.reservations.lock().unwrap().len(), 1);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn stall_before_stage_logs_no_takeover_at_its_bound_and_continues() {
     let run = run_with(
         &[('a', CaptureFault::StallBeforeStage)],
@@ -342,7 +371,8 @@ async fn stall_before_stage_logs_no_takeover_at_its_bound_and_continues() {
     )
     .await;
     assert_eq!(*run.runtime.sleeps.lock().unwrap(), [Duration::from_secs(10); 5], "50 s at 10 s a probe");
-    assert_eq!(run.calls, ["reserve"; 6].into_iter().chain(["stage", "bind", "invoke"]).collect::<Vec<_>>());
+    // A probe at 10, 20, 30 and 40 s; at 50 s the bound has come, and none is sent.
+    assert_eq!(run.calls, ["reserve"; 5].into_iter().chain(["stage", "bind", "invoke"]).collect::<Vec<_>>());
     assert!(run.ok, "with no takeover it continues");
     let warnings = run.runtime.warnings.lock().unwrap().clone();
     assert_eq!(
@@ -351,7 +381,42 @@ async fn stall_before_stage_logs_no_takeover_at_its_bound_and_continues() {
     );
 }
 
-#[tokio::test]
+/// #442 review: the bound is a monotonic deadline that includes each probe's own wait.
+#[tokio::test(start_paused = true)]
+async fn slow_probes_count_against_the_240_s_bound() {
+    let policy = Policy { probe_latency: Some(Duration::from_secs(30)), ..Policy::default() };
+    let started = tokio::time::Instant::now();
+    let run = run(&[('a', CaptureFault::StallBeforeStage)], 'a', 1, policy).await;
+    let elapsed = started.elapsed();
+    // 10 s sleep + 30 s probe: six probes fill the 240 s, not 24 (which would be 960 s).
+    assert_eq!(elapsed, Duration::from_secs(240), "the stall ends at its bound");
+    assert_eq!(run.calls.iter().filter(|c| *c == "reserve").count(), 7, "the reservation and six probes");
+    assert!(run.ok, "with no takeover it continues");
+    assert!(run.runtime.warnings.lock().unwrap().last().unwrap().ends_with(": no-takeover"));
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_hanging_probe_is_dropped_at_the_240_s_bound() {
+    // The first probe (the second reserve) never answers.
+    let policy = Policy { hang_from: Some(2), ..Policy::default() };
+    let started = tokio::time::Instant::now();
+    let run = run(&[('a', CaptureFault::StallBeforeStage)], 'a', 1, policy).await;
+    assert_eq!(started.elapsed(), Duration::from_secs(240), "the hanging probe can't hold it past the bound");
+    let warnings = run.runtime.warnings.lock().unwrap().clone();
+    let prefix = format!("capture fault stall-before-stage command {}", command_id('a'));
+    assert_eq!(
+        warnings,
+        [
+            format!("{prefix}: stalling until the takeover"),
+            format!("{prefix}: probe unanswered at the bound"),
+            format!("{prefix}: no-takeover"),
+        ]
+    );
+    // It goes on to its own staging, whose answer (here a fake that doesn't hang) decides.
+    assert_eq!(run.calls, ["reserve", "reserve", "stage", "bind", "invoke"]);
+}
+
+#[tokio::test(start_paused = true)]
 async fn the_default_stall_is_10_s_probes_bounded_at_240_s() {
     let faults = CaptureFaults::new(Targets::new(), Runtime::default());
     assert_eq!((faults.probe_interval(), faults.stall_bound()), (Duration::from_secs(10), Duration::from_secs(240)));

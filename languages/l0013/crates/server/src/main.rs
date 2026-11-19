@@ -7,8 +7,11 @@ use graffiticode_l0013::faults::{self, CaptureFault, CaptureFaults, FaultRuntime
 use graffiticode_l0013::{L0013, lexicon};
 use l0013_capture::{ChromeCamera, Config, GoogleStorage, bucket_from_env};
 
-/// The drive's faults act on the real process: they log, wait on a timer, and exit.
-struct ProcessFaults;
+/// The drive's faults act on the real process: they log, wait on a timer, and exit. `origin`
+/// is the monotonic clock's origin for the stall's deadline.
+struct ProcessFaults {
+    origin: tokio::time::Instant,
+}
 
 #[async_trait]
 impl FaultRuntime for ProcessFaults {
@@ -19,6 +22,10 @@ impl FaultRuntime for ProcessFaults {
 
     async fn sleep(&self, duration: Duration) {
         tokio::time::sleep(duration).await;
+    }
+
+    fn now(&self) -> Duration {
+        self.origin.elapsed()
     }
 
     fn warn(&self, line: &str) {
@@ -41,7 +48,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(targets) = targets {
         // The server's log subscriber starts in `serve`, so this line goes to stderr directly.
         eprintln!("WARN {} names {} target command(s): a drive service", faults::ENV, targets.len());
-        dialect = dialect.with_capture_faults(CaptureFaults::new(targets, ProcessFaults));
+        dialect = dialect
+            .with_capture_faults(CaptureFaults::new(targets, ProcessFaults { origin: tokio::time::Instant::now() }));
     }
     l0000r_server::serve(dialect, lexicon()).await
 }
