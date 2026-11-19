@@ -2,15 +2,22 @@
 // as pure functions over an injected storage API, so every rule is tested
 // offline (scripts/test/c5b-thumbnails.test.js). The CLI is
 // scripts/c5b/migrate-thumbnails.js; the policy edit's is scripts/c5b/bucket-policy.js.
+// C5d's catch-up copy (docs/c5d-snapshot-commands-plan.md) extends it: its rules
+// are below, tested in scripts/test/c5d-catchup.test.js.
 //
 // Storage API (the JSON API, injected):
-//   rewrite({ sourceBucket, source, sourceGeneration, bucket, name, metadata, rewriteToken })
-//     -> { status, body }   one objects.rewrite call with ifSourceGenerationMatch and
-//                           ifGenerationMatch=0; body { done, rewriteToken, resource } on 200
-//   get(bucket, name) -> { status, body }   the object's metadata, or 404
+//   rewrite({ sourceBucket, source, sourceGeneration, bucket, name, ifGenerationMatch, metadata, rewriteToken })
+//     -> { status, body }   one objects.rewrite call with ifSourceGenerationMatch=sourceGeneration
+//                           and ifGenerationMatch (C5b's copy: "0"; C5d's catch-up: the
+//                           generation C5b's copy created for the name, or "0");
+//                           body { done, rewriteToken, resource } on 200
+//   get(bucket, name) -> { status, body }   the object's metadata (either bucket), or 404
+//   The CLI also lists the source bucket; the rules take that listing as input.
 //
 // Plan entry: { item, source, sourceGeneration, size, md5Hash, crc32c, contentType, updated, destination }
 // Copy outcomes: created | adopted | source-changed | exists-differs | failed
+// C5d catch-up outcomes (docs/c5d-snapshot-commands-plan.md, slice 1 item 4):
+//   created | adopted | skipped-capture | source-changed | destination-differs | failed
 
 import { writeFileSync as fsWriteFileSync } from "node:fs";
 
@@ -95,54 +102,62 @@ const withBackoff = async (call, { sleep, maxAttempts = MAX_ATTEMPTS, baseMs = 5
   }
 };
 
-// One plan entry, to completion. A rewrite that answers 200 with done: false
-// is continued with its rewriteToken; only done: true, then the destination's
-// own metadata matching the plan, is `created`. A refused or expired token
-// (400, 404 or 410 on a continued call) restarts the rewrite under the same
-// preconditions. A 412 is
-// told apart by reading the destination: absent means the source changed; a
-// matching object is `adopted` (an earlier, interrupted run finished it); any
-// other is `exists-differs`, never replaced.
-export const copyEntry = async ({ entry, storage, sleep = async () => {}, maxRewriteCalls = MAX_REWRITE_CALLS }) => {
-  const request = { sourceBucket: SOURCE_BUCKET, source: entry.source, sourceGeneration: entry.sourceGeneration, bucket: DESTINATION_BUCKET, name: entry.destination, metadata: destinationMetadata(entry) };
-  const record = { destination: entry.destination, calls: 0, restarts: 0 };
+// One rewrite, to completion: a 200 with done: false is continued with its
+// rewriteToken; a refused or expired token (400, 404, or 410, which Google
+// documents for an expired rewrite token) restarts the rewrite under the same
+// preconditions, within the call bound. Answers { resource } at done: true,
+// { status: 412 } on a precondition failure, or { failed: reason }. `record`
+// counts the calls and restarts. Shared by C5b's copy and C5d's catch-up.
+const rewriteToCompletion = async ({ request, storage, sleep, maxRewriteCalls, record }) => {
   let rewriteToken = null;
-  let resource = null;
   for (;;) {
-    if (record.calls >= maxRewriteCalls) return { ...record, outcome: "failed", reason: `no done: true after ${record.calls} rewrite calls` };
+    if (record.calls >= maxRewriteCalls) return { failed: `no done: true after ${record.calls} rewrite calls` };
     const res = await withBackoff(() => storage.rewrite({ ...request, rewriteToken }), { sleep });
     record.calls++;
     if (res.status === 200) {
-      if (res.body?.done === true && res.body.resource) {
-        resource = res.body.resource;
-        break;
-      }
-      if (!res.body?.rewriteToken) return { ...record, outcome: "failed", reason: "done: false without a rewriteToken" };
+      if (res.body?.done === true && res.body.resource) return { resource: res.body.resource };
+      if (!res.body?.rewriteToken) return { failed: "done: false without a rewriteToken" };
       rewriteToken = res.body.rewriteToken;
       continue;
     }
-    // A refused or expired token (400, 404, or 410, which Google documents for
-    // an expired rewrite token) restarts the rewrite, within the call bound.
     if (rewriteToken && (res.status === 400 || res.status === 404 || res.status === 410)) {
       rewriteToken = null;
       record.restarts++;
       continue;
     }
-    if (res.status === 412) {
-      const dest = await withBackoff(() => storage.get(DESTINATION_BUCKET, entry.destination), { sleep });
-      if (dest.status === 404) return { ...record, outcome: "source-changed" };
-      if (dest.status !== 200) return { ...record, outcome: "failed", reason: `destination read ${dest.status}` };
-      const problem = destinationProblem(dest.body, entry);
-      return problem ? { ...record, outcome: "exists-differs", reason: problem, generation: dest.body.generation } : { ...record, outcome: "adopted", generation: dest.body.generation };
-    }
-    return { ...record, outcome: "failed", reason: `rewrite ${res.status}` };
+    if (res.status === 412) return { status: 412 };
+    return { failed: `rewrite ${res.status}` };
   }
+};
+
+// After done: true, only the destination's own metadata matching the entry,
+// at the generation the rewrite answered, is `created`.
+const checkCreated = async ({ entry, resource, storage, sleep, record }) => {
   const dest = await withBackoff(() => storage.get(DESTINATION_BUCKET, entry.destination), { sleep });
   if (dest.status !== 200) return { ...record, outcome: "failed", reason: `destination read ${dest.status} after done` };
   const problem = destinationProblem(dest.body, entry);
   if (problem) return { ...record, outcome: "failed", reason: `after done: ${problem}` };
   if (String(dest.body.generation) !== String(resource.generation)) return { ...record, outcome: "failed", reason: `generation ${dest.body.generation}, rewrite answered ${resource.generation}` };
   return { ...record, outcome: "created", generation: dest.body.generation };
+};
+
+// One plan entry, to completion (rewriteToCompletion), create-only
+// (ifGenerationMatch=0). A 412 is told apart by reading the destination:
+// absent means the source changed; a matching object is `adopted` (an earlier,
+// interrupted run finished it); any other is `exists-differs`, never replaced.
+export const copyEntry = async ({ entry, storage, sleep = async () => {}, maxRewriteCalls = MAX_REWRITE_CALLS }) => {
+  const request = { sourceBucket: SOURCE_BUCKET, source: entry.source, sourceGeneration: entry.sourceGeneration, bucket: DESTINATION_BUCKET, name: entry.destination, ifGenerationMatch: "0", metadata: destinationMetadata(entry) };
+  const record = { destination: entry.destination, calls: 0, restarts: 0 };
+  const r = await rewriteToCompletion({ request, storage, sleep, maxRewriteCalls, record });
+  if (r.failed) return { ...record, outcome: "failed", reason: r.failed };
+  if (r.status === 412) {
+    const dest = await withBackoff(() => storage.get(DESTINATION_BUCKET, entry.destination), { sleep });
+    if (dest.status === 404) return { ...record, outcome: "source-changed" };
+    if (dest.status !== 200) return { ...record, outcome: "failed", reason: `destination read ${dest.status}` };
+    const problem = destinationProblem(dest.body, entry);
+    return problem ? { ...record, outcome: "exists-differs", reason: problem, generation: dest.body.generation } : { ...record, outcome: "adopted", generation: dest.body.generation };
+  }
+  return checkCreated({ entry, resource: r.resource, storage, sleep, record });
 };
 
 export const DONE = new Set(["created", "adopted"]);
@@ -221,6 +236,136 @@ export const verifyPlan = ({ plan, copies, destinations, anonymous, sources }) =
     if (s !== 401 && s !== 403) problems.push(`anonymous ${via} listing answered ${s ?? "not made"}`);
   }
   return { problems, updatedSinceCopy, ok: problems.length === 0 };
+};
+
+// ------------------------------------------------------------ C5d catch-up
+// docs/c5d-snapshot-commands-plan.md, slice 1 item 4 and activation step 4:
+// after direct uploads are disabled and drained, every old-bucket thumbnail
+// updated since C5b's final plan is copied under its generation fences, or
+// skipped where Broker has since published. Tests: scripts/test/c5d-catchup.test.js.
+
+// The generation C5b's copy created (or adopted) for each name, from every
+// copy manifest. A create-only copy can't leave two generations for one name;
+// manifests that disagree are a problem, never a guess.
+export const copiedGenerations = copies => {
+  const generations = new Map();
+  const problems = [];
+  for (const c of copies) {
+    for (const e of c.entries) {
+      if (!DONE.has(e.outcome)) continue;
+      const g = String(e.generation);
+      const had = generations.get(e.destination);
+      if (had !== undefined && had !== g) problems.push(`${e.destination}: copy manifests record generations ${had} and ${g}`);
+      else generations.set(e.destination, g);
+    }
+  }
+  return { generations, problems };
+};
+
+// Which objects: every `thumbnails/{item}.png` in the old bucket's listing
+// (every page) whose generation differs from the final plan's entry, or that
+// the plan doesn't have; bad names are refused as planEntries refuses them.
+// Each selected entry carries the destination generation it is fenced on:
+// the one C5b's copy created for that name, or "0" if it copied none.
+export const selectCatchup = ({ plan, copies, listing }) => {
+  const fresh = planEntries(listing);
+  const { generations, problems: copyProblems } = copiedGenerations(copies);
+  const problems = [...(plan.problems ?? []).map(p => `plan ${plan.number}: ${p}`), ...fresh.problems, ...copyProblems];
+  const planned = new Map(plan.entries.map(e => [e.destination, e]));
+  const entries = [];
+  for (const e of fresh.entries) {
+    const was = planned.get(e.destination);
+    if (was && was.sourceGeneration === e.sourceGeneration) continue;
+    entries.push({ ...e, plannedGeneration: was?.sourceGeneration ?? null, ifGenerationMatch: generations.get(e.destination) ?? "0" });
+  }
+  // Informational: a planned source the old bucket no longer lists is left as copied.
+  const listed = new Set(fresh.entries.map(e => e.destination));
+  const absentFromListing = plan.entries.filter(e => !listed.has(e.destination)).map(e => e.source);
+  return { plan: plan.number, entries, problems, absentFromListing };
+};
+
+const hasCapture = meta => Object.hasOwn(meta?.metadata ?? {}, "captureSequence");
+
+// One catch-up entry, to completion as C5b's copy is, with
+// ifSourceGenerationMatch = the listed generation and ifGenerationMatch = the
+// recorded destination generation. The metadata is C5b's, with the new
+// sourceGeneration and no captureSequence. A 412 is told apart by reading the
+// destination, then the source:
+//   skipped-capture      the destination carries a captureSequence: Broker
+//                        published since; never replaced
+//   adopted              the destination already is this copy of the listed
+//                        source (a rerun after a crash before the manifest)
+//   source-changed       the source is no longer the listed generation; the run stops
+//   destination-differs  anything else; the run stops, nothing is overwritten
+export const catchupEntry = async ({ entry, storage, sleep = async () => {}, maxRewriteCalls = MAX_REWRITE_CALLS }) => {
+  const request = { sourceBucket: SOURCE_BUCKET, source: entry.source, sourceGeneration: entry.sourceGeneration, bucket: DESTINATION_BUCKET, name: entry.destination, ifGenerationMatch: entry.ifGenerationMatch, metadata: destinationMetadata(entry) };
+  const record = { destination: entry.destination, source: entry.source, sourceGeneration: entry.sourceGeneration, ifGenerationMatch: entry.ifGenerationMatch, calls: 0, restarts: 0 };
+  const r = await rewriteToCompletion({ request, storage, sleep, maxRewriteCalls, record });
+  if (r.failed) return { ...record, outcome: "failed", reason: r.failed };
+  if (r.status !== 412) return checkCreated({ entry, resource: r.resource, storage, sleep, record });
+  const dest = await withBackoff(() => storage.get(DESTINATION_BUCKET, entry.destination), { sleep });
+  if (dest.status !== 200 && dest.status !== 404) return { ...record, outcome: "failed", reason: `destination read ${dest.status}` };
+  const meta = dest.status === 200 ? dest.body : null;
+  if (meta && hasCapture(meta)) return { ...record, outcome: "skipped-capture", generation: meta.generation, captureSequence: String(meta.metadata.captureSequence) };
+  if (meta && destinationProblem(meta, entry) === null) return { ...record, outcome: "adopted", generation: meta.generation };
+  const source = await withBackoff(() => storage.get(SOURCE_BUCKET, entry.source), { sleep });
+  if (source.status === 404 || (source.status === 200 && String(source.body.generation) !== entry.sourceGeneration)) {
+    return { ...record, outcome: "source-changed", now: source.status === 200 ? String(source.body.generation) : null };
+  }
+  if (source.status !== 200) return { ...record, outcome: "failed", reason: `source read ${source.status}` };
+  return { ...record, outcome: "destination-differs", reason: meta ? destinationProblem(meta, entry) : "absent", generation: meta?.generation ?? null };
+};
+
+export const CATCHUP_DONE = new Set(["created", "adopted", "skipped-capture"]);
+export const CATCHUP_STOPPING = new Set(["source-changed", "destination-differs", "failed"]);
+
+// The whole selection, in order, one object at a time, stopping at the first
+// source-changed, destination-differs or failed entry: nothing after it is
+// copied. A selection with problems is never run.
+export const runCatchup = async ({ selection, storage, sleep, onEntry = () => {} }) => {
+  if (selection.problems.length) throw new Error(`the catch-up selection has problems: ${selection.problems.join("; ")}`);
+  const entries = [];
+  for (const entry of selection.entries) {
+    const result = await catchupEntry({ entry, storage, sleep });
+    entries.push(result);
+    onEntry(result);
+    if (CATCHUP_STOPPING.has(result.outcome)) return { plan: selection.plan, entries, stoppedAt: entry.destination, complete: false };
+  }
+  return { plan: selection.plan, entries, stoppedAt: null, complete: true };
+};
+
+// The catch-up's own verify, read-only, against the selection made now: each
+// selected name's latest catch-up record (manifests oldest first) is created
+// or adopted, for the source's current generation, with the destination
+// matching it; or skipped-capture, with the destination carrying a
+// captureSequence.
+//   catchups      every catch-up manifest, oldest first
+//   destinations  { name: metadata | null }   for every selected name
+export const verifyCatchup = ({ selection, catchups, destinations }) => {
+  const problems = [...selection.problems];
+  const latest = new Map();
+  for (const c of catchups) for (const e of c.entries) latest.set(e.destination, e);
+  for (const entry of selection.entries) {
+    const d = entry.destination;
+    const rec = latest.get(d);
+    const meta = destinations[d] ?? null;
+    if (!rec) {
+      problems.push(`${d}: no catch-up record`);
+      continue;
+    }
+    if (rec.outcome === "skipped-capture") {
+      if (!hasCapture(meta)) problems.push(`${d}: skipped-capture, but the destination ${meta ? "carries no captureSequence" : "is absent"}`);
+      continue;
+    }
+    if (!DONE.has(rec.outcome)) {
+      problems.push(`${d}: ${rec.outcome}${rec.reason ? ` (${rec.reason})` : ""}`);
+      continue;
+    }
+    if (rec.sourceGeneration !== entry.sourceGeneration) problems.push(`${d}: ${rec.outcome} at source generation ${rec.sourceGeneration}, the source is now ${entry.sourceGeneration}`);
+    const problem = destinationProblem(meta, entry);
+    if (problem) problems.push(`${d}: ${problem}`);
+  }
+  return { plan: selection.plan, selected: selection.entries.length, problems, ok: problems.length === 0 };
 };
 
 // ------------------------------------------------------------ bucket policy
