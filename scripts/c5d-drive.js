@@ -73,20 +73,27 @@
 //   canary-snap      runner: scripts/canary.js --snap against api-c5d-drive,
 //                    with the planned --run-id; its command id is journaled
 //                    before, and parsed from its output after.
-//   resolve-journal  runner, read-only: each anonymous request whose answer
-//                    was ambiguous (a 5xx, a network error, an unparseable
-//                    body) is resolved from Policy's command records: the
-//                    anonymous commands for its task created while it was in
-//                    flight. One is its command; none proves nothing was
-//                    allocated; more than one stays unresolved (and cleanup
-//                    fails until someone resolves it).
+//   resolve-journal  runner, read-only in Policy: each anonymous request whose
+//                    answer was ambiguous (a 5xx, a network error, an
+//                    unparseable body) is correlated with Policy's anonymous
+//                    commands for its task created since it was sent, with no
+//                    upper bound (the api's work outlives the client's
+//                    connection). It is assigned the one candidate no journal
+//                    entry, manifest or other intent claims; none, or more
+//                    than one, leaves it unresolved: an empty result never
+//                    proves no allocation. Rerun it later; cleanup fails
+//                    until every intent is resolved or the owner decides.
 //   boundary         runner, read-only: every inventoried command (plan,
 //                    journal, manifests), each invocation's Broker claims, and
 //                    Broker's audit polled until every claim has its execute
 //                    evidence (or the bound), each query checked for truncation;
 //                    the thumbnails listing against baseline.json.
 //   cleanup          runner, read-only: every inventoried command terminal
-//                    (each state named), none due, no unresolved journal entry.
+//                    (each state named), none due, no unresolved journal entry;
+//                    and Policy's own enumeration (every command on the run's
+//                    drive tasks, and every command of the canary and the
+//                    non-owner, since the run began, each query paged to its
+//                    end) all in the inventory, terminal and not due.
 //   judge            the verdict; exit 1 unless every phase passed.
 //
 // Needs canary-window-c5d (Step 32): OpenIdTokenCreator on console-run (to
@@ -106,7 +113,7 @@ import {
   DRIVE, FIXTURES, STAGING_BUCKET, PUBLIC_CAPTURE_LIMIT, driveTargets, driveNamesProblem, driveUrlProblem, judgePhase, verdict,
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
   latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
-  priorPublicCaptures, policyFixtureClient, answerResolution, recordsResolution, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
+  priorPublicCaptures, policyFixtureClient, answerResolution, correlateIntents, paginateAll, drivePolicyCommands, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
 } from "./lib/c5d-drive-checks.js";
 
 const args = process.argv.slice(2);
@@ -289,6 +296,34 @@ const claimsOf = async invocationId => {
   if (res.status !== 200 || !Array.isArray(res.json)) throw new Error(`Firestore broker receipts for ${invocationId}: ${res.status}`);
   return res.json.filter(r => r.document).map(r => decode({ mapValue: r.document }).operationId).sort();
 };
+// Policy's commands where one field equals a value, every page, ordered by
+// document name (c5d-drive-checks.js paginateAll: complete only when a page
+// comes back short of the page size).
+const policyCommandsWhere = async (field, value) => {
+  const fetchPage = async ({ after, limit }) => {
+    const structuredQuery = {
+      from: [{ collectionId: "commands" }],
+      where: { fieldFilter: { field: { fieldPath: field }, op: "EQUAL", value: { stringValue: value } } },
+      orderBy: [{ field: { fieldPath: "__name__" }, direction: "ASCENDING" }],
+      limit,
+      ...(after ? { startAt: { values: [{ referenceValue: after }], before: false } } : {}),
+    };
+    const res = await http({ method: "POST", url: `https://firestore.googleapis.com/v1/projects/${project}/databases/policy/documents:runQuery`, headers: await asOperator(), body: { structuredQuery } });
+    if (res.status !== 200 || !Array.isArray(res.json)) throw new Error(`Policy's commands where ${field} = ${value}: ${res.status}`);
+    return res.json.filter(r => r.document).map(r => ({ name: r.document.name, ...decode({ mapValue: r.document }) }));
+  };
+  const page = await paginateAll({ fetchPage });
+  const records = page.docs.map(d => ({
+    commandId: d.commandId,
+    uid: d.uid,
+    taskId: d.taskId,
+    lang: d.lang ?? null,
+    createdAt: d.createdAt,
+    status: d.status,
+    revisions: Object.values(d.admission?.stages ?? {}).map(s => s.revision),
+  }));
+  return { query: `policy commands where ${field} == ${value}`, pages: page.pages, count: page.count, complete: page.complete, records };
+};
 // Cloud Logging, with the limit kept: a read that reaches it is truncated.
 const LOG_LIMIT = 1000;
 const logs = async (filter, limit = LOG_LIMIT) => {
@@ -355,7 +390,7 @@ const ids = plan.ids;
 const since = new Date().toISOString();
 // A keyed command: journaled with its planned id before the request.
 const command = async ({ name, task, user, connection = null }) => {
-  journal(name, { kind: "keyed", key: key(name), commandId: ids[name] });
+  journal(name, { kind: "keyed", key: key(name), commandId: ids[name], task });
   const res = await http({ method: "POST", url: `${apiUrl}/command`, headers: await asConsole(user), body: { id: task, idempotencyKey: key(name), ...(connection ? { connectionId: connection } : {}) } });
   return { status: res.status, commandId: res.json?.data?.commandId ?? null, outcome: res.json?.data?.outcome ?? null, reason: res.json?.data?.reason ?? res.json?.error?.reason ?? null };
 };
@@ -748,27 +783,32 @@ if (phase === "canary-snap") {
 }
 
 if (phase === "resolve-journal") {
+  // The ambiguous anonymous intents, each correlated with Policy's anonymous
+  // commands for its task from its start to now (no upper bound), never
+  // with one another intent, journal entry or manifest already claims.
   const files = journalFiles();
-  const resolved = [];
-  for (const f of files.filter(x => x.endsWith(".ambiguous.json"))) {
-    const name = f.replace(/\.ambiguous\.json$/, "");
-    if (files.includes(journalIdName(name))) continue;
-    const answer = JSON.parse(readFileSync(path.join(journalDir, f), "utf8"));
-    // Policy's commands for the task (an equality query on one field).
-    const res = await http({
-      method: "POST",
-      url: `https://firestore.googleapis.com/v1/projects/${project}/databases/policy/documents:runQuery`,
-      headers: await asOperator(),
-      body: { structuredQuery: { from: [{ collectionId: "commands" }], where: { fieldFilter: { field: { fieldPath: "taskId" }, op: "EQUAL", value: { stringValue: answer.task } } }, select: { fields: ["commandId", "uid", "taskId", "createdAt"].map(fieldPath => ({ fieldPath })) } } },
-    });
-    if (res.status !== 200 || !Array.isArray(res.json)) throw new Error(`Policy's commands for ${answer.task}: ${res.status}`);
-    const commands = res.json.filter(r => r.document).map(r => decode({ mapValue: r.document }));
-    const resolution = recordsResolution({ taskId: answer.task, sentAt: answer.sentAt, answeredAt: answer.answeredAt, commands, anonymousSubject: ANONYMOUS_SUBJECT });
-    if (resolution) journalId(name, resolution);
-    resolved.push({ name, resolution });
-    console.log(`${name}: ${resolution ? JSON.stringify(resolution) : "still ambiguous (more than one anonymous command in its window)"}`);
+  const intents = files.filter(x => x.endsWith(".ambiguous.json"))
+    .map(f => f.replace(/\.ambiguous\.json$/, ""))
+    .filter(name => !files.includes(journalIdName(name)))
+    .map(name => ({ name, ...JSON.parse(readFileSync(path.join(journalDir, journalName(name)), "utf8")) }));
+  const { commandIds: claimed } = driveInventory();
+  const commands = [];
+  const queries = [];
+  for (const task of [...new Set(intents.map(i => i.task))]) {
+    const q = await policyCommandsWhere("taskId", task);
+    if (!q.complete) throw new Error(`Policy's commands for ${task}: truncated at ${q.pages} pages`);
+    queries.push({ query: q.query, pages: q.pages, count: q.count });
+    commands.push(...q.records);
   }
-  observations.resolved = resolved;
+  const resolutions = correlateIntents({ intents, commands, claimed, anonymousSubject: ANONYMOUS_SUBJECT, query: queries });
+  for (const i of intents) {
+    const r = resolutions[i.name];
+    if (r) journalId(i.name, r);
+    console.log(`${i.name}: ${r ? `${r.commandId} (created ${r.resolvedBy.createdAt})` : "still unresolved: no unique unclaimed anonymous command for its task since it was sent; rerun later, or the owner decides"}`);
+  }
+  observations.intents = intents.map(i => i.name);
+  observations.resolutions = resolutions;
+  observations.queries = queries;
   finish();
 }
 
@@ -840,6 +880,26 @@ if (phase === "cleanup") {
     const listed = new Set();
     for (const scopes of [false, true]) for (const c of (await policyFixtureClient(gateway).due({ scopes })).commands ?? []) listed.add(c.commandId);
     return [...listed];
+  });
+  // Policy's own records, whatever the journal says: every command on the
+  // run's drive tasks (any principal) and every command of the run's
+  // principals (the canary, the non-owner), each query paged to its end.
+  await collect("policyEnumeration", async () => {
+    const entries = journalFiles().filter(f => !f.endsWith(".id.json") && !f.endsWith(".ambiguous.json")).map(f => JSON.parse(readFileSync(path.join(journalDir, f), "utf8")));
+    const tasks = new Set(entries.map(e => e.task).filter(t => typeof t === "string"));
+    // canary.js posts its own snap task: its planned command's record names it.
+    const canarySnap = await doc("policy", `commands/${encodeURIComponent(ids["canary-snap"])}`);
+    if (!canarySnap.absent && canarySnap.taskId) tasks.add(canarySnap.taskId);
+    const nonOwner = entries.find(e => e.uid && e.uid !== uid)?.uid ?? null;
+    const queries = [];
+    const records = [];
+    for (const [field, value] of [...[...tasks].map(t => ["taskId", t]), ["uid", uid], ...(nonOwner ? [["uid", nonOwner]] : [])]) {
+      const q = await policyCommandsWhere(field, value);
+      queries.push({ query: q.query, pages: q.pages, count: q.count, complete: q.complete });
+      records.push(...q.records);
+    }
+    if (!tasks.size) throw new Error("no drive task in the journal");
+    return { since: plan.at, tasks: [...tasks], queries, commands: drivePolicyCommands({ records, since: plan.at, tasks: [...tasks], principals: { canary: uid, nonOwner } }) };
   });
   finish();
 }

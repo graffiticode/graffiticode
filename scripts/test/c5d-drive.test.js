@@ -183,6 +183,15 @@ const passing = () => {
       commands: [{ commandId: "c:1", status: "completed" }, { commandId: "c:2", status: "failed" }, { commandId: "c:3", status: "uncertain" }, { commandId: "c:4", status: "partial" }, { commandId: "c:5", status: "absent" }],
       due: [],
       unresolvedIntents: [],
+      policyEnumeration: {
+        since: at(0),
+        tasks: ["task-private", "task-public"],
+        queries: [
+          { query: "policy commands where taskId == task-private", pages: 1, count: 2, complete: true },
+          { query: "policy commands where uid == canary", pages: 2, count: 301, complete: true },
+        ],
+        commands: [{ commandId: "c:1", uid: UID, taskId: "task-private", createdAt: at(1), status: "completed" }, { commandId: "c:3", uid: "anonymous", taskId: "task-public", createdAt: at(2), status: "uncertain" }],
+      },
     },
   };
 };
@@ -335,7 +344,11 @@ const MUTATIONS = {
     "thumbnails-unchanged": o => { o.thumbnailsAfter[0].generation = "1600000000000099"; },
     "drive-compilers": o => { o.compilerCalls.push({ service: "l0013r" }); },
   },
-  cleanup: { terminal: o => { o.due = ["c:1"]; } },
+  cleanup: {
+    // (A due inventoried command fails both checks; one in the inventory but not Policy's selection fails only this.)
+    terminal: o => { o.commands.push({ commandId: "c:6", status: "pending" }); },
+    "policy-enumeration": o => { o.policyEnumeration.commands.push({ commandId: "c:9", uid: "anonymous", taskId: "task-public", createdAt: at(3), status: "pending" }); },
+  },
 };
 
 test("every check fails on its own", () => {
@@ -761,17 +774,157 @@ test("an ambiguous answer never resolves an intent: only an id, a refusal before
   }
 });
 
-test("Policy's records resolve an ambiguous anonymous request: one command in its window is it, none proves nothing was allocated, more stay unresolved", () => {
-  const base = { taskId: "task-1", sentAt: at(10), answeredAt: at(12), anonymousSubject: "anonymous" };
-  const cmd = (n, s, extra = {}) => ({ commandId: "c:" + String(n).repeat(64), uid: "anonymous", taskId: "task-1", createdAt: at(s), ...extra });
-  assert.equal(C.recordsResolution({ ...base, commands: [cmd(4, 11)] }).commandId, cmd(4, 11).commandId);
-  const none = C.recordsResolution({ ...base, commands: [cmd(4, 30), cmd(5, 11, { uid: UID }), cmd(6, 11, { taskId: "task-2" })] });
-  assert.deepEqual([none.commandId, none.noAllocation.kind, none.noAllocation.found], [null, "policy-records", 0]);
-  assert.equal(C.recordsResolution({ ...base, commands: [cmd(4, 11), cmd(5, 12)] }), null);
-  assert.equal(C.recordsResolution({ ...base, sentAt: "garbage", commands: [] }), null);
+// #446 third review: the api allocates after the client has lost its answer.
+const cmdRecord = (n, s, extra = {}) => ({ commandId: "c:" + String(n).repeat(64), uid: "anonymous", taskId: "task-1", createdAt: at(s), status: "pending", ...extra });
+
+test("the owner's reproduction: a late allocation by the real api bridge fails cleanup until resolve-journal correlates it and it is terminal", async () => {
+  const { createMemoryInvocationStore, createMemoryCommandStore } = await import("@graffiticode/policy");
+  const { buildCommandBridge } = await import("../../packages/api/src/commands/bridge.js");
+  const zero = Date.parse("2026-11-19T20:00:00Z");
+  let clock = zero;
+  let releasePreflight;
+  const preflight = new Promise(resolve => { releasePreflight = resolve; });
+  const store = createMemoryCommandStore({ invocationStore: createMemoryInvocationStore() });
+  const taskId = "late-public-task";
+  const bridge = buildCommandBridge({
+    scopes: true,
+    env: { COMMANDS_L0013: "on" },
+    newKey: () => "bridge:late-request",
+    log: () => {},
+    eligible: async () => {
+      await preflight;
+      return { lang: "0013", writes: [{ lang: "0013", credential: "service" }] };
+    },
+    getRunner: () => ({
+      worker: "offline-drive",
+      policy: {
+        allocate: async args => {
+          const out = await store.allocate({ ...args, uid: "anonymous", now: clock, scopes: 1 });
+          return { protocol: out.protocol, commandId: out.command.commandId, generation: 1, status: "pending", owned: true };
+        },
+      },
+      run: async ({ commandId }) => ({ commandId, status: "pending" }),
+    }),
+    compileEnvelope: async outcome => outcome,
+  });
+  const inFlight = bridge({ tasks: [{ lang: "0013", code: {} }], id: taskId, auth: null });
+  const sentAt = new Date(clock).toISOString();
+  clock = zero + 1000; // the client loses its connection
+  const answeredAt = new Date(clock).toISOString();
+  clock = zero + 30_000; // preflight finishes; the api allocates
+  releasePreflight();
+  const late = await store.get((await inFlight).state.commandId);
+  assert.equal(late.createdAt, new Date(zero + 30_000).toISOString());
+  const known = "c:" + "1".repeat(64);
   const j = (file, value) => ({ file, value });
-  assert.deepEqual(C.inventory({ plan: { ids: {} }, journal: [j("a.json", { kind: "anonymous" }), j("a.id.json", none)], manifests: [] }).unresolvedIntents, []);
+  const journal = [j("rate-limit-1.json", { kind: "anonymous", task: taskId, sentAt, commandId: null }), j("rate-limit-1.ambiguous.json", { task: taskId, sentAt, answeredAt, status: null })];
+  const policy = () => ({ since: sentAt, tasks: [taskId], queries: [{ query: `policy commands where taskId == ${taskId}`, pages: 1, count: 1, complete: true }], commands: [{ ...late, status: late.status }] });
+  const cleanupOf = (inv, status, due) => judgePhase("cleanup", {
+    commands: inv.commandIds.map(id => ({ commandId: id, status: id === late.commandId ? status : "completed" })),
+    due,
+    unresolvedIntents: inv.unresolvedIntents,
+    policyEnumeration: { ...policy(), commands: [{ ...late, status }] },
+  });
+  const due = (await store.listDue({ now: zero + 100_000, limit: 50, scopes: 1, recording: 1, repairs: 1 })).map(c => c.commandId);
+  assert.ok(due.includes(late.commandId));
+  // Before resolve-journal: unresolved, and Policy's enumeration names the command.
+  const before = C.inventory({ plan: { ids: { known } }, journal, manifests: [] });
+  assert.deepEqual(before.unresolvedIntents, ["rate-limit-1.json"]);
+  const failing = cleanupOf(before, "pending", due);
+  assert.equal(failing.passed, false);
+  assert.match(failing.checks.find(c => c.id === "terminal").detail, /rerun --phase resolve-journal later/);
+  assert.match(failing.checks.find(c => c.id === "policy-enumeration").detail, new RegExp(`inventory lacks: ${late.commandId}`));
+  // resolve-journal correlates it, with no upper bound on the query.
+  const resolutions = C.correlateIntents({ intents: [{ name: "rate-limit-1", task: taskId, sentAt }], commands: [late], claimed: before.commandIds });
+  assert.equal(resolutions["rate-limit-1"].commandId, late.commandId);
+  assert.equal(resolutions["rate-limit-1"].resolvedBy.createdAt, late.createdAt);
+  const after = C.inventory({ plan: { ids: { known } }, journal: [...journal, j("rate-limit-1.id.json", resolutions["rate-limit-1"])], manifests: [] });
+  assert.deepEqual(after.unresolvedIntents, []);
+  assert.ok(after.commandIds.includes(late.commandId));
+  // Still pending and due: cleanup fails; terminal and not due: it passes.
+  assert.equal(cleanupOf(after, "pending", due).passed, false);
+  assert.equal(cleanupOf(after, "failed", []).passed, true);
+});
+
+test("an empty query, or a records-based 'none', never resolves an ambiguous intent", () => {
+  const intent = { name: "a", task: "task-1", sentAt: at(10) };
+  assert.deepEqual(C.correlateIntents({ intents: [intent], commands: [], claimed: [] }), {});
+  // Commands before it was sent, another task's or another principal's aren't candidates.
+  assert.deepEqual(C.correlateIntents({ intents: [intent], commands: [cmdRecord(4, 9), cmdRecord(5, 11, { taskId: "task-2" }), cmdRecord(6, 11, { uid: UID })], claimed: [] }), {});
+  // A claimed command isn't a candidate either.
+  assert.deepEqual(C.correlateIntents({ intents: [intent], commands: [cmdRecord(4, 11)], claimed: [cmdRecord(4, 11).commandId] }), {});
+  // A late one, long after, is.
+  assert.equal(C.correlateIntents({ intents: [intent], commands: [cmdRecord(4, 59)], claimed: [] }).a.commandId, cmdRecord(4, 59).commandId);
+  const j = (file, value) => ({ file, value });
+  const none = { commandId: null, noAllocation: { kind: "policy-records", taskId: "task-1", from: at(5), to: at(17), found: 0 } };
+  assert.deepEqual(C.inventory({ plan: { ids: {} }, journal: [j("a.json", { kind: "anonymous" }), j("a.id.json", none)], manifests: [] }).unresolvedIntents, ["a.json"]);
   assert.equal(C.ANONYMOUS_SUBJECT, "anonymous");
+});
+
+test("two ambiguous intents and one candidate: the one whose window holds it resolves, the other stays; a candidate both could own resolves neither", () => {
+  const first = { name: "rate-limit-1", task: "task-1", sentAt: at(10) };
+  const second = { name: "rate-limit-2", task: "task-1", sentAt: at(20) };
+  const one = C.correlateIntents({ intents: [first, second], commands: [cmdRecord(4, 15)], claimed: [] });
+  assert.deepEqual(Object.keys(one), ["rate-limit-1"]);
+  assert.equal(one["rate-limit-1"].commandId, cmdRecord(4, 15).commandId);
+  // Created after both were sent: either could own it.
+  assert.deepEqual(C.correlateIntents({ intents: [first, second], commands: [cmdRecord(4, 25)], claimed: [] }), {});
+  // Two candidates for one intent: not unique.
+  assert.deepEqual(C.correlateIntents({ intents: [second], commands: [cmdRecord(4, 25), cmdRecord(5, 26)], claimed: [] }), {});
+  // An assignment frees the rest: once the first takes its only candidate, the second's is unique.
+  const chain = C.correlateIntents({ intents: [first, second], commands: [cmdRecord(4, 15), cmdRecord(5, 25)], claimed: [] });
+  assert.equal(chain["rate-limit-1"], undefined, "first could own either: 15 or 25");
+  const ordered = C.correlateIntents({ intents: [first, second], commands: [cmdRecord(4, 15), cmdRecord(5, 25)], claimed: [cmdRecord(5, 25).commandId] });
+  assert.equal(ordered["rate-limit-1"].commandId, cmdRecord(4, 15).commandId);
+});
+
+test("cleanup's Policy enumeration finds a late allocation the journal never mentions", () => {
+  const o = clone(passing().cleanup);
+  const late = cmdRecord(7, 50, { taskId: "task-public" });
+  o.policyEnumeration.commands.push(late);
+  assert.match(failsOnly("cleanup", o, "policy-enumeration"), new RegExp(`inventory lacks: ${late.commandId}`));
+  // Inventoried but pending, or due: still failing.
+  const p = clone(passing().cleanup);
+  p.commands.push({ commandId: late.commandId, status: "pending" });
+  p.policyEnumeration.commands.push(late);
+  assert.equal(judgePhase("cleanup", p).passed, false);
+  // The selection: since the run began, on a drive task, the non-owner's, the canary's L0013, or pinned to a drive compiler.
+  const selected = C.drivePolicyCommands({
+    since: at(10),
+    tasks: ["task-1"],
+    principals: { canary: UID, nonOwner: "other-user" },
+    records: [
+      cmdRecord(1, 11),
+      cmdRecord(2, 9),
+      cmdRecord(3, 12, { taskId: "task-x", uid: "other-user" }),
+      cmdRecord(4, 13, { taskId: "task-y", uid: UID, lang: "0013" }),
+      cmdRecord(5, 14, { taskId: "task-z", uid: UID, lang: "0176" }),
+      cmdRecord(6, 15, { taskId: "task-w", uid: UID, lang: "0176", revisions: ["l0176r-c5d-drive-rmwabc123-1a2b3c"] }),
+    ],
+  });
+  assert.deepEqual(selected.map(c => c.commandId[2]), ["1", "3", "4", "6"]);
+  assert.throws(() => C.drivePolicyCommands({ since: "garbage", tasks: [], principals: {}, records: [] }), /start/);
+});
+
+test("the enumeration pages to its end, and a truncated or unreadable one fails cleanup", async () => {
+  const docs = Array.from({ length: 650 }, (_, i) => ({ name: `d${String(i).padStart(4, "0")}` }));
+  const fetchPage = async ({ after, limit }) => {
+    const start = after ? docs.findIndex(d => d.name === after) + 1 : 0;
+    return docs.slice(start, start + limit);
+  };
+  const all = await C.paginateAll({ fetchPage, pageSize: 300 });
+  assert.deepEqual([all.count, all.pages, all.complete], [650, 3, true]);
+  const truncated = await C.paginateAll({ fetchPage, pageSize: 300, maxPages: 2 });
+  assert.deepEqual([truncated.count, truncated.complete], [600, false]);
+  const exact = await C.paginateAll({ fetchPage: async ({ after }) => (after ? [] : docs.slice(0, 300)), pageSize: 300 });
+  assert.deepEqual([exact.pages, exact.complete], [2, true], "a full last page needs one more read to prove the end");
+  await assert.rejects(C.paginateAll({ fetchPage: async () => null }), /isn't a list/);
+  const o = clone(passing().cleanup);
+  o.policyEnumeration.queries[1] = { ...o.policyEnumeration.queries[1], complete: false };
+  assert.match(failsOnly("cleanup", o, "policy-enumeration"), /incomplete or truncated/);
+  const missing = clone(passing().cleanup);
+  delete missing.policyEnumeration;
+  assert.match(failsOnly("cleanup", missing, "policy-enumeration"), /not observed/);
 });
 
 // Finding 2: the owner's reproduction: the controls first, the violation later.

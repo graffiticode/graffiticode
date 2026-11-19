@@ -2238,7 +2238,13 @@ C5b slice 4: Broker's `THUMBNAIL_BUCKET` goes from `graffiticode-c5a-gate`, dele
 
 C5d slices 2 and 3 ([`docs/c5d-snapshot-commands-plan.md`](c5d-snapshot-commands-plan.md), decision 3): an isolated drive of snapshot commands through production Policy, publishing only to its own bucket. **Every action below needs the owner's approval, and none has been taken.** The runner is [`scripts/c5d-drive.js`](../scripts/c5d-drive.js), judged by `scripts/lib/c5d-drive-checks.js`. Its evidence goes to `docs/evidence/c5d/drive/<run>/`:
 - `plan.json` and `baseline.json`, each written once per run. The baseline is refused once any capture has begun, and `boundary` and `judge` read only it.
-- `journal/`, one write-once entry per request that can allocate a command, written before the request is sent. The canary's `--snap` command id is planned through `canary.js --run-id`.
+- `journal/`, one write-once entry per request that can allocate a command, written before the request is sent. The canary's `--snap` command id is planned through `canary.js --run-id`, and the non-owner's through `--non-owner-uid`.
+- **An anonymous capture's id is the api's own,** so its entry is resolved only by:
+  - an answer naming its command;
+  - a 4xx naming one of Policy's refusals before allocation;
+  - `--phase resolve-journal`.
+
+  `resolve-journal` correlates the request with Policy's anonymous commands for its task created since it was sent, with **no upper bound**, because the api's work continues after the client's connection is lost. It assigns the one candidate that no other journal entry, manifest or intent claims, and records the command id, its `createdAt` and the query. An empty result never proves that nothing was allocated. An intent still unresolved keeps `cleanup` failing until `resolve-journal` is rerun later, or the owner decides.
 - Each phase's timestamped manifest.
 
 Nothing there is ever overwritten.
@@ -2421,7 +2427,12 @@ done
 
 #### 8. Teardown, in this order (the plan's slice 3, "Teardown")
 
-1. **The `cleanup` phase passes:** every drive command terminal, none due. Then delete the sweeper job:
+1. **The `cleanup` phase passes.** Every inventoried command (plan, journal, manifests) is terminal, none is due, and no journal intent is unresolved. Policy's own records agree, whatever the journal says:
+   - **Queries:** every command on each of the run's drive tasks, and every command of the canary and of the non-owner. Each is one equality filter, paged by document name to a short last page; a truncated query fails.
+   - **Selection:** commands created since the run began, with no upper bound.
+   - **Requirement:** each must be in the inventory, terminal and not due. A command Policy holds that the inventory lacks fails `cleanup`, named.
+
+   Then delete the sweeper job:
 
    ```bash
    gcloud scheduler jobs delete command-sweep-c5d-drive --project=graffiticode --location=us-central1

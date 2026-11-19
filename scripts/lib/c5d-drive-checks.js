@@ -639,7 +639,7 @@ export const PHASES = Object.freeze({
     ["terminal", "every command the drive allocated (plan, journal, manifests) is terminal, each state named, and none is due", o => {
       if (!Array.isArray(o.commands) || !o.commands.length || !Array.isArray(o.due)) return "the drive's commands or the due query not observed";
       if (!Array.isArray(o.unresolvedIntents)) return "the journal's intents not observed";
-      if (o.unresolvedIntents.length) return `journaled requests with no recorded command id: ${o.unresolvedIntents.join(", ")}`;
+      if (o.unresolvedIntents.length) return `journaled requests with no recorded command id: ${o.unresolvedIntents.join(", ")}; rerun --phase resolve-journal later (a late allocation may yet appear), or the owner decides`;
       const allocated = o.commands.filter(c => c.status !== "absent");
       if (!allocated.length) return "no allocated command found";
       for (const c of allocated) {
@@ -652,6 +652,26 @@ export const PHASES = Object.freeze({
         if (!done) return `not terminal: ${c.commandId} ${c.status}`;
       }
       const due = o.due.filter(id => o.commands.some(c => c.commandId === id));
+      return due.length ? `still due: ${due.join(", ")}` : true;
+    }],
+    ["policy-enumeration", "every command Policy holds for the run's drive tasks and principals since the run began is in the inventory, terminal and not due; every enumeration paged to its end", o => {
+      const e = o.policyEnumeration;
+      if (!e || !Array.isArray(e.queries) || !e.queries.length || !Array.isArray(e.commands)) return "Policy's enumeration not observed";
+      const incomplete = e.queries.filter(q => q.complete !== true || !Number.isSafeInteger(q.pages) || q.pages < 1 || !Number.isSafeInteger(q.count));
+      if (incomplete.length) return `enumeration incomplete or truncated: ${incomplete.map(q => q.query ?? "?").join("; ")}`;
+      const inventoried = new Set((o.commands ?? []).map(c => c.commandId));
+      const missing = e.commands.filter(c => !inventoried.has(c.commandId));
+      if (missing.length) return `Policy holds commands the inventory lacks: ${missing.map(c => `${c.commandId} (${c.uid}, ${c.taskId}, ${c.createdAt}, ${c.status})`).join("; ")}`;
+      for (const c of e.commands) {
+        let done;
+        try {
+          done = isTerminal(c.status);
+        } catch (err) {
+          return `${c.commandId}: ${err.message}`;
+        }
+        if (!done) return `not terminal in Policy: ${c.commandId} ${c.status}`;
+      }
+      const due = (o.due ?? []).filter(id => e.commands.some(c => c.commandId === id));
       return due.length ? `still due: ${due.join(", ")}` : true;
     }],
   ],
@@ -759,8 +779,6 @@ export const journalAmbiguousName = name => `${name}.ambiguous.json`;
 export const PRE_ALLOCATION_REFUSALS = Object.freeze(["caller-not-entry-point", "bad-request", "no-user", "worker-unsupported", "idempotency-key-reused"]);
 const isRefusalBeforeAllocation = n => Boolean(n) && n.kind === "refusal" && Number.isInteger(n.status) && n.status >= 400 && n.status < 500 &&
   PRE_ALLOCATION_REFUSALS.includes(n.reason);
-const isRecordsProofOfNone = n => Boolean(n) && n.kind === "policy-records" && n.found === 0 && typeof n.taskId === "string" &&
-  Number.isFinite(Date.parse(n.from ?? "")) && Number.isFinite(Date.parse(n.to ?? ""));
 
 // What an anonymous request's answer proves. { commandId } when it names its
 // command; { commandId: null, noAllocation } for a refusal before
@@ -773,18 +791,42 @@ export const answerResolution = ({ status = null, body = null, commandId = null 
   return isRefusalBeforeAllocation(noAllocation) ? { commandId: null, noAllocation } : null;
 };
 
-// An ambiguous anonymous request, resolved from Policy's command records:
-// the anonymous commands for its task created between the request being sent
-// and answered (with `slackMs` each side). Exactly one is its command; none
-// proves it allocated nothing; more than one stays unresolved.
-export const recordsResolution = ({ taskId, sentAt, answeredAt, commands, anonymousSubject, slackMs = 5_000 }) => {
-  const from = Date.parse(sentAt) - slackMs;
-  const to = Date.parse(answeredAt) + slackMs;
-  if (!Number.isFinite(from) || !Number.isFinite(to) || !Array.isArray(commands)) return null;
-  const found = commands.filter(c => c.taskId === taskId && c.uid === anonymousSubject && Date.parse(c.createdAt) >= from && Date.parse(c.createdAt) <= to);
-  if (found.length === 1) return { commandId: found[0].commandId, resolvedBy: { kind: "policy-records", taskId, from: new Date(from).toISOString(), to: new Date(to).toISOString(), found: 1 } };
-  if (found.length === 0) return { commandId: null, noAllocation: { kind: "policy-records", taskId, from: new Date(from).toISOString(), to: new Date(to).toISOString(), found: 0 } };
-  return null;
+// Ambiguous anonymous requests, correlated with Policy's command records
+// (#446 third review). The api's work isn't bound to the client's connection
+// (bridge.js awaits preflight and allocation with no cancellation), so a
+// request can allocate long after its answer was lost: no time bound, and no
+// empty result, ever proves it allocated nothing. Only a correlated id
+// resolves an ambiguous intent:
+//   - candidates: Policy's anonymous commands for its task created at or
+//     after it was sent, with no upper bound, that no journal entry or
+//     manifest already claims;
+//   - an intent is assigned a candidate only when that candidate is its only
+//     one and no other unresolved intent could own it; each assignment frees
+//     the rest to be tried again;
+//   - anything else stays unresolved (cleanup keeps failing).
+// Each resolution carries its evidence: the command id, its createdAt and
+// the query that found it.
+export const correlateIntents = ({ intents, commands, claimed, anonymousSubject = "anonymous", query = null }) => {
+  const taken = new Set(claimed);
+  const open = intents.filter(i => typeof i.task === "string" && Number.isFinite(Date.parse(i.sentAt ?? "")));
+  const candidatesOf = i => commands.filter(c => c.uid === anonymousSubject && c.taskId === i.task && !taken.has(c.commandId) &&
+    Number.isFinite(Date.parse(c.createdAt ?? "")) && Date.parse(c.createdAt) >= Date.parse(i.sentAt));
+  const resolutions = {};
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const i of open) {
+      if (resolutions[i.name]) continue;
+      const mine = candidatesOf(i);
+      if (mine.length !== 1) continue;
+      const [c] = mine;
+      const rivals = open.filter(o => o !== i && !resolutions[o.name] && candidatesOf(o).some(x => x.commandId === c.commandId));
+      if (rivals.length) continue;
+      resolutions[i.name] = { commandId: c.commandId, resolvedBy: { kind: "policy-records", commandId: c.commandId, createdAt: c.createdAt, taskId: i.task, uid: anonymousSubject, from: i.sentAt, to: null, query } };
+      taken.add(c.commandId);
+      changed = true;
+    }
+  }
+  return resolutions;
 };
 
 // Every command the drive may have allocated: the plan's deterministic ids,
@@ -809,7 +851,7 @@ export const inventory = ({ plan, journal, manifests }) => {
     }
     const answered = entries.get(file.replace(/\.json$/, ".id.json"));
     if (typeof answered?.commandId === "string") add(answered.commandId, "journal");
-    else if (!(isRefusalBeforeAllocation(answered?.noAllocation) || isRecordsProofOfNone(answered?.noAllocation))) unresolvedIntents.push(file);
+    else if (!isRefusalBeforeAllocation(answered?.noAllocation)) unresolvedIntents.push(file);
   }
   const walk = v => {
     if (typeof v === "string") add(v, "manifest");
@@ -906,3 +948,46 @@ export const auditCovered = (ops, driveBroker = DRIVE.broker) => queries =>
 
 // Policy's subject for an anonymous command (policy provenance.ts ANONYMOUS_SUBJECT).
 export const ANONYMOUS_SUBJECT = "anonymous";
+
+// Cleanup's enumeration of Policy's commands (#446 third review): the
+// journal can't see a command the api allocated after its answer was lost,
+// so cleanup reads Policy's own records too. Each query is one equality
+// filter (taskId or uid, which Firestore's single-field indexes serve), read
+// in pages ordered by document name; it is complete only when a page comes
+// back shorter than the page size before maxPages. Anything else is
+// truncated, and fails the check.
+export const ENUMERATION_PAGE = 300;
+export const ENUMERATION_MAX_PAGES = 200;
+export const paginateAll = async ({ fetchPage, pageSize = ENUMERATION_PAGE, maxPages = ENUMERATION_MAX_PAGES }) => {
+  const docs = [];
+  let after = null;
+  for (let pages = 1; pages <= maxPages; pages++) {
+    const page = await fetchPage({ after, limit: pageSize });
+    if (!Array.isArray(page)) throw new Error("a page isn't a list");
+    docs.push(...page);
+    if (page.length < pageSize) return { docs, pages, count: docs.length, complete: true };
+    after = page.at(-1)?.name ?? null;
+    if (!after) return { docs, pages, count: docs.length, complete: false };
+  }
+  return { docs, pages: maxPages, count: docs.length, complete: false };
+};
+
+// The run's commands among what the queries returned: created at or after
+// the run began (no upper bound), and either on one of the run's drive tasks
+// (any principal: canary, non-owner, anonymous) or by the non-owner, or the
+// canary's L0013 commands (production makes none before activation, which
+// follows the drive), or pinned to a drive compiler.
+export const drivePolicyCommands = ({ records, since, tasks, principals }) => {
+  const from = Date.parse(since);
+  if (!Number.isFinite(from)) throw new Error("the run's start isn't readable");
+  const taskSet = new Set(tasks);
+  const byId = new Map();
+  for (const r of records) {
+    if (!r?.commandId || !(Date.parse(r.createdAt ?? "") >= from)) continue;
+    const pinsDrive = (r.revisions ?? []).some(rev => [DRIVE.l0013r, DRIVE.l0176r].includes(revisionService(rev)));
+    const ours = taskSet.has(r.taskId) || (principals.nonOwner && r.uid === principals.nonOwner) ||
+      (r.uid === principals.canary && r.lang === "0013") || pinsDrive;
+    if (ours) byId.set(r.commandId, { commandId: r.commandId, uid: r.uid, taskId: r.taskId, lang: r.lang ?? null, createdAt: r.createdAt, status: r.status });
+  }
+  return [...byId.values()].sort((a, b) => (a.commandId < b.commandId ? -1 : 1));
+};
