@@ -955,8 +955,15 @@ test("a revision meets the contract floor with the floor or a later version", as
   assert.equal(raw.services.l0013r.env.POLICY_URL, raw.services.l0176r.env.POLICY_URL);
   assert.equal(raw.services.l0013r.env.BROKER_URL, raw.services.l0176r.env.BROKER_URL);
   assert.equal(raw.services.l0013r.env.PREFLIGHT_GATEWAYS, raw.services.l0176r.env.PREFLIGHT_GATEWAYS);
+  // C5d's drive twin (IAM review Step 32) is the one other: the same Policy and gateways,
+  // pinnable at [3] only, on the drive's own Broker.
+  const drive = raw.services["l0013r-c5d-drive"];
+  assert.deepEqual(drive.pinnable, raw.services.l0013r.pinnable);
+  assert.equal(drive.env.POLICY_URL, raw.services.l0013r.env.POLICY_URL);
+  assert.equal(drive.env.PREFLIGHT_GATEWAYS, raw.services.l0013r.env.PREFLIGHT_GATEWAYS);
+  assert.equal(drive.env.BROKER_URL, "https://broker-c5d-drive-sja7fatcta-uc.a.run.app");
   for (const [name, service] of Object.entries(raw.services)) {
-    if (name !== "l0013r" && service.pinnable) assert.ok(!(service.pinnable.contractVersions ?? [1]).includes(3), name);
+    if (!["l0013r", "l0013r-c5d-drive"].includes(name) && service.pinnable) assert.ok(!(service.pinnable.contractVersions ?? [1]).includes(3), name);
   }
 });
 
@@ -1764,4 +1771,61 @@ test("a rollback to other interpreter flags under the same generation is refused
   assert.ok(!h.calls.slice(before).some(c => c.includes("update-traffic")));
   h.revisions.set("api-old", env("interp-0"));
   assert.equal((await rollback(context, receipt, h.deps)).status, "rolled-back");
+});
+
+// C5d's isolated drive (docs/c5d-snapshot-commands-plan.md decision 3; IAM review Step 32):
+// its four services reach only each other and the drive bucket, never a production Broker,
+// compiler or bucket, nor B6's l0176r-drive or broker-faults; and nothing run-specific is
+// committed: the fault maps and the canary uid are required variables, from the run's plan.json.
+test("the C5d drive's deploy.json entries are isolated from production and carry no run-specific value", async () => {
+  const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
+  const s = raw.services;
+  const host = name => `${name}-sja7fatcta-uc.a.run.app`;
+  const url = name => `https://${host(name)}`;
+  // A deploy.json required variable, as written there: a dollar sign and the name in braces.
+  const required = name => ["$", "{", name, "}"].join("");
+  const PRODUCTION = ["api", "broker", "l0013r", "l0176r", "l0176r-drive", "broker-faults", "api-drive"].flatMap(n => [host(n), url(n)]);
+  for (const name of ["broker-c5d-drive", "l0013r-c5d-drive", "l0176r-c5d-drive", "api-c5d-drive"]) {
+    const d = s[name];
+    assert.ok(d, `${name} is in deploy.json`);
+    assert.equal(d.image, `us-central1-docker.pkg.dev/graffiticode/services/${name}`);
+    assert.equal(d.baselines, undefined, `${name}: no production milestones`);
+    assert.equal(d.minInstances ?? 0, 0, `${name}: scales to zero`);
+    for (const [k, v] of Object.entries(d.env ?? {})) {
+      assert.ok(!["graffiticode-thumbnails", "graffiticode.appspot.com"].includes(v), `${name}: ${k} names a production bucket`);
+      assert.ok(!PRODUCTION.some(p => v === p || v.startsWith(`${p}/`)), `${name}: ${k} names a production or B6 service`);
+    }
+    for (const h of d.network?.allow ?? []) assert.ok(!PRODUCTION.includes(h), `${name}: network.allow lists ${h}`);
+  }
+  const broker = s["broker-c5d-drive"];
+  assert.equal(broker.env.THUMBNAIL_BUCKET, "graffiticode-c5d-drive");
+  assert.equal(broker.env.BROKER_FAULT_PRINCIPALS, required("C5D_CANARY_UID"));
+  assert.equal(broker.env.BROKER_FAULTS, undefined, "drop-outcome's fault is the operator's, for that phase only");
+  assert.deepEqual(broker.removeEnv, ["BROKER_FAULTS"], "any release clears it");
+  const l0013 = s["l0013r-c5d-drive"];
+  assert.equal(l0013.env.THUMBNAIL_BUCKET, undefined, "direct snaps refused");
+  assert.deepEqual([l0013.removeEnv, l0013.forbiddenEnv], [["THUMBNAIL_BUCKET"], ["THUMBNAIL_BUCKET"]]);
+  assert.equal(l0013.env.L0013_CAPTURE_FAULTS, required("C5D_CAPTURE_FAULTS"));
+  assert.deepEqual(l0013.pinnable, { lang: "0013", contractVersions: [3] });
+  for (const name of ["l0013r-c5d-drive", "l0176r-c5d-drive"]) {
+    assert.equal(s[name].env.BROKER_URL, url("broker-c5d-drive"));
+    assert.ok(s[name].network.allow.includes(host("broker-c5d-drive")));
+  }
+  assert.deepEqual(s["l0176r-c5d-drive"].pinnable, { lang: "0176", contractVersions: [1, 2] });
+  // Every drive service is private, with Step 32's exact invokers; the CLI keeps IAM as it is.
+  for (const name of ["broker-c5d-drive", "l0013r-c5d-drive", "l0176r-c5d-drive", "api-c5d-drive"]) {
+    assert.equal(s[name].access, "private", name);
+    assert.equal(s[name].smokeServiceAccount, "deploy-smoke@graffiticode.iam.gserviceaccount.com", name);
+  }
+  const api = s["api-c5d-drive"];
+  assert.equal(api.access, "private");
+  assert.deepEqual(
+    [api.env.COMMANDS_L0013, api.env.COMMANDS_L0176, api.env.COMMAND_SCOPES, api.env.INTERPRETER_L0013, api.env.COMPILE_GENERATION_L0013, api.env.BRIDGE_L0013],
+    ["on", "on", "on", "on", "c5d-drive-1", undefined]);
+  assert.deepEqual([api.env.BASE_URL_L0013, api.env.BASE_URL_L0176], [url("l0013r-c5d-drive"), url("l0176r-c5d-drive")]);
+  assert.equal(api.env.SWEEP_AUDIENCE, url("api-c5d-drive"), "its own sweeper, by its own stable URL");
+  assert.equal(api.env.API_COMMAND_FAULT_TARGETS, required("C5D_API_FAULT_TARGETS"));
+  // B6's drive is untouched, and broker-faults never comes back.
+  assert.equal(s["l0176r-drive"].env.BROKER_URL, url("broker-faults"));
+  assert.equal(s["broker-faults"], undefined);
 });
