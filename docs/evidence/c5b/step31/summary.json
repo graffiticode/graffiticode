@@ -1,0 +1,12 @@
+{
+  "step": 31,
+  "approved": "the owner, after #433 merged as 86e8e4ed",
+  "before": { "revision": "broker-rmwkzsw86-98e2cf", "THUMBNAIL_BUCKET": "graffiticode-c5a-gate" },
+  "release": { "id": "rmwnqz13k-c374b1", "revision": "broker-rmwnqz13k-c374b1", "commit": "86e8e4edcecaea9c1fe02e0abdc1a6bcb4a478d3", "dirty": false, "status": "released", "receipt": "receipt-rmwnqz13k-c374b1.json" },
+  "readback": { "traffic": { "broker-rmwnqz13k-c374b1": 100 }, "THUMBNAIL_BUCKET": "graffiticode-thumbnails", "COMMAND_STAGING_BUCKET": "graffiticode-command-staging", "BROKER_MIN_CONTRACT_VERSION": "2", "revisionReady": true },
+  "releaseCheck": "broker: ok; serving broker-rmwnqz13k-c374b1",
+  "rollbackPlan": { "command": "npm run rollback -- broker --env production --release rmwnqz13k-c374b1 --plan", "restoreTraffic": { "broker-rmwkzsw86-98e2cf": 100 }, "note": "the restored revision names the deleted graffiticode-c5a-gate; harmless only while production admits no capture" },
+  "canary": { "execution": "canary-bpd85", "startedAt": "2026-11-19T16:21:08Z", "result": "canary passed (36 checks)" },
+  "production": { "api": "api-rmwkxlbvy-b5fa92", "COMMANDS_L0013": "unset", "COMMAND_SCOPES": "unset", "INTERPRETER_L0013": "unset", "COMPILE_GENERATION_L0013": "rust-1" },
+  "thumbnailsBucketObjects": 33
+}

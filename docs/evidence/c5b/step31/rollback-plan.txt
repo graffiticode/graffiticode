@@ -1,0 +1,12 @@
+
+> rollback
+> node packages/deploy/src/cli.js rollback broker --env production --release rmwnqz13k-c374b1 --plan
+
+{
+  "action": "rollback",
+  "target": "graffiticode/us-central1/broker",
+  "release": "rmwnqz13k-c374b1",
+  "restoreTraffic": {
+    "broker-rmwkzsw86-98e2cf": 100
+  }
+}
