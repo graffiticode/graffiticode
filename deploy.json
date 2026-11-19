@@ -179,9 +179,12 @@
         "COMPILE_GENERATION_L0182": "rust-1",
         "BASE_URL_L0013": "https://l0013r-sja7fatcta-uc.a.run.app",
         "PUBLIC_URL_L0013": "https://l0013.graffiticode.org",
-        "COMPILE_GENERATION_L0013": "rust-1",
+        "COMPILE_GENERATION_L0013": "c5d-1",
         "SYSTEM_SIGNING_STAGES_PER_CLIENT_PER_MINUTE": "10",
-        "SYSTEM_SIGNING_STAGES_BURST": "10"
+        "SYSTEM_SIGNING_STAGES_BURST": "10",
+        "COMMANDS_L0013": "on",
+        "COMMAND_SCOPES": "on",
+        "INTERPRETER_L0013": "on"
       },
       "smoke": [
         {
@@ -193,9 +196,6 @@
         "module": "verify/api.js"
       },
       "retireTags": true,
-      "removeEnv": [
-        "COMMAND_SCOPES"
-      ],
       "baselines": [
         {
           "milestone": "W1",
