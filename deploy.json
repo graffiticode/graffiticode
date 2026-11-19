@@ -949,7 +949,6 @@
       ],
       "env": {
         "AUTH_URL": "https://auth.graffiticode.org",
-        "THUMBNAIL_BUCKET": "graffiticode.appspot.com",
         "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
         "BROKER_URL": "https://broker-sja7fatcta-uc.a.run.app",
         "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com"
@@ -969,7 +968,13 @@
         "languages/l0000",
         "configs/Dockerfile.l0013r.yaml"
       ],
-      "minInstances": 0
+      "minInstances": 0,
+      "removeEnv": [
+        "THUMBNAIL_BUCKET"
+      ],
+      "forbiddenEnv": [
+        "THUMBNAIL_BUCKET"
+      ]
     },
     "l0014r": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0014r",
