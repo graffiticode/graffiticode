@@ -2234,6 +2234,367 @@ C5b slice 4: Broker's `THUMBNAIL_BUCKET` goes from `graffiticode-c5a-gate`, dele
 5. **Production canary:** `canary-bpd85` passed 36/36.
 6. **Production unchanged:** no `COMMANDS_L0013`, `COMMAND_SCOPES` or `INTERPRETER_L0013`. The bucket holds the 33 migrated thumbnails. The service description is committed only in redacted form (`REDACTIONS.txt`).
 
+### Step 32: the C5d drive's services, bucket, proxy hosts and window [HELD: not approved, not applied]
+
+C5d slices 2 and 3 ([`docs/c5d-snapshot-commands-plan.md`](c5d-snapshot-commands-plan.md), decision 3): an isolated drive of snapshot commands through production Policy, publishing only to its own bucket. **Every action below needs the owner's approval, and none has been taken.** The runner is [`scripts/c5d-drive.js`](../scripts/c5d-drive.js), judged by `scripts/lib/c5d-drive-checks.js`. Its evidence goes to `docs/evidence/c5d/drive/<run>/`:
+- `plan.json` and `baseline.json`, each written once per run. The baseline is refused once any capture has begun, and `boundary` and `judge` read only it.
+- `journal/`, one write-once entry per request that can allocate a command, written before the request is sent. The canary's `--snap` command id is planned through `canary.js --run-id`, and the non-owner's through `--non-owner-uid`.
+- **An anonymous capture's id is the api's own,** so its entry is resolved only by:
+  - an answer naming its command;
+  - a 4xx naming one of Policy's refusals before allocation;
+  - `--phase resolve-journal`.
+
+  `resolve-journal` correlates the request with Policy's anonymous commands for its task created since it was sent, with **no upper bound**, because the api's work continues after the client's connection is lost. It assigns the one candidate that no other journal entry, manifest or intent claims, and records the command id, its `createdAt` and the query. Ownership is explicit: only the plan's ids and the journal's allocation and resolution records make a command the run's (every request that can allocate is journaled before it is sent). Any id a phase's query found, such as `cleanup`'s Policy enumeration or the sweeper's shared `due` listing (which also names production's commands), is an observation, never a claim: a late command stays a candidate, the next `cleanup` still reports it missing until it is assigned, a production command never joins the drive's inventory, and the failed manifest is kept as it is. An empty result never proves that nothing was allocated. An intent still unresolved keeps `cleanup` failing until `resolve-journal` is rerun later, or the owner decides.
+- Each phase's timestamped manifest.
+
+Nothing there is ever overwritten.
+
+**Names (decision 3).** The drive uses new, C5d-only names: `broker-c5d-drive`, `l0013r-c5d-drive`, `l0176r-c5d-drive`, `api-c5d-drive` and `gs://graffiticode-c5d-drive`.
+- **B6's `l0176r-drive` is untouched throughout:** its revisions, tags and approval records stay, so any recovery depending on them is preserved.
+- **`broker-faults` is never recreated:** `l0176r-drive`'s `BROKER_URL` still names it, and a live service under that name would make B6's path reach a Broker again.
+- **The runner refuses** production's `api`, `broker`, `policy`, `l0013r` and `l0176r`, B6's `l0176r-drive`, `broker-faults` and `api-drive`, and `graffiticode-thumbnails`, `graffiticode.appspot.com` or the staging bucket as its bucket.
+
+**No new identity or role.** Each service runs as its production twin's runtime account (`broker-run`, `l0013r-run`, `l0176r-run`, `api-run`). The new grants are:
+- invokers on the four drive services only;
+- `broker-run` `objectUser` on the drive bucket only;
+- the 24-hour window.
+
+#### 1. The run's targets, before anything is released
+
+```bash
+node scripts/c5d-drive.js --phase plan --run <run>   # offline; writes docs/evidence/c5d/drive/<run>/plan.json once
+```
+
+- It prints `L0013_CAPTURE_FAULTS` and `API_COMMAND_FAULT_TARGETS`. Each is a JSON map from a command id (`c:` + sha256 of `[canary uid, "c5d-drive:<run>:<name>"]`, Policy's `commandIdFor`) to a fault.
+- **The compiler's targets:** `exit-after-reserve`, `exit-after-stage`, `stall-before-stage` (stale-worker), `exit-after-stage` (staging-gone) and `exit-after-stage` (the older capture only, never the newer).
+- **The api's target:** `stop-renewal` for the stale-worker command.
+- **Each map is set once,** on the drive revision the run's commands pin, and never changed during the run. A takeover (generation 2 or later) is never affected (#442, #439).
+
+#### 2. The bucket
+
+```bash
+gcloud storage buckets create gs://graffiticode-c5d-drive --project=graffiticode \
+  --location=us-central1 --default-storage-class=STANDARD \
+  --uniform-bucket-level-access --public-access-prevention --soft-delete-duration=0
+gcloud storage buckets get-iam-policy gs://graffiticode-c5d-drive --format=json > c5d-drive-policy-at-creation.json
+# Edited by hand, reviewed, etag kept: remove projectEditor and projectViewer
+# (as Steps 28 and 30), and add exactly
+#   { role: roles/storage.objectUser, members: [serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com] }
+gcloud storage buckets set-iam-policy gs://graffiticode-c5d-drive c5d-drive-policy-intended.json
+gcloud storage buckets get-iam-policy gs://graffiticode-c5d-drive --format=json > c5d-drive-policy-after.json
+```
+
+- **The bucket:** private (no `allUsers`), with soft delete off, as the C5a gate bucket. Broker's `thumbnailUrl` is never fetched anonymously in the drive; the checks read objects with the operator's credentials.
+
+#### 3. The services
+
+1. **Create each private, as a bootstrap placeholder,** so the deploy CLI has a service to release to (Step 29's method). The image is the live production twin's digest:
+
+   ```bash
+   gcloud run deploy broker-c5d-drive --project=graffiticode --region=us-central1 --image=<the live broker image digest> \
+     --service-account=broker-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated
+   gcloud run deploy l0013r-c5d-drive --project=graffiticode --region=us-central1 --image=<the live l0013r image digest> \
+     --service-account=l0013r-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated \
+     --cpu=2 --memory=2Gi --concurrency=4 --timeout=300
+   gcloud run deploy l0176r-c5d-drive --project=graffiticode --region=us-central1 --image=<the live l0176r image digest> \
+     --service-account=l0176r-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated
+   gcloud run deploy api-c5d-drive --project=graffiticode --region=us-central1 --image=<the live api image digest> \
+     --service-account=api-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated
+   ```
+
+2. **Invokers,** on each service only:
+
+   | Service | `roles/run.invoker` |
+   |---|---|
+   | `broker-c5d-drive` | `l0013r-run`, `l0176r-run`, `deploy-smoke` |
+   | `l0013r-c5d-drive` | `api-run` (the drive api's calls, and the runner's `direct-refused` compile and `/egress` read, minted under the window), `deploy-smoke` |
+   | `l0176r-c5d-drive` | `api-run`, `deploy-smoke` |
+   | `api-c5d-drive` | `console-run@graffiticode-app` (the canary's calls, as the console makes them), `command-sweeper` (its own sweeper), `deploy-smoke` |
+
+   ```bash
+   add() { gcloud run services add-iam-policy-binding "$1" --project=graffiticode --region=us-central1 --member="serviceAccount:$2" --role=roles/run.invoker; }
+   add broker-c5d-drive l0013r-run@graffiticode.iam.gserviceaccount.com
+   add broker-c5d-drive l0176r-run@graffiticode.iam.gserviceaccount.com
+   add broker-c5d-drive deploy-smoke@graffiticode.iam.gserviceaccount.com
+   add l0013r-c5d-drive api-run@graffiticode.iam.gserviceaccount.com
+   add l0013r-c5d-drive deploy-smoke@graffiticode.iam.gserviceaccount.com
+   add l0176r-c5d-drive api-run@graffiticode.iam.gserviceaccount.com
+   add l0176r-c5d-drive deploy-smoke@graffiticode.iam.gserviceaccount.com
+   add api-c5d-drive console-run@graffiticode-app.iam.gserviceaccount.com
+   add api-c5d-drive command-sweeper@graffiticode.iam.gserviceaccount.com
+   add api-c5d-drive deploy-smoke@graffiticode.iam.gserviceaccount.com
+   ```
+
+3. **Releases with the deploy CLI,** from `main`, from `deploy.json` entries added by a reviewed PR before this step is approved:
+   - **`broker-c5d-drive`:** `THUMBNAIL_BUCKET=graffiticode-c5d-drive`, `COMMAND_STAGING_BUCKET=graffiticode-command-staging`, `BROKER_FAULT_PRINCIPALS=<canary uid>`, and **no `BROKER_FAULTS`**.
+   - **`l0013r-c5d-drive`:** pinnable, recorded approved at `[3]` by its release. `BROKER_URL` = `broker-c5d-drive`'s URL, **no `THUMBNAIL_BUCKET`**, and `L0013_CAPTURE_FAULTS` = plan.json's map.
+   - **`l0176r-c5d-drive`:** a new service, pinnable, recorded approved at `[1, 2]`. `BROKER_URL` = `broker-c5d-drive`'s URL.
+   - **`api-c5d-drive`:** `access: private` and the production api's environment, with these changes:
+     - `COMMANDS_L0013=on`, `COMMANDS_L0176=on`, `COMMAND_SCOPES=on`, `INTERPRETER_L0013=on`, `COMPILE_GENERATION_L0013=c5d-drive-1`;
+     - `BASE_URL_L0013` and `BASE_URL_L0176` = the drive compilers' URLs;
+     - `API_COMMAND_FAULT_TARGETS` = plan.json's map;
+     - **its sweeper on:** `SWEEP_AUDIENCE` = its own stable URL, and `SWEEP_CALLERS` = `command-sweeper`.
+4. **The drive's sweeper:**
+
+   ```bash
+   gcloud scheduler jobs create http command-sweep-c5d-drive --project=graffiticode --location=us-central1 \
+     --schedule='* * * * *' --http-method=POST --uri=<api-c5d-drive URL>/internal/commands/sweep \
+     --oidc-service-account-email=command-sweeper@graffiticode.iam.gserviceaccount.com --oidc-token-audience=<api-c5d-drive URL>
+   ```
+
+   The audience is the service URL, not the sweep path as production's (Step 20). The private service's Cloud Run check needs it, and the drive api's `SWEEP_AUDIENCE` names the same value.
+
+#### 4. The proxy
+
+- `compilers-l0013` and `compilers-l0176` each gain exactly `broker-c5d-drive`'s host, through the two drive compilers' `network.allow`, by the same reviewed PR.
+- Issue its certificate into `egress-proxy-cert-<host>`, readable by `egress-proxy` only. Build the template from `out/cloud-init.yaml`, roll it, and verify with `verify-rollout.js --expect <the generated config_sha256>`.
+
+#### 5. The window, `canary-window-c5d`
+
+- **The grant:** `roles/iam.serviceAccountOpenIdTokenCreator` for `<operator>` on `console-run@graffiticode-app` and on `api-run@graffiticode`, for 24 hours, as `canary-window-c5a`:
+  - `console-run` mints the canary's calls to `api-c5d-drive` (#441: the audience is the service's stable URL);
+  - `api-run` mints Policy's gateway reads, the drive compiler's direct compile and `/egress`.
+- **No compiler account is granted.**
+
+```bash
+for sa in api-run@graffiticode.iam.gserviceaccount.com:graffiticode console-run@graffiticode-app.iam.gserviceaccount.com:graffiticode-app; do
+  gcloud iam service-accounts add-iam-policy-binding "${sa%%:*}" --project="${sa##*:}" \
+    --member=user:<operator> --role=roles/iam.serviceAccountOpenIdTokenCreator \
+    --condition='title=canary-window-c5d,description=C5d staged drive (C5d plan),expression=request.time < timestamp("<grant time + 24h>")'
+done
+```
+
+#### 6. The operator's actions during the drive (reviewed now, each run when the runner prints it)
+
+1. **Before `drop-outcome`:** set the fault on `broker-c5d-drive` alone. Broker isn't pinned, so no pin moves.
+
+   ```bash
+   gcloud run services update broker-c5d-drive --project=graffiticode --region=us-central1 \
+     --update-env-vars=BROKER_FAULTS=drop-outcome
+   ```
+
+   After `drop-outcome-retry`, remove it again (`--remove-env-vars=BROKER_FAULTS`) and read the environment back before the next phase.
+
+2. **Deletion 1, `staging-gone`.** It's the drive's one write to the staging bucket outside `drop-outcome`.
+
+   ```bash
+   gcloud storage rm 'gs://graffiticode-command-staging/<staging-gone command id>/<stage>/<occurrence>.png' \
+     --if-generation-match=<the generation the runner printed> --project=graffiticode
+   ```
+
+   **Verify first:**
+   - the runner has printed `capture fault exit-after-stage command <id>` for exactly plan.json's `staging-gone` id;
+   - Policy's reservation for that command is `staged` at `stagedGeneration` 1;
+   - the object's name is `<command id>/<stage>/<occurrence>.png` from that reservation;
+   - its generation is the one read (`gcloud storage objects describe … --format='value(generation)'`).
+
+   Delete before the takeover: the lease is 60 s, and the runner prints the command the moment the exit is logged. If the takeover's claim lands first, the phase fails (`deleted-before-claim`) and is rerun under a new run.
+
+3. **Deletion 2, `drop-outcome`.**
+
+   ```bash
+   gcloud storage rm 'gs://graffiticode-command-staging/<drop-outcome command id>/<stage>/<occurrence>.png' \
+     --if-generation-match=<the generation the runner printed> --project=graffiticode
+   ```
+
+   **Verify first:**
+   - the dropped request has finished (the command is terminal; the runner records the time);
+   - Broker's claim for the operation exists, with `evidence.bucket` = `graffiticode-c5d-drive` and `evidence.staged` equal to this object's name;
+   - no outcome is recorded (`receipts/<sha256(operation id)>/outcome/final` absent);
+   - the generation is the one read.
+
+   Then run `--phase drop-outcome-retry`, which refuses unless the object is gone.
+
+- **In both deletions,** `--if-generation-match` fences the deletion to the exact staged bytes the runner read. Any other generation answers 412, and nothing is deleted.
+- **Both deletions** use the operator's own credentials (`projectOwner`'s `legacyObjectOwner` on the staging bucket, Step 28). The bucket's 7-day soft delete keeps each object restorable.
+
+#### 7. Verification (the runner's `checks` phase, before any capture)
+
+- **`broker-c5d-drive`:** names the drive bucket and Policy's staging bucket, and has no `BROKER_FAULTS`.
+- **`l0013r-c5d-drive`:**
+  - no `THUMBNAIL_BUCKET`;
+  - `/egress` reports `language.thumbnailBucket: null` (the plan says `/status`; the route that reports it is `/egress`);
+  - `BROKER_URL` names `broker-c5d-drive`, whole (#441's rule);
+  - `L0013_CAPTURE_FAULTS` exactly plan.json's.
+- **`l0176r-c5d-drive`:** `BROKER_URL` names `broker-c5d-drive`.
+- **`api-c5d-drive`:** its environment is as in §3, `API_COMMAND_FAULT_TARGETS` is exactly plan.json's, and its sweeper is on.
+- **The bucket:** uniform, public access prevention enforced, no condition, no public member, and `broker-run` its only `objectUser`.
+- **The baseline:** `graffiticode-thumbnails`' listing is recorded (the `baseline` phase).
+- **Also, by hand:**
+  - `gcloud run services get-iam-policy` on each drive service lists exactly the invokers above;
+  - `gcloud scheduler jobs describe command-sweep-c5d-drive` shows the sweeper's OIDC token and the service's URL;
+  - `gcloud run services describe l0176r-drive` is unchanged from before this step.
+
+#### 8. Teardown, in this order (the plan's slice 3, "Teardown")
+
+1. **The `cleanup` phase passes.** Every inventoried command (plan, journal, manifests) is terminal, none is due, and no journal intent is unresolved. Policy's own records agree, whatever the journal says:
+   - **Queries:** every command on each of the run's drive tasks, and every command of the canary and of the non-owner. Each is one equality filter, paged by document name to a short last page; a truncated query fails.
+   - **Selection:** commands created since the run began, with no upper bound.
+   - **Requirement:** each must be in the inventory, terminal and not due. A command Policy holds that the inventory lacks fails `cleanup`, named.
+
+   Then delete the sweeper job:
+
+   ```bash
+   gcloud scheduler jobs delete command-sweep-c5d-drive --project=graffiticode --location=us-central1
+   ```
+
+2. **Park each pinnable drive compiler** on a revision never recorded approved, so no approved drive revision serves. Use plain `gcloud`, not the deploy CLI, so nothing records an approval:
+
+   ```bash
+   for s in l0013r-c5d-drive l0176r-c5d-drive; do
+     for m in api-run deploy-smoke; do
+       gcloud run services remove-iam-policy-binding "$s" --project=graffiticode --region=us-central1 \
+         --member="serviceAccount:$m@graffiticode.iam.gserviceaccount.com" --role=roles/run.invoker
+     done
+     gcloud run deploy "$s" --project=graffiticode --region=us-central1 --image=<its serving image digest> \
+       --no-allow-unauthenticated --tag=parked
+     gcloud run services update-traffic "$s" --project=graffiticode --region=us-central1 --to-tags=parked=100
+   done
+   ```
+
+3. **Retire every approved drive revision,** one at a time:
+
+   ```bash
+   node scripts/revisions.js retire l0013r-c5d-drive --release <its release id>
+   node scripts/revisions.js retire l0176r-c5d-drive --release <its release id>
+   ```
+
+   - A non-empty report (a plan still needing a revision) cancels the retirement, and is a finding to resolve. `--confirm-unrecoverable` only by the owner's named decision.
+   - **Verify:** `node scripts/revisions.js status <service>` shows each drive release `retired`, and no drive tag URL answers.
+4. **Then delete:** the four services (`broker-c5d-drive` isn't pinnable, so nothing to retire) and the bucket, after its listing goes to the evidence:
+
+   ```bash
+   for s in api-c5d-drive l0013r-c5d-drive l0176r-c5d-drive broker-c5d-drive; do
+     gcloud run services delete "$s" --project=graffiticode --region=us-central1
+   done
+   gcloud storage rm -r gs://graffiticode-c5d-drive
+   ```
+
+5. **Remove the proxy host** from `compilers-l0013` and `compilers-l0176` and the drive entries from `deploy.json` (a reviewed PR). Roll the proxy and verify (`verify-rollout.js`), then delete the host's certificate secret. The window expires on its own.
+6. **B6's `l0176r-drive`:** read back, and unchanged.
+
+### Step 33: the api's rollback floor, `C5d-v9` [HELD: draft #443]
+
+Decision 4: before activation, an api baseline at `3b6b4a50` marked `floor: true` (milestone `C5d-v9`). The first activated api binds snap chains' artifacts to registry 9, which a registry-8 api can't read.
+
+- **The change:** `deploy.json` only, in held draft **#443**. It merges first, with the owner's approval, before Step 34.
+- **No release is needed for the floor itself:** the CLI reads it at every `release`, `release-check` and `rollback`.
+- **What the floor does to today's rollback:**
+  - the serving api is `api-rmwkxlbvy-b5fa92` (release `rmwkxlbvy-b5fa92`, at `3b6b4a50`);
+  - its receipt's rollback target is the revision it replaced, a registry-8 api below `3b6b4a50`, which the floor refuses (`release.js` `belowFloors`, before any traffic moves, with no override, `--below-baseline` included);
+  - so from #443 on, **the serving api has no allowed rollback target** until Step 34's step 1 releases;
+  - that release's rollback target is `api-rmwkxlbvy-b5fa92`, at the floor's own commit, and allowed.
+- **Verify** (read-only; the refusal is shown, never exercised against production):
+  1. `npm run deploy -- release-check api` passes.
+  2. The current receipt's target and its commit:
+
+     ```bash
+     npm run rollback -- api --release rmwkxlbvy-b5fa92 --plan
+     ```
+
+     This prints `restoreTraffic`, the previous revision. `--plan` reads only the receipt; it doesn't apply floors. Its own receipt (`.gc-deploy/releases/<that release id>.json`) names its `commit`.
+  3. That commit is below the floor:
+
+     ```bash
+     git merge-base --is-ancestor 3b6b4a50 <that commit>   # exits 1: not 3b6b4a50 or a descendant
+     ```
+
+     That is exactly the test the floor applies, so a real `rollback --release rmwkxlbvy-b5fa92` would be refused. The plan's output and the exit status go to `docs/evidence/c5d/activation/`.
+  4. **After Step 34's step 1:** `npm run rollback -- api --release <step 1's release id> --plan` prints `restoreTraffic` `{ "api-rmwkxlbvy-b5fa92": 100 }`, whose commit is `3b6b4a50` itself (`git merge-base --is-ancestor 3b6b4a50 3b6b4a50` exits 0): allowed.
+- **Rollback:** revert #443. Nothing has activated yet, so no artifact depends on registry 9.
+
+### Step 34: activation (C5d slice 4, five ordered steps) [HELD: drafts #445 and #444]
+
+Each step needs its own approval, after Steps 32 and 33. Before step 1:
+- the drive passed (`scripts/c5d-drive.js --phase judge` exits 0, evidence merged, Step 32 torn down);
+- `canary.js --snap` (#441) and the catch-up (#440) are merged;
+- the console PR (step 5) is reviewed;
+- a final read-only `--phase verify` of C5b's copy passes.
+
+1. **The api: held draft #445** (stacked on #443). It drops `COMMAND_SCOPES` from the api's `removeEnv` and adds `COMMANDS_L0013=on`, `COMMAND_SCOPES=on`, `INTERPRETER_L0013=on` and `COMPILE_GENERATION_L0013=c5d-1`, with `BRIDGE_L0013` unset (on).
+   - **Staged, never released directly.** From #445's merge commit:
+
+     ```bash
+     npm run deploy -- api --stage
+     ```
+
+     It runs the candidate checks and stops. The candidate keeps its tag and takes no traffic; the receipt is `staged`, and its `url` is the tag URL.
+   - **On the tag, both must pass:**
+     1. **The 36-check canary,** as the scheduled canary *job* against the tag. This is the established invocation of every recorded 36/36 run on a staged api:
+        - B6's activation (`canary-nm5m7`, `docs/evidence/b6-repair-activation/README.md`, which gives the form);
+        - B6 slice 5 (`canary-tv796`, `docs/evidence/b6-repair/slice5-api-promote-evidence.json`, `canaryJob.args`);
+        - C5a (`canary-99xz2`, `docs/evidence/c5a/api-promote-evidence.json`).
+
+        ```bash
+        gcloud run jobs execute canary --region=us-central1 --project=graffiticode --wait \
+          --args=--uid,<canary uid>,--connection,<canary connection id>,--chain-admission,--after-cutover,--command,--l0185-tail,--api-url,<the staged tag URL>
+        ```
+
+        - `--args` replaces the job's own container args (`--uid --connection --chain-admission --after-cutover`, `docs/protected-execution.md`, "Scheduled canary"), so every flag is given.
+        - **`--reconcile` isn't part of it:** neither the job's container args nor any recorded 36/36 run carries it, and it is the older acceptance run's flag (`docs/capability-policy-acceptance.md`).
+        - The job runs as `canary-run`, which already mints the console's and the gateway's tokens.
+        - Run it between the scheduled runs (`23 */6 * * *` UTC), as B6's activation did.
+     2. **The snapshot check,** separately, by the operator:
+
+        ```bash
+        node scripts/canary.js --uid <canary uid> --snap <canary-owned item> --snap-only --api-url <the staged tag URL>
+        ```
+
+        `--api-url` is the tag of `api` itself, so #441's rule accepts it.
+   - **The evidence,** `docs/evidence/c5d/activation/api-promote-evidence.json`, in the deploy CLI's format (`packages/deploy/README.md`, "Staging"), as slice 5's:
+     - `service: "api"`, the staged `release` and `revision`, `networkHash: null`;
+     - `corpus`: the job's run (`ranAt`, `tasks: 36`, `failures: 0`), after `stagedAt`;
+     - `refusals: []`, and a `reviewer`;
+     - `notes.canaryJob`: `{ execution: "canary-<id>", apiUrl: "<the staged tag URL>", args: "--chain-admission --after-cutover --command --l0185-tail", checks: 36, failed: 0 }`;
+     - `notes.snap`: the `--snap` run's five passing checks, with its command id.
+
+     Written only if both runs passed.
+   - **Promoted, with that evidence:**
+
+     ```bash
+     npm run deploy -- promote api --release <the staged release id> --plan --evidence docs/evidence/c5d/activation/api-promote-evidence.json   # no cloud calls: the evidence's problems, if any
+     npm run deploy -- promote api --release <the staged release id> --evidence docs/evidence/c5d/activation/api-promote-evidence.json
+     ```
+
+     `promote` refuses unless the receipt is still `staged`, the service is unchanged since staging, and the evidence is valid. It then re-runs the candidate checks before moving traffic. If either run on the tag fails, nothing is promoted; the candidate stays tagged for inspection and is retired with the next release.
+   - **Read-back:**
+     - the serving revision's environment;
+     - `release-check api`;
+     - the canary 36/36;
+     - `canary.js --snap` on production;
+     - the bridge observed on a console "Generate thumbnail" of a canary-owned item.
+   - **Rollback:** `npm run rollback -- api --release <this release's id>`, to `api-rmwkxlbvy-b5fa92`, which the floor allows.
+2. **`l0013r` without `THUMBNAIL_BUCKET`: held draft #444.** It moves the variable into `removeEnv` and `forbiddenEnv`, followed by a configuration release of the approved commit (`npm run deploy -- l0013r`), recorded approved at `[3]`.
+   - **Then retire,** one at a time, in this order:
+     1. `l0013r-rmwjzlgz6-2882e6`;
+     2. `l0013r-rmwl2casf-31e8b9`;
+     3. `l0013r-rmwmhjmoi-17a112`.
+
+     Each with `node scripts/revisions.js retire l0013r --release <its release id>`. A non-empty report cancels it: wait for the sweeper to finish the commands pinned to it, then retry. `--confirm-unrecoverable` only by the owner's decision for a named plan.
+   - **Read-back:**
+     - `/egress` reports `thumbnailBucket: null`;
+     - a direct `POST /compile` of a snap is refused before rendering;
+     - `gcloud run services describe l0013r` lists no tag and no traffic but the new revision's;
+     - every former tag URL answers 404;
+     - `release-check l0013r` passes;
+     - `revisions.js status l0013r` shows the three retired.
+   - **No rollback** (`forbiddenEnv`); roll forward only.
+3. **Drain,** from the moment the last upload-capable endpoint became unreachable (the later of step 2's promotion and the last tag's removal):
+   - **Wait** 300 s.
+   - **Confirm** that `l0013r`'s logs (every revision) show no direct `snap` entry after that moment plus the timeout.
+   - **Confirm** that `graffiticode.appspot.com/thumbnails/` generations are unchanged across two listings taken 10 minutes apart.
+4. **Catch up** (#440), with the operator's credentials:
+
+   ```bash
+   node scripts/c5b/migrate-thumbnails.js --phase catchup --dir docs/evidence/c5b/migration --out docs/evidence/c5d/activation
+   node scripts/c5b/migrate-thumbnails.js --phase catchup-verify --dir docs/evidence/c5b/migration --out docs/evidence/c5d/activation
+   ```
+
+   The run stops on `source-changed`, `destination-differs` or `failed`, and any amended run needs review.
+5. **The console:** graffiticode-app's `BUILT_IN_THUMBNAILS` becomes `https://storage.googleapis.com/graffiticode-thumbnails`, released by its own process.
+   - **Read-back:** the thumbnail grid loads from the new bucket, and a fresh "Generate thumbnail" shows the new capture.
+   - **Rollback:** revert its release; the old bucket is frozen, stale and not wrong.
+
 ## 4. Verification (read-only)
 
 | After step | Check | Expected |
