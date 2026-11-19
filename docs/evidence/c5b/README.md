@@ -33,8 +33,19 @@ The work ran from clean main `02c85d4f`, with owner approval at each stage: firs
   - **A soft-deleted count of 8 in `cleanup.log` is a miscount.** The correct count is 3, which `cleanup.log.annotation.md` explains with the raw inventory (`soft-deleted-inventory.txt` and `.json`, read at `soft-deleted-inventory-at.txt`). The log itself is unchanged.
   - **An anonymous 200 for the deleted `a.png`** came from Google's edge cache. The probe set no `Cache-Control`, so the public default `max-age=3600` applied. The bucket itself answered 404. Broker's publish and the migration copy both write `Cache-Control: no-cache`.
 
-## The migration copy (`migration/`), planned, held
+## The migration copy (`migration/`), done 2026-11-19
 
 - **`plan-1.json`** was made read-only (`--phase plan`) on 2026-11-19, from main `076f6936`. It has 33 entries totalling 3,535,395 bytes, all `image/png`, with 33 distinct destinations and no problems (`plan-1.output.txt`).
 - **Its sources are the old bucket as the C5a gate left it.** The names and generations, hashed in the gate's format, give `6e32da1b…`. That equals `r36074e`'s appspot digest, both at its baseline and after it.
-- **Held:** `--phase copy`, then `verify`, are held for the owner's approval. Any amended plan and every copy and verify manifest will be added here, none overwritten.
+- **Copy (owner-approved),** from main `d5d572b5`, ran against the committed `plan-1.json` (sha256 `831364d6…`) between 15:51:25Z and 15:51:37Z.
+  - **Result:** all 33 entries `created`. Each took one rewrite call answering `done: true`, with no token restarts, no `source-changed`, no `exists-differs` and no failure.
+  - **Files:** `copy-1-2026-11-19T15-51-37-431Z.json` and `copy-1.output.txt`.
+  - **No amended plan was needed.**
+- **Verify** passed with no problems against plan 1 (`verify-1-2026-11-19T15-52-01-595Z.json`, `verify-1.output.txt`):
+  - every entry `created`;
+  - every destination matching its plan entry in bytes (`crc32c`, `md5Hash`, size), `image/png`, `no-cache`, `migratedFrom` and `sourceGeneration`, with no `captureSequence`;
+  - every object readable anonymously with the planned MD5;
+  - anonymous listing refused (JSON 401, XML 403);
+  - no source updated since its copy.
+- **An independent read-back** (outside the tool) agreed: 33 objects, 3,535,395 bytes, all at the bucket root, all `image/png` with `Cache-Control: no-cache`, none carrying `captureSequence`.
+- **For C5d's catch-up:** each source's generation is in `plan-1.json`, and each destination's generation is in the copy manifest.
