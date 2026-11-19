@@ -337,20 +337,23 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
     apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true,
     chainAdmission = false, afterCutover = false, languageUrl = null, reconcile = false, provider = null,
     savedRead = false, auditCheck = true, command = false, bridgeRetired = false, l0185Tail = false,
-    snap = null, snapOnly = false, thumbnailBucket = DEFAULT_THUMBNAIL_BUCKET, apiInvoker = null
+    snap = null, snapOnly = false, thumbnailBucket = DEFAULT_THUMBNAIL_BUCKET, apiInvoker = null, apiAudience = null
   } = config;
   const results = [];
   // Every response passes through here, so the run knows each draft it saved.
   const saved = new Set();
-  // A private api (`apiInvoker`): its invoker token on every api request.
+  // A private api (`apiInvoker`): its invoker token on every api request. The
+  // token's audience is the service's stable URL (`apiAudience`), which Cloud
+  // Run requires even when the request goes to a revision's tag URL.
   const apiOrigin = new URL(apiUrl).origin;
+  if (apiInvoker && !apiAudience) throw new Error("apiInvoker needs apiAudience, the api service's stable URL");
   let invokerToken = null;
   const toApi = url => {
     try { return new URL(url).origin === apiOrigin; } catch { return false; }
   };
   const http = async request => {
     if (apiInvoker && toApi(request.url)) {
-      invokerToken ??= idToken(apiInvoker, apiOrigin);
+      invokerToken ??= idToken(apiInvoker, apiAudience);
       request = { ...request, headers: { ...(request.headers ?? {}), "X-Serverless-Authorization": `Bearer ${await invokerToken}` } };
     }
     const res = await send(request);
@@ -524,12 +527,25 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
     if (reservationsAfter.length !== reservations.length || reservationsAfter.some(r => r.captureSequence !== reserved)) {
       problems.push(`the command's reservations ${JSON.stringify(reservations.map(r => r.captureSequence))} became ${JSON.stringify(reservationsAfter.map(r => r.captureSequence))}`);
     }
+    // Each observation must exist before it is compared: a counter or a
+    // generation missing from both reads is a failed observation, never "unchanged".
     const nextBefore = capturesBefore?.nextCaptureSequence ?? null;
     const nextAfter = capturesAfter?.nextCaptureSequence ?? null;
-    if (nextBefore !== nextAfter) problems.push(`the item's next capture sequence moved from ${nextBefore ?? "none"} to ${nextAfter ?? "none"}`);
-    if ((object?.generation ?? null) !== (objectAfter?.generation ?? null)) {
-      problems.push(`${where} changed generation ${object?.generation ?? "none"} -> ${objectAfter?.generation ?? "none"}`);
+    const validNext = n => Number.isSafeInteger(n) && Number.isSafeInteger(reserved) && n > reserved;
+    if (!validNext(nextBefore) || !validNext(nextAfter)) {
+      problems.push(`the item's next capture sequence isn't readable past the reserved ${reserved ?? "none"} (before ${nextBefore ?? "none"}, after ${nextAfter ?? "none"})`);
+    } else if (nextBefore !== nextAfter) {
+      problems.push(`the item's next capture sequence moved from ${nextBefore} to ${nextAfter}`);
     }
+    const validGeneration = g => typeof g === "string" && /^[1-9][0-9]*$/.test(g);
+    const genBefore = object?.generation ?? null;
+    const genAfter = objectAfter?.generation ?? null;
+    if (!validGeneration(genBefore) || !validGeneration(genAfter)) {
+      problems.push(`${where} has no readable generation (before ${genBefore ?? "none"}, after ${genAfter ?? "none"})`);
+    } else if (genBefore !== genAfter) {
+      problems.push(`${where} changed generation ${genBefore} -> ${genAfter}`);
+    }
+    if (reservationsAfter.length !== 1) problems.push(`${reservationsAfter.length} reservations after the retry, expected 1`);
     record("snap retry", problems.length === 0, problems.length === 0
       ? `the same command and outcome for the same key; one reservation, next capture sequence ${nextAfter ?? "none"} and generation ${objectAfter?.generation ?? "none"} unchanged`
       : problems.join("; "));

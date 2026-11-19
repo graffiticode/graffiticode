@@ -70,9 +70,12 @@
 //                           service's URL), e.g. a staged release's tag URL
 //   --api-service <name>    the Cloud Run service --api-url belongs to, whose
 //                           revision's env says how it routes (default api; a
-//                           drive's, e.g. api-c5d-drive)
-//   --api-invoker <account> a private api: every api request carries this
-//                           account's ID token for the api URL in
+//                           drive's, e.g. api-c5d-drive); an --api-url of
+//                           another service is refused
+//   --api-invoker <account> a private api: every api request (and the lexicon
+//                           fetch) carries this account's ID token, whose
+//                           audience is the --api-service service's stable URL
+//                           even when --api-url is a tag URL (Cloud Run), in
 //                           X-Serverless-Authorization, as the console invokes
 //                           it (console-run@graffiticode-app.iam.gserviceaccount.com,
 //                           under the operator's OpenIdTokenCreator on it)
@@ -100,7 +103,7 @@ import path from "node:path";
 import { VERIFY_UID } from "../verify/auth.js";
 import { runCanary, DEFAULT_THUMBNAIL_BUCKET } from "./lib/canary.js";
 import { createDraftArchiver } from "./lib/canary-archive.js";
-import { createCanaryEnv, loadDeployServices, languageRoute, routedRevision, revisionEnv, domainServices, http } from "./lib/canary-env.js";
+import { createCanaryEnv, loadDeployServices, languageRoute, runAppService, routedRevision, revisionEnv, domainServices, http } from "./lib/canary-env.js";
 
 const args = process.argv.slice(2);
 const flag = name => {
@@ -139,7 +142,8 @@ const authUrl = deploy.l0176.env.AUTH_URL;
 // `parse` reads L0176's lexicon from the api URL, once it's known.
 // A private api's invoker token (--api-invoker), for the lexicon fetch; the
 // canary's own api requests add it in runCanary.
-const apiHeaders = async () => (apiInvoker ? { "X-Serverless-Authorization": `Bearer ${await idToken(apiInvoker, new URL(config.apiUrl).origin)}` } : {});
+// Its audience is the api service's stable URL, even for a tag URL (Cloud Run).
+const apiHeaders = async () => (apiInvoker ? { "X-Serverless-Authorization": `Bearer ${await idToken(apiInvoker, config.apiAudience)}` } : {});
 const { gcloud, serviceUrl, accessToken, idToken, parse } = createCanaryEnv({ uid, project, region, authUrl, apiUrl: () => config.apiUrl, apiHeaders });
 
 // --provider: Broker's preview settings from deploy.json, and the preview
@@ -157,8 +161,17 @@ async function providerConfig() {
 // reaches (a staged release's tag, or the serving revision), and Cloud Run's
 // domain mappings for languages routed through lNNNN.graffiticode.org.
 // deploy.json can be ahead of what is deployed.
-const apiUrl = flag("--api-url") ?? await serviceUrl(apiServiceName);
+// The service's stable URL: the default target, and a private api's token audience.
+const apiAudience = await serviceUrl(apiServiceName);
+const apiUrl = flag("--api-url") ?? apiAudience;
 const apiHost = new URL(apiUrl).hostname;
+// An --api-url on another service than --api-service would read one service's
+// routing and test another's.
+const urlService = runAppService(apiHost)?.service ?? null;
+if (urlService && urlService !== apiServiceName) {
+  console.error(`--api-url is ${urlService}'s, not ${apiServiceName}'s: pass --api-service ${urlService}`);
+  process.exit(2);
+}
 const apiTag = apiHost.includes("---") ? apiHost.split("---")[0] : null;
 const apiService = JSON.parse(await gcloud(["run", "services", "describe", apiServiceName, `--region=${region}`, "--format=json"]));
 const apiRevision = routedRevision(apiService, apiTag);
@@ -196,6 +209,7 @@ const config = {
   snapOnly,
   thumbnailBucket,
   apiInvoker,
+  apiAudience,
 };
 // --snap: the operator's reads of Policy's database (named database `policy`)
 // and of the thumbnails bucket, with the operator's gcloud credentials, as the

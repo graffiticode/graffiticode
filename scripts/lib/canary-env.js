@@ -17,11 +17,27 @@ export const serviceEnv = service =>
   Object.fromEntries((service?.spec?.template?.spec?.containers?.[0]?.env ?? [])
     .filter(e => typeof e.value === "string")
     .map(e => [e.name, e.value]));
+// A Cloud Run URL's service and tag, or null for any other host. A service
+// URL is `<service>-<hash>-<region>.a.run.app` (or the deterministic
+// `<service>-<project number>.<region>.run.app`); a revision tag's is
+// `<tag>---<service>-...`. A service name can itself hold dashes
+// (`l0176r-c5d-drive`), so only the trailing hash and region segments are
+// dropped, never everything after the first dash.
+export const runAppService = host => {
+  if (typeof host !== "string" || !host.endsWith(".run.app")) return null;
+  const [tag, rest] = host.includes("---") ? host.split("---") : [null, host];
+  const labels = rest.split(".");
+  const parts = labels[0].split("-");
+  // `.a.run.app`: drop the hash and region code; `.<region>.run.app`: drop the project number.
+  const drop = labels[1] === "a" ? 2 : 1;
+  if (parts.length <= drop) return null;
+  return { service: parts.slice(0, -drop).join("-"), tag };
+};
+
 // Where the api routes a language: { service, tag }. The api's
 // BASE_URL_L<lang>, when it is a Cloud Run URL, names the service (a
-// language switched to its Rust service, interpreter plan Track A): a service
-// URL is `<service>-<hash>-<region>.a.run.app`, and a revision tag's is
-// `<tag>---<service>-<hash>-<region>.a.run.app`, which also pins the tag.
+// language switched to its Rust service, interpreter plan Track A), and a
+// tag URL also pins the tag (runAppService).
 // When it is a custom domain, `domains` (host -> service, from Cloud Run's
 // domain mappings) names the service it serves: lNNNN.graffiticode.org maps to
 // lNNNNr once the language is switched (plan option C). Otherwise it is
@@ -33,10 +49,8 @@ export const languageRoute = (lang, apiEnv = {}, domains = {}) => {
     try {
       host = new URL(url).hostname;
     } catch {}
-    if (host?.endsWith(".run.app")) {
-      const [tag, rest] = host.includes("---") ? host.split("---") : [null, host];
-      return { service: rest.split("-")[0], tag };
-    }
+    const route = runAppService(host);
+    if (route) return route;
     if (host && domains[host]) return { service: domains[host], tag: null };
   }
   return { service: `l${lang}`, tag: null };

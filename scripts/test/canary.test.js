@@ -21,6 +21,8 @@ const CANARY = "0xcanary";
 // api's input digest for a compile without options (inputDigest({})).
 const NO_OPTIONS = createHash("sha256").update("{}").digest("hex");
 const CONN = "conn-canary";
+// A private api's stable service URL: config.apiUrl stands for a tag URL of it.
+const STABLE_API = "https://api-c5d-drive-sja7fatcta-uc.a.run.app";
 const config = {
   apiUrl: "https://api.test",
   policyUrl: "https://policy.test",
@@ -197,7 +199,9 @@ const world = async ({ tweak = {} } = {}) => {
     const { origin, pathname } = new URL(url);
     if (origin === config.apiUrl) {
       apiRequests.push({ method, pathname, invoker: headers?.["X-Serverless-Authorization"] ?? null });
-      if (tweak.privateApi && headers?.["X-Serverless-Authorization"] !== `Bearer id|${tweak.privateApi}|${config.apiUrl}`) return refused(403, "invoker-required");
+      // Cloud Run checks the token's audience against the service's stable URL,
+      // whatever URL (a revision's tag) the request went to.
+      if (tweak.privateApi && headers?.["X-Serverless-Authorization"] !== `Bearer id|${tweak.privateApi}|${STABLE_API}`) return refused(403, "invoker-required");
     }
     try {
       if (origin === config.apiUrl && pathname === "/task") {
@@ -1070,6 +1074,11 @@ test("a language's route is the service, and any tag, its api URL names", () => 
   assert.deepEqual(languageRoute("0184", { BASE_URL_L0000: "https://l0000r-sja7fatcta-uc.a.run.app" }), { service: "l0184", tag: null });
   assert.deepEqual(languageRoute("0176", { BASE_URL_L0176: "https://l0176.graffiticode.org" }), { service: "l0176", tag: null });
   assert.deepEqual(languageRoute("0176", { BASE_URL_L0176: "not a url" }), { service: "l0176", tag: null });
+  // A service name with dashes (C5d's drive) is resolved whole, stable or tagged (#441 review).
+  assert.deepEqual(languageRoute("0176", { BASE_URL_L0176: "https://l0176r-c5d-drive-sja7fatcta-uc.a.run.app" }), { service: "l0176r-c5d-drive", tag: null });
+  assert.deepEqual(languageRoute("0176", { BASE_URL_L0176: "https://c5d-1---l0176r-c5d-drive-sja7fatcta-uc.a.run.app" }), { service: "l0176r-c5d-drive", tag: "c5d-1" });
+  assert.deepEqual(languageRoute("0013", { BASE_URL_L0013: "https://l0013r-c5d-drive-123456789.us-central1.run.app" }), { service: "l0013r-c5d-drive", tag: null });
+  assert.deepEqual(languageRoute("0013", { BASE_URL_L0013: "https://rel---l0013r-c5d-drive-123456789.us-central1.run.app" }), { service: "l0013r-c5d-drive", tag: "rel" });
 });
 
 test("a route reaches its tag's revision, else the one serving all traffic", () => {
@@ -1222,19 +1231,59 @@ test("--snap: fails when the same key reserves and captures again", async () => 
   assert.match(detail, /changed generation 1001 -> 1002/);
 });
 
+// #441 review: an observation missing from both reads is a failure, never "unchanged".
+test("--snap: fails when the item's capture counter can't be read, before and after", async () => {
+  const w = await world();
+  const reads = { ...w.snapReads, itemCaptures: async () => null };
+  const { ok, results } = await snapRun(w, {}, { snapReads: reads });
+  assert.equal(ok, false);
+  onlyFails(results, "snap retry");
+  assert.match(results.find(r => r.name === "snap retry").detail, /next capture sequence isn't readable/);
+});
+
+test("--snap: fails when the item's capture counter isn't past the reservation", async () => {
+  const w = await world();
+  const reads = { ...w.snapReads, itemCaptures: async item => ({ item, nextCaptureSequence: 1 }) };
+  const { ok, results } = await snapRun(w, {}, { snapReads: reads });
+  assert.equal(ok, false);
+  onlyFails(results, "snap retry");
+});
+
+test("--snap: fails when the object's generation is missing from both reads", async () => {
+  const w = await world();
+  const reads = {
+    ...w.snapReads,
+    object: async (bucket, name) => {
+      const o = await w.snapReads.object(bucket, name);
+      if (o) delete o.generation;
+      return o;
+    },
+  };
+  const { ok, results } = await snapRun(w, {}, { snapReads: reads });
+  assert.equal(ok, false);
+  onlyFails(results, "snap retry");
+  assert.match(results.find(r => r.name === "snap retry").detail, /no readable generation/);
+});
+
 test("--snap: fails, rather than passing, without the operator's reads", async () => {
   const { ok, results } = await snapRun(await world(), {}, { snapReads: null });
   assert.equal(ok, false);
   assert.deepEqual(results.map(r => [r.name, r.ok]), [["snap", false]]);
 });
 
-test("--snap against a private api: every api request carries the invoker's token for the api URL", async () => {
+test("--snap against a private api: every api request carries the invoker's token for the service's stable URL, not the tag URL it goes to", async () => {
   const invoker = "console-run@p.iam.gserviceaccount.com";
   const w = await world({ tweak: { privateApi: invoker } });
-  const { ok, results } = await snapRun(w, { apiInvoker: invoker });
+  const { ok, results } = await snapRun(w, { apiInvoker: invoker, apiAudience: STABLE_API });
   assert.equal(ok, true, JSON.stringify(results));
   assert.ok(w.apiRequests.length >= 3);
-  assert.ok(w.apiRequests.every(r => r.invoker === `Bearer id|${invoker}|${config.apiUrl}`));
+  assert.ok(w.apiRequests.every(r => r.invoker === `Bearer id|${invoker}|${STABLE_API}`));
+  // The request URL's own origin as the audience is refused (#441 review).
+  const tagAudience = await snapRun(await world({ tweak: { privateApi: invoker } }), { apiInvoker: invoker, apiAudience: config.apiUrl });
+  assert.equal(tagAudience.ok, false);
+  assert.match(tagAudience.results[0].detail, /POST \/task \(L0013\): 403/);
+  // An invoker with no audience is refused outright.
+  await assert.rejects(snapRun(await world(), { apiInvoker: invoker }), /apiAudience/);
   // Without the invoker, the private api refuses the canary.
   const refused = await snapRun(await world({ tweak: { privateApi: invoker } }));
   assert.equal(refused.ok, false);
