@@ -310,7 +310,7 @@ A mismatch in either direction is refused `credential-scope-mismatch`, before th
 
 ### 8. Storage: a dedicated bucket, where the fixed object is its own pointer
 
-**The bucket.** A new **`gs://graffiticode-thumbnails`**, with uniform bucket-level access and public read through `allUsers: roles/storage.objectViewer`. There are no ACLs, so no `setIamPolicy` is needed.
+**The bucket.** A new **`gs://graffiticode-thumbnails`**, with uniform bucket-level access and public read through `allUsers: roles/storage.legacyObjectReader`. There are no ACLs, so no `setIamPolicy` is needed. *(Corrected 2026-11-18, C5b decision 1: this draft named `roles/storage.objectViewer`, which includes `storage.objects.list` and would let anyone enumerate every thumbnailed item id. `legacyObjectReader` grants object reads only, keeping today's exposure: readable by URL, not listable.)*
 
 **The pointer.** The published object is `{item}.png`, the fixed path the console reads. It carries custom metadata `captureSequence` (and `commandId`, `sha256`) and `Cache-Control: no-cache`. **That object is the pointer.**
 

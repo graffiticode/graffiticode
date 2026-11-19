@@ -1,6 +1,6 @@
 # C5b: the thumbnails bucket
 
-**Status:** draft for review (2026-11-18). This details C5b of [`docs/c5-l0013-commands-plan.md`](c5-l0013-commands-plan.md) ("§4 C5b–C5e, in outline", and decision 8). C5a is complete: its gate passed 20/20 (`docs/evidence/c5a-authorization/`), and the gate's api and bucket are retired.
+**Status:** approved (merged #426, 2026-11-18). Slice 1's tooling: `scripts/lib/c5b-thumbnails.js`, `scripts/c5b/{migrate-thumbnails,bucket-policy,bucket-probe}.js`, with tests in `scripts/test/c5b-{thumbnails,tools}.test.js`; IAM review Steps 30 and 31. This details C5b of [`docs/c5-l0013-commands-plan.md`](c5-l0013-commands-plan.md) ("§4 C5b–C5e, in outline", and decision 8). C5a is complete: its gate passed 20/20 (`docs/evidence/c5a-authorization/`), and the gate's api and bucket are retired.
 
 **What C5b does.** It prepares the production destination for L0013 captures. Nothing reads or writes it yet.
 1. It creates `gs://graffiticode-thumbnails`, publicly readable.
@@ -158,31 +158,24 @@ gcloud storage buckets create gs://graffiticode-thumbnails --project=graffiticod
   --uniform-bucket-level-access --no-public-access-prevention \
   --soft-delete-duration=7d
 
-# Bindings: one etag-protected read/modify/write, as Step 28 had to do.
-# remove-iam-policy-binding doesn't match the convenience members ("binding … not found").
+# Bindings: one etag-protected read/modify/write, as Step 28 had to do
+# (remove-iam-policy-binding doesn't match the convenience members). The edit is
+# scripts/c5b/bucket-policy.js (slice 1): it merges the grants into existing role
+# bindings, never a duplicate, and is idempotent; the etag is kept.
 gcloud storage buckets get-iam-policy gs://graffiticode-thumbnails --format=json > policy-at-creation.json
-jq '
-  .bindings |= map(.members |= map(select(. != "projectEditor:graffiticode" and . != "projectViewer:graffiticode")))
-  | .bindings |= map(select(.members | length > 0))
-  | .bindings += [
-      {"role": "roles/storage.objectUser", "members": ["serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com"]},
-      {"role": "roles/storage.legacyObjectReader", "members": ["allUsers"]}
-    ]' policy-at-creation.json > policy-intended.json   # keeps the read etag
+node scripts/c5b/bucket-policy.js edit policy-at-creation.json > policy-intended.json
 gcloud storage buckets set-iam-policy gs://graffiticode-thumbnails policy-intended.json
 # A concurrent change makes the etag stale; set-iam-policy then fails, and the step restarts from the read.
-
-# Exact read-back: the bindings, sorted, equal the expected set and nothing else.
-gcloud storage buckets get-iam-policy gs://graffiticode-thumbnails --format=json \
-  | jq -S '[.bindings[] | {role, members: (.members | sort)}] | sort_by(.role)' > policy-after.json
-diff policy-after.json expected-bindings.json   # expected-bindings.json: decision 4's set
+gcloud storage buckets get-iam-policy gs://graffiticode-thumbnails --format=json > policy-after.json
+node scripts/c5b/bucket-policy.js check policy-after.json   # exactly decision 4's bindings, or exit 1
 ```
 
-- **The evidence keeps all three policies** (at creation, intended, after) and the diff, which must be empty.
+- **The evidence keeps all three policies** (at creation, intended, after) and `check`'s output, which must say `same: true`.
 - **The only changes from creation's policy:** the removal of `projectEditor` and `projectViewer`, and the two added bindings. `allUsers` appears nowhere else.
 
 **Verification:**
 1. **Settings, read back:** `US`, `STANDARD`, uniform `true`, public access prevention `inherited`, versioning off, soft delete `604800`, lifecycle `null`.
-2. **IAM, read back:** exactly the bindings in decision 4, by the sorted diff above, which must be empty.
+2. **IAM, read back:** exactly the bindings in decision 4, by `bucket-policy.js check`.
 3. **Behaviour:** the probe jobs, in the order `broker-run`, `policy-run`, `l0013r-run`, then the anonymous checks while `a.png` is still in place (slice 1's table). Each job is a one-off Cloud Run job, created with approval and deleted after its results are recorded, as Step 28's were.
 4. **Cleanup, then empty:** after the anonymous checks, the operator removes `c5b-probe/<run>/a.png` explicitly, and the bucket then lists no objects.
 
