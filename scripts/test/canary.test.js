@@ -14,13 +14,15 @@ import {
 import {
   createBroker, buildOperations, createMemoryOnceStore, createMemoryReceiptStore, createMemorySecretStore, createMemoryActivityStore, BrokerRefused, localAuthorizer
 } from "@graffiticode/broker";
-import { runCanary, signatureProblems, hasSignedRequest, savedItemReferences, providerChecks, signedPreviewRequest, keyFingerprint, learnosityMs } from "../lib/canary.js";
+import { runCanary, snapTask, signatureProblems, hasSignedRequest, savedItemReferences, providerChecks, signedPreviewRequest, keyFingerprint, learnosityMs } from "../lib/canary.js";
 import { createDraftArchiver } from "../lib/canary-archive.js";
 
 const CANARY = "0xcanary";
 // api's input digest for a compile without options (inputDigest({})).
 const NO_OPTIONS = createHash("sha256").update("{}").digest("hex");
 const CONN = "conn-canary";
+// A private api's stable service URL: config.apiUrl stands for a tag URL of it.
+const STABLE_API = "https://api-c5d-drive-sja7fatcta-uc.a.run.app";
 const config = {
   apiUrl: "https://api.test",
   policyUrl: "https://policy.test",
@@ -153,6 +155,22 @@ const world = async ({ tweak = {} } = {}) => {
   // The saved read (READ-01): each save's stored result, by task id, and the
   // security-audit records the views leave, as Policy and Broker log them.
   const stored = new Map();
+  // C5d (`snap`): commands by key, Policy's reservations and item-captures
+  // records, the bucket's objects (`bucket`), and each command's result text.
+  const snaps = { bucket: tweak.snapBucket ?? "graffiticode-thumbnails", keys: [], commands: new Map(), reservations: new Map(), itemCaptures: new Map(), objects: new Map(), results: new Map(), reads: [] };
+  // The operator's reads, as scripts/canary.js makes them (copies, as JSON
+  // over the wire would be).
+  const snapReads = {
+    reservations: async commandId => { snaps.reads.push(["reservations", commandId]); return structuredClone(snaps.reservations.get(commandId) ?? []); },
+    itemCaptures: async item => { snaps.reads.push(["itemCaptures", item]); return structuredClone(snaps.itemCaptures.get(item) ?? null); },
+    object: async (bucket, name) => {
+      snaps.reads.push(["object", bucket, name]);
+      return bucket === snaps.bucket ? structuredClone(snaps.objects.get(name) ?? null) : null;
+    },
+  };
+  // A private api (`privateApi`): every api request must carry the invoker's
+  // ID token for the api's URL.
+  const apiRequests = [];
   const auditLog = [];
   let views = 0;
   const gateway = { role: "gateway" };
@@ -179,6 +197,12 @@ const world = async ({ tweak = {} } = {}) => {
 
   const http = async ({ method, url, headers, body }) => {
     const { origin, pathname } = new URL(url);
+    if (origin === config.apiUrl) {
+      apiRequests.push({ method, pathname, invoker: headers?.["X-Serverless-Authorization"] ?? null });
+      // Cloud Run checks the token's audience against the service's stable URL,
+      // whatever URL (a revision's tag) the request went to.
+      if (tweak.privateApi && headers?.["X-Serverless-Authorization"] !== `Bearer id|${tweak.privateApi}|${STABLE_API}`) return refused(403, "invoker-required");
+    }
     try {
       if (origin === config.apiUrl && pathname === "/task") {
         const id = encodeChainId([`t${tasks.size + 1}`]);
@@ -249,6 +273,44 @@ const world = async ({ tweak = {} } = {}) => {
       // same key answers the same command. `commandRewrites` stands for an api
       // that runs the save again for the same key, `commandPreviewAccepted`
       // for one that takes a preview as a command.
+      // C5d (`snap`): a connectionless capture command over an L0013 task, as
+      // api, Policy and Broker run it: one reservation of the item's next
+      // capture sequence, and the object published with that sequence and the
+      // command's id. Tweaks break one rule each.
+      if (origin === config.apiUrl && pathname === "/command" && method === "POST" && !body.connectionId) {
+        const [taskId] = decodeChainId(body.id);
+        const task = tasks.get(taskId);
+        assert.equal(task.lang, "0013", "only a capture is sent without a connection");
+        const item = task.code[1].elts[0];
+        snaps.keys.push(body.idempotencyKey);
+        let cmd = snaps.commands.get(body.idempotencyKey);
+        if (!cmd || tweak.snapRetryNewCommand || tweak.snapRetryRecaptures) {
+          const commandId = cmd && !tweak.snapRetryNewCommand ? cmd.commandId : `snap-${snaps.commands.size + 1}-${snaps.reservations.size + 1}`;
+          if (tweak.snapFails) {
+            cmd = { commandId, outcome: "failed", result: "none", statusUrl: `/command/${commandId}` };
+          } else {
+            const captures = snaps.itemCaptures.get(item) ?? { item, nextCaptureSequence: 1 };
+            const captureSequence = captures.nextCaptureSequence;
+            snaps.itemCaptures.set(item, { ...captures, nextCaptureSequence: captureSequence + 1 });
+            snaps.reservations.set(commandId, [...(snaps.reservations.get(commandId) ?? []), { stage: "s0", occurrenceId: "x:occ", item, captureSequence, state: "published" }]);
+            const generation = String(Number(snaps.objects.get(`${item}.png`)?.generation ?? 1000) + 1);
+            snaps.objects.set(`${item}.png`, {
+              generation,
+              metadata: {
+                captureSequence: String(tweak.snapSequenceMismatch ? captureSequence + 1 : captureSequence),
+                commandId: tweak.snapCommandIdMismatch ? "snap-someone-else" : commandId,
+                sha256: "ab".repeat(32),
+                item,
+              },
+            });
+            const bucket = tweak.snapWrongBucket ? "graffiticode.appspot.com" : snaps.bucket;
+            snaps.results.set(commandId, JSON.stringify({ url: `https://storage.googleapis.com/${bucket}/${item}.png?v=${"ab".repeat(8)}`, item }));
+            cmd = { commandId, outcome: "completed", result: "available", statusUrl: `/command/${commandId}` };
+          }
+          snaps.commands.set(body.idempotencyKey, cmd);
+        }
+        return ok(cmd);
+      }
       if (origin === config.apiUrl && pathname === "/command" && method === "POST") {
         const saving = decodeChainId(body.id).some(t => (tasks.get(t).code.src ?? "").includes("save-to-itembank"));
         if (!saving && !tweak.commandPreviewAccepted) return refused(409, "no-effects");
@@ -331,6 +393,12 @@ const world = async ({ tweak = {} } = {}) => {
           if (commandKeys.has(body.idempotencyKey)) return refused(403, "command-protocol");
           return ok(await policy.allocateInvocation({ caller, user: user(headers), ...body }));
         }
+        const snapResult = pathname.match(/^\/v1\/commands\/([^/]+)\/records\/result$/);
+        if (snapResult && method === "GET") {
+          assert.equal(caller?.role, "gateway", "a command's records are read as the gateway");
+          const text = snaps.results.get(decodeURIComponent(snapResult[1]));
+          return text ? ok({ result: { text, digest: createHash("sha256").update(text).digest("hex") } }) : ok({ result: null });
+        }
         const commandRecord = pathname.match(/^\/v1\/commands\/([^/]+)\/records\/(state|outcomes)$/);
         if (commandRecord && method === "GET") {
           assert.equal(caller?.role, "gateway", "a command's records are read as the gateway");
@@ -388,16 +456,17 @@ const world = async ({ tweak = {} } = {}) => {
     if (tweak.auditWrite === "now" || (tweak.auditWrite === "late" && polls.length >= 3)) inWindow.push(write);
     return inWindow;
   };
-  return { http, idToken, writes, connections, deploy, serving, reconcileAsks, clock, auditEvents, polls };
+  return { http, idToken, writes, connections, deploy, serving, reconcileAsks, clock, auditEvents, polls, snaps, snapReads, apiRequests };
 };
 
 const memoryRetryState = () => {
   const state = { value: null };
   return { state, load: async () => state.value, save: async v => { state.value = v; }, clear: async () => { state.value = null; } };
 };
-const run = async (w, over = {}, { retryState = null, runId = "t1", servingRevision = async lang => w.serving[lang], archiveDrafts = null, auditEvents = w.auditEvents } = {}) => runCanary({
+const run = async (w, over = {}, { retryState = null, runId = "t1", servingRevision = async lang => w.serving[lang], archiveDrafts = null, auditEvents = w.auditEvents, snapReads = w.snapReads } = {}) => runCanary({
   archiveDrafts,
   auditEvents,
+  snapReads,
   // A clock the canary's waits advance, so nothing really sleeps.
   now: () => w.clock.now,
   sleep: async ms => { w.clock.slept.push(ms); w.clock.now += ms; },
@@ -1005,6 +1074,11 @@ test("a language's route is the service, and any tag, its api URL names", () => 
   assert.deepEqual(languageRoute("0184", { BASE_URL_L0000: "https://l0000r-sja7fatcta-uc.a.run.app" }), { service: "l0184", tag: null });
   assert.deepEqual(languageRoute("0176", { BASE_URL_L0176: "https://l0176.graffiticode.org" }), { service: "l0176", tag: null });
   assert.deepEqual(languageRoute("0176", { BASE_URL_L0176: "not a url" }), { service: "l0176", tag: null });
+  // A service name with dashes (C5d's drive) is resolved whole, stable or tagged (#441 review).
+  assert.deepEqual(languageRoute("0176", { BASE_URL_L0176: "https://l0176r-c5d-drive-sja7fatcta-uc.a.run.app" }), { service: "l0176r-c5d-drive", tag: null });
+  assert.deepEqual(languageRoute("0176", { BASE_URL_L0176: "https://c5d-1---l0176r-c5d-drive-sja7fatcta-uc.a.run.app" }), { service: "l0176r-c5d-drive", tag: "c5d-1" });
+  assert.deepEqual(languageRoute("0013", { BASE_URL_L0013: "https://l0013r-c5d-drive-123456789.us-central1.run.app" }), { service: "l0013r-c5d-drive", tag: null });
+  assert.deepEqual(languageRoute("0013", { BASE_URL_L0013: "https://rel---l0013r-c5d-drive-123456789.us-central1.run.app" }), { service: "l0013r-c5d-drive", tag: "rel" });
 });
 
 test("a route reaches its tag's revision, else the one serving all traffic", () => {
@@ -1052,4 +1126,181 @@ test("a domain route names the service its mapping serves; the env is the deploy
   assert.deepEqual(languageRoute("0000", { BASE_URL_L0000: "https://l0000.graffiticode.org" }), { service: "l0000", tag: null });
   assert.deepEqual(revisionEnv({ spec: { containers: [{ env: [{ name: "BASE_URL_L0176", value: "https://l0176r-x-uc.a.run.app" }, { name: "S", valueFrom: {} }] }] } }), { BASE_URL_L0176: "https://l0176r-x-uc.a.run.app" });
   assert.deepEqual(revisionEnv(null), {});
+});
+
+// C5d (`snap`, docs/c5d-snapshot-commands-plan.md slice 1 item 5): a
+// connectionless capture of a canary-owned item through POST /command.
+const SNAP_ITEM = "7vwaCAIyMNCJEzgIfyYY";
+const SNAP_CHECKS = ["snap command", "snap url", "snap sequence", "snap command id", "snap retry"];
+const snapRun = (w, over = {}, opts = {}) => run(w, { snap: SNAP_ITEM, snapOnly: true, connectionId: null, ...over }, opts);
+
+test("--snap: captures the item through a connectionless command, published with its reserved sequence and command id, once per key", async () => {
+  const w = await world();
+  const { ok, results } = await snapRun(w);
+  assert.equal(ok, true, JSON.stringify(results));
+  assert.deepEqual(results.map(r => r.name), SNAP_CHECKS);
+  // The same run-unique key twice; one command, one reservation, one capture.
+  assert.deepEqual(w.snaps.keys, ["canary:t1:snap", "canary:t1:snap"]);
+  assert.equal(w.snaps.commands.size, 1);
+  const [commandId] = [...w.snaps.reservations.keys()];
+  assert.equal(w.snaps.reservations.get(commandId).length, 1);
+  assert.equal(w.snaps.itemCaptures.get(SNAP_ITEM).nextCaptureSequence, 2);
+  assert.match(results.find(r => r.name === "snap url").detail, new RegExp(`^https://storage\\.googleapis\\.com/graffiticode-thumbnails/${SNAP_ITEM}\\.png\\?v=`));
+  // The object read from the configured bucket, under its item's name.
+  assert.ok(w.snaps.reads.some(([what, bucket, name]) => what === "object" && bucket === "graffiticode-thumbnails" && name === `${SNAP_ITEM}.png`));
+  // Snap only: nothing else ran, nothing written to Learnosity.
+  assert.deepEqual(w.writes, []);
+});
+
+test("--snap: a run-unique key per run", async () => {
+  const w = await world();
+  assert.equal((await snapRun(w)).ok, true);
+  const again = await snapRun(w, {}, { runId: "t2" });
+  assert.equal(again.ok, true, JSON.stringify(again.results));
+  assert.deepEqual(w.snaps.keys, ["canary:t1:snap", "canary:t1:snap", "canary:t2:snap", "canary:t2:snap"]);
+  assert.equal(w.snaps.itemCaptures.get(SNAP_ITEM).nextCaptureSequence, 3, "two runs, two captures");
+});
+
+test("--snap: the checks follow the rest of the canary's when not run alone", async () => {
+  const w = await world();
+  const { ok, results } = await run(w, { snap: SNAP_ITEM });
+  assert.equal(ok, true, JSON.stringify(results));
+  assert.deepEqual(results.slice(-SNAP_CHECKS.length).map(r => r.name), SNAP_CHECKS);
+  assert.ok(results.some(r => r.name === "gateway write"));
+});
+
+test("--snap: the configured thumbnails bucket (a drive's)", async () => {
+  const w = await world({ tweak: { snapBucket: "graffiticode-c5d-drive" } });
+  const { ok, results } = await snapRun(w, { thumbnailBucket: "graffiticode-c5d-drive" });
+  assert.equal(ok, true, JSON.stringify(results));
+  // Expecting production's bucket, the drive's capture is in the wrong place.
+  const other = await snapRun(await world({ tweak: { snapBucket: "graffiticode-c5d-drive" } }));
+  assert.equal(other.ok, false);
+  assert.equal(byName(other.results)["snap url"], false);
+  assert.match(other.results.find(r => r.name === "snap sequence").detail, /nothing published at gs:\/\/graffiticode-thumbnails\//);
+});
+
+test("--snap: fails when the command doesn't complete", async () => {
+  const w = await world({ tweak: { snapFails: true } });
+  const { ok, results } = await snapRun(w);
+  assert.equal(ok, false);
+  assert.deepEqual(results.map(r => [r.name, r.ok]), [["snap command", false]]);
+  assert.match(results[0].detail, /"outcome":"failed"/);
+});
+
+const onlyFails = (results, name) => {
+  assert.deepEqual(results.map(r => r.name), SNAP_CHECKS);
+  assert.deepEqual(results.filter(r => !r.ok).map(r => r.name), [name], JSON.stringify(results));
+};
+
+test("--snap: fails when the result's url isn't in the thumbnails bucket", async () => {
+  const { ok, results } = await snapRun(await world({ tweak: { snapWrongBucket: true } }));
+  assert.equal(ok, false);
+  onlyFails(results, "snap url");
+  assert.match(results.find(r => r.name === "snap url").detail, /graffiticode\.appspot\.com.* is not https:\/\/storage\.googleapis\.com\/graffiticode-thumbnails\//);
+});
+
+test("--snap: fails when the published captureSequence isn't the reserved one", async () => {
+  const { ok, results } = await snapRun(await world({ tweak: { snapSequenceMismatch: true } }));
+  assert.equal(ok, false);
+  onlyFails(results, "snap sequence");
+  assert.match(results.find(r => r.name === "snap sequence").detail, /reserved 1, published 2/);
+});
+
+test("--snap: fails when the published object names another command", async () => {
+  const { ok, results } = await snapRun(await world({ tweak: { snapCommandIdMismatch: true } }));
+  assert.equal(ok, false);
+  onlyFails(results, "snap command id");
+  assert.match(results.find(r => r.name === "snap command id").detail, /names command snap-someone-else, not snap-1-1/);
+});
+
+test("--snap: fails when the same key starts a new command", async () => {
+  const { ok, results } = await snapRun(await world({ tweak: { snapRetryNewCommand: true } }));
+  assert.equal(ok, false);
+  onlyFails(results, "snap retry");
+  assert.match(results.find(r => r.name === "snap retry").detail, /command snap-2-2, not snap-1-1/);
+});
+
+test("--snap: fails when the same key reserves and captures again", async () => {
+  const { ok, results } = await snapRun(await world({ tweak: { snapRetryRecaptures: true } }));
+  assert.equal(ok, false);
+  onlyFails(results, "snap retry");
+  const { detail } = results.find(r => r.name === "snap retry");
+  assert.match(detail, /reservations \[1\] became \[1,2\]/);
+  assert.match(detail, /next capture sequence moved from 2 to 3/);
+  assert.match(detail, /changed generation 1001 -> 1002/);
+});
+
+// #441 review: an observation missing from both reads is a failure, never "unchanged".
+test("--snap: fails when the item's capture counter can't be read, before and after", async () => {
+  const w = await world();
+  const reads = { ...w.snapReads, itemCaptures: async () => null };
+  const { ok, results } = await snapRun(w, {}, { snapReads: reads });
+  assert.equal(ok, false);
+  onlyFails(results, "snap retry");
+  assert.match(results.find(r => r.name === "snap retry").detail, /next capture sequence isn't readable/);
+});
+
+test("--snap: fails when the item's capture counter isn't past the reservation", async () => {
+  const w = await world();
+  const reads = { ...w.snapReads, itemCaptures: async item => ({ item, nextCaptureSequence: 1 }) };
+  const { ok, results } = await snapRun(w, {}, { snapReads: reads });
+  assert.equal(ok, false);
+  onlyFails(results, "snap retry");
+});
+
+test("--snap: fails when the object's generation is missing from both reads", async () => {
+  const w = await world();
+  const reads = {
+    ...w.snapReads,
+    object: async (bucket, name) => {
+      const o = await w.snapReads.object(bucket, name);
+      if (o) delete o.generation;
+      return o;
+    },
+  };
+  const { ok, results } = await snapRun(w, {}, { snapReads: reads });
+  assert.equal(ok, false);
+  onlyFails(results, "snap retry");
+  assert.match(results.find(r => r.name === "snap retry").detail, /no readable generation/);
+});
+
+test("--snap: fails, rather than passing, without the operator's reads", async () => {
+  const { ok, results } = await snapRun(await world(), {}, { snapReads: null });
+  assert.equal(ok, false);
+  assert.deepEqual(results.map(r => [r.name, r.ok]), [["snap", false]]);
+});
+
+test("--snap against a private api: every api request carries the invoker's token for the service's stable URL, not the tag URL it goes to", async () => {
+  const invoker = "console-run@p.iam.gserviceaccount.com";
+  const w = await world({ tweak: { privateApi: invoker } });
+  const { ok, results } = await snapRun(w, { apiInvoker: invoker, apiAudience: STABLE_API });
+  assert.equal(ok, true, JSON.stringify(results));
+  assert.ok(w.apiRequests.length >= 3);
+  assert.ok(w.apiRequests.every(r => r.invoker === `Bearer id|${invoker}|${STABLE_API}`));
+  // The request URL's own origin as the audience is refused (#441 review).
+  const tagAudience = await snapRun(await world({ tweak: { privateApi: invoker } }), { apiInvoker: invoker, apiAudience: config.apiUrl });
+  assert.equal(tagAudience.ok, false);
+  assert.match(tagAudience.results[0].detail, /POST \/task \(L0013\): 403/);
+  // An invoker with no audience is refused outright.
+  await assert.rejects(snapRun(await world(), { apiInvoker: invoker }), /apiAudience/);
+  // Without the invoker, the private api refuses the canary.
+  const refused = await snapRun(await world({ tweak: { privateApi: invoker } }));
+  assert.equal(refused.ok, false);
+  assert.match(refused.results[0].detail, /POST \/task \(L0013\): 403/);
+});
+
+test("--snap: the capture program is the console's, as L0013's parser writes it", async () => {
+  const { parser } = await import("@graffiticode/parser");
+  const { readFile } = await import("node:fs/promises");
+  const lexicon = JSON.parse(await readFile(new URL("../../languages/l0013/crates/core/src/lexicon-additions.json", import.meta.url), "utf8"));
+  const parsed = await parser.parse(13, `snap item "${SNAP_ITEM}" {}..`, lexicon);
+  // The same tree, whatever the node numbering.
+  const shape = (code, id = code.root) => {
+    const { tag, elts } = code[id];
+    return { tag, elts: tag === "STR" ? elts : elts.map(e => shape(code, e)) };
+  };
+  const task = snapTask(SNAP_ITEM);
+  assert.equal(task.lang, "0013");
+  assert.deepEqual(shape(task.code), shape(parsed));
 });
