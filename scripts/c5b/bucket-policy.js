@@ -8,9 +8,9 @@
 // set-iam-policy fails if the policy changed since it was read.
 //
 //   node scripts/c5b/bucket-policy.js edit  <policy-at-creation.json>  > policy-intended.json
-//   node scripts/c5b/bucket-policy.js check <policy-after.json>        exits 1 unless exactly STEP30_EXPECTED
+//   node scripts/c5b/bucket-policy.js check <policy-after.json>        exits 1 unless exactly STEP30_EXPECTED, unconditional
 import { readFileSync } from "node:fs";
-import { editBucketPolicy, normalizedBindings, STEP30_EDIT, STEP30_EXPECTED } from "../lib/c5b-thumbnails.js";
+import { editBucketPolicy, policyCheck, STEP30_EDIT } from "../lib/c5b-thumbnails.js";
 
 const [command, file] = process.argv.slice(2);
 if (!["edit", "check"].includes(command) || !file) {
@@ -22,8 +22,8 @@ if (command === "edit") {
   if (!policy.etag) throw new Error("the policy has no etag: read it with get-iam-policy --format=json");
   process.stdout.write(`${JSON.stringify(editBucketPolicy(policy, STEP30_EDIT), null, 2)}\n`);
 } else {
-  const got = normalizedBindings(policy);
-  const same = JSON.stringify(got) === JSON.stringify(STEP30_EXPECTED);
-  console.log(JSON.stringify({ expected: STEP30_EXPECTED, got, same }, null, 2));
-  if (!same) process.exitCode = 1;
+  // Exactly the expected bindings, and no conditional binding anywhere.
+  const result = policyCheck(policy);
+  console.log(JSON.stringify(result, null, 2));
+  if (!result.same) process.exitCode = 1;
 }

@@ -106,4 +106,9 @@ test("bucket-policy.js: edit keeps the etag and merges; check passes only the ex
   assert.throws(() => execFileSync("node", [CLI, "check", after], { stdio: "pipe" }), /Command failed/);
   writeFileSync(after, JSON.stringify({ bindings: STEP30_EXPECTED }));
   assert.throws(() => execFileSync("node", [CLI, "edit", after], { stdio: "pipe" }), /Command failed/, "no etag: refused");
+  // A conditional grant with the approved members fails the check (#428 review).
+  const conditional = structuredClone(STEP30_EXPECTED);
+  conditional.find(b => b.role === "roles/storage.objectUser").condition = { title: "probes-only", expression: "true" };
+  writeFileSync(after, JSON.stringify({ bindings: conditional }));
+  assert.throws(() => execFileSync("node", [CLI, "check", after], { stdio: "pipe" }), /Command failed/);
 });

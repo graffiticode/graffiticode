@@ -17,9 +17,9 @@
 // only for the final plan with every entry created or adopted.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { planEntries, runCopy, amendPlan, verifyPlan, SOURCE_BUCKET, DESTINATION_BUCKET } from "../lib/c5b-thumbnails.js";
+import { planEntries, runCopy, amendPlan, verifyPlan, writeManifestOnce, SOURCE_BUCKET, DESTINATION_BUCKET } from "../lib/c5b-thumbnails.js";
 
 const args = process.argv.slice(2);
 const flag = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
@@ -66,12 +66,8 @@ const listSource = async () => {
 
 const plans = () => readdirSync(dir).map(f => /^plan-(\d+)\.json$/.exec(f)).filter(Boolean).map(m => Number(m[1])).sort((a, b) => a - b);
 const readJson = f => JSON.parse(readFileSync(path.join(dir, f), "utf8"));
-const writeOnce = (f, value) => {
-  const file = path.join(dir, f);
-  if (existsSync(file)) throw new Error(`${f} exists; manifests are never overwritten`);
-  writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
-  return file;
-};
+// Exclusive creation: a manifest someone else created first is never overwritten.
+const writeOnce = (f, value) => writeManifestOnce(path.join(dir, f), value);
 const latestPlan = () => {
   const n = plans().at(-1);
   if (!n) throw new Error("no plan: run --phase plan first");

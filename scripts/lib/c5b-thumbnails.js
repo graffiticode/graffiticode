@@ -12,6 +12,8 @@
 // Plan entry: { item, source, sourceGeneration, size, md5Hash, crc32c, contentType, updated, destination }
 // Copy outcomes: created | adopted | source-changed | exists-differs | failed
 
+import { writeFileSync as fsWriteFileSync } from "node:fs";
+
 export const SOURCE_BUCKET = "graffiticode.appspot.com";
 export const DESTINATION_BUCKET = "graffiticode-thumbnails";
 // Broker's item id pattern (packages/broker/src/gcs.ts ITEM_RE): the
@@ -95,8 +97,9 @@ const withBackoff = async (call, { sleep, maxAttempts = MAX_ATTEMPTS, baseMs = 5
 
 // One plan entry, to completion. A rewrite that answers 200 with done: false
 // is continued with its rewriteToken; only done: true, then the destination's
-// own metadata matching the plan, is `created`. A refused token (400 or 404 on
-// a continued call) restarts the rewrite under the same preconditions. A 412 is
+// own metadata matching the plan, is `created`. A refused or expired token
+// (400, 404 or 410 on a continued call) restarts the rewrite under the same
+// preconditions. A 412 is
 // told apart by reading the destination: absent means the source changed; a
 // matching object is `adopted` (an earlier, interrupted run finished it); any
 // other is `exists-differs`, never replaced.
@@ -118,7 +121,9 @@ export const copyEntry = async ({ entry, storage, sleep = async () => {}, maxRew
       rewriteToken = res.body.rewriteToken;
       continue;
     }
-    if (rewriteToken && (res.status === 400 || res.status === 404)) {
+    // A refused or expired token (400, 404, or 410, which Google documents for
+    // an expired rewrite token) restarts the rewrite, within the call bound.
+    if (rewriteToken && (res.status === 400 || res.status === 404 || res.status === 410)) {
       rewriteToken = null;
       record.restarts++;
       continue;
@@ -194,7 +199,9 @@ export const amendPlan = ({ plan, copies, listing }) => {
 //                MD5, not CRC32C), compared with the plan's md5Hash
 //   sources      { name: generation | null }   the source bucket now
 export const verifyPlan = ({ plan, copies, destinations, anonymous, sources }) => {
-  const problems = [];
+  // A plan with unresolved problems (a rejected source name, a duplicate, a
+  // vanished source) is never verified, whatever its entries show.
+  const problems = (plan.problems ?? []).map(p => `plan ${plan.number}: ${p}`);
   const done = new Map();
   for (const c of copies) for (const e of c.entries) if (DONE.has(e.outcome)) done.set(e.destination, e);
   const updatedSinceCopy = [];
@@ -234,8 +241,19 @@ export const editBucketPolicy = (policy, { removeMembers = [], grants = [] }) =>
   const bindings = [...byRole].map(([role, members]) => ({ role, members: [...new Set(members)].sort() })).filter(b => b.members.length).sort((a, b) => (a.role < b.role ? -1 : 1));
   return { ...policy, bindings };
 };
-// The comparable form of a policy's bindings, for the exact read-back.
-export const normalizedBindings = policy => (policy.bindings ?? []).map(b => ({ role: b.role, members: [...new Set(b.members)].sort() })).sort((a, b) => (a.role < b.role ? -1 : 1));
+// The comparable form of a policy's bindings, for the exact read-back. A
+// binding's condition is kept, so a conditional grant (Broker restricted to
+// probe names, say) never compares equal to the approved unconditional one.
+export const normalizedBindings = policy => (policy.bindings ?? [])
+  .map(b => ({ role: b.role, members: [...new Set(b.members)].sort(), ...(b.condition ? { condition: b.condition } : {}) }))
+  .sort((a, b) => (a.role < b.role ? -1 : a.role > b.role ? 1 : JSON.stringify(a) < JSON.stringify(b) ? -1 : 1));
+// The exact read-back: the expected bindings, with no condition anywhere.
+export const policyCheck = (policy, expected = STEP30_EXPECTED) => {
+  const got = normalizedBindings(policy);
+  const conditional = got.filter(b => b.condition).map(b => b.role);
+  const same = conditional.length === 0 && JSON.stringify(got) === JSON.stringify(expected);
+  return { expected, got, conditional, same };
+};
 
 export const STEP30_EDIT = Object.freeze({
   removeMembers: ["projectEditor:graffiticode", "projectViewer:graffiticode"],
@@ -250,3 +268,18 @@ export const STEP30_EXPECTED = Object.freeze([
   { role: "roles/storage.legacyObjectReader", members: ["allUsers"] },
   { role: "roles/storage.objectUser", members: ["serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com"] },
 ]);
+
+// ---------------------------------------------------------------- manifests
+
+// A manifest is created once and never overwritten: exclusive creation
+// ("wx"), so a concurrent writer that creates the name first wins and this
+// write fails, whatever was checked before (no check-then-write window).
+export const writeManifestOnce = (file, value, { writeFileSync = fsWriteFileSync } = {}) => {
+  try {
+    writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { flag: "wx" });
+  } catch (e) {
+    if (e?.code === "EEXIST") throw new Error(`${file} exists; manifests are never overwritten`);
+    throw e;
+  }
+  return file;
+};

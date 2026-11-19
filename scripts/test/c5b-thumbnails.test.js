@@ -4,8 +4,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   planEntries, destinationMetadata, destinationProblem, copyEntry, runCopy, amendPlan, verifyPlan,
-  editBucketPolicy, normalizedBindings, STEP30_EDIT, STEP30_EXPECTED, SOURCE_BUCKET, DESTINATION_BUCKET,
+  editBucketPolicy, normalizedBindings, policyCheck, writeManifestOnce, STEP30_EDIT, STEP30_EXPECTED, SOURCE_BUCKET, DESTINATION_BUCKET,
 } from "../lib/c5b-thumbnails.js";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 const src = (item, generation = "100", over = {}) => ({ name: `thumbnails/${item}.png`, generation, size: "10", md5Hash: `md5-${item}-${generation}`, crc32c: `crc-${item}-${generation}`, contentType: "image/png", updated: "2026-11-15T00:00:00Z", ...over });
 
@@ -26,7 +29,7 @@ const fakeStorage = ({ sources, script = {} }) => {
       assert.ok(req.sourceGeneration, "ifSourceGenerationMatch is always sent");
       const s = script[req.name] ?? {};
       if (s.transient?.length) return { status: s.transient.shift() };
-      if (req.rewriteToken && s.refuseTokens === "once" && !s.refused) { s.refused = true; return { status: 400 }; }
+      if (req.rewriteToken && s.refuseTokens === "once" && !s.refused) { s.refused = true; return { status: s.refuseStatus ?? 400 }; }
       if (req.rewriteToken && (s.refuseTokens === true || !tokens.has(req.rewriteToken))) return { status: 400 };
       const current = sources.get(req.source);
       if (!current || current.generation !== req.sourceGeneration) return { status: 412 };
@@ -213,4 +216,61 @@ test("the Step 30 edit on an already-granted policy, and applied twice, adds not
   assert.equal(edited.bindings.length, 4, "duplicate role bindings are merged");
   assert.ok(edited.bindings.every(b => new Set(b.members).size === b.members.length));
   assert.throws(() => editBucketPolicy({ bindings: [{ role: "roles/storage.objectViewer", members: ["allUsers"], condition: { expression: "true" } }] }, STEP30_EDIT), /conditional binding/);
+});
+
+// The #428 review.
+test("an expired rewrite token (410) restarts the rewrite, within the bound", async () => {
+  const listing = [src("a")];
+  const storage = fakeStorage({ sources: sourcesOf(listing), script: { "a.png": { doneAfter: 2, refuseTokens: "once", refuseStatus: 410 } } });
+  const r = await copyEntry({ entry: PLAN(listing).entries[0], storage });
+  assert.equal(r.outcome, "created");
+  assert.equal(r.restarts, 1);
+  assert.deepEqual(storage.calls.map(c => c.rewriteToken), [null, "tok-a.png-1", null, "tok-a.png-1"]);
+});
+
+test("verify never passes a plan with unresolved problems", async () => {
+  const listing = [src("a")];
+  const plan1 = PLAN(listing);
+  const storage = fakeStorage({ sources: sourcesOf(listing) });
+  const copy = await runCopy({ plan: plan1, storage });
+  // The reviewer's case: an amended plan that recorded a rejected source name.
+  const plan2 = amendPlan({ plan: plan1, copies: [copy], listing: [...listing, { ...src("b"), name: "thumbnails/sub/b.png" }] });
+  assert.equal(plan2.problems.length, 1);
+  const r = verifyPlan({ ...verifyInputs(plan2, storage, { copies: [copy] }) });
+  assert.equal(r.ok, false);
+  assert.match(r.problems[0], /^plan 2: not thumbnails\/\{item\}\.png: thumbnails\/sub\/b\.png$/);
+  assert.equal(verifyPlan(verifyInputs(plan1, storage, { copies: [copy] })).ok, true);
+});
+
+test("a manifest is created exclusively: a concurrent writer that wins is never overwritten", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "c5b-manifest-"));
+  const file = path.join(dir, "plan-1.json");
+  // The interleaving: another planner creates the name just before this write.
+  const racing = (f, data, options) => {
+    writeFileSync(f, JSON.stringify({ competingWriter: "must survive" }));
+    return writeFileSync(f, data, options);
+  };
+  assert.throws(() => writeManifestOnce(file, { number: 1 }, { writeFileSync: racing }), /exists; manifests are never overwritten/);
+  assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), { competingWriter: "must survive" });
+  // Uncontended: created once; a second write is refused, the first kept.
+  const other = path.join(dir, "plan-2.json");
+  writeManifestOnce(other, { number: 2 });
+  assert.throws(() => writeManifestOnce(other, { number: 99 }), /never overwritten/);
+  assert.equal(JSON.parse(readFileSync(other, "utf8")).number, 2);
+});
+
+test("the exact read-back refuses a conditional binding, even with the approved members", () => {
+  const expected = { etag: "CAE=", bindings: structuredClone(STEP30_EXPECTED) };
+  assert.equal(policyCheck(expected).same, true);
+  // The reviewer's case: Broker restricted to probe names passes the probes but not real publications.
+  const probesOnly = structuredClone(expected);
+  probesOnly.bindings.find(b => b.role === "roles/storage.objectUser").condition = { title: "probes-only", expression: "resource.name.startsWith(\"projects/_/buckets/graffiticode-thumbnails/objects/c5b-probe/\")" };
+  const r = policyCheck(probesOnly);
+  assert.equal(r.same, false);
+  assert.deepEqual(r.conditional, ["roles/storage.objectUser"]);
+  assert.ok(normalizedBindings(probesOnly).find(b => b.role === "roles/storage.objectUser").condition);
+  // A conditional duplicate beside the unconditional grant fails too.
+  const extra = structuredClone(expected);
+  extra.bindings.push({ ...probesOnly.bindings.find(b => b.role === "roles/storage.objectUser") });
+  assert.equal(policyCheck(extra).same, false);
 });
