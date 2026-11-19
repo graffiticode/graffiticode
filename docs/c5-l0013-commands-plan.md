@@ -702,7 +702,7 @@ Each gets its own detailed slices after C5a.
   - Both `l0013-run` and `l0013r-run` lose `objectAdmin` on `graffiticode.appspot.com`, in one change.
   - A check confirms that neither can write either bucket: `get-iam-policy` on both buckets, plus a denied test write.
   - Neither ever held a grant on `graffiticode-thumbnails`.
-- **C5d The snapshot as a command, and the switch.**
+- **C5d The snapshot as a command, and the switch** (detailed in [`c5d-snapshot-commands-plan.md`](c5d-snapshot-commands-plan.md): the L0013 interpreter declaration, direct uploads refused by configuration with `forbiddenEnv`, an isolated staged drive, the api's registry-9 floor, catch-up, and each step's verification and rollback).
   - **What ships** (the compiler side shipped in C5a slice 6):
     - an L0013 interpreter declaration (Track C);
     - the api's `scopes` capability in production.
