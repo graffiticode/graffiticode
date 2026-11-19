@@ -2141,7 +2141,7 @@ gcloud iam service-accounts add-iam-policy-binding console-run@graffiticode-app.
 - **`canary-window-c5a`** is left to expire on its condition at 2026-11-19T03:57:32Z, unextended.
 - **Record:** `docs/evidence/c5a-authorization/retirement/` (a snapshot before deletion and `verification.json`).
 
-### Step 30: the thumbnails bucket (C5b) [PROPOSED; held for approval]
+### Step 30: the thumbnails bucket (C5b) [LIVE 2026-11-19]
 
 C5b slice 2 ([`docs/c5b-thumbnails-bucket-plan.md`](c5b-thumbnails-bucket-plan.md)): Broker's production thumbnail bucket. Nothing reads or writes it until C5d. Production admits no v3 capture command (no `COMMANDS_L0013` or `COMMAND_SCOPES`), `l0013r` keeps uploading to `graffiticode.appspot.com`, and the console keeps reading there. Checked 2026-11-18: `gs://graffiticode-thumbnails` answers 404, and org policy allows a public bucket (`iam.allowedPolicyMemberDomains` allows all; `storage.publicAccessPrevention` isn't enforced for the project).
 
@@ -2193,6 +2193,18 @@ node scripts/c5b/bucket-policy.js check policy-after.json   # exits 1 unless exa
 4. **Cleanup:** after the anonymous checks, the operator removes `c5b-probe/<run>/a.png` explicitly (`gcloud storage rm`). The bucket then lists no objects. The probe output, without tokens, goes to `docs/evidence/c5b/step30/`.
 
 **Rollback:** `gcloud storage rm -r gs://graffiticode-thumbnails`. Before slice 3's copy it is empty, and nothing reads it until C5d.
+
+**Applied 2026-11-19 (owner-approved).** Evidence: [`docs/evidence/c5b/step30/`](evidence/c5b/step30/).
+1. **Created** at 01:04:57Z from main `02c85d4f`. The settings read back exactly as expected.
+2. **IAM:** written under etag `CAE=`, read back at `CAI=`. `bucket-policy.js check` reported `same: true`, with no conditions: exactly the four bindings above.
+3. **Probes** at `r11190108`, all as expected:
+   - `broker-run`: 200, 200, 412, 200, 200, 204, 403;
+   - `policy-run` and `l0013r-run`: 403;
+   - anonymous: `a-read` 200, `b-read` 404, `list-json` 401, `list-xml` 403.
+4. **Cleanup:**
+   - `a.png` was removed and the bucket has 0 objects. Three probe generations remain soft-deleted until 2026-11-26: the log's "8" is annotated to 3, with the raw inventory.
+   - The jobs were deleted.
+   - A cached anonymous 200 for the deleted probe object came from the public default `max-age=3600`. The bucket answered 404.
 
 ### Step 31: Broker's thumbnail bucket (C5b) [PROPOSED; held for approval]
 

@@ -1,0 +1,18 @@
+{
+  "creation_time": "2026-11-19T01:04:57+0000",
+  "default_storage_class": "STANDARD",
+  "generation": 1795050296759406136,
+  "location": "US",
+  "location_type": "multi-region",
+  "metageneration": 2,
+  "name": "graffiticode-thumbnails",
+  "public_access_prevention": "inherited",
+  "rpo": "DEFAULT",
+  "soft_delete_policy": {
+    "effectiveTime": "2026-11-19T01:04:57.046000+00:00",
+    "retentionDurationSeconds": "604800"
+  },
+  "storage_url": "gs://graffiticode-thumbnails/",
+  "uniform_bucket_level_access": true,
+  "update_time": "2026-11-19T01:05:12+0000"
+}

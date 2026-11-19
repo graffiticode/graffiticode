@@ -1,0 +1,32 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "projectOwner:graffiticode"
+      ],
+      "role": "roles/storage.legacyBucketOwner"
+    },
+    {
+      "members": [
+        "projectOwner:graffiticode"
+      ],
+      "role": "roles/storage.legacyObjectOwner"
+    },
+    {
+      "members": [
+        "allUsers"
+      ],
+      "role": "roles/storage.legacyObjectReader"
+    },
+    {
+      "members": [
+        "serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com"
+      ],
+      "role": "roles/storage.objectUser"
+    }
+  ],
+  "etag": "CAI=",
+  "kind": "storage#policy",
+  "resourceId": "projects/_/buckets/graffiticode-thumbnails",
+  "version": 1
+}

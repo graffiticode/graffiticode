@@ -1,0 +1,1 @@
+ERROR: (gcloud.storage.buckets.describe) gs://graffiticode-thumbnails not found: 404.

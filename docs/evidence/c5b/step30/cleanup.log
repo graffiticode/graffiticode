@@ -1,0 +1,9 @@
+....
+thumbnails objects (all versions): 0
+staging c5b-probe objects: 0
+soft-deleted in thumbnails: 8
+Deleted job [c5b-bucket-probe-broker].
+Deleted job [c5b-bucket-probe-policy].
+Deleted job [c5b-bucket-probe-l0013r].
+no c5b probe jobs remain
+a.png anonymous after cleanup: 200
