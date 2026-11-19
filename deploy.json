@@ -380,7 +380,7 @@
         "BROKER_MIN_CONTRACT_VERSION": "2",
         "SYSTEM_SESSION_MAX_SIGNINGS": "4",
         "BROKER_PREVIEW_CONNECTIONS": "{\"learnosity\":\"conn-d9afcb13-cff3-43a6-8041-c44989bf689c\"}",
-        "THUMBNAIL_BUCKET": "graffiticode-c5a-gate",
+        "THUMBNAIL_BUCKET": "graffiticode-thumbnails",
         "COMMAND_STAGING_BUCKET": "graffiticode-command-staging"
       },
       "smoke": [
