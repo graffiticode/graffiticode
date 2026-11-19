@@ -578,10 +578,16 @@ test("every api entry in the repository's deploy.json sets COMMAND_SCOPES or rem
     assert.ok(set || (s.removeEnv ?? []).includes("COMMAND_SCOPES"), `${name}: COMMAND_SCOPES is neither set nor in removeEnv`);
     if (s.env?.COMMANDS_L0013 === "on") assert.equal(s.env.COMMAND_SCOPES, "on", `${name}: COMMANDS_L0013=on needs COMMAND_SCOPES=on`);
   }
-  // Production runs no v3 command until C5d.
-  assert.equal(raw.services.api.env.COMMAND_SCOPES, undefined);
-  assert.equal(raw.services.api.env.COMMANDS_L0013, undefined);
-  assert.deepEqual(raw.services.api.removeEnv, ["COMMAND_SCOPES"]);
+  // C5d activation step 1 (docs/c5d-snapshot-commands-plan.md): production's L0013 commands
+  // come on together with scopes, the interpreter and its compile generation, the bridge
+  // left on, and only above the C5d-v9 floor (decision 4).
+  const api = raw.services.api;
+  assert.deepEqual(
+    [api.env.COMMANDS_L0013, api.env.COMMAND_SCOPES, api.env.INTERPRETER_L0013, api.env.COMPILE_GENERATION_L0013, api.env.BRIDGE_L0013],
+    ["on", "on", "on", "c5d-1", undefined]);
+  assert.equal(api.removeEnv, undefined);
+  assert.ok(api.baselines.some(b => b.milestone === "C5d-v9" && b.commit === "3b6b4a50d25d5d7ed8f510c51b68483c71202f78" && b.floor === true),
+    "the api's L0013 commands need the C5d-v9 floor");
 });
 
 // B6 slice 5 (the owner's review of #389): before any repair exists, Policy's
