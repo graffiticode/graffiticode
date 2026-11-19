@@ -1,0 +1,58 @@
+TAP version 13
+# Subtest: contract v1: status reports the version, unfenced
+ok 1 - contract v1: status reports the version, unfenced
+  ---
+  duration_ms: 616.737
+  type: 'test'
+  ...
+# Subtest: before the fence: ordinary writes work and migration operations are refused
+ok 2 - before the fence: ordinary writes work and migration operations are refused
+  ---
+  duration_ms: 5293.820875
+  type: 'test'
+  ...
+# Subtest: the fence refuses every ordinary write; reads keep working
+ok 3 - the fence refuses every ordinary write; reads keep working
+  ---
+  duration_ms: 2987.747458
+  type: 'test'
+  ...
+# Subtest: consume: single use, idempotent for its claim, refused for any other
+ok 4 - consume: single use, idempotent for its claim, refused for any other
+  ---
+  duration_ms: 1228.851333
+  type: 'test'
+  ...
+# Subtest: markMigrated: compare-and-set with three outcomes, visible on reads
+ok 5 - markMigrated: compare-and-set with three outcomes, visible on reads
+  ---
+  duration_ms: 968.147583
+  type: 'test'
+  ...
+# Subtest: revoke: idempotent, refuses a later mark, visible on reads
+ok 6 - revoke: idempotent, refuses a later mark, visible on reads
+  ---
+  duration_ms: 1049.126708
+  type: 'test'
+  ...
+# Subtest: inventory: the installation's tokens with their marks, and its clients, across pages
+ok 7 - inventory: the installation's tokens with their marks, and its clients, across pages
+  ---
+  duration_ms: 349.188916
+  type: 'test'
+  ...
+# Subtest: the seal hands revocation over: every migration operation is refused, reads keep working
+ok 8 - the seal hands revocation over: every migration operation is refused, reads keep working
+  ---
+  duration_ms: 827.691
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 13391.991834
