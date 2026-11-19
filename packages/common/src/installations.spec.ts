@@ -234,6 +234,49 @@ describe("the registry (I-1)", () => {
     expect(refused(() => parseInstallationRegistry(self))).toMatch(/also used by graffiticode/);
   });
 
+  it("accepts a previous version of an entry's own internal key during a rotation", () => {
+    const parsed = parseInstallationRegistry(registry(entry("graffiticode", 2, { internalKeyPrevious: "graffiticode-internal-api-key:1" })));
+    expect(parsed.installations.graffiticode.internalKey).toBe("graffiticode-internal-api-key:2");
+    expect(parsed.installations.graffiticode.internalKeyPrevious).toBe("graffiticode-internal-api-key:1");
+    expect(parseInstallationRegistry(graffiticodeOnly()).installations.graffiticode.internalKeyPrevious).toBeNull();
+  });
+
+  it("refuses a previous key that isn't another version of the entry's own internal key", () => {
+    const cases: [unknown, RegExp][] = [
+      // The same version as the current key.
+      [registry(entry("graffiticode", 1, { internalKeyPrevious: "graffiticode-internal-api-key:1" })), /is the current internalKey/],
+      // An otherwise unused name, unrelated to the current key's.
+      [registry(entry("graffiticode", 2, { internalKeyPrevious: "unrelated-key:1" })), /another version of internalKey's secret/],
+      [registry(entry("graffiticode", 1), entry("artcompiler", 2, { internalKeyPrevious: "unrelated-key:1" })), /another version of internalKey's secret/],
+      // Another installation's internal key.
+      [registry(entry("graffiticode", 1), entry("artcompiler", 2, { internalKeyPrevious: "graffiticode-internal-api-key:7" })), /another version of internalKey's secret/],
+      // The entry's own act-as secret: another purpose.
+      [registry(entry("graffiticode", 1, { internalKeyPrevious: "graffiticode-act-as-grant-secret:9" })), /another version of internalKey's secret/],
+      // Another installation's act-as secret.
+      [registry(entry("graffiticode", 1), entry("artcompiler", 2, { internalKeyPrevious: "graffiticode-act-as-grant-secret:9" })), /another version of internalKey's secret/],
+      // Unpinned.
+      [registry(entry("graffiticode", 1, { internalKeyPrevious: "graffiticode-internal-api-key" })), /pinned secret reference/],
+      [registry(entry("graffiticode", 1, { internalKeyPrevious: null })), /pinned secret reference/],
+    ];
+    for (const [doc, message] of cases) expect(refused(() => parseInstallationRegistry(doc))).toMatch(message);
+  });
+
+  it("refuses another installation reusing a name some entry rotates", () => {
+    // Artcompiler's current key can't take Graffiticode's name at any version.
+    const doc = registry(
+      entry("graffiticode", 2, { internalKeyPrevious: "graffiticode-internal-api-key:1" }),
+      entry("artcompiler", 2, { internalKey: "graffiticode-internal-api-key:3" }),
+    );
+    expect(refused(() => parseInstallationRegistry(doc))).toMatch(/also used by graffiticode/);
+  });
+
+  it("checks a previous key exists, given a lookup", () => {
+    const doc = registry(entry("graffiticode", 2, { internalKeyPrevious: "graffiticode-internal-api-key:1" }));
+    const known = new Set(["graffiticode-act-as-grant-secret:2", "graffiticode-internal-api-key:2"]);
+    expect(refused(() => parseInstallationRegistry(doc, { secretExists: ref => known.has(ref) })))
+      .toMatch(/internalKeyPrevious graffiticode-internal-api-key:1 does not exist/);
+  });
+
   it("refuses a reference to a missing secret, given a lookup", () => {
     const known = new Set(["graffiticode-act-as-grant-secret:1", "graffiticode-internal-api-key:1"]);
     expect(() => parseInstallationRegistry(graffiticodeOnly(), { secretExists: ref => known.has(ref) })).not.toThrow();

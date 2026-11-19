@@ -18,7 +18,8 @@
     "./caller": "./dist/caller.js",
     "./verified-tokens": "./dist/verified-tokens.js",
     "./act-as": "./dist/act-as.js",
-    "./installations": "./dist/installations.js"
+    "./installations": "./dist/installations.js",
+    "./installation-auth": "./dist/installation-auth.js"
   },
   "files": [
     "dist/**/*.js",
