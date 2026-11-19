@@ -2509,18 +2509,33 @@ Each step needs its own approval, after Steps 32 and 33. Before step 1:
 
      It runs the candidate checks and stops. The candidate keeps its tag and takes no traffic; the receipt is `staged`, and its `url` is the tag URL.
    - **On the tag, both must pass:**
+     1. **The 36-check canary,** as the scheduled canary *job* against the tag. This is the established invocation of every recorded 36/36 run on a staged api:
+        - B6's activation (`canary-nm5m7`, `docs/evidence/b6-repair-activation/README.md`, which gives the form);
+        - B6 slice 5 (`canary-tv796`, `docs/evidence/b6-repair/slice5-api-promote-evidence.json`, `canaryJob.args`);
+        - C5a (`canary-99xz2`, `docs/evidence/c5a/api-promote-evidence.json`).
 
-     ```bash
-     node scripts/canary.js --uid <canary uid> --connection <canary connection id> --api-url <the staged tag URL>   # 36/36
-     node scripts/canary.js --uid <canary uid> --snap <canary-owned item> --snap-only --api-url <the staged tag URL>
-     ```
+        ```bash
+        gcloud run jobs execute canary --region=us-central1 --project=graffiticode --wait \
+          --args=--uid,<canary uid>,--connection,<canary connection id>,--chain-admission,--after-cutover,--command,--l0185-tail,--api-url,<the staged tag URL>
+        ```
 
-     `--api-url` is the tag of `api` itself, so #441's rule accepts it.
-   - **The evidence,** `docs/evidence/c5d/activation/api-promote-evidence.json`, in the deploy CLI's format (`packages/deploy/README.md`, "Staging"):
+        - `--args` replaces the job's own container args (`--uid --connection --chain-admission --after-cutover`, `docs/protected-execution.md`, "Scheduled canary"), so every flag is given.
+        - **`--reconcile` isn't part of it:** neither the job's container args nor any recorded 36/36 run carries it, and it is the older acceptance run's flag (`docs/capability-policy-acceptance.md`).
+        - The job runs as `canary-run`, which already mints the console's and the gateway's tokens.
+        - Run it between the scheduled runs (`23 */6 * * *` UTC), as B6's activation did.
+     2. **The snapshot check,** separately, by the operator:
+
+        ```bash
+        node scripts/canary.js --uid <canary uid> --snap <canary-owned item> --snap-only --api-url <the staged tag URL>
+        ```
+
+        `--api-url` is the tag of `api` itself, so #441's rule accepts it.
+   - **The evidence,** `docs/evidence/c5d/activation/api-promote-evidence.json`, in the deploy CLI's format (`packages/deploy/README.md`, "Staging"), as slice 5's:
      - `service: "api"`, the staged `release` and `revision`, `networkHash: null`;
-     - `corpus`: the canary's run (`ranAt`, `tasks: 36`, `failures: 0`), after `stagedAt`;
+     - `corpus`: the job's run (`ranAt`, `tasks: 36`, `failures: 0`), after `stagedAt`;
      - `refusals: []`, and a `reviewer`;
-     - `notes`: the canary's output and the `--snap` run's five passing checks, with its command id.
+     - `notes.canaryJob`: `{ execution: "canary-<id>", apiUrl: "<the staged tag URL>", args: "--chain-admission --after-cutover --command --l0185-tail", checks: 36, failed: 0 }`;
+     - `notes.snap`: the `--snap` run's five passing checks, with its command id.
 
      Written only if both runs passed.
    - **Promoted, with that evidence:**

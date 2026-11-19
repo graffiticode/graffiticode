@@ -166,7 +166,7 @@ const passing = () => {
       commands: [{ commandId: ids["first-private"], invocationId: "inv-1" }, { commandId: ids["drop-outcome"], invocationId: "inv-2" }, { commandId: ids.newer, absent: true }],
       claimsByInvocation: { "inv-1": ["inv-1/s0/o1"], "inv-2": ["inv-2/s0/o1"] },
       queries: [{ query: "broker-c5d-drive: inv-1", count: 2, limit: 1000 }, { query: "broker: inv-2", count: 2, limit: 1000 }],
-      poll: { attempts: 1, timedOut: false },
+      poll: { attempts: 22, timedOut: false, observedMs: 5 * 60_000, recollected: true },
       brokerAudit: [
         { service: DRIVE.broker, event: "execute", invocationId: "inv-1", opid: "inv-1/s0/o1" },
         { service: DRIVE.broker, event: "execute-step", invocationId: "inv-2", opid: "inv-2/s0/o1", step: "publish" },
@@ -561,16 +561,15 @@ test("the command inventory: the plan's ids, every journaled request, every mani
       j("first-public.json", { kind: "anonymous", commandId: null }),
       j("first-public.id.json", { commandId: anonId }),
       j("rate-limit-13.json", { kind: "anonymous", commandId: null }),
-      j("rate-limit-13.id.json", { commandId: null }),
+      j("rate-limit-13.id.json", { commandId: null, noAllocation: { kind: "refusal", status: 400, reason: "bad-request" } }),
       j("rate-limit-14.json", { kind: "anonymous", commandId: null }),
-      j("non-owner.json", { kind: "non-owner", commandId: null }),
-      j("non-owner.id.json", { commandId: nonOwnerId }),
+      j("non-owner.json", { kind: "keyed", uid: "someone", commandId: nonOwnerId }),
       j("canary-snap.json", { kind: "canary", commandId: T.ids["canary-snap"] }),
     ],
     manifests: [{ observations: { anything: { deep: [manifestId] } } }],
   });
   for (const id of [...Object.values(T.ids), anonId, nonOwnerId, manifestId]) assert.ok(inv.commandIds.includes(id), id);
-  assert.deepEqual(inv.unresolvedIntents, ["rate-limit-14.json"], "answered with no command is resolved; never answered isn't");
+  assert.deepEqual(inv.unresolvedIntents, ["rate-limit-14.json"], "a refusal before allocation resolves; never answered doesn't");
   // The canary's id is planned from the run id canary.js is given.
   assert.equal(T.ids["canary-snap"], commandIdFor(UID, `canary:${T.canaryRunId}:snap`));
   assert.match(T.canaryRunId, /^[a-z0-9]{4,40}$/);
@@ -721,4 +720,119 @@ test("Step 34 stages the api with --stage and promotes it only with the canary's
   // Step 32 keeps both deletions.
   const step32 = doc.slice(doc.indexOf("### Step 32:"), doc.indexOf("### Step 33:"));
   assert.equal((step32.match(/gcloud storage rm 'gs:\/\/graffiticode-command-staging\//g) ?? []).length, 2);
+});
+
+// ------------------------------------------------- #446 second review
+
+// Finding 1: the owner's reproduction, and what counts as proof of no allocation.
+test("an ambiguous answer never resolves an intent: only an id, a refusal before allocation, or Policy's records do", () => {
+  const known = "c:" + "1".repeat(64);
+  const hidden = "c:" + "2".repeat(64);
+  const j = (file, value) => ({ file, value });
+  // The reproduction: a 500 after allocation, recorded as { commandId: null }.
+  const repro = C.inventory({ plan: { ids: { known } }, journal: [j("rate-limit-1.json", { kind: "anonymous", commandId: null }), j("rate-limit-1.id.json", { commandId: null })], manifests: [] });
+  assert.deepEqual(repro.unresolvedIntents, ["rate-limit-1.json"]);
+  const cleanup = judgePhase("cleanup", { commands: [{ commandId: known, status: "completed" }], due: [hidden], unresolvedIntents: repro.unresolvedIntents });
+  assert.equal(cleanup.passed, false);
+  assert.match(cleanup.checks.find(c => c.id === "terminal").detail, /no recorded command id: rate-limit-1.json/);
+  // An ambiguous answer's evidence file isn't a resolution.
+  const ambiguous = C.inventory({ plan: { ids: {} }, journal: [j("a-1.json", { kind: "anonymous", commandId: null }), j("a-1.ambiguous.json", { status: 500, body: null })], manifests: [] });
+  assert.deepEqual(ambiguous.unresolvedIntents, ["a-1.json"]);
+  // What an answer proves.
+  const id = "c:" + "3".repeat(64);
+  assert.deepEqual(C.answerResolution({ status: 200, body: {}, commandId: id }), { commandId: id });
+  for (const answer of [
+    { status: 500, body: null },
+    { status: 503, body: { error: { reason: "unavailable" } } },
+    { status: 200, body: "not json" },
+    { status: 403, body: { error: { reason: "rate-limited" } } },
+    { status: 403, body: { error: { reason: "not-owner" } } },
+    { status: 404, body: { error: { reason: "task-not-found" } } },
+    { status: null, body: null },
+  ]) assert.equal(C.answerResolution(answer), null, JSON.stringify(answer));
+  for (const reason of C.PRE_ALLOCATION_REFUSALS) {
+    const r = C.answerResolution({ status: 403, body: { error: { reason } } });
+    assert.deepEqual(r, { commandId: null, noAllocation: { kind: "refusal", status: 403, reason } });
+    assert.deepEqual(C.inventory({ plan: { ids: {} }, journal: [j("b.json", { kind: "anonymous", commandId: null }), j("b.id.json", r)], manifests: [] }).unresolvedIntents, []);
+  }
+  // A forged noAllocation (a 5xx, or an unlisted reason) doesn't resolve.
+  for (const noAllocation of [{ kind: "refusal", status: 500, reason: "bad-request" }, { kind: "refusal", status: 403, reason: "rate-limited" }, { kind: "policy-records", found: 1 }]) {
+    assert.deepEqual(C.inventory({ plan: { ids: {} }, journal: [j("b.json", { kind: "anonymous" }), j("b.id.json", { commandId: null, noAllocation })], manifests: [] }).unresolvedIntents, ["b.json"]);
+  }
+});
+
+test("Policy's records resolve an ambiguous anonymous request: one command in its window is it, none proves nothing was allocated, more stay unresolved", () => {
+  const base = { taskId: "task-1", sentAt: at(10), answeredAt: at(12), anonymousSubject: "anonymous" };
+  const cmd = (n, s, extra = {}) => ({ commandId: "c:" + String(n).repeat(64), uid: "anonymous", taskId: "task-1", createdAt: at(s), ...extra });
+  assert.equal(C.recordsResolution({ ...base, commands: [cmd(4, 11)] }).commandId, cmd(4, 11).commandId);
+  const none = C.recordsResolution({ ...base, commands: [cmd(4, 30), cmd(5, 11, { uid: UID }), cmd(6, 11, { taskId: "task-2" })] });
+  assert.deepEqual([none.commandId, none.noAllocation.kind, none.noAllocation.found], [null, "policy-records", 0]);
+  assert.equal(C.recordsResolution({ ...base, commands: [cmd(4, 11), cmd(5, 12)] }), null);
+  assert.equal(C.recordsResolution({ ...base, sentAt: "garbage", commands: [] }), null);
+  const j = (file, value) => ({ file, value });
+  assert.deepEqual(C.inventory({ plan: { ids: {} }, journal: [j("a.json", { kind: "anonymous" }), j("a.id.json", none)], manifests: [] }).unresolvedIntents, []);
+  assert.equal(C.ANONYMOUS_SUBJECT, "anonymous");
+});
+
+// Finding 2: the owner's reproduction: the controls first, the violation later.
+test("audit polling watches past coverage for the observation period and judges a full recollection: a late production execute fails", async () => {
+  const b = passing().boundary;
+  const ops = Object.values(b.claimsByInvocation).flat();
+  const lateViolation = { service: "broker", event: "execute", invocationId: "inv-1", opid: ops[0] };
+  let t = 0;
+  let reads = 0;
+  // Covered on the first read; the violation is ingested two minutes later.
+  const read = async () => {
+    reads++;
+    return [{ query: "all", count: 5, limit: 1000, entries: t < 120_000 ? b.brokerAudit : [...b.brokerAudit, lateViolation] }];
+  };
+  const { value, poll } = await C.observeAudit({ read, covered: C.auditCovered(ops), timeoutMs: 60_000, intervalMs: 15_000, now: () => t, sleep: async ms => { t += ms; } });
+  assert.ok(reads > 2, "kept reading after coverage");
+  assert.equal(poll.observedMs >= C.AUDIT_OBSERVATION_MS, true);
+  assert.equal(poll.recollected, true);
+  const observed = { ...b, queries: value.map(({ entries, ...q }) => q), brokerAudit: value.flatMap(q => q.entries), poll };
+  const judged = judgePhase("boundary", observed);
+  assert.equal(judged.passed, false);
+  assert.match(judged.checks.find(c => c.id === "drive-broker-executes").detail, /executes by broker/);
+  // Without the violation, the same observation passes.
+  let u = 0;
+  const clean = await C.observeAudit({ read: async () => [{ query: "all", count: 4, limit: 1000, entries: b.brokerAudit }], covered: C.auditCovered(ops), timeoutMs: 60_000, now: () => u, sleep: async ms => { u += ms; } });
+  assert.equal(judgePhase("boundary", { ...b, poll: clean.poll }).passed, true);
+  // A poll that stopped at coverage, or wasn't recollected, fails.
+  assert.match(failsOnly("boundary", { ...clone(b), poll: { attempts: 1, timedOut: false } }, "audit-complete"), /watched .* after coverage/);
+  assert.match(failsOnly("boundary", { ...clone(b), poll: { ...b.poll, recollected: false } }, "audit-complete"), /recollected/);
+  // Never covered: timed out.
+  let v = 0;
+  const never = await C.observeAudit({ read: async () => [{ entries: [] }], covered: C.auditCovered(ops), timeoutMs: 60_000, intervalMs: 15_000, now: () => v, sleep: async ms => { v += ms; } });
+  assert.equal(never.poll.timedOut, true);
+  assert.ok(C.AUDIT_OBSERVATION_MS >= 180_000, "at least the C5a gate's ingestion bound");
+});
+
+// Finding 3: Step 34's canary is the established 36-check job invocation.
+test("Step 34's canary is the job against the tag with every flag of the established 36/36 invocation, the snap check apart", () => {
+  const doc = readFileSync(new URL("../../docs/capability-policy-iam-review.md", import.meta.url), "utf8");
+  const step34 = doc.slice(doc.indexOf("### Step 34:"), doc.indexOf("## 4. Verification"));
+  const established = readFileSync(new URL("../../docs/evidence/b6-repair-activation/README.md", import.meta.url), "utf8");
+  const argsOf = text => {
+    const m = /gcloud run jobs execute canary[^`]*?--args=([^\n`]+)/.exec(text);
+    assert.ok(m, "no gcloud run jobs execute canary --args=... in the text");
+    return m[1].split(",");
+  };
+  const flagsOf = list => list.filter(a => a.startsWith("--"));
+  const wanted = flagsOf(argsOf(established));
+  assert.deepEqual(wanted, ["--uid", "--connection", "--chain-admission", "--after-cutover", "--command", "--l0185-tail", "--api-url"]);
+  const documented = argsOf(step34);
+  for (const f of wanted) assert.ok(documented.includes(f), `Step 34's canary lacks ${f}`);
+  assert.equal(documented[documented.indexOf("--api-url") + 1], "<the staged tag URL>");
+  const slice5 = JSON.parse(readFileSync(new URL("../../docs/evidence/b6-repair/slice5-api-promote-evidence.json", import.meta.url), "utf8"));
+  for (const f of slice5.notes.canaryJob.args.split(" ")) assert.ok(documented.includes(f), `lacks slice 5's ${f}`);
+  assert.ok(step34.includes("`notes.canaryJob`: `{ execution: \"canary-<id>\", apiUrl: \"<the staged tag URL>\", args: \"--chain-admission --after-cutover --command --l0185-tail\", checks: 36, failed: 0 }`"));
+  // The snap check stays separate, and no bare canary.js run stands for the 36 checks.
+  assert.ok(step34.includes("node scripts/canary.js --uid <canary uid> --snap <canary-owned item> --snap-only --api-url <the staged tag URL>"));
+  assert.ok(!step34.includes("node scripts/canary.js --uid <canary uid> --connection"));
+});
+
+test("the quota check says a window-edge failure needs a fresh run", () => {
+  const o = { ...clone(passing()["rate-limit"]), allowed: 12, refused: 1 };
+  assert.match(failsOnly("rate-limit", o, "quota"), /fresh run/);
 });

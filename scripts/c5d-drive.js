@@ -73,6 +73,13 @@
 //   canary-snap      runner: scripts/canary.js --snap against api-c5d-drive,
 //                    with the planned --run-id; its command id is journaled
 //                    before, and parsed from its output after.
+//   resolve-journal  runner, read-only: each anonymous request whose answer
+//                    was ambiguous (a 5xx, a network error, an unparseable
+//                    body) is resolved from Policy's command records: the
+//                    anonymous commands for its task created while it was in
+//                    flight. One is its command; none proves nothing was
+//                    allocated; more than one stays unresolved (and cleanup
+//                    fails until someone resolves it).
 //   boundary         runner, read-only: every inventoried command (plan,
 //                    journal, manifests), each invocation's Broker claims, and
 //                    Broker's audit polled until every claim has its execute
@@ -86,7 +93,9 @@
 // call the private api-c5d-drive as the console does) and on api-run (Policy's
 // gateway reads and l0013r-c5d-drive's direct compile). Policy's and Broker's
 // databases, Cloud Logging and the buckets are read with the operator's own
-// credentials. Phases a non-owner needs read C5D_NON_OWNER_TOKEN.
+// credentials. The non-owner phase reads C5D_NON_OWNER_TOKEN and takes that
+// user's uid (--non-owner-uid), so its command id is known, and journaled,
+// before the request.
 
 import { mkdirSync, readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -96,8 +105,8 @@ import { writeManifestOnce } from "./lib/c5b-thumbnails.js";
 import {
   DRIVE, FIXTURES, STAGING_BUCKET, PUBLIC_CAPTURE_LIMIT, driveTargets, driveNamesProblem, driveUrlProblem, judgePhase, verdict,
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
-  latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, inventory, isTerminal, reconcilePoll,
-  priorPublicCaptures, policyFixtureClient,
+  latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
+  priorPublicCaptures, policyFixtureClient, answerResolution, recordsResolution, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
 } from "./lib/c5d-drive-checks.js";
 
 const args = process.argv.slice(2);
@@ -106,7 +115,7 @@ const flag = (name, fallback = null) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 const PHASE_NAMES = ["plan", "checks", "baseline", "first-capture", "direct-refused", "exit-after-reserve", "exit-after-stage", "drop-outcome", "drop-outcome-retry",
-  "stale-worker", "staging-gone", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap", "boundary", "cleanup", "judge"];
+  "stale-worker", "staging-gone", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap", "resolve-journal", "boundary", "cleanup", "judge"];
 const phase = flag("--phase");
 if (!PHASE_NAMES.includes(phase)) {
   console.error(`usage: c5d-drive.js --phase <${PHASE_NAMES.join("|")}> --run <id> [flags]`);
@@ -234,7 +243,8 @@ const finish = extra => {
 };
 // One write-once journal entry per request, before it is sent.
 const journal = (name, value) => writeManifestOnce(path.join(journalDir, journalName(name)), { at: new Date().toISOString(), ...value });
-const journalId = (name, commandId) => writeManifestOnce(path.join(journalDir, journalIdName(name)), { at: new Date().toISOString(), commandId });
+// A resolution: { commandId } or { commandId: null, noAllocation } (c5d-drive-checks.js).
+const journalId = (name, resolution) => writeManifestOnce(path.join(journalDir, journalIdName(name)), { at: new Date().toISOString(), ...resolution });
 
 // The operator's reads.
 let operatorToken;
@@ -353,12 +363,24 @@ const command = async ({ name, task, user, connection = null }) => {
 // so the intent is journaled first and the id after; one never answered
 // stays an unresolved intent, which fails cleanup.
 const anonymousCompile = async (name, task) => {
-  journal(name, { kind: "anonymous", task, commandId: null });
-  const res = await http({ method: "POST", url: `${apiUrl}/compile`, headers: await asConsole(null), body: { id: task } });
-  const commandId = (res.json?.data ?? res.json)?.command?.commandId ?? null;
-  // Answered: its id, or null for an answer that allocated nothing.
-  journalId(name, commandId);
-  return { status: res.status, commandId };
+  const sentAt = new Date().toISOString();
+  journal(name, { kind: "anonymous", task, commandId: null, sentAt });
+  let res = null;
+  let failure = null;
+  try {
+    res = await http({ method: "POST", url: `${apiUrl}/compile`, headers: await asConsole(null), body: { id: task } });
+  } catch (e) {
+    failure = String(e?.message ?? e).slice(0, 300);
+  }
+  const answeredAt = new Date().toISOString();
+  const commandId = (res?.json?.data ?? res?.json)?.command?.commandId ?? null;
+  // Resolved only by its id or a refusal before allocation; anything else
+  // (a 5xx, a network error, an unparseable body) stays unresolved, its
+  // answer kept, until Policy's records resolve it (--phase resolve-journal).
+  const resolution = res ? answerResolution({ status: res.status, body: res.json, commandId }) : null;
+  if (resolution) journalId(name, { ...resolution, status: res.status });
+  else writeManifestOnce(path.join(journalDir, journalAmbiguousName(name)), { task, sentAt, answeredAt, status: res?.status ?? null, failure, body: res?.json ?? null });
+  return { status: res?.status ?? null, commandId };
 };
 // Policy's gateway routes (canary-window-c5d covers api-run).
 const asGateway = async () => ({
@@ -662,11 +684,16 @@ if (phase === "mixed") {
 if (phase === "non-owner") {
   const token = process.env.C5D_NON_OWNER_TOKEN;
   if (!token) throw new Error("set C5D_NON_OWNER_TOKEN to a non-owner's access token");
-  // Another user's command: its id is that user's, known once answered.
-  journal("non-owner", { kind: "non-owner", commandId: null });
-  const res = await http({ method: "POST", url: `${apiUrl}/command`, headers: await asConsole(token), body: { id: need("--private-task"), idempotencyKey: `${key("first-private")}:non-owner` } });
+  // Another user's keyed command: its id is computable from that user's uid,
+  // so it is journaled before the request, and cleanup reads its record
+  // whatever the answer was (an absent record: Policy allocated nothing).
+  const nonOwnerUid = need("--non-owner-uid");
+  const nonOwnerKey = `${key("first-private")}:non-owner`;
+  const expectedId = commandIdFor(nonOwnerUid, nonOwnerKey);
+  journal("non-owner", { kind: "keyed", uid: nonOwnerUid, key: nonOwnerKey, commandId: expectedId });
+  const res = await http({ method: "POST", url: `${apiUrl}/command`, headers: await asConsole(token), body: { id: need("--private-task"), idempotencyKey: nonOwnerKey } });
   const other = { status: res.status, commandId: res.json?.data?.commandId ?? null, outcome: res.json?.data?.outcome ?? null, reason: res.json?.data?.reason ?? res.json?.error?.reason ?? null };
-  journalId("non-owner", other.commandId);
+  if (other.commandId && other.commandId !== expectedId) throw new Error(`the non-owner's command is ${other.commandId}, not ${expectedId}: is --non-owner-uid C5D_NON_OWNER_TOKEN's user?`);
   const record = other.commandId ? await doc("policy", `commands/${encodeURIComponent(other.commandId)}`) : { absent: true };
   observations.status = other.status;
   observations.outcome = record.status ?? other.outcome;
@@ -720,6 +747,31 @@ if (phase === "canary-snap") {
   finish();
 }
 
+if (phase === "resolve-journal") {
+  const files = journalFiles();
+  const resolved = [];
+  for (const f of files.filter(x => x.endsWith(".ambiguous.json"))) {
+    const name = f.replace(/\.ambiguous\.json$/, "");
+    if (files.includes(journalIdName(name))) continue;
+    const answer = JSON.parse(readFileSync(path.join(journalDir, f), "utf8"));
+    // Policy's commands for the task (an equality query on one field).
+    const res = await http({
+      method: "POST",
+      url: `https://firestore.googleapis.com/v1/projects/${project}/databases/policy/documents:runQuery`,
+      headers: await asOperator(),
+      body: { structuredQuery: { from: [{ collectionId: "commands" }], where: { fieldFilter: { field: { fieldPath: "taskId" }, op: "EQUAL", value: { stringValue: answer.task } } }, select: { fields: ["commandId", "uid", "taskId", "createdAt"].map(fieldPath => ({ fieldPath })) } } },
+    });
+    if (res.status !== 200 || !Array.isArray(res.json)) throw new Error(`Policy's commands for ${answer.task}: ${res.status}`);
+    const commands = res.json.filter(r => r.document).map(r => decode({ mapValue: r.document }));
+    const resolution = recordsResolution({ taskId: answer.task, sentAt: answer.sentAt, answeredAt: answer.answeredAt, commands, anonymousSubject: ANONYMOUS_SUBJECT });
+    if (resolution) journalId(name, resolution);
+    resolved.push({ name, resolution });
+    console.log(`${name}: ${resolution ? JSON.stringify(resolution) : "still ambiguous (more than one anonymous command in its window)"}`);
+  }
+  observations.resolved = resolved;
+  finish();
+}
+
 if (phase === "boundary") {
   const { commandIds } = driveInventory();
   await collect("commands", async () => {
@@ -738,8 +790,11 @@ if (phase === "boundary") {
   });
   const from = plan.at;
   // Polled until every claimed operation has broker-c5d-drive's execute
-  // evidence (Cloud Logging ingests late), within the bound; every query's
-  // count is kept, so a truncated read fails the check.
+  // evidence (Cloud Logging ingests late), within the bound; then watched
+  // for AUDIT_OBSERVATION_MS more, and recollected whole over the drive's
+  // window: that last read is what's judged, so a violation ingested after
+  // the controls is in it. Every query's count is kept, so a truncated read
+  // fails the check.
   const ops = invocations.flatMap(inv => observations.claimsByInvocation?.[inv] ?? []);
   await collect("audit", async () => {
     const read = async () => {
@@ -747,9 +802,8 @@ if (phase === "boundary") {
       for (const service of [config.broker, "broker"]) for (const inv of invocations) queries.push(await auditQuery(service, `jsonPayload.invocationId="${inv}"`, from));
       return queries;
     };
-    const covered = qs => ops.every(op => qs.some(q => q.entries.some(e => e.opid === op && (e.event === "execute" || e.event === "execute-step") && e.service === config.broker)));
-    const { value, attempts, timedOut } = await pollUntil({ read, done: covered, timeoutMs: auditTimeoutMs, intervalMs: 15_000 });
-    return { queries: value, poll: { attempts, timedOut } };
+    const { value, poll } = await observeAudit({ read, covered: auditCovered(ops, config.broker), timeoutMs: auditTimeoutMs });
+    return { queries: value, poll };
   });
   observations.queries = (observations.audit?.queries ?? []).map(({ entries, ...q }) => q);
   observations.brokerAudit = (observations.audit?.queries ?? []).flatMap(q => q.entries);

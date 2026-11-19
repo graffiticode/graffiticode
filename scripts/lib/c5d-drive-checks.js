@@ -541,7 +541,12 @@ export const PHASES = Object.freeze({
       if (!Number.isSafeInteger(prior) || prior < 0 || prior >= PUBLIC_CAPTURE_LIMIT) return `the item's public captures in the window aren't readable, or leave no slot (${show(prior)})`;
       const remaining = PUBLIC_CAPTURE_LIMIT - prior;
       if (o.attempted !== remaining + 1) return `${show(o.attempted)} attempted, expected ${remaining + 1}`;
-      if (o.allowed !== remaining) return `${show(o.allowed)} allowed, expected ${remaining} (${prior} earlier in the window)`;
+      if (o.allowed !== remaining) {
+        // More allowed than counted: an earlier capture left the hour's window
+        // during the burst. That needs a fresh run, not an explanation.
+        const edge = o.allowed > remaining ? "; an earlier capture may have left the window during the burst: rerun the phase in a fresh run" : "";
+        return `${show(o.allowed)} allowed, expected ${remaining} (${prior} earlier in the window)${edge}`;
+      }
       if (o.refused !== 1 || o.refusedAfterQuota !== true) return `refused ${show(o.refused)}, after the quota ${show(o.refusedAfterQuota)}`;
       return true;
     }],
@@ -583,6 +588,10 @@ export const PHASES = Object.freeze({
       const bad = o.queries.filter(q => !Number.isSafeInteger(q.count) || !Number.isSafeInteger(q.limit) || q.count >= q.limit || q.nextPageToken);
       if (bad.length) return `audit queries truncated or unreadable: ${bad.map(q => q.query ?? "?").join("; ")}`;
       if (o.poll?.timedOut !== false) return `the audit poll ${o.poll?.timedOut ? "timed out before coverage" : "wasn't observed"}`;
+      // Watched past coverage for the whole observation period, then every
+      // record recollected over the drive's window (observeAudit).
+      if (!(Number.isFinite(o.poll.observedMs) && o.poll.observedMs >= AUDIT_OBSERVATION_MS)) return `the audit was watched ${show(o.poll.observedMs)} ms after coverage, less than ${AUDIT_OBSERVATION_MS}`;
+      if (o.poll.recollected !== true) return "the audit wasn't recollected over the whole window after the observation period";
       return true;
     }],
     ["drive-broker-executes", "every claimed operation of every drive invocation has broker-c5d-drive's execute evidence, and no execute or execute-step is any other Broker's", o => {
@@ -695,7 +704,7 @@ export const revisionService = revision => {
 // creation and never overwritten (a rerun writes its own). The two operator
 // pauses (`drop-outcome-retry`, `staging-gone-delete`) write their own.
 export const PLAN_FILE = "plan.json";
-export const STEP_PHASES = Object.freeze(["drop-outcome-retry", "staging-gone-delete"]);
+export const STEP_PHASES = Object.freeze(["drop-outcome-retry", "staging-gone-delete", "resolve-journal"]);
 export const stampOf = date => date.toISOString().replace(/[:.]/g, "-");
 export const phaseFile = (phase, stamp) => {
   if (!PHASES[phase] && !STEP_PHASES.includes(phase)) throw new Error(`no such phase ${phase}`);
@@ -728,17 +737,62 @@ export const baselineRefusal = ({ files, journal }) => {
 };
 
 // The journal: one write-once file per request, written before the request
-// is sent. A keyed request's command id is known then; an anonymous one's
-// (or a non-owner's) is written to its own `<name>.id.json` once answered.
+// is sent. A keyed request's command id is known then (the non-owner's too,
+// from its uid). An anonymous capture's key is the api's own, fresh per
+// compile (bridge.js), so its id is known only from an answer:
+//   <name>.id.json         a resolution: { commandId } or { commandId: null, noAllocation }
+//   <name>.ambiguous.json  an answer that resolves nothing (kept as evidence)
 export const journalName = name => {
   if (!/^[a-z0-9-]+$/.test(name)) throw new Error(`bad journal name ${name}`);
   return `${name}.json`;
 };
 export const journalIdName = name => `${name}.id.json`;
+export const journalAmbiguousName = name => `${name}.ambiguous.json`;
+
+// Policy's refusals before any command record is written (policy.ts
+// allocateCommand: each `deny` before `commands.allocate`), as the api
+// answers them, a 4xx naming the reason (routes/command.js `refused`).
+// `unavailable` is excluded: a 503 can't be told from a failure after
+// allocation. A rate limit (`rate-limited`) or an ownership refusal
+// (`not-owner`) comes after allocation, at reserve or admission, and its
+// answer names the command.
+export const PRE_ALLOCATION_REFUSALS = Object.freeze(["caller-not-entry-point", "bad-request", "no-user", "worker-unsupported", "idempotency-key-reused"]);
+const isRefusalBeforeAllocation = n => Boolean(n) && n.kind === "refusal" && Number.isInteger(n.status) && n.status >= 400 && n.status < 500 &&
+  PRE_ALLOCATION_REFUSALS.includes(n.reason);
+const isRecordsProofOfNone = n => Boolean(n) && n.kind === "policy-records" && n.found === 0 && typeof n.taskId === "string" &&
+  Number.isFinite(Date.parse(n.from ?? "")) && Number.isFinite(Date.parse(n.to ?? ""));
+
+// What an anonymous request's answer proves. { commandId } when it names its
+// command; { commandId: null, noAllocation } for a refusal before
+// allocation; null (ambiguous: a 5xx, a network error, an unparseable body,
+// any other answer) otherwise.
+export const answerResolution = ({ status = null, body = null, commandId = null }) => {
+  if (typeof commandId === "string" && /^c:[0-9a-f]{64}$/.test(commandId)) return { commandId };
+  const reason = body?.error?.reason;
+  const noAllocation = { kind: "refusal", status, reason };
+  return isRefusalBeforeAllocation(noAllocation) ? { commandId: null, noAllocation } : null;
+};
+
+// An ambiguous anonymous request, resolved from Policy's command records:
+// the anonymous commands for its task created between the request being sent
+// and answered (with `slackMs` each side). Exactly one is its command; none
+// proves it allocated nothing; more than one stays unresolved.
+export const recordsResolution = ({ taskId, sentAt, answeredAt, commands, anonymousSubject, slackMs = 5_000 }) => {
+  const from = Date.parse(sentAt) - slackMs;
+  const to = Date.parse(answeredAt) + slackMs;
+  if (!Number.isFinite(from) || !Number.isFinite(to) || !Array.isArray(commands)) return null;
+  const found = commands.filter(c => c.taskId === taskId && c.uid === anonymousSubject && Date.parse(c.createdAt) >= from && Date.parse(c.createdAt) <= to);
+  if (found.length === 1) return { commandId: found[0].commandId, resolvedBy: { kind: "policy-records", taskId, from: new Date(from).toISOString(), to: new Date(to).toISOString(), found: 1 } };
+  if (found.length === 0) return { commandId: null, noAllocation: { kind: "policy-records", taskId, from: new Date(from).toISOString(), to: new Date(to).toISOString(), found: 0 } };
+  return null;
+};
 
 // Every command the drive may have allocated: the plan's deterministic ids,
 // every journaled id, and every command id in a phase manifest. An intent
-// whose id was never recorded is reported, never dropped.
+// is resolved only by an id, or by authoritative evidence that it allocated
+// nothing (above); any other intent is reported, never dropped. A keyed
+// intent carries its id, which cleanup reads in Policy's records: an absent
+// record there is Policy's own proof that nothing was allocated.
 export const inventory = ({ plan, journal, manifests }) => {
   const ids = new Map();
   const add = (id, source) => {
@@ -748,14 +802,14 @@ export const inventory = ({ plan, journal, manifests }) => {
   const entries = new Map(journal.map(j => [j.file, j.value]));
   const unresolvedIntents = [];
   for (const [file, value] of entries) {
-    if (file.endsWith(".id.json")) continue;
+    if (file.endsWith(".id.json") || file.endsWith(".ambiguous.json")) continue;
+    if (typeof value?.commandId === "string") {
+      add(value.commandId, "journal");
+      continue;
+    }
     const answered = entries.get(file.replace(/\.json$/, ".id.json"));
-    // A keyed intent carries its planned id; another is resolved by its
-    // answer (an id, or null when the answer allocated nothing). An intent
-    // with neither may have allocated a command no one recorded.
-    const resolved = value?.commandId ?? answered?.commandId ?? null;
-    if (resolved) add(resolved, "journal");
-    else if (!answered) unresolvedIntents.push(file);
+    if (typeof answered?.commandId === "string") add(answered.commandId, "journal");
+    else if (!(isRefusalBeforeAllocation(answered?.noAllocation) || isRecordsProofOfNone(answered?.noAllocation))) unresolvedIntents.push(file);
   }
   const walk = v => {
     if (typeof v === "string") add(v, "manifest");
@@ -807,3 +861,48 @@ export const policyFixtureClient = call => ({
   finish: (id, generation) => call("POST", `/v1/commands/${encodeURIComponent(id)}/finish`, { generation, result: null }),
   due: ({ scopes }) => call("GET", `/v1/commands-due?limit=50&recording=1&repairs=1${scopes ? "&scopes=1" : ""}`),
 });
+
+// The audit's observation period (#446 second review): after every claimed
+// operation has its evidence, Broker's audit is watched this long more, then
+// recollected whole over the drive's window, and every record is judged. A
+// violation logged late (a production execute ingested after the controls)
+// is then in what's judged. Five minutes: Cloud Logging's ingestion lag is
+// the risk, and the C5a gate's audit reads, polled with a 180 s bound, all
+// completed within it; five minutes is that bound and a margin. It is also
+// far beyond Broker's longest operation (its 40 s execution deadline plus a
+// 10 s provider call, limits.ts), so anything in flight at coverage has
+// finished and been logged.
+export const AUDIT_OBSERVATION_MS = 5 * 60_000;
+
+// Polls `read` until `covered`, within `timeoutMs`; then keeps reading for
+// AUDIT_OBSERVATION_MS; then reads once more, the recollection judged.
+export const observeAudit = async ({ read, covered, timeoutMs, intervalMs = 15_000, observationMs = AUDIT_OBSERVATION_MS, now = Date.now, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) }) => {
+  const started = now();
+  let attempts = 0;
+  let value;
+  for (;;) {
+    value = await read();
+    attempts++;
+    if (covered(value)) break;
+    if (now() - started + intervalMs > timeoutMs) return { value, poll: { attempts, timedOut: true, observedMs: 0, recollected: false } };
+    await sleep(intervalMs);
+  }
+  const coveredAt = now();
+  while (now() - coveredAt < observationMs) {
+    await sleep(Math.min(intervalMs, observationMs - (now() - coveredAt)));
+    value = await read();
+    attempts++;
+  }
+  // The whole window, read again after the observation period: this is what's judged.
+  value = await read();
+  attempts++;
+  return { value, poll: { attempts, timedOut: false, coveredAt: new Date(coveredAt).toISOString(), observedMs: now() - coveredAt, recollected: true } };
+};
+
+// Coverage: every claimed operation has the drive Broker's execute evidence
+// in the queries read so far. Reaching it only starts the observation period.
+export const auditCovered = (ops, driveBroker = DRIVE.broker) => queries =>
+  ops.every(op => queries.some(q => (q.entries ?? []).some(e => e.opid === op && (e.event === "execute" || e.event === "execute-step") && e.service === driveBroker)));
+
+// Policy's subject for an anonymous command (policy provenance.ts ANONYMOUS_SUBJECT).
+export const ANONYMOUS_SUBJECT = "anonymous";
