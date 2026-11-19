@@ -81,12 +81,14 @@ export const buildCommandWorker = ({
   // stage request stays open; Policy then refuses this run's next write.
   const stopRenewal = Boolean(faults?.stopRenewal?.(commandId, generation));
   if (stopRenewal) log(`WARN command ${commandId}: fault stop-renewal at generation ${generation}`);
-  const renewal = stopRenewal ? null : every(() => {
-    policy.lease({ commandId, worker, generation }).catch(e => {
-      lost = lost ?? (e?.reason ?? "renewal-failed");
-      log(`WARN command ${commandId}: lease not renewed (${lost})`);
-    });
-  }, renewEveryMs);
+  const renewal = stopRenewal
+    ? null
+    : every(() => {
+      policy.lease({ commandId, worker, generation }).catch(e => {
+        lost = lost ?? (e?.reason ?? "renewal-failed");
+        log(`WARN command ${commandId}: lease not renewed (${lost})`);
+      });
+    }, renewEveryMs);
   renewal?.unref?.();
   const ids = { commandId, generation };
   try {

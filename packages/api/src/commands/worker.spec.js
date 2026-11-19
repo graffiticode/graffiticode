@@ -759,8 +759,15 @@ describe("the drive's stop-renewal fault (C5d)", () => {
   };
   /** @type {(name: string, env: any, t: any, lang?: any) => any} */
   const workerWith = (name, env, t, lang = language) => buildCommandWorker({
-    policy: client(), taskStorer, language: lang, artifactStorer: artifacts, worker: name,
-    faults: parseCommandFaults(env), setInterval: t.setInterval, clearInterval: t.clearInterval, log: () => {},
+    policy: client(),
+    taskStorer,
+    language: lang,
+    artifactStorer: artifacts,
+    worker: name,
+    faults: parseCommandFaults(env),
+    setInterval: t.setInterval,
+    clearInterval: t.clearInterval,
+    log: () => {},
   });
 
   it("starts no renewal for its target at generation 1, and renews any other command as before", async () => {
