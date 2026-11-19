@@ -1,0 +1,56 @@
+{
+  "expected": [
+    {
+      "role": "roles/storage.legacyBucketOwner",
+      "members": [
+        "projectOwner:graffiticode"
+      ]
+    },
+    {
+      "role": "roles/storage.legacyObjectOwner",
+      "members": [
+        "projectOwner:graffiticode"
+      ]
+    },
+    {
+      "role": "roles/storage.legacyObjectReader",
+      "members": [
+        "allUsers"
+      ]
+    },
+    {
+      "role": "roles/storage.objectUser",
+      "members": [
+        "serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com"
+      ]
+    }
+  ],
+  "got": [
+    {
+      "role": "roles/storage.legacyBucketOwner",
+      "members": [
+        "projectOwner:graffiticode"
+      ]
+    },
+    {
+      "role": "roles/storage.legacyObjectOwner",
+      "members": [
+        "projectOwner:graffiticode"
+      ]
+    },
+    {
+      "role": "roles/storage.legacyObjectReader",
+      "members": [
+        "allUsers"
+      ]
+    },
+    {
+      "role": "roles/storage.objectUser",
+      "members": [
+        "serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com"
+      ]
+    }
+  ],
+  "conditional": [],
+  "same": true
+}

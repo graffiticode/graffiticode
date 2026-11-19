@@ -1,0 +1,89 @@
+[
+{
+  "url": "gs://graffiticode-thumbnails/",
+  "type": "unknown"
+},
+{
+  "url": "gs://graffiticode-thumbnails/c5b-probe/",
+  "type": "prefix"
+},
+{
+  "url": "gs://graffiticode-thumbnails/c5b-probe/r11190108/",
+  "type": "prefix"
+},
+{
+  "url": "gs://graffiticode-thumbnails/c5b-probe/r11190108/a.png#1795050625767789",
+  "type": "cloud_object",
+  "metadata": {
+    "bucket": "graffiticode-thumbnails",
+    "contentType": "image/png",
+    "crc32c": "lBo9Ug==",
+    "etag": "CO2ynNfskpgDEAE=",
+    "generation": "1795050625767789",
+    "hardDeleteTime": "2026-11-26T01:10:26.198000+00:00",
+    "id": "graffiticode-thumbnails/c5b-probe/r11190108/a.png/1795050625767789",
+    "kind": "storage#object",
+    "md5Hash": "9fHARKOrMOdXnQyTXbSVDA==",
+    "metageneration": "1",
+    "name": "c5b-probe/r11190108/a.png",
+    "selfLink": "https://www.googleapis.com/storage/v1/b/graffiticode-thumbnails/o/c5b-probe%2Fr11190108%2Fa.png",
+    "size": "27",
+    "softDeleteTime": "2026-11-19T01:10:26.198000+00:00",
+    "storageClass": "STANDARD",
+    "timeCreated": "2026-11-19T01:10:25.827000+00:00",
+    "timeFinalized": "2026-11-19T01:10:25.827000+00:00",
+    "timeStorageClassUpdated": "2026-11-19T01:10:25.827000+00:00",
+    "updated": "2026-11-19T01:10:25.827000+00:00"
+  }
+},
+{
+  "url": "gs://graffiticode-thumbnails/c5b-probe/r11190108/a.png#1795050626078509",
+  "type": "cloud_object",
+  "metadata": {
+    "bucket": "graffiticode-thumbnails",
+    "contentType": "image/png",
+    "crc32c": "lBo9Ug==",
+    "etag": "CK2ur9fskpgDEAE=",
+    "generation": "1795050626078509",
+    "hardDeleteTime": "2026-11-26T01:13:53.636000+00:00",
+    "id": "graffiticode-thumbnails/c5b-probe/r11190108/a.png/1795050626078509",
+    "kind": "storage#object",
+    "md5Hash": "9fHARKOrMOdXnQyTXbSVDA==",
+    "metageneration": "1",
+    "name": "c5b-probe/r11190108/a.png",
+    "selfLink": "https://www.googleapis.com/storage/v1/b/graffiticode-thumbnails/o/c5b-probe%2Fr11190108%2Fa.png",
+    "size": "27",
+    "softDeleteTime": "2026-11-19T01:13:53.636000+00:00",
+    "storageClass": "STANDARD",
+    "timeCreated": "2026-11-19T01:10:26.198000+00:00",
+    "timeFinalized": "2026-11-19T01:10:26.198000+00:00",
+    "timeStorageClassUpdated": "2026-11-19T01:10:26.198000+00:00",
+    "updated": "2026-11-19T01:10:26.198000+00:00"
+  }
+},
+{
+  "url": "gs://graffiticode-thumbnails/c5b-probe/r11190108/b.png#1795050626300479",
+  "type": "cloud_object",
+  "metadata": {
+    "bucket": "graffiticode-thumbnails",
+    "contentType": "image/png",
+    "crc32c": "lBo9Ug==",
+    "etag": "CL/0vNfskpgDEAE=",
+    "generation": "1795050626300479",
+    "hardDeleteTime": "2026-11-26T01:10:26.530000+00:00",
+    "id": "graffiticode-thumbnails/c5b-probe/r11190108/b.png/1795050626300479",
+    "kind": "storage#object",
+    "md5Hash": "9fHARKOrMOdXnQyTXbSVDA==",
+    "metageneration": "1",
+    "name": "c5b-probe/r11190108/b.png",
+    "selfLink": "https://www.googleapis.com/storage/v1/b/graffiticode-thumbnails/o/c5b-probe%2Fr11190108%2Fb.png",
+    "size": "27",
+    "softDeleteTime": "2026-11-19T01:10:26.530000+00:00",
+    "storageClass": "STANDARD",
+    "timeCreated": "2026-11-19T01:10:26.360000+00:00",
+    "timeFinalized": "2026-11-19T01:10:26.360000+00:00",
+    "timeStorageClassUpdated": "2026-11-19T01:10:26.360000+00:00",
+    "updated": "2026-11-19T01:10:26.360000+00:00"
+  }
+}
+]

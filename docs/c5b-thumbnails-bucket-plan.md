@@ -1,6 +1,6 @@
 # C5b: the thumbnails bucket
 
-**Status:** approved (merged #426, 2026-11-18). Slice 1's tooling: `scripts/lib/c5b-thumbnails.js`, `scripts/c5b/{migrate-thumbnails,bucket-policy,bucket-probe}.js`, with tests in `scripts/test/c5b-{thumbnails,tools}.test.js`; IAM review Steps 30 and 31. This details C5b of [`docs/c5-l0013-commands-plan.md`](c5-l0013-commands-plan.md) ("§4 C5b–C5e, in outline", and decision 8). C5a is complete: its gate passed 20/20 (`docs/evidence/c5a-authorization/`), and the gate's api and bucket are retired.
+**Status:** approved (merged #426, 2026-11-18). Progress: slice 1 merged (#428); slice 2 (Step 30) applied 2026-11-19 ([`docs/evidence/c5b/`](evidence/c5b/README.md)); slice 3's `plan-1.json` made read-only, the copy held. Slice 1's tooling: `scripts/lib/c5b-thumbnails.js`, `scripts/c5b/{migrate-thumbnails,bucket-policy,bucket-probe}.js`, with tests in `scripts/test/c5b-{thumbnails,tools}.test.js`; IAM review Steps 30 and 31. This details C5b of [`docs/c5-l0013-commands-plan.md`](c5-l0013-commands-plan.md) ("§4 C5b–C5e, in outline", and decision 8). C5a is complete: its gate passed 20/20 (`docs/evidence/c5a-authorization/`), and the gate's api and bucket are retired.
 
 **What C5b does.** It prepares the production destination for L0013 captures. Nothing reads or writes it yet.
 1. It creates `gs://graffiticode-thumbnails`, publicly readable.

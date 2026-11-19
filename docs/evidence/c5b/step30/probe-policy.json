@@ -1,0 +1,1 @@
+{"at":"2026-11-19T01:11:57.620Z","execution":"c5b-bucket-probe-policy-jnhmt","as":"policy","email":"policy-run@graffiticode.iam.gserviceaccount.com","run":"r11190108","bucket":"graffiticode-thumbnails","checks":[{"id":"create","expect":403,"status":403,"ok":true}],"passed":true}
