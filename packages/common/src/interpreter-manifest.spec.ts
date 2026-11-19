@@ -40,7 +40,7 @@ describe("interpreter-manifest", () => {
     }
     expect(capCacheClass("immutable", "0184", "present")).toBe("immutable");
     expect(capCacheClass("shared", "0184", "evaluate")).toBe("shared");
-    expect(Object.keys(INTERPRETER_DECLARATIONS)).toEqual(["0003", "0010", "0014", "0174", "0175", "0176", "0177", "0178", "0179", "0180", "0181", "0183", "0184", "0185", "0186", "0187"]);
+    expect(Object.keys(INTERPRETER_DECLARATIONS)).toEqual(["0003", "0010", "0013", "0014", "0174", "0175", "0176", "0177", "0178", "0179", "0180", "0181", "0183", "0184", "0185", "0186", "0187"]);
   });
 
   it("declares L0185 (C3) with immutable caps, so its own claim decides: shared with an expiry when it fetched, immutable otherwise", () => {
@@ -57,7 +57,18 @@ describe("interpreter-manifest", () => {
     expect(capCacheClass("immutable", "0176", "evaluate")).toBe("immutable");
     expect(capCacheClass("shared", "0176", "evaluate")).toBe("shared");
     expect(interpreterLangFor("0158")).toBe("0158");
-    expect(INTERPRETER_MANIFEST_VERSION).toBe(9);
+    expect(INTERPRETER_MANIFEST_VERSION).toBe(10);
+  });
+
+  it("declares L0013 (C5d): no-store in both modes, whatever a result claims, and interprets nothing else", () => {
+    expect(interpreterDeclarationFor("0013")).toEqual({ interpreter: "interpreter", cacheCaps: { evaluate: "no-store", present: "no-store" } });
+    for (const mode of ["evaluate", "present"] as const) {
+      for (const claim of ["immutable", "shared", "private", "no-store", undefined]) {
+        expect(capCacheClass(claim, "0013", mode)).toBe("no-store");
+      }
+    }
+    expect(interpreterLangFor("0013")).toBe("0013");
+    expect(INTERPRETER_MANIFEST_VERSION).toBe(10);
   });
 
   it("finds a declaration by any spelling of the language", () => {

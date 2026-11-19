@@ -33,7 +33,7 @@
 //   getOrCreate  the one declared exception to a read-only get: an atomic,
 //                idempotent create of per-viewer state (L0182's assignment).
 
-export const INTERPRETER_MANIFEST_VERSION = 9;
+export const INTERPRETER_MANIFEST_VERSION = 10;
 
 // From loosest to strictest.
 export const CACHE_CLASSES = Object.freeze(["immutable", "shared", "private", "no-store"] as const);
@@ -95,6 +95,14 @@ export type InterpreterDeclaration = Readonly<{
 //         (the kernel refuses every protected call in it): immutable, within its
 //         input's own expiry. No `interprets` (L0158 stays on its /form
 //         redirect; a follow-up).
+//   0013  C5d: snapshots (docs/c5d-snapshot-commands-plan.md, decision 1). A
+//         capture is an effect, and its result is a URL into a bucket a later
+//         capture overwrites, so no L0013 result is ever stored, in either
+//         mode: no-store caps both. Under commands a snap is never answered
+//         from a cache (today's compile-only L0013 is cacheable, and an
+//         identical compile is served from the cache without snapping unless
+//         `refresh` is passed). Inert until INTERPRETER_L0013=on (C5d
+//         activation step 1).
 export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclaration>> = Object.freeze({
   "0003": Object.freeze({
     interpreter: "interpreter",
@@ -103,6 +111,10 @@ export const INTERPRETER_DECLARATIONS: Readonly<Record<string, InterpreterDeclar
   "0010": Object.freeze({
     interpreter: "interpreter",
     cacheCaps: Object.freeze({ evaluate: "immutable", present: "immutable" }),
+  }),
+  "0013": Object.freeze({
+    interpreter: "interpreter",
+    cacheCaps: Object.freeze({ evaluate: "no-store", present: "no-store" }),
   }),
   "0014": Object.freeze({
     interpreter: "interpreter",

@@ -654,6 +654,68 @@ describe("L0176 interpreted (C6 part 2)", () => {
   });
 });
 
+// C5d (docs/c5d-snapshot-commands-plan.md, decision 1): L0013 as the manifest declares it.
+// A capture is an effect whose result points at an object a later capture overwrites, so
+// nothing L0013 returns is ever stored, in either mode, whatever the result claims.
+describe("L0013 interpreted (C5d)", () => {
+  const L0013 = INTERPRETER_DECLARATIONS["0013"];
+  const declarations = { ...DECLARATIONS, "0013": L0013 };
+  const env = { ...ON, INTERPRETER_L0013: "on" };
+  // An l0013r that claims its result could be cached, as today's compile-only L0013 does.
+  const l0013 = ({ lang, model }) => (lang === "0013"
+    ? { data: { url: `https://storage.googleapis.com/graffiticode-thumbnails/${model.program[1].elts[0]}.png?v=1`, item: model.program[1].elts[0] }, errors: [], cache: "immutable", revision: "r1" }
+    : undefined);
+  const setup13 = (opts = {}) => setup({
+    env,
+    declarations,
+    getInterpreterLanguages: () => getInterpreterLanguages(env, declarations),
+    interpretReply: l0013,
+    modelCache: buildModelCache(),
+    ...opts,
+  });
+
+  it("is declared no-store in both modes", () => {
+    expect(L0013).toEqual({ interpreter: "interpreter", cacheCaps: { evaluate: "no-store", present: "no-store" } });
+  });
+
+  it("never stores an L0013 result at the head, whatever it claims, and interprets it again on every read", async () => {
+    const t = setup13();
+    const id = await t.chain([task("0013", "item-1")]);
+    const action = {};
+    const first = await t.get(id, { action });
+    expect(first.errors).toEqual([]);
+    expect(first.data.item).toBe("item-1");
+    expect(action.noStore).toBe(true);
+    expect(t.stageResults.put).not.toHaveBeenCalled();
+    expect(t.stages[0].own).toEqual(NO_STORE);
+    t.stages.length = 0;
+    await t.get(id);
+    expect(t.stages.map(s => [s.stage, s.mode, s.cache])).toEqual([["s0", "present", "miss"]]);
+    expect(t.interpreter.interpret).toHaveBeenCalledTimes(2);
+  });
+
+  // Design §5 rule 2: a declared stage's no-store result never feeds another stage. So a
+  // non-command interpreted read of a chain with L0013 below its head is refused. Under C5d's
+  // activation that read doesn't happen: with COMMANDS_L0013 on, the bridge makes any chain
+  // with a snap a command, and the command worker passes stage outputs through Policy's
+  // records, not this path (docs/c5d-snapshot-commands-plan.md, decision 1).
+  it("refuses an L0013 result below the head on a non-command read (no-store-intermediate), and stores nothing", async () => {
+    const t = setup13();
+    const result = await t.get(await t.chain([task("0900"), task("0013", "item-2")]));
+    expect(result.data).toBeNull();
+    expect(result.errors.map(e => e.code)).toEqual(["no-store-intermediate"]);
+    expect([...t.stageResults.entries.values()].some(e => e.lang === "0013")).toBe(false);
+  });
+
+  it("stays on the legacy compile with the flag off: no model, no interpretation, nothing stored", async () => {
+    const t = setup13({ getInterpreterLanguages: () => getInterpreterLanguages(ON, declarations) });
+    await t.get(await t.chain([task("0013", "item-3")]));
+    expect(t.interpreter.model).not.toHaveBeenCalled();
+    expect(t.compile.mock.calls.map(([c]) => c.lang)).toEqual(["0013"]);
+    expect(t.stageResults.put).not.toHaveBeenCalled();
+  });
+});
+
 describe("the routes with interpreted stages", () => {
   const appFor = (t, { auth = null } = {}) => {
     const app = express();
