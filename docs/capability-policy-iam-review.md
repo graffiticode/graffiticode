@@ -2288,11 +2288,29 @@ gcloud storage buckets get-iam-policy gs://graffiticode-c5d-drive --format=json 
 
 #### 3. The services
 
-1. **Create each private, as a bootstrap placeholder,** so the deploy CLI has a service to release to (Step 29's method). The image is the live production twin's digest:
+1. **Create each private, as a bootstrap placeholder,** so the deploy CLI has a service to release to (Step 29's method). The image is the live production twin's digest.
+
+   - **The Broker placeholder carries its reviewed startup configuration.** Broker's entry point (`packages/broker/src/main.ts`) requires `BROKER_SECRET_KEY`, `POLICY_KMS_KEY_VERSION`, `POLICY_KMS_KID`, `BROKER_CALLERS`, `LEARNOSITY_DOMAIN`, `AUDIT_PSEUDONYM_SECRET` and `POLICY_URL` before it listens; without them the revision exits (`BROKER_SECRET_KEY is required`) and never becomes Ready.
+     - **Its environment** is `broker-c5d-drive`'s own in `deploy.json` (#447), generated from it, so it can't drift. That includes `THUMBNAIL_BUCKET=graffiticode-c5d-drive`, so even the placeholder publishes nowhere but the drive bucket.
+     - **Left out:** only `BROKER_FAULT_PRINCIPALS`, which is the run's and harmless without `BROKER_FAULTS`, which no revision before `drop-outcome` carries.
+     - **Its secrets** are pinned by version, exactly as `deploy.json`'s `secrets`.
+   - **The compiler and api placeholders need no configuration to start.**
+     - The Rust servers (`languages/l0000/crates/server/src/lib.rs`) default every setting. With no `POLICY_URL`, `BROKER_URL` or `THUMBNAIL_BUCKET`, a placeholder has no Policy or Broker client, and `l0013r`'s refuses every snap.
+     - The api starts unconfigured, as Step 29's `api-c5a-gate` did.
+     - Each is validated only after its first managed release, as Step 29's was.
 
    ```bash
+   # The Broker placeholder's environment, generated from deploy.json (#447) and reviewed before use:
+   node -e 'const e={...require("./deploy.json").services["broker-c5d-drive"].env}; delete e.BROKER_FAULT_PRINCIPALS;
+     for (const [k,v] of Object.entries(e)) console.log(`${k}: ${JSON.stringify(v)}`)' > broker-c5d-drive-placeholder-env.yaml
+   # Expect exactly: BROKER_FIRESTORE_DB, POLICY_KMS_KEY_VERSION, POLICY_KMS_KID, LEARNOSITY_DOMAIN, POLICY_URL,
+   # BROKER_MIN_CONTRACT_VERSION, SYSTEM_SESSION_MAX_SIGNINGS, BROKER_PREVIEW_CONNECTIONS,
+   # THUMBNAIL_BUCKET (graffiticode-c5d-drive) and COMMAND_STAGING_BUCKET (graffiticode-command-staging).
+
    gcloud run deploy broker-c5d-drive --project=graffiticode --region=us-central1 --image=<the live broker image digest> \
-     --service-account=broker-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated
+     --service-account=broker-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated \
+     --env-vars-file=broker-c5d-drive-placeholder-env.yaml \
+     --set-secrets=BROKER_CALLERS=broker-callers:3,AUDIT_PSEUDONYM_SECRET=audit-pseudonym-secret:1,BROKER_SECRET_KEY=BROKER_SECRET_KEY:1
    gcloud run deploy l0013r-c5d-drive --project=graffiticode --region=us-central1 --image=<the live l0013r image digest> \
      --service-account=l0013r-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated \
      --cpu=2 --memory=2Gi --concurrency=4 --timeout=300
@@ -2301,6 +2319,25 @@ gcloud storage buckets get-iam-policy gs://graffiticode-c5d-drive --format=json 
    gcloud run deploy api-c5d-drive --project=graffiticode --region=us-central1 --image=<the live api image digest> \
      --service-account=api-run@graffiticode.iam.gserviceaccount.com --no-allow-unauthenticated
    ```
+
+   - **Before any managed release, each placeholder must be Ready, with 100% of its traffic resolved to that ready revision.** Otherwise stop; the CLI needs a service with 100% traffic to release to.
+
+     ```bash
+     for s in broker-c5d-drive l0013r-c5d-drive l0176r-c5d-drive api-c5d-drive; do
+       gcloud run services describe "$s" --project=graffiticode --region=us-central1 --format=json | node -e '
+         let t=""; process.stdin.on("data", c => t += c).on("end", () => {
+           const v = JSON.parse(t), st = v.status ?? {};
+           const ready = (st.conditions ?? []).find(c => c.type === "Ready")?.status === "True";
+           const tr = st.traffic ?? [];
+           const resolved = tr.length === 1 && tr[0].percent === 100 && tr[0].revisionName === st.latestReadyRevisionName;
+           console.log(v.metadata.name, ready && resolved ? "ok" : "NOT READY", st.latestReadyRevisionName, JSON.stringify(tr));
+           if (!(ready && resolved)) process.exitCode = 1;
+         })' || break
+     done
+     ```
+
+     Expect four `ok` lines, each with one traffic entry of `percent: 100` naming the service's `latestReadyRevisionName`.
+   - **The Broker placeholder's environment, read back,** is exactly the generated file's, and its secrets are the three pinned versions (`gcloud run services describe broker-c5d-drive … --format=json`, `spec.template.spec.containers[0].env`). No `BROKER_FAULTS` is set.
 
 2. **Invokers,** on each service only:
 
