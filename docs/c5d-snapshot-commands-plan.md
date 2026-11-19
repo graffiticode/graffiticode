@@ -44,7 +44,7 @@ L0013 inherits `cacheable() = true` (`languages/l0000/crates/core/src/dialect.rs
 
 **The console** reads thumbnails at `hosts.thumbnails`, which defaults to `BUILT_IN_THUMBNAILS = https://storage.googleapis.com/graffiticode.appspot.com/thumbnails` (graffiticode-app `packages/core/src/profile/public-config-server.ts:32`). Its "Generate thumbnail" button compiles `snap item "<id>" {}..` signed in, with no connection. With L0013's commands on, the bridge makes that a connectionless v3 command.
 
-**`l0176r-drive`** still exists from B6's drive (serving `l0176r-drive-rmwgzicgi-ac4468`, with `BROKER_URL` naming `broker-faults`, a service since deleted). C5d's drive reuses it for the mixed chain's L0176 stage (decision 3), and deletes it at teardown.
+**B6's drive services are left as they are.** `l0176r-drive` still exists, serving `l0176r-drive-rmwgzicgi-ac4468`, with `BROKER_URL` naming B6's `broker-faults`, a service since deleted. Its approved revisions may be pinned by B6's drive records. C5d's drive therefore uses **new, C5d-only service names** (decision 3): `broker-c5d-drive`, `l0013r-c5d-drive`, `l0176r-c5d-drive` and `api-c5d-drive`. It neither reuses `l0176r-drive` nor recreates `broker-faults`, which would make B6's path reach a live Broker again. B6's services, and any recovery dependency on them, are untouched; retiring them is a separate decision.
 
 ## 2. Decisions for the owner
 
@@ -81,16 +81,16 @@ The drive runs through production Policy and its own Broker, compiler and api, s
 
 | Service | What | Configuration |
 |---|---|---|
-| `broker-faults` | Broker at `main`, as B6's | `THUMBNAIL_BUCKET=graffiticode-c5d-drive` (new); `COMMAND_STAGING_BUCKET=graffiticode-command-staging`; **`BROKER_FAULTS` unset:** no drive phase injects a Broker fault, because a dropped outcome would need reconciliation through production Broker (the isolation boundary below). The service name is kept from B6, whose startup refuses faults on the production name |
-| `l0013r-drive` | `l0013r` at `main`, pinnable, approved at `[3]` as its release records | `BROKER_URL` = broker-faults; **no `THUMBNAIL_BUCKET`** (decision 2, tried in the drive first); `L0013_CAPTURE_FAULTS` naming the run's target commands, **set once per drive run** (slice 1): never changed between a fault and its recovery |
-| `l0176r-drive` | `l0176r` at `main`, pinnable, approved at `[1, 2]` | `BROKER_URL` = broker-faults (the mixed chain's L0176 stage) |
-| `api-drive` | the api at `main`, private, as `api-run` | `COMMANDS_L0013=on`, `COMMANDS_L0176=on`, `COMMAND_SCOPES=on`, `INTERPRETER_L0013=on`, `COMPILE_GENERATION_L0013=c5d-drive-1`, `BASE_URL_L0013` = `l0013r-drive`, `BASE_URL_L0176` = `l0176r-drive`; **its sweeper on**, so recovery is exercised |
+| `broker-c5d-drive` | Broker at `main`, as B6's `broker-faults` was (a new name: B6's stays deleted) | `THUMBNAIL_BUCKET=graffiticode-c5d-drive` (new); `COMMAND_STAGING_BUCKET=graffiticode-command-staging`; **`BROKER_FAULTS=drop-outcome` only during the `drop-outcome` phase** (`BROKER_FAULT_PRINCIPALS` = the canary; that phase runs one command at a time), unset otherwise. Broker isn't pinned, so changing its environment between phases moves no pin. A retry after a dropped outcome is a replay of the claim, which the fault never touches. The service's startup refuses faults on the production name `broker` |
+| `l0013r-c5d-drive` | `l0013r` at `main`, pinnable, approved at `[3]` as its release records | `BROKER_URL` = broker-c5d-drive; **no `THUMBNAIL_BUCKET`** (decision 2, tried in the drive first); `L0013_CAPTURE_FAULTS` naming the run's target commands, **set once per drive run** (slice 1): never changed between a fault and its recovery |
+| `l0176r-c5d-drive` | `l0176r` at `main`, a new service (not B6's `l0176r-drive`), pinnable, approved at `[1, 2]` by its release | `BROKER_URL` = broker-c5d-drive (the mixed chain's L0176 stage) |
+| `api-c5d-drive` | the api at `main`, private, as `api-run` | `COMMANDS_L0013=on`, `COMMANDS_L0176=on`, `COMMAND_SCOPES=on`, `INTERPRETER_L0013=on`, `COMPILE_GENERATION_L0013=c5d-drive-1`, `BASE_URL_L0013` = `l0013r-c5d-drive`, `BASE_URL_L0176` = `l0176r-c5d-drive`; `API_COMMAND_FAULT_TARGETS` naming the run's `stop-renewal` targets, set once for the run; **its sweeper on**, so recovery is exercised |
 
 - **`gs://graffiticode-c5d-drive`:** uniform and private, with `broker-run` as `objectUser`. It's deleted after the drive, as the gate bucket was.
-- **Proxy:** `compilers-l0013` gains the `broker-faults` host for the drive only, rolled and verified (`verify-rollout.js`), then removed.
+- **Proxy:** `compilers-l0013` gains the `broker-c5d-drive` host for the drive only, rolled and verified (`verify-rollout.js`), then removed.
 - **Window:** `canary-window-c5d` gives the operator OpenIdTokenCreator on `console-run` and `api-run`, 24 hours, as C5a's.
 - **Fixtures:** canary-owned items: the C5a fixtures `7vwaCAIyMNCJEzgIfyYY` (private) and `wbyfys3akpc4yEGFrnuu` (public), plus a two-stage chain.
-- **The mixed chain's L0176 stage runs on `l0176r-drive`, not production `l0176r`.** `l0176r-drive` still exists from B6, serving `l0176r-drive-rmwgzicgi-ac4468`, a registry-8 revision. It is redeployed at `main`, pinnable and approved at `[1, 2]` by its release, with `BROKER_URL` = `broker-faults`. `api-drive`'s `BASE_URL_L0176` names it. So the mixed chain's Learnosity sandbox write, through the canary's connection (a reviewed sandbox write), is executed by `broker-faults` too.
+- **The mixed chain's L0176 stage runs on `l0176r-c5d-drive`, not production `l0176r`.** That new service runs `l0176r` at `main`, approved at `[1, 2]` by its release, with `BROKER_URL` = `broker-c5d-drive`, and `api-c5d-drive`'s `BASE_URL_L0176` names it. So the mixed chain's Learnosity sandbox write, through the canary's connection (a reviewed sandbox write), is executed by `broker-c5d-drive` too.
 
 **The isolation boundary (the #436 review).** What the drive shares with production is fixed, so the evidence can check it.
 
@@ -99,15 +99,16 @@ The drive runs through production Policy and its own Broker, compiler and api, s
 | Production **Policy** (records, plans, reservations, render grants, audit) | yes | the drive is Policy's own, as B6's was |
 | **`graffiticode-command-staging`** (Policy writes, Broker reads) | yes | the staging bucket is Policy's; the drive's staged objects are named by its command ids and deleted by the 30-day rule. The `staging-gone` phase also has the operator delete one staged object (slice 3) |
 | The console's **item-authority** route, the api's `/form` and `/data` (render grants) | yes, read-only | captures render through production origins, as the gate's did |
-| **Broker's database** (`broker`: receipts, sealed connection secrets) | yes | `broker-faults` is the same Broker code on the same database, as in B6; it executes every drive operation |
-| **Production Broker** | **no executions.** One Policy path reaches it: reconciliation (`BROKER_URL` in Policy names production Broker) | a drive operation reconciled there would be read against `graffiticode-thumbnails`, not the drive bucket. So **no drive phase triggers reconciliation**: no `drop-outcome`, and no fault leaves an operation uncertain (each capture fault fires before Broker's claim). The reconcile case is hermetic (slice 3) |
-| Production **thumbnails** (`graffiticode-thumbnails`) | **no** | `broker-faults` publishes only to the drive bucket |
-| Production **`l0013r`, `l0176r`** | **no** | `api-drive` routes L0013 and L0176 to the drive compilers |
+| **Broker's database** (`broker`: receipts, sealed connection secrets) | yes | `broker-c5d-drive` is the same Broker code on the same database, as in B6; it executes every drive operation |
+| **Production Broker** | **reads and reconciliation bookkeeping only; no execution** | Policy's `BROKER_URL` names production Broker, and two of Policy's ordinary paths reach it for drive operations. **Settlement** reads each operation's receipt (`POST /v1/receipts`). **Reconciliation** reads the provider for evidence and appends what it found. For a capture, that is the object's metadata in `evidence.bucket`, the bucket recorded on the claim (the drive bucket; `broker-run`'s `objectUser` there covers it). Both are allowed. **Forbidden:** any `execute` or `execute-step` (a dispatch or a publish) by production Broker for a drive operation |
+| Production **thumbnails** (`graffiticode-thumbnails`) | **no** | `broker-c5d-drive` publishes only to the drive bucket |
+| Production **`l0013r`, `l0176r`** | **no** | `api-c5d-drive` routes L0013 and L0176 to the drive compilers |
 
 **The evidence must show the boundary.** The drive's `boundary` phase (slice 3) reads Broker's `security_audit` for every invocation the drive allocated:
-- every `execute`, `execute-step`, `receipts` and `reconcile` record comes from `broker-faults`, and none from `broker`;
+- every `execute` and `execute-step` record (each dispatch, publish and attempt) for a drive invocation comes from `broker-c5d-drive`, and **none** from `broker`;
+- production `broker`'s records for drive invocations are only `receipts` reads and `reconcile` bookkeeping, and every `reconcile` read named the drive bucket;
 - no object in `graffiticode-thumbnails` names a drive fixture or changed generation during the drive (its listing before and after);
-- every compiler call, from the api's request logs, went to `l0013r-drive` or `l0176r-drive`.
+- every compiler call, from the api's request logs, went to `l0013r-c5d-drive` or `l0176r-c5d-drive`.
 
 *Alternative:* drive through production Broker into `graffiticode-thumbnails` on canary items. It needs no drive Broker, but it writes production thumbnails and can't inject Broker faults. *Recommended:* the isolated drive, with the boundary above.
 
@@ -135,18 +136,26 @@ The drive runs through production Policy and its own Broker, compiler and api, s
 3. **Capture fault points for the drive:** `L0013_CAPTURE_FAULTS`, refused when `K_SERVICE` is `l0013r`. They are **targeted and one-shot**, so recovery runs on the same pinned revision (the #436 review).
    - **Configuration:** a JSON map from a target command id to a fault, for example `{"c:<id>": "exit-after-stage"}`.
      - Command ids are deterministic (`c:` + sha256 of `[uid, idempotencyKey]`), so the drive runner computes every target from the run's keys before the run.
-     - The map is set **once**, on the `l0013r-drive` revision the run's commands pin, and never changed during the run.
+     - The map is set **once**, on the `l0013r-c5d-drive` revision the run's commands pin, and never changed during the run.
    - **Firing:** a fault fires only when the command session names that command (`cmd`) **and** its owner's fencing generation (`fg`) is **1**.
      - The sweeper's takeover is generation 2 or later, on the same pinned revision and with the same environment, so it runs the capture to completion. No environment change, and no re-pinning, is needed for recovery.
      - Only the named commands are affected: in `older-after-newer` only the older capture is targeted, never the newer.
    - **Kinds:**
      - `exit-after-reserve`: the process exits after `reserve_capture` returns, before rendering;
      - `exit-after-stage`: it exits after `stage_capture`, before `invoke`;
-     - `stall-before-stage`: it sleeps 90 s, longer than the 60 s command lease and shorter than the 300 s request timeout, after rendering and before `stage_capture`, then continues. That is a stale worker resuming after a takeover.
+     - `stall-before-stage`: after rendering, before `stage_capture`, the compiler holds its request open **until it observes the takeover**, then continues. That is a stale worker resuming after a takeover.
+       - **Observing the takeover:** every 10 s it repeats `reserve_capture` for its occurrence under its own generation-1 session. Before a takeover, that repeat is state-neutral and answers the recorded reservation. After one, Policy refuses it as a stale generation. That refusal is the signal to continue, to its own `stage_capture`, which Policy must also refuse.
+       - **Bounded:** if no takeover is seen within 240 s (under the 300 s request timeout), the fault logs `no-takeover` and continues, and the `stale-worker` phase fails.
    - **Tests:**
      - each kind fires only for its target, only at generation 1, never at generation 2 and never for an untargeted command;
      - the production service name refuses the variable;
-     - a malformed map is refused at startup.
+     - a malformed map is refused at startup;
+     - `stall-before-stage` continues only after its probe is refused as stale, and logs `no-takeover` at its bound.
+   - **Stopping the api worker's renewal (the #436 review).** A compiler stall alone never expires the lease: the api worker that called the compiler renews it on its own 20 s timer (`packages/api/src/commands/worker.js`, `LEASE_RENEW_MS`).
+     - So `api-c5d-drive` gets a matching targeted fault, `API_COMMAND_FAULT_TARGETS`: a map from command id to `stop-renewal`, set once for the run, refused on the production service as `API_COMMAND_FAULTS` is.
+     - For a targeted command at generation 1, the worker **stops renewing its lease and keeps its compiler request open**. When that request answers, the worker doesn't finish the command: its generation is fenced by then, and it only logs the answer.
+     - The lease expires after 60 s, and the sweeper, the same service's or another instance's, takes the command over at generation 2.
+     - **Tests:** renewal stops only for the target at generation 1; the request stays open; the worker's late answer finishes nothing; an untargeted command's renewal is unchanged; the production service refuses the variable.
 4. **The catch-up copy:** `scripts/c5b/migrate-thumbnails.js --phase catchup`, with its rules in `scripts/lib/c5b-thumbnails.js`.
    - **Which objects:** it lists the old bucket and takes every `thumbnails/{item}.png` whose generation differs from the final plan's, or that the plan doesn't have.
    - **How it copies each:** a rewrite with `ifSourceGenerationMatch` (the listed generation) and `ifGenerationMatch` set to the generation C5b's copy created for that name (from the copy manifests), or `0` for a name C5b never copied.
@@ -166,7 +175,7 @@ The drive runs through production Policy and its own Broker, compiler and api, s
      - a destination holding another catch-up's older copy (`destination-differs`, never overwritten).
 5. **A canary snapshot check** (`scripts/canary.js --snap <item>`). As the canary, it captures a canary-owned item through connectionless `POST /command`.
    - **It expects:** `completed`; the result's `url` under the configured thumbnails bucket; the object's `captureSequence` equal to the command's reserved sequence; and the same key answering the same command.
-   - **It's used against `api-drive`** in the drive, and against production from step 1 on.
+   - **It's used against `api-c5d-drive`** in the drive, and against production from step 1 on.
 6. **The drive runner,** `scripts/c5d-drive.js`, with its checks in `scripts/lib/c5d-drive-checks.js`, tested offline as the C5a gate was. The phases are in slice 3.
 7. **IAM review text:**
    - Step 32: the drive's infrastructure, window, proxy and bucket, with their teardown;
@@ -177,37 +186,38 @@ The drive runs through production Policy and its own Broker, compiler and api, s
 
 - **Create:**
   - `gs://graffiticode-c5d-drive` with `broker-run` `objectUser`, by `bucket-policy.js`-style read/modify/write;
-  - `broker-faults`, `l0013r-drive` (approved at `[3]` by its release, with the run's `L0013_CAPTURE_FAULTS` map) and `api-drive`, with their invokers as B6's;
-  - `l0176r-drive` redeployed at `main`, approved at `[1, 2]` by its release, with `BROKER_URL` = `broker-faults`;
-  - the proxy's `broker-faults` host for `compilers-l0013` and `compilers-l0176`, rolled and verified;
+  - `broker-c5d-drive`, `l0013r-c5d-drive` (approved at `[3]` by its release, with the run's `L0013_CAPTURE_FAULTS` map) and `api-c5d-drive`, with their invokers as B6's;
+  - `l0176r-c5d-drive` created at `main` (a new service), approved at `[1, 2]` by its release, with `BROKER_URL` = `broker-c5d-drive`;
+  - the proxy's `broker-c5d-drive` host for `compilers-l0013` and `compilers-l0176`, rolled and verified;
   - the window.
 - **Verify:**
   - the bucket's settings and IAM are read back;
-  - `broker-faults`' environment names the drive bucket and sets no `BROKER_FAULTS`;
-  - `l0013r-drive` has no `THUMBNAIL_BUCKET`, reports its bucket as null at `/status`, and its fault map names only the run's target commands;
-  - `l0176r-drive`'s `BROKER_URL` is `broker-faults`;
-  - `api-drive`'s environment is as in decision 3;
+  - `broker-c5d-drive`'s environment names the drive bucket and sets no `BROKER_FAULTS` (it is set only for the `drop-outcome` phase);
+  - `l0013r-c5d-drive` has no `THUMBNAIL_BUCKET`, reports its bucket as null at `/status`, and its fault map names only the run's target commands;
+  - `l0176r-c5d-drive`'s `BROKER_URL` is `broker-c5d-drive`;
+  - `api-c5d-drive`'s environment is as in decision 3, its `API_COMMAND_FAULT_TARGETS` naming only the run's `stop-renewal` targets;
   - `graffiticode-thumbnails`' listing is recorded, for the `boundary` phase.
 
 ### Slice 3: the staged drive (live, with approval)
 
-Every phase runs as the canary, through `api-drive`. Its checks read Policy's records, Broker's receipts and audit, and the drive bucket's objects. The C5 plan names the drive's scope as decision 9's crash points, the two-stage case, and canary snapshot checks.
+Every phase runs as the canary, through `api-c5d-drive`. Its checks read Policy's records, Broker's receipts and audit, and the drive bucket's objects. The C5 plan names the drive's scope as decision 9's crash points, the two-stage case, and canary snapshot checks.
 
 | Phase | Shows |
 |---|---|
 | `first-capture` | a private item's capture publishes with its reserved sequence; a public item's, anonymously, under the exception (test 1) |
-| `direct-refused` | a compile straight to `l0013r-drive` outside a command is refused, with A1b's message, and uploads nothing (decision 2) |
+| `direct-refused` | a compile straight to `l0013r-c5d-drive` outside a command is refused, with A1b's message, and uploads nothing (decision 2) |
 | `exit-after-reserve` | a targeted capture exits after reserve at generation 1. The sweeper takes it over (generation 2, same pinned revision); reserve answers the same reservation, nothing is counted twice, and the capture publishes its original sequence (test 3, an abandoned reservation doesn't block) |
 | `exit-after-stage` | a targeted capture exits after staging, before publish, at generation 1. The generation-2 takeover reuses the staged bytes (no second render: the camera's request log has one render; Policy's `staged` record is unchanged) and publishes them |
-| `stale-worker` | `stall-before-stage` at generation 1. The sweeper takes over (generation 2), which renders, stages and publishes. Then the stalled worker resumes: Policy refuses its `stage` (and any later bind or mint) as a stale generation, its audit shows the refusal, nothing it rendered is published, and the published sequence and digest are generation 2's (decision 9's fencing, live) |
+| `drop-outcome` | with `BROKER_FAULTS=drop-outcome` on `broker-c5d-drive` for this phase only, a capture publishes and Broker drops its outcome. The retry replays the claim (nothing is published twice). Policy's reconciliation, through production Broker, reads the object's metadata in the drive bucket (`evidence.bucket`) and resolves `applied`, with a result equal field for field to an undropped control capture's. Production Broker's records are only `receipts` and `reconcile`, with no `execute` (decision 5's reconcile case, live; decision 3's boundary) |
+| `stale-worker` | one targeted capture, with `stop-renewal` on `api-c5d-drive` and `stall-before-stage` on `l0013r-c5d-drive`, both at generation 1. The api worker stops renewing while its compiler request stays open and stalled. The lease expires and the sweeper takes over (generation 2), which renders, stages and publishes. **The takeover is observed before the stalled request is released:** Policy's records show generation 2's lease before generation 1's next call. Then the stalled worker continues: Policy refuses its `stage`, and anything after, as a stale generation; its audit shows the refusal; nothing it rendered is published; the published sequence and digest are generation 2's; and the generation-1 api worker finishes nothing (decision 9's fencing, live) |
 | `staging-gone` | `exit-after-stage` at generation 1, then the operator deletes that staged object from `graffiticode-command-staging` (the one write the drive makes there itself). The generation-2 takeover finds the reservation staged, so it doesn't render. Broker reads staging, finds nothing, and refuses **before any claim**: definitely, with no receipt; the command fails; nothing is published. A new capture, a new command, then succeeds (decision 9's staging-before-claim case, live) |
 | `older-after-newer` | an older capture, the only target (`exit-after-stage` at generation 1), stops after staging. A newer capture of the same item runs to completion untargeted. The older's generation-2 takeover publishes nothing: `newer-present`, completed with its own result, the newer still published (test 2) |
 | `two-stage` | a chain capturing two items, and identical snap programs in two stages, are one invocation with a scope per intent. Staged objects are named by stage (test 6) |
 | `mixed` | a capture plus an L0176 save through the canary's connection is one invocation, each token carrying only its own scope (test 6) |
 | `non-owner` | a private item is refused for a non-owner at allocation (test 4); after access is narrowed, the hermetic evidence stands as accepted in C5a |
 | `rate-limit` | the 13th anonymous capture of a public item within the hour is refused `rate-limited`, and its command is retired (C5a's `fixtures-retired` rule) |
-| `canary-snap` | `canary.js --snap` against `api-drive` passes |
-| `boundary` | decision 3's isolation evidence: every drive invocation's Broker records come from `broker-faults` and none from `broker`; `graffiticode-thumbnails` is unchanged across the drive; every compiler call went to a drive compiler |
+| `canary-snap` | `canary.js --snap` against `api-c5d-drive` passes |
+| `boundary` | decision 3's isolation evidence: every drive invocation's Broker records come from `broker-c5d-drive` and none from `broker`; `graffiticode-thumbnails` is unchanged across the drive; every compiler call went to a drive compiler |
 | `cleanup` | every command the drive allocated is terminal, and none is due |
 
 - **Hermetic, with the reason each can't be produced live in this drive** (records at the deployed commits with verbatim output, under C5a's field-level rules):
@@ -216,12 +226,21 @@ Every phase runs as the canary, through `api-drive`. Its checks read Policy's re
   |---|---|---|
   | A crash after the staging object is created, before Policy's staged record commits | the window is inside Policy's own stage route; no approved interface stops Policy there, and Policy has no fault hooks in production | Policy `captures.spec.ts` › "after the staging object is written, before the record: the retry adopts the bytes staged first" |
   | A stale worker's staging object adopted (it won the create race) | needs the stale worker's create to land before the takeover's, inside Policy | Policy `captures.spec.ts` › "refuses a stale worker at reserve, stage and bind; its staging object, if it won, is adopted" (the refusal itself is live, in `stale-worker`) |
-  | Staging gone **after** Broker's claim, and a dropped outcome reconciled `applied` | reconciliation runs through production Broker, which reads `graffiticode-thumbnails`, not the drive bucket (decision 3's boundary). A live reconcile of a drive operation would read the wrong bucket | Broker `gcs.spec.ts` › "never reads staging once a claim exists: deleted after a dropped outcome, the retry replays and reconciliation resolves applied" |
+  | Staging gone **after** Broker's claim | the deletion would have to land between Broker's claim and its read of staging, inside one Broker request; no approved interface times that (the dropped outcome and its reconciliation are live, in `drop-outcome`) | Broker `gcs.spec.ts` › "never reads staging once a claim exists: deleted after a dropped outcome, the retry replays and reconciliation resolves applied" |
   | The conditional `412` race | no approved interface pauses or reorders execution (C5a) | as accepted in C5a |
 
   The `staging-gone` phase covers the before-claim case live; Broker `gcs.spec.ts` › "refuses missing staged bytes with no claim, definitely, before claiming" supports it.
 - **The drive passes** only if every phase passes. Its evidence goes to `docs/evidence/c5d/drive/`.
-- **Teardown (Step 32's):** delete `broker-faults`, `l0013r-drive`, `l0176r-drive`, `api-drive` and the drive bucket. Retire the drive compilers' approval records with `revisions.js`, so no plan can pin them. Remove the proxy hosts, and let the window expire.
+- **Teardown (Step 32's), in this order (the #436 review: retire before deleting).** The retirement CLI refuses a revision that's serving, so each pinnable drive compiler is parked first:
+  1. **Every drive command is terminal** and none is due (the `cleanup` phase).
+  2. **Park each pinnable drive compiler** (`l0013r-c5d-drive`, `l0176r-c5d-drive`): deploy a parking revision with plain `gcloud run deploy`, not the deploy CLI, so it's never recorded approved. Its image is the same, it takes no invocations (its invoker binding is removed first), and it gets 100% of traffic. No approved drive revision then serves.
+  3. **Retire every approved drive revision** with `node scripts/revisions.js retire <service> --release <id>`, one at a time.
+     - A non-empty report (a plan still needing it) cancels the retirement. The drive's commands are all terminal by then, so a report is a finding to resolve, not to override. `--confirm-unrecoverable` is used only by the owner's named decision.
+     - Each retirement removes the revision's tag.
+     - **Verify:** `revisions.js status <service>` shows every drive release `retired`, and no tag URL answers.
+  4. **Then delete:** `l0013r-c5d-drive`, `l0176r-c5d-drive`, `api-c5d-drive` and `broker-c5d-drive` (not pinnable, so nothing to retire), and `gs://graffiticode-c5d-drive`.
+  5. **Remove the proxy hosts** (`broker-c5d-drive` from `compilers-l0013` and `compilers-l0176`), rolled and verified. The window expires.
+  6. **B6's `l0176r-drive` is untouched throughout:** its revisions, tags and approval records stay as they were, so any recovery that depends on them is preserved. Retiring it is a separate decision.
 
 ### Slice 4: activation (Step 34, five ordered steps, each with approval)
 
@@ -308,7 +327,7 @@ Every phase runs as the canary, through `api-drive`. Its checks read Policy's re
 - **The stale window,** between steps 1 and 5, lasts minutes.
 - **Anonymous public captures** run under the exception, at 12 per item per hour, and are audited.
 - **`no-store`** means a repeated "Generate thumbnail" always captures again. It's an explicit user action, rate-bounded for anonymous callers.
-- **The drive's proxy exception** for `broker-faults` is temporary, and is removed at teardown.
+- **The drive's proxy exception** for `broker-c5d-drive` is temporary, and is removed at teardown.
 
 ## 7. Out of scope
 
