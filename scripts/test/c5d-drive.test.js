@@ -846,6 +846,53 @@ test("the owner's reproduction: a late allocation by the real api bridge fails c
   assert.equal(cleanupOf(after, "failed", []).passed, true);
 });
 
+// #446 fourth review: a failed cleanup's manifest records the command it
+// discovered in Policy (policyEnumeration). Discovery must establish neither
+// ownership nor inventory membership: resolve-journal still correlates the
+// intent with it, the next cleanup still reports it missing until then, and
+// the failed cleanup's evidence stays where it was, unchanged.
+test("a failed cleanup's discovered command stays a candidate: resolve-journal still correlates it, and the evidence is kept", () => {
+  const known = "c:" + "1".repeat(64);
+  const late = { commandId: "c:" + "2".repeat(64), uid: "anonymous", taskId: "task-public", createdAt: "2026-11-19T21:00:30Z", status: "pending" };
+  const intent = { name: "rate-limit-1", kind: "anonymous", task: "task-public", sentAt: "2026-11-19T21:00:00Z", commandId: null };
+  const j = (file, value) => ({ file, value });
+  const journal = [j("rate-limit-1.json", intent), j("rate-limit-1.ambiguous.json", { task: intent.task, sentAt: intent.sentAt, status: null })];
+  const enumeration = status => ({ since: intent.sentAt, tasks: [intent.task], queries: [{ query: "policy commands where taskId == task-public", pages: 1, count: 1, complete: true }], commands: [{ ...late, status }] });
+  const cleanupOf = (inv, status) => judgePhase("cleanup", {
+    commands: inv.commandIds.map(id => ({ commandId: id, status: id === late.commandId ? status : "completed" })),
+    due: [],
+    unresolvedIntents: inv.unresolvedIntents,
+    policyEnumeration: enumeration(status),
+  });
+  // The failed cleanup, saved as the runner saves it.
+  const before = C.inventory({ plan: { ids: { known } }, journal, manifests: [] });
+  const failed = cleanupOf(before, "pending");
+  assert.equal(failed.passed, false);
+  const dir = mkdtempSync(path.join(tmpdir(), "c5d-cleanup-evidence-"));
+  const file = path.join(dir, "cleanup-1.json");
+  writeFileSync(file, JSON.stringify({ phase: "cleanup", passed: false, observations: { commands: before.commandIds.map(id => ({ commandId: id, status: "completed" })), unresolvedIntents: before.unresolvedIntents, policyEnumeration: enumeration("pending") } }));
+  const saved = readFileSync(file, "utf8");
+  const manifests = () => [JSON.parse(readFileSync(file, "utf8"))];
+  // Discovery isn't ownership: the late command is discovered, not inventoried.
+  const withEvidence = C.inventory({ plan: { ids: { known } }, journal, manifests: manifests() });
+  assert.ok(!withEvidence.commandIds.includes(late.commandId), "a discovered id is never inventoried");
+  assert.deepEqual(withEvidence.discovered, [late.commandId]);
+  assert.deepEqual(withEvidence.unresolvedIntents, ["rate-limit-1.json"]);
+  // So a second cleanup still reports it missing, rather than passing on its own earlier finding.
+  assert.match(cleanupOf(withEvidence, "pending").checks.find(c => c.id === "policy-enumeration").detail, new RegExp(`inventory lacks: ${late.commandId}`));
+  // And resolve-journal still correlates the intent with it.
+  const resolutions = C.correlateIntents({ intents: [intent], commands: [late], claimed: withEvidence.commandIds });
+  assert.equal(resolutions["rate-limit-1"].commandId, late.commandId);
+  const resolved = C.inventory({ plan: { ids: { known } }, journal: [...journal, j("rate-limit-1.id.json", resolutions["rate-limit-1"])], manifests: manifests() });
+  assert.deepEqual(resolved.unresolvedIntents, []);
+  assert.ok(resolved.commandIds.includes(late.commandId));
+  assert.deepEqual(resolved.discovered, [], "assigned now, by the journal");
+  assert.equal(cleanupOf(resolved, "failed").passed, true);
+  // The failed cleanup's evidence is neither moved nor changed.
+  assert.deepEqual(readdirSync(dir), ["cleanup-1.json"]);
+  assert.equal(readFileSync(file, "utf8"), saved);
+});
+
 test("an empty query, or a records-based 'none', never resolves an ambiguous intent", () => {
   const intent = { name: "a", task: "task-1", sentAt: at(10) };
   assert.deepEqual(C.correlateIntents({ intents: [intent], commands: [], claimed: [] }), {});

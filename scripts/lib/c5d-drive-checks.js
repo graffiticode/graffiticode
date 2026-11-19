@@ -853,12 +853,35 @@ export const inventory = ({ plan, journal, manifests }) => {
     if (typeof answered?.commandId === "string") add(answered.commandId, "journal");
     else if (!isRefusalBeforeAllocation(answered?.noAllocation)) unresolvedIntents.push(file);
   }
+  // A manifest's ids are the run's, except what a cleanup discovered in
+  // Policy's records (`policyEnumeration`): discovery never establishes
+  // ownership or inventory membership (#446 fourth review). Counted as the
+  // run's, a failed cleanup's own finding would hide the command from the
+  // next cleanup's "the inventory lacks" check and claim it away from the
+  // intent resolve-journal must correlate it with. Those ids are kept apart,
+  // as `discovered`, and the evidence stays where it is.
+  const discovered = new Set();
+  const collectDiscovered = v => {
+    if (typeof v === "string" && /^c:[0-9a-f]{64}$/.test(v)) discovered.add(v);
+    else if (v && typeof v === "object") Object.values(v).forEach(collectDiscovered);
+  };
   const walk = v => {
     if (typeof v === "string") add(v, "manifest");
-    else if (v && typeof v === "object") Object.values(v).forEach(walk);
+    else if (Array.isArray(v)) v.forEach(walk);
+    else if (v && typeof v === "object") {
+      for (const [k, child] of Object.entries(v)) {
+        if (k === "policyEnumeration") collectDiscovered(child);
+        else walk(child);
+      }
+    }
   };
   manifests.forEach(walk);
-  return { commandIds: [...ids.keys()].sort(), sources: Object.fromEntries(ids), unresolvedIntents: unresolvedIntents.sort() };
+  return {
+    commandIds: [...ids.keys()].sort(),
+    sources: Object.fromEntries(ids),
+    unresolvedIntents: unresolvedIntents.sort(),
+    discovered: [...discovered].filter(id => !ids.has(id)).sort(),
+  };
 };
 
 // Reconciliation of a dropped outcome, polled (#446 review): Broker answers

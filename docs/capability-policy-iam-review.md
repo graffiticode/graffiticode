@@ -2244,7 +2244,7 @@ C5d slices 2 and 3 ([`docs/c5d-snapshot-commands-plan.md`](c5d-snapshot-commands
   - a 4xx naming one of Policy's refusals before allocation;
   - `--phase resolve-journal`.
 
-  `resolve-journal` correlates the request with Policy's anonymous commands for its task created since it was sent, with **no upper bound**, because the api's work continues after the client's connection is lost. It assigns the one candidate that no other journal entry, manifest or intent claims, and records the command id, its `createdAt` and the query. An empty result never proves that nothing was allocated. An intent still unresolved keeps `cleanup` failing until `resolve-journal` is rerun later, or the owner decides.
+  `resolve-journal` correlates the request with Policy's anonymous commands for its task created since it was sent, with **no upper bound**, because the api's work continues after the client's connection is lost. It assigns the one candidate that no other journal entry, manifest or intent claims, and records the command id, its `createdAt` and the query. A command a failed `cleanup` discovered in Policy's records (its `policyEnumeration`) is evidence, not a claim: it stays a candidate, the next `cleanup` still reports it missing until it is assigned, and the failed manifest is kept as it is. An empty result never proves that nothing was allocated. An intent still unresolved keeps `cleanup` failing until `resolve-journal` is rerun later, or the owner decides.
 - Each phase's timestamped manifest.
 
 Nothing there is ever overwritten.
