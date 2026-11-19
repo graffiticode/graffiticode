@@ -76,7 +76,12 @@ export const buildCommandWorker = ({
     }
   };
   // The lease is renewed on its own timer: a stage may run for minutes.
-  const renewal = every(() => {
+  // C5d's drive fault `stop-renewal` (faults.js): for a targeted command at
+  // generation 1, no renewal at all, so its lease expires while this run's
+  // stage request stays open; Policy then refuses this run's next write.
+  const stopRenewal = Boolean(faults?.stopRenewal?.(commandId, generation));
+  if (stopRenewal) log(`WARN command ${commandId}: fault stop-renewal at generation ${generation}`);
+  const renewal = stopRenewal ? null : every(() => {
     policy.lease({ commandId, worker, generation }).catch(e => {
       lost = lost ?? (e?.reason ?? "renewal-failed");
       log(`WARN command ${commandId}: lease not renewed (${lost})`);

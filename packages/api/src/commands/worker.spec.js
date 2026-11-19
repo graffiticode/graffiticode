@@ -25,7 +25,7 @@ import {
   runtimeOccurrenceId
 } from "@graffiticode/policy";
 import { createMemoryReceiptStore, createReceiptReader, argsDigest } from "@graffiticode/broker";
-import { buildCommandWorker } from "./worker.js";
+import { buildCommandWorker, LEASE_RENEW_MS } from "./worker.js";
 import { parseCommandFaults } from "./faults.js";
 import { buildSweep } from "./sweep.js";
 import { buildCommandBridge, buildCompileEnvelope } from "./bridge.js";
@@ -746,6 +746,81 @@ describe("the drive's worker faults", () => {
     expect(() => parseCommandFaults({ K_SERVICE: "api-drive", API_COMMAND_FAULTS: "exit-after-write" })).toThrow("PRINCIPALS");
     expect(() => parseCommandFaults({ K_SERVICE: "api", API_COMMAND_FAULTS: "exit-after-output", API_COMMAND_FAULT_PRINCIPALS: OWNER })).toThrow("production");
     expect(parseCommandFaults({ K_SERVICE: "api" })).toBeNull();
+  });
+});
+
+// C5d's drive (docs/c5d-snapshot-commands-plan.md, slice 1): `stop-renewal`, targeted by
+// command id, at generation 1 only.
+describe("the drive's stop-renewal fault (C5d)", () => {
+  const ENV = commandId => ({ K_SERVICE: "api-c5d-drive", API_COMMAND_FAULT_TARGETS: JSON.stringify({ [commandId]: "stop-renewal" }) });
+  const timers = () => {
+    const started = [];
+    return { started, setInterval: (fn, ms) => { started.push(ms); return { unref() {} }; }, clearInterval: () => {} };
+  };
+  /** @type {(name: string, env: any, t: any, lang?: any) => any} */
+  const workerWith = (name, env, t, lang = language) => buildCommandWorker({
+    policy: client(), taskStorer, language: lang, artifactStorer: artifacts, worker: name,
+    faults: parseCommandFaults(env), setInterval: t.setInterval, clearInterval: t.clearInterval, log: () => {},
+  });
+
+  it("starts no renewal for its target at generation 1, and renews any other command as before", async () => {
+    const target = await allocate("job-target");
+    const other = await allocate("job-other");
+    const env = ENV(target.commandId);
+    const t1 = timers();
+    expect(await workerWith("w1", env, t1)({ commandId: target.commandId, generation: target.generation })).toMatchObject({ status: "completed" });
+    expect(t1.started).toEqual([]);
+    const t2 = timers();
+    await workerWith("w1", env, t2)({ commandId: other.commandId, generation: other.generation });
+    expect(t2.started).toEqual([LEASE_RENEW_MS]);
+  });
+
+  it("the lease expires while the stage request is open; the takeover finishes it, and the late answer finishes nothing", async () => {
+    const { commandId, generation } = await allocate();
+    /** @type {any} */
+    let takeover = null;
+    // The stage request stays open while the unrenewed lease expires and generation 2 takes over.
+    const stalling = {
+      ...language,
+      start: async args => {
+        if (args.commandSession && !takeover) {
+          takeover = await takeOver(commandId, generation, "w2");
+        }
+        // The stalled compiler's own Policy calls are refused now (decision 9's fencing), and it
+        // answers with that error, as a compiler does, rather than throwing at the worker.
+        try {
+          return await language.start(args);
+        } catch (e) {
+          return { data: null, errors: [{ message: String(e?.message ?? e), code: e?.reason ?? "refused" }] };
+        }
+      },
+    };
+    const t = timers();
+    const first = await workerWith("w1", ENV(commandId), t, stalling)({ commandId, generation });
+    expect(t.started).toEqual([]);
+    expect(takeover.generation).toBe(2);
+    // Generation 1's next Policy write was refused: it stopped, pending, and finished nothing.
+    expect(first).toMatchObject({ status: "pending", lost: expect.stringMatching(/stale-generation|lease-expired/) });
+    expect((await policy.commandRead({ caller: GATEWAY, commandId, what: "state" })).status).toBe("pending");
+    // Generation 2, unaffected by the fault, renews and completes it.
+    const t2 = timers();
+    expect(await workerWith("w2", ENV(commandId), t2)({ commandId, generation: takeover.generation })).toMatchObject({ status: "completed", publication: { state: "published" } });
+    expect(t2.started).toEqual([LEASE_RENEW_MS]);
+  });
+
+  it("is refused on the production service, malformed, or with an unknown fault, and absent when unset", () => {
+    const id = `c:${"a".repeat(64)}`;
+    expect(() => parseCommandFaults({ K_SERVICE: "api", API_COMMAND_FAULT_TARGETS: JSON.stringify({ [id]: "stop-renewal" }) })).toThrow("production");
+    expect(() => parseCommandFaults({ K_SERVICE: "api-c5d-drive", API_COMMAND_FAULT_TARGETS: "not json" })).toThrow("JSON");
+    expect(() => parseCommandFaults({ K_SERVICE: "api-c5d-drive", API_COMMAND_FAULT_TARGETS: "{}" })).toThrow("non-empty");
+    expect(() => parseCommandFaults({ K_SERVICE: "api-c5d-drive", API_COMMAND_FAULT_TARGETS: JSON.stringify({ "job-1": "stop-renewal" }) })).toThrow("isn't a command id");
+    expect(() => parseCommandFaults({ K_SERVICE: "api-c5d-drive", API_COMMAND_FAULT_TARGETS: JSON.stringify({ [id]: "drop-everything" }) })).toThrow("unknown fault");
+    expect(parseCommandFaults({ K_SERVICE: "api-c5d-drive" })).toBeNull();
+    const faults = parseCommandFaults({ K_SERVICE: "api-c5d-drive", API_COMMAND_FAULT_TARGETS: JSON.stringify({ [id]: "stop-renewal" }) });
+    expect([faults.stopRenewal(id, 1), faults.stopRenewal(id, 2), faults.stopRenewal(`c:${"b".repeat(64)}`, 1)]).toEqual([true, false, false]);
+    // Alongside C6's faults, each keeps its own scope.
+    const both = parseCommandFaults({ K_SERVICE: "api-c5d-drive", API_COMMAND_FAULTS: "exit-after-write", API_COMMAND_FAULT_PRINCIPALS: OWNER, API_COMMAND_FAULT_TARGETS: JSON.stringify({ [id]: "stop-renewal" }) });
+    expect([both.exitAfterWrite, both.stopRenewal(id, 1)]).toEqual([true, true]);
   });
 });
 
