@@ -221,6 +221,11 @@
         {
           "milestone": "c3-legacy-strip",
           "commit": "8de6641f929856dcfc01b3cf21f68ab752dc42d0"
+        },
+        {
+          "milestone": "C5d-v9",
+          "commit": "3b6b4a50d25d5d7ed8f510c51b68483c71202f78",
+          "floor": true
         }
       ],
       "secrets": {
