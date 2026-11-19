@@ -1812,6 +1812,11 @@ test("the C5d drive's deploy.json entries are isolated from production and carry
     assert.ok(s[name].network.allow.includes(host("broker-c5d-drive")));
   }
   assert.deepEqual(s["l0176r-c5d-drive"].pinnable, { lang: "0176", contractVersions: [1, 2] });
+  // Every drive service is private, with Step 32's exact invokers; the CLI keeps IAM as it is.
+  for (const name of ["broker-c5d-drive", "l0013r-c5d-drive", "l0176r-c5d-drive", "api-c5d-drive"]) {
+    assert.equal(s[name].access, "private", name);
+    assert.equal(s[name].smokeServiceAccount, "deploy-smoke@graffiticode.iam.gserviceaccount.com", name);
+  }
   const api = s["api-c5d-drive"];
   assert.equal(api.access, "private");
   assert.deepEqual(
