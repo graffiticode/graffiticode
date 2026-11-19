@@ -2474,7 +2474,7 @@ Decision 4: before activation, an api baseline at `3b6b4a50` marked `floor: true
   - so from #443 on, **the serving api has no allowed rollback target** until Step 34's step 1 releases;
   - that release's rollback target is `api-rmwkxlbvy-b5fa92`, at the floor's own commit, and allowed.
 - **Verify** (read-only; the refusal is shown, never exercised against production):
-  1. `npm run release-check -- api` passes.
+  1. `npm run deploy -- release-check api` passes.
   2. The current receipt's target and its commit:
 
      ```bash
