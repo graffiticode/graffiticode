@@ -96,6 +96,7 @@ These settle the gaps a review of this plan found. Each decision has a verificat
 
 **D-3. The service-scope claim is issued, verified and bound before any M1 write.**
 - **Issuer.** The frontend's server-side service runtime, authenticated to Policy as a registered client identity. Only registered identities may assert a scope. Nothing in a request body or prompt is trusted as a scope.
+  - **The registered client identity is an installation's registered caller** ([`installation-boundary-plan.md`](installation-boundary-plan.md), I-1 and I-2). The installation registry provides it, and the API attests it to Policy. The scope digest joins the admission binding beside the installation (I-4).
 - **Verification.**
   - Policy checks the issuer at allocation.
   - The scope is intersected with console grants and connection policy, so it can only narrow authority.
@@ -190,6 +191,7 @@ These settle the gaps a review of this plan found. Each decision has a verificat
 ## Workstreams
 
 **W1. Backend contract foundation.** Needs no runs, so it can start now.
+- **First: the installation boundary's I1–I3** ([`installation-boundary-plan.md`](installation-boundary-plan.md)): the registry, installation context in Policy, and the API's attestation. D-3's issuer and binding build on them. Its Policy slices land after C5d's activation.
 - **Errors (FAIL-01).**
   - Register the new reasons in `failures.ts`, keeping the five categories.
   - Add typed details and recovery guidance per reason. Guidance depends on context and never comes from the category alone.
