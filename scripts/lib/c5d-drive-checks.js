@@ -17,9 +17,11 @@
 // Observation shapes (plain JSON), by phase:
 //
 //   capture  { commandId, status, ownerGeneration, invocationId,
-//              result: { item, captureSequence, sha256, url } | null,
+//              result: { item, url } | null,          L0013's own value (snapshot_value)
 //              reservations: [{ stage, occurrenceId, item, captureSequence, publicCapture,
 //                               state, generation, sha256, stagedGeneration, stagedAt }],
+//              claim: { claimedAt, evidence: { bucket, object, item, captureSequence, sha256, commandId, staged } }
+//                     | { absent: true },               Broker's claim of the first reservation
 //              object: { generation, metadata: { captureSequence, commandId, sha256 } } | { absent: true } }
 //   counter  { nextCaptureSequence }                 Policy's item-captures record
 //   lines    [{ at, text }]                          log lines, in time order
@@ -36,7 +38,7 @@
 //                      claim: { evidence } | { absent: true }, outcomeAfterDrop: {...} | { absent: true },
 //                      objectAfterDrop: object, stagedAfterDelete: { absent: true } | {...},
 //                      stagedDeletedAt, droppedFinishedAt, retry: { commandId, outcome },
-//                      reconcile: { status, operations: [{ operationId, verdict, final, result }] },
+//                      reconcile: { status, timedOut, attempts, operations: [{ operationId, verdict, final, result }] },
 //                      objectAfterRetry: object, executeSteps: audit }
 //   stale-worker     { capture, policyAudit: audit, l0013Lines: lines, apiLines: lines }
 //   staging-gone     { capture (the targeted one), faultLines: lines, stagedAtExit: reservation,
@@ -47,15 +49,20 @@
 //   two-stage        { capture, distinctItems: capture, sameProgram: capture, scopes: [{ fn, itemId }] }
 //   mixed            { capture, invocations, tokens: [{ fn, scopeKinds }] }
 //   non-owner        { status, outcome, reason, reservations: [] }
-//   rate-limit       { allowed, refused, refusedAfterQuota, retired: { statuses } }
-//   canary-snap      { exitCode, results: [{ name, ok }] }
-//   boundary         { invocations: [id], brokerAudit: audit, reconcileBuckets: [{ opid, bucket }],
-//                      thumbnailsBefore: [{ name, generation }], thumbnailsAfter: [{ name, generation }],
+//   rate-limit       { priorInWindow, attempted, allowed, refused, refusedAfterQuota,
+//                      retired: { statuses, listedAfter } }
+//   canary-snap      { exitCode, results: [{ name, ok }], commandId, expectedCommandId }
+//   boundary         { commands: [{ commandId, invocationId } | { commandId, absent: true }],
+//                      claimsByInvocation: { <invocation>: [operationId] },
+//                      queries: [{ query, count, limit, nextPageToken? }], poll: { attempts, timedOut },
+//                      brokerAudit: audit, reconcileBuckets: [{ opid, bucket }],
+//                      thumbnailsBefore (baseline.json's): [{ name, generation }], thumbnailsAfter: [...],
 //                      fixtures: [item], compilerCalls: [{ service }] }
-//   cleanup          { commands: [{ commandId, status }], due: [commandId] }
+//   cleanup          { commands: [{ commandId, status | "absent" }], due: [commandId], unresolvedIntents: [file] }
 //   errors           { <observation>: message }    a read that failed fails its phase
 
 import { createHash } from "node:crypto";
+import { runAppService as runAppHost } from "./canary-env.js";
 
 // ----------------------------------------------------------------- the drive
 
@@ -85,7 +92,7 @@ export const commandIdFor = (uid, idempotencyKey) => `c:${createHash("sha256").u
 // run (slice 1 item 3), and the fault maps are set once from these.
 export const KEY_NAMES = Object.freeze([
   "first-private", "exit-after-reserve", "exit-after-stage", "drop-outcome", "stale-worker",
-  "staging-gone", "staging-gone-fresh", "older", "newer", "two-stage", "mixed",
+  "staging-gone", "staging-gone-fresh", "older", "newer", "two-stage", "two-stage-same", "mixed",
 ]);
 export const driveKey = (runId, name) => `c5d-drive:${runId}:${name}`;
 export const driveTargets = ({ uid, runId }) => {
@@ -103,12 +110,19 @@ export const driveTargets = ({ uid, runId }) => {
     [ids.older]: "exit-after-stage",
   };
   const api = { [ids["stale-worker"]]: "stop-renewal" };
-  return { runId, uid, keys, ids, faults: { L0013_CAPTURE_FAULTS: l0013, API_COMMAND_FAULT_TARGETS: api } };
+  // canary.js --snap's own key (scripts/lib/canary.js: `canary:<runId>:snap`),
+  // with the run id the drive passes it (--run-id), so its command id is
+  // known, and journaled, before the subprocess starts.
+  const canaryRunId = `c5d${runId}`;
+  keys["canary-snap"] = `canary:${canaryRunId}:snap`;
+  ids["canary-snap"] = commandIdFor(uid, keys["canary-snap"]);
+  return { runId, uid, canaryRunId, keys, ids, faults: { L0013_CAPTURE_FAULTS: l0013, API_COMMAND_FAULT_TARGETS: api } };
 };
 
-// A Cloud Run host's whole service name: `<service>-<hash>-<region>.a.run.app`
-// or `<service>-<project number>.<region>.run.app`, either with `<tag>---`.
-// A drive name holds dashes, so only the trailing segments are dropped.
+// A Cloud Run URL's whole service name, by #441's rule (canary-env.js
+// runAppService: only the trailing hash and region, or project number, are
+// dropped, so `l0176r-c5d-drive` stays whole; a `<tag>---` prefix is the
+// tag's). null for anything else: a custom domain names no service here.
 export const runAppService = url => {
   let host;
   try {
@@ -116,12 +130,24 @@ export const runAppService = url => {
   } catch {
     return null;
   }
-  if (!host.endsWith(".run.app")) return null;
-  const rest = host.includes("---") ? host.split("---")[1] : host;
-  const labels = rest.split(".");
-  const parts = labels[0].split("-");
-  const drop = labels[1] === "a" ? 2 : 1;
-  return parts.length > drop ? parts.slice(0, -drop).join("-") : null;
+  return runAppHost(host)?.service ?? null;
+};
+
+// A URL the runner sends to in a drive role must be that role's own drive
+// service, stable or tagged: never a custom domain (api.graffiticode.org
+// serves production), never another service, drive or not.
+export const driveUrlProblem = (role, url) => {
+  if (!DRIVE[role] || role === "bucket") throw new Error(`no drive role ${role}`);
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return `${role}: ${url} isn't a URL`;
+  }
+  if (parsed.protocol !== "https:") return `${role}: ${url} isn't https`;
+  const service = runAppService(url);
+  if (!service) return `${role}: ${url} isn't a Cloud Run service URL (a custom domain is refused)`;
+  return service === DRIVE[role] ? null : `${role}: ${url} is ${service}'s, not ${DRIVE[role]}'s`;
 };
 
 // The runner's configuration: every service and the bucket must be the
@@ -134,9 +160,11 @@ export const driveNamesProblem = config => {
   }
   if (FORBIDDEN_BUCKETS.includes(c.bucket)) return `the bucket is ${c.bucket}: the drive never publishes there`;
   if (c.bucket !== DRIVE.bucket) return `the bucket is ${c.bucket ?? "unset"}, not the drive's ${DRIVE.bucket}`;
-  for (const url of [c.apiUrl, c.l0013rUrl].filter(Boolean)) {
-    const service = runAppService(url);
-    if (service && FORBIDDEN_SERVICES.includes(service)) return `${url} is ${service}'s: the drive never calls a production service`;
+  // Each URL given for a role is checked before any request (#446 review).
+  for (const [role, url] of [["api", c.apiUrl], ["l0013r", c.l0013rUrl], ["l0176r", c.l0176rUrl], ["broker", c.brokerUrl]]) {
+    if (url === null || url === undefined) continue;
+    const problem = driveUrlProblem(role, url);
+    if (problem) return problem;
   }
   return null;
 };
@@ -184,17 +212,42 @@ export const captureProblem = (name, c, { bucket = DRIVE.bucket, item = null, pu
   if (m.captureSequence !== String(r.captureSequence)) return `${name}: published sequence ${show(m.captureSequence)}, reserved ${r.captureSequence}`;
   if (m.commandId !== c.commandId) return `${name}: the object names command ${show(m.commandId)}, not ${c.commandId}`;
   if (m.sha256 !== r.sha256) return `${name}: the object's digest ${show(m.sha256)} isn't the staged ${r.sha256}`;
+  // The language's result: L0013 returns exactly { item, url }
+  // (crates/core/src/lib.rs snapshot_value), the url Broker's thumbnailUrl of
+  // the staged digest in this bucket.
   const res = c.result;
-  const prefix = `https://storage.googleapis.com/${bucket}/${r.item}.png?v=`;
-  if (!res || typeof res.url !== "string" || !res.url.startsWith(prefix)) return `${name}: the result's url ${show(res?.url)} isn't under ${prefix}`;
-  if (res.captureSequence !== r.captureSequence || res.sha256 !== r.sha256 || res.item !== r.item) return `${name}: the result ${show(res)} isn't the reserved capture`;
+  if (!res || typeof res !== "object") return `${name}: no result (${show(res)})`;
+  const keys = Object.keys(res).sort().join(",");
+  if (keys !== "item,url") return `${name}: the result has fields ${keys}, expected item and url`;
+  if (res.item !== r.item) return `${name}: the result's item ${show(res.item)} isn't the reserved ${r.item}`;
+  const expected = thumbnailUrl({ bucket, item: r.item, sha256: r.sha256 });
+  if (res.url !== expected) return `${name}: the result's url ${show(res.url)} isn't ${expected}`;
+  // Broker's evidence, on its claim (gcs.ts thumbnailEvidence): the same
+  // capture, in this bucket, for this command.
+  const ev = c.claim?.evidence;
+  if (!ev) return `${name}: Broker's claim evidence not observed`;
+  if (ev.bucket !== bucket || ev.object !== `${r.item}.png` || ev.item !== r.item) return `${name}: the claim's evidence names ${show({ bucket: ev.bucket, object: ev.object, item: ev.item })}`;
+  if (ev.captureSequence !== r.captureSequence || ev.sha256 !== r.sha256) return `${name}: the claim's evidence ${show({ captureSequence: ev.captureSequence, sha256: ev.sha256 })} isn't the reservation's`;
+  if (ev.commandId !== c.commandId) return `${name}: the claim's evidence names command ${show(ev.commandId)}`;
   return null;
 };
 
-const ok = problem => (problem || true);
+// Policy's command statuses (commands.ts; command-outcomes.ts aggregateStatus):
+// `pending` until finished, then exactly one of these. Anything else is unknown.
+export const TERMINAL_STATUSES = Object.freeze(["completed", "partial", "failed", "uncertain"]);
+export const isTerminal = status => {
+  if (status === "pending") return false;
+  if (TERMINAL_STATUSES.includes(status)) return true;
+  throw new Error(`unknown command status ${JSON.stringify(status)}`);
+};
+
+const ok = problem => problem || true;
 const first = (...problems) => problems.find(Boolean) ?? null;
 
 // ------------------------------------------------------------------- phases
+
+// The invocations of a boundary's inventoried commands.
+const invocationsOf = o => [...new Set((o.commands ?? []).map(c => c.invocationId).filter(i => typeof i === "string"))];
 
 const envProblem = (name, env, expected) => {
   if (!env) return `${name}: environment not observed`;
@@ -339,6 +392,9 @@ export const PHASES = Object.freeze({
       if (!o.claim || isAbsent(o.claim)) return `no claim for ${o.operationId ?? "the operation"}`;
       if (o.claim.evidence?.bucket !== DRIVE.bucket) return `the claim's evidence names ${show(o.claim.evidence?.bucket)}`;
       if (!isAbsent(o.outcomeAfterDrop)) return `an outcome was recorded (${show(o.outcomeAfterDrop)})`;
+      // Policy's own terminal outcome for a dropped write: uncertain, never
+      // completed or failed (aggregateStatus).
+      if (o.capture?.status !== "uncertain") return `the command finished ${show(o.capture?.status)}, expected uncertain`;
       return isObject(o.objectAfterDrop) ? true : `nothing readable published (${show(o.objectAfterDrop)})`;
     }],
     ["staging-deleted", "the operator deleted the staged object after the dropped request finished, before the retry", o => {
@@ -363,6 +419,7 @@ export const PHASES = Object.freeze({
       const expected = { item: r.item, captureSequence: r.captureSequence, sha256: r.sha256, url: thumbnailUrl({ bucket: ev.bucket, item: r.item, sha256: r.sha256 }) };
       for (const k of ["item", "captureSequence", "sha256"]) if (ev[k] !== expected[k]) return `the claim's evidence ${k} ${show(ev[k])} isn't the reservation's ${show(expected[k])}`;
       if (ev.object !== `${r.item}.png`) return `the claim's evidence object ${show(ev.object)}`;
+      if (o.reconcile?.timedOut === true) return `reconciliation still too-early at its bound (${show(o.reconcile.attempts?.length)} attempts)`;
       const op = (o.reconcile?.operations ?? []).find(x => x.operationId === o.operationId);
       if (o.reconcile?.status !== 200 || !op) return `reconcile ${show(o.reconcile?.status)}: no result for ${o.operationId}`;
       if (op.verdict !== "applied" || op.final !== true) return `verdict ${show(op.verdict)}, final ${show(op.final)}`;
@@ -479,16 +536,21 @@ export const PHASES = Object.freeze({
   ],
 
   "rate-limit": [
-    ["quota", "the 13th anonymous capture within the hour is refused rate-limited, after the quota's last allowed", o => {
-      if (o.allowed !== PUBLIC_CAPTURE_LIMIT) return `${show(o.allowed)} allowed, expected ${PUBLIC_CAPTURE_LIMIT}`;
-      if (!(o.refused >= 1) || o.refusedAfterQuota !== true) return `refused ${show(o.refused)}, after the quota ${show(o.refusedAfterQuota)}`;
+    ["quota", "with the item's earlier public captures in the window counted, exactly the remaining slots are allowed and the next is refused rate-limited, after them", o => {
+      const prior = o.priorInWindow;
+      if (!Number.isSafeInteger(prior) || prior < 0 || prior >= PUBLIC_CAPTURE_LIMIT) return `the item's public captures in the window aren't readable, or leave no slot (${show(prior)})`;
+      const remaining = PUBLIC_CAPTURE_LIMIT - prior;
+      if (o.attempted !== remaining + 1) return `${show(o.attempted)} attempted, expected ${remaining + 1}`;
+      if (o.allowed !== remaining) return `${show(o.allowed)} allowed, expected ${remaining} (${prior} earlier in the window)`;
+      if (o.refused !== 1 || o.refusedAfterQuota !== true) return `refused ${show(o.refused)}, after the quota ${show(o.refusedAfterQuota)}`;
       return true;
     }],
-    ["retired", "its command is retired (C5a's fixtures-retired rule)", o => {
+    ["retired", "its commands are retired (C5a's fixtures-retired rule): none pending, none due", o => {
       const s = o.retired?.statuses;
-      if (!s || !Object.keys(s).length) return "the burst's statuses not observed";
+      if (!s || !Object.keys(s).length || !Array.isArray(o.retired?.listedAfter)) return "the burst's statuses or the due query not observed";
       const open = Object.entries(s).filter(([, v]) => v === "pending");
-      return open.length ? `still pending: ${open.map(([k]) => k).join(", ")}` : true;
+      if (open.length) return `still pending: ${open.map(([k]) => k).join(", ")}`;
+      return o.retired.listedAfter.length ? `still due: ${o.retired.listedAfter.join(", ")}` : true;
     }],
   ],
 
@@ -502,28 +564,52 @@ export const PHASES = Object.freeze({
       const failed = rs.filter(r => !r.ok);
       return failed.length ? `failed: ${failed.map(r => r.name).join(", ")}` : true;
     }],
+    ["command-recorded", "its command id is parsed from its output, and is the one planned and journaled", o => {
+      if (typeof o.commandId !== "string" || !/^c:[0-9a-f]{64}$/.test(o.commandId)) return `no command id in canary.js's output (${show(o.commandId)})`;
+      return o.commandId === o.expectedCommandId ? true : `canary.js ran ${o.commandId}, not the planned ${show(o.expectedCommandId)}`;
+    }],
   ],
 
   boundary: [
-    ["drive-broker-executes", "every execute and execute-step for a drive invocation is broker-c5d-drive's, none production broker's", o => {
-      const inv = new Set(o.invocations ?? []);
+    ["audit-complete", "the evidence is complete: every inventoried command read, every one of their invocations' claims read, no audit query truncated, and ingestion polled to coverage", o => {
+      if (!Array.isArray(o.commands) || !o.commands.length) return "the drive's command inventory not observed";
+      const unread = o.commands.filter(c => !(c.absent === true || typeof c.invocationId === "string"));
+      if (unread.length) return `commands not read: ${unread.map(c => c.commandId).join(", ")}`;
+      const claims = o.claimsByInvocation;
+      if (!claims || typeof claims !== "object") return "the claims per invocation not observed";
+      const missing = invocationsOf(o).filter(inv => !Array.isArray(claims[inv]));
+      if (missing.length) return `claims not read for ${missing.join(", ")}`;
+      if (!Array.isArray(o.queries) || !o.queries.length) return "the audit queries not observed";
+      const bad = o.queries.filter(q => !Number.isSafeInteger(q.count) || !Number.isSafeInteger(q.limit) || q.count >= q.limit || q.nextPageToken);
+      if (bad.length) return `audit queries truncated or unreadable: ${bad.map(q => q.query ?? "?").join("; ")}`;
+      if (o.poll?.timedOut !== false) return `the audit poll ${o.poll?.timedOut ? "timed out before coverage" : "wasn't observed"}`;
+      return true;
+    }],
+    ["drive-broker-executes", "every claimed operation of every drive invocation has broker-c5d-drive's execute evidence, and no execute or execute-step is any other Broker's", o => {
+      const inv = new Set(invocationsOf(o));
       if (!inv.size || !Array.isArray(o.brokerAudit)) return "the drive's invocations or Broker's audit not observed";
       const ours = o.brokerAudit.filter(e => inv.has(e.invocationId));
       const executes = ours.filter(e => e.event === "execute" || e.event === "execute-step");
-      if (!executes.length) return "no execute records for the drive";
       const elsewhere = executes.filter(e => e.service !== DRIVE.broker);
-      return elsewhere.length ? `${elsewhere.length} executes by ${[...new Set(elsewhere.map(e => e.service))].join(", ")}` : true;
+      if (elsewhere.length) return `${elsewhere.length} executes by ${[...new Set(elsewhere.map(e => e.service))].join(", ")}`;
+      const ops = [...inv].flatMap(i => o.claimsByInvocation?.[i] ?? []);
+      if (!ops.length) return "no claimed operation for the drive";
+      const uncovered = ops.filter(op => !executes.some(e => e.opid === op));
+      return uncovered.length ? `no broker-c5d-drive execute evidence for ${uncovered.join(", ")}` : true;
     }],
-    ["production-broker-bookkeeping", "production broker's records for drive invocations are only receipts and reconcile, every reconcile read naming the drive bucket", o => {
-      const inv = new Set(o.invocations ?? []);
+    ["production-broker-bookkeeping", "production broker's records for drive invocations are only receipts and reconcile, and every reconcile read is accounted for, naming the drive bucket", o => {
+      const inv = new Set(invocationsOf(o));
       const prod = (o.brokerAudit ?? []).filter(e => inv.has(e.invocationId) && e.service === "broker");
       const other = prod.filter(e => e.event !== "receipts" && e.event !== "reconcile");
       if (other.length) return `production broker ${[...new Set(other.map(e => e.event))].join(", ")}`;
       if (!Array.isArray(o.reconcileBuckets)) return "the reconcile reads' buckets not observed";
+      const reads = prod.filter(e => e.event === "reconcile" && e.opid);
+      const unaccounted = reads.filter(e => !o.reconcileBuckets.some(r => r.opid === e.opid));
+      if (unaccounted.length) return `reconcile reads with no bucket read: ${unaccounted.map(e => e.opid).join(", ")}`;
       const wrong = o.reconcileBuckets.filter(r => r.bucket !== DRIVE.bucket);
       return wrong.length ? `reconcile read ${show(wrong)}` : true;
     }],
-    ["thumbnails-unchanged", "graffiticode-thumbnails is unchanged across the drive and names no drive fixture", o => {
+    ["thumbnails-unchanged", "graffiticode-thumbnails is unchanged from the run's one baseline and names no drive fixture", o => {
       const before = o.thumbnailsBefore;
       const after = o.thumbnailsAfter;
       if (!Array.isArray(before) || !Array.isArray(after) || !before.length || !after.length) return "a listing not observed";
@@ -541,10 +627,21 @@ export const PHASES = Object.freeze({
   ],
 
   cleanup: [
-    ["terminal", "every command the drive allocated is terminal, and none is due", o => {
+    ["terminal", "every command the drive allocated (plan, journal, manifests) is terminal, each state named, and none is due", o => {
       if (!Array.isArray(o.commands) || !o.commands.length || !Array.isArray(o.due)) return "the drive's commands or the due query not observed";
-      const open = o.commands.filter(c => !["completed", "failed"].includes(c.status));
-      if (open.length) return `not terminal: ${open.map(c => `${c.commandId} ${c.status}`).join(", ")}`;
+      if (!Array.isArray(o.unresolvedIntents)) return "the journal's intents not observed";
+      if (o.unresolvedIntents.length) return `journaled requests with no recorded command id: ${o.unresolvedIntents.join(", ")}`;
+      const allocated = o.commands.filter(c => c.status !== "absent");
+      if (!allocated.length) return "no allocated command found";
+      for (const c of allocated) {
+        let done;
+        try {
+          done = isTerminal(c.status);
+        } catch (e) {
+          return `${c.commandId}: ${e.message}`;
+        }
+        if (!done) return `not terminal: ${c.commandId} ${c.status}`;
+      }
       const due = o.due.filter(id => o.commands.some(c => c.commandId === id));
       return due.length ? `still due: ${due.join(", ")}` : true;
     }],
@@ -614,3 +711,99 @@ export const latestByPhase = files => {
   }
   return latest;
 };
+
+// The run's one baseline (#446 review): a fixed name, created once, refused
+// once any capture has begun; boundary and judge read only it.
+export const BASELINE_FILE = "baseline.json";
+export const JOURNAL_DIR = "journal";
+// The phases that allocate commands: once one has a manifest, or anything is
+// journaled, captures have begun.
+export const CAPTURE_PHASES = Object.freeze(["first-capture", "direct-refused", "exit-after-reserve", "exit-after-stage", "drop-outcome", "drop-outcome-retry",
+  "stale-worker", "staging-gone", "staging-gone-delete", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap"]);
+export const baselineRefusal = ({ files, journal }) => {
+  if (files.includes(BASELINE_FILE)) return `this run's baseline is fixed (${BASELINE_FILE}); start a new run`;
+  const started = files.filter(f => CAPTURE_PHASES.some(p => f.startsWith(`${p}-`) && /\d{4}-\d{2}-\d{2}T/.test(f)));
+  if (started.length || journal.length) return `captures have begun (${[...started, ...journal].slice(0, 3).join(", ")}): the baseline can't be taken now; start a new run`;
+  return null;
+};
+
+// The journal: one write-once file per request, written before the request
+// is sent. A keyed request's command id is known then; an anonymous one's
+// (or a non-owner's) is written to its own `<name>.id.json` once answered.
+export const journalName = name => {
+  if (!/^[a-z0-9-]+$/.test(name)) throw new Error(`bad journal name ${name}`);
+  return `${name}.json`;
+};
+export const journalIdName = name => `${name}.id.json`;
+
+// Every command the drive may have allocated: the plan's deterministic ids,
+// every journaled id, and every command id in a phase manifest. An intent
+// whose id was never recorded is reported, never dropped.
+export const inventory = ({ plan, journal, manifests }) => {
+  const ids = new Map();
+  const add = (id, source) => {
+    if (typeof id === "string" && /^c:[0-9a-f]{64}$/.test(id)) ids.set(id, [...(ids.get(id) ?? []), source]);
+  };
+  for (const id of Object.values(plan?.ids ?? {})) add(id, "plan");
+  const entries = new Map(journal.map(j => [j.file, j.value]));
+  const unresolvedIntents = [];
+  for (const [file, value] of entries) {
+    if (file.endsWith(".id.json")) continue;
+    const answered = entries.get(file.replace(/\.json$/, ".id.json"));
+    // A keyed intent carries its planned id; another is resolved by its
+    // answer (an id, or null when the answer allocated nothing). An intent
+    // with neither may have allocated a command no one recorded.
+    const resolved = value?.commandId ?? answered?.commandId ?? null;
+    if (resolved) add(resolved, "journal");
+    else if (!answered) unresolvedIntents.push(file);
+  }
+  const walk = v => {
+    if (typeof v === "string") add(v, "manifest");
+    else if (v && typeof v === "object") Object.values(v).forEach(walk);
+  };
+  manifests.forEach(walk);
+  return { commandIds: [...ids.keys()].sort(), sources: Object.fromEntries(ids), unresolvedIntents: unresolvedIntents.sort() };
+};
+
+// Reconciliation of a dropped outcome, polled (#446 review): Broker answers
+// too-early until the claim's execution deadline and its grace have passed
+// (reconcile.ts: readyAt = claimedAt + executionMs + RECONCILE_GRACE_MS).
+// executionMs is at most 40 s (limits.ts: its token headroom forces it), the
+// grace 60 s. too-early keeps waiting; any other answer ends the poll, for the
+// check to judge; past the bound it times out.
+export const MAX_EXECUTION_MS = 40_000;
+export const RECONCILE_GRACE_MS = 60_000;
+export const reconcilePoll = async ({ reconcile, operationId, claimedAt, now = Date.now, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), intervalMs = 10_000, marginMs = 60_000 }) => {
+  const claimed = Date.parse(claimedAt ?? "");
+  if (!Number.isFinite(claimed)) throw new Error("the claim's time isn't readable");
+  const bound = claimed + MAX_EXECUTION_MS + RECONCILE_GRACE_MS + marginMs;
+  const attempts = [];
+  for (;;) {
+    const res = await reconcile();
+    const op = (res?.operations ?? []).find(x => x.operationId === operationId) ?? null;
+    attempts.push({ at: new Date(now()).toISOString(), status: res?.status ?? null, verdict: op?.verdict ?? null });
+    if (res?.status !== 200 || op?.verdict !== "too-early") return { ...res, attempts, timedOut: false };
+    if (now() + intervalMs > bound) return { ...res, attempts, timedOut: true };
+    await sleep(intervalMs);
+  }
+};
+
+// The quota phase's budget: the item's public captures still in Policy's
+// window before the burst (command-records.ts reserve: a public capture is
+// refused once `limit` of its timestamps are within `windowMs`).
+export const PUBLIC_CAPTURE_WINDOW_MS = 60 * 60 * 1000;
+export const priorPublicCaptures = (record, at, windowMs = PUBLIC_CAPTURE_WINDOW_MS) => {
+  if (record?.absent === true) return 0;
+  if (!Array.isArray(record?.publicCaptures)) throw new Error("the item's captures record has no publicCaptures");
+  if (record.publicCaptures.some(t => !Number.isFinite(t))) throw new Error("a public capture's time isn't readable");
+  return record.publicCaptures.filter(t => t > at - windowMs).length;
+};
+
+// Policy's gateway command routes as c5a-gate-fixtures.js's retireFixtures
+// and verifyRetired use them, over `call(method, route, body)`.
+export const policyFixtureClient = call => ({
+  get: id => call("GET", `/v1/commands/${encodeURIComponent(id)}`),
+  lease: (id, body) => call("POST", `/v1/commands/${encodeURIComponent(id)}/lease`, body),
+  finish: (id, generation) => call("POST", `/v1/commands/${encodeURIComponent(id)}/finish`, { generation, result: null }),
+  due: ({ scopes }) => call("GET", `/v1/commands-due?limit=50&recording=1&repairs=1${scopes ? "&scopes=1" : ""}`),
+});

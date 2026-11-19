@@ -1,19 +1,19 @@
 // C5d's drive, offline: every phase's judgment (scripts/lib/c5d-drive-checks.js)
 // passing and each check failing on its own, missing observations failing,
-// the runner's refusals of production names, and manifests never overwritten
-// (scripts/c5d-drive.js, run with no cloud: plan and judge only).
+// the runner's refusals of production names and URLs, the run's one baseline,
+// its command inventory, and manifests never overwritten (scripts/c5d-drive.js,
+// run with no cloud: plan, baseline refusals and judge only).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import {
-  DRIVE, FIXTURES, BROKER_RUN, PUBLIC_CAPTURE_LIMIT, DIRECT_REFUSAL, PHASES, DRIVE_PHASES,
-  commandIdFor, driveTargets, driveNamesProblem, runAppService, judgePhase, verdict, thumbnailUrl,
-  stagedObject, operationIdOf, revisionService, latestByPhase, phaseFile, stampOf, captureProblem,
-} from "../lib/c5d-drive-checks.js";
+import * as C from "../lib/c5d-drive-checks.js";
 import { writeManifestOnce } from "../lib/c5b-thumbnails.js";
+import { verifyRetired } from "../lib/c5a-gate-fixtures.js";
+
+const { DRIVE, FIXTURES, BROKER_RUN, PUBLIC_CAPTURE_LIMIT, DIRECT_REFUSAL, PHASES, DRIVE_PHASES, commandIdFor, driveTargets, driveNamesProblem, runAppService, judgePhase, verdict, thumbnailUrl, stagedObject, operationIdOf, revisionService, latestByPhase, phaseFile, stampOf, captureProblem } = C;
 
 const UID = "995cc0bc98105563168b7fbee7b1e59a4256331c";
 const RUN = "t3st0001";
@@ -23,15 +23,23 @@ const url = (service, tag = null) => `https://${tag ? `${tag}---` : ""}${service
 const clone = v => structuredClone(v);
 const at = s => `2026-11-20T00:00:${String(s).padStart(2, "0")}Z`;
 
-// A completed capture published exactly as reserved.
+// A completed capture published exactly as reserved, in the shapes the
+// services write: L0013's result is exactly { item, url } (snapshot_value),
+// the url Broker's thumbnailUrl; Broker's claim evidence is gcs.ts
+// thumbnailEvidence.
 const capture = ({ commandId, item = FIXTURES.private, seq = 5, sha = SHA("a"), publicCapture = false, generation = 1, stagedGeneration = 1, ownerGeneration = 1, invocationId = "inv-1", stage = "s0" } = {}) => ({
   commandId,
   status: "completed",
   ownerGeneration,
   invocationId,
-  result: { item, captureSequence: seq, sha256: sha, url: thumbnailUrl({ bucket: DRIVE.bucket, item, sha256: sha }) },
+  result: { url: thumbnailUrl({ bucket: DRIVE.bucket, item, sha256: sha }), item },
   reservations: [{ stage, occurrenceId: "o1", item, captureSequence: seq, publicCapture, state: "staged", generation, sha256: sha, stagedGeneration, stagedAt: at(1) }],
-  object: { generation: "1700000000000001", metadata: { captureSequence: String(seq), commandId, sha256: sha } },
+  claim: {
+    operationId: `${invocationId}/${stage}/o1`,
+    claimedAt: at(2),
+    evidence: { format: "gcs-thumbnail-1", bucket: DRIVE.bucket, object: `${item}.png`, item, captureSequence: seq, sha256: sha, commandId, staged: `${commandId}/${stage}/o1.png` },
+  },
+  object: { generation: "1700000000000001", metadata: { captureSequence: String(seq), commandId, sha256: sha, item } },
 });
 const faultLines = (kind, commandId, extra = []) => [{ at: at(1), text: `WARN capture fault ${kind} command ${commandId}` }, ...extra.map((t, i) => ({ at: at(2 + i), text: `WARN capture fault ${kind} command ${commandId}: ${t}` }))];
 const listingOf = () => [{ name: "abc.png", generation: "1600000000000001" }, { name: "def.png", generation: "1600000000000002" }];
@@ -39,7 +47,7 @@ const listingOf = () => [{ name: "abc.png", generation: "1600000000000001" }, { 
 // A passing observation for every phase.
 const passing = () => {
   const ids = T.ids;
-  const dropCapture = capture({ commandId: ids["drop-outcome"], seq: 9, sha: SHA("d") });
+  const dropCapture = { ...capture({ commandId: ids["drop-outcome"], seq: 9, sha: SHA("d") }), status: "uncertain", result: null };
   const dropR = dropCapture.reservations[0];
   const dropOp = operationIdOf(dropCapture.invocationId, dropR);
   const stale = capture({ commandId: ids["stale-worker"], stagedGeneration: 2, ownerGeneration: 2, seq: 10 });
@@ -59,8 +67,8 @@ const passing = () => {
             BASE_URL_L0013: url(DRIVE.l0013r),
             BASE_URL_L0176: url(DRIVE.l0176r),
             API_COMMAND_FAULT_TARGETS: JSON.stringify(T.faults.API_COMMAND_FAULT_TARGETS),
-            SWEEP_AUDIENCE: "aud",
-            SWEEP_CALLERS: "command-sweeper",
+            SWEEP_AUDIENCE: url(DRIVE.api),
+            SWEEP_CALLERS: "command-sweeper@graffiticode.iam.gserviceaccount.com",
           },
         },
       },
@@ -98,14 +106,14 @@ const passing = () => {
       brokerFaults: { BROKER_FAULTS: "drop-outcome", BROKER_FAULT_PRINCIPALS: UID },
       capture: dropCapture,
       operationId: dropOp,
-      claim: { evidence: { format: "gcs-thumbnail-1", bucket: DRIVE.bucket, object: `${dropR.item}.png`, item: dropR.item, captureSequence: 9, sha256: SHA("d"), commandId: dropCapture.commandId, staged: stagedObject(dropCapture.commandId, dropR) } },
+      claim: dropCapture.claim,
       outcomeAfterDrop: { absent: true },
       objectAfterDrop: { generation: "1700000000000009", metadata: {} },
       droppedFinishedAt: at(10),
       stagedAfterDelete: { absent: true },
       stagedDeletedAt: at(20),
-      retry: { commandId: dropCapture.commandId, outcome: "completed" },
-      reconcile: { status: 200, operations: [{ operationId: dropOp, verdict: "applied", final: true, result: { item: dropR.item, captureSequence: 9, sha256: SHA("d"), url: thumbnailUrl({ bucket: DRIVE.bucket, item: dropR.item, sha256: SHA("d") }) } }] },
+      retry: { commandId: dropCapture.commandId, outcome: "uncertain" },
+      reconcile: { status: 200, timedOut: false, attempts: [{ verdict: "too-early" }, { verdict: "applied" }], operations: [{ operationId: dropOp, verdict: "applied", final: true, result: { item: dropR.item, captureSequence: 9, sha256: SHA("d"), url: thumbnailUrl({ bucket: DRIVE.bucket, item: dropR.item, sha256: SHA("d") }) } }] },
       objectAfterRetry: { generation: "1700000000000009", metadata: {} },
       executeSteps: [{ event: "execute-step", opid: dropOp, step: "publish" }],
     },
@@ -134,7 +142,7 @@ const passing = () => {
       fresh: capture({ commandId: ids["staging-gone-fresh"], seq: 12 }),
     },
     "older-after-newer": {
-      older: capture({ commandId: ids.older, seq: 13, ownerGeneration: 2 }),
+      older: { ...capture({ commandId: ids.older, seq: 13, ownerGeneration: 2 }), result: { url: thumbnailUrl({ bucket: DRIVE.bucket, item: FIXTURES.private, sha256: SHA("a") }), item: FIXTURES.private, captureSequence: 13 } },
       newer: capture({ commandId: ids.newer, seq: 14 }),
       olderFaultLines: faultLines("exit-after-stage", ids.older),
       olderSteps: [{ step: "publish", observed: "newer-present" }],
@@ -142,17 +150,26 @@ const passing = () => {
     },
     "two-stage": (() => {
       const two = (commandId, items) => ({ ...capture({ commandId }), reservations: items.map((item, i) => ({ ...capture({ commandId, item }).reservations[0], stage: `s${i}`, occurrenceId: `o${i}` })) });
-      return { distinctItems: two(T.ids["two-stage"], [FIXTURES.private, FIXTURES.public]), sameProgram: two("c:" + "f".repeat(64), [FIXTURES.private, FIXTURES.private]) };
+      return { distinctItems: two(T.ids["two-stage"], [FIXTURES.private, FIXTURES.public]), sameProgram: two(T.ids["two-stage-same"], [FIXTURES.private, FIXTURES.private]) };
     })(),
     mixed: { capture: capture({ commandId: T.ids.mixed, seq: 15 }), invocations: 1, tokens: [{ fn: "snap", scopeKinds: ["item"] }, { fn: "save-to-itembank", scopeKinds: ["connection"] }] },
     "non-owner": { status: 200, outcome: "failed", reason: "not-owner", reservations: [] },
-    "rate-limit": { allowed: PUBLIC_CAPTURE_LIMIT, refused: 1, refusedAfterQuota: true, retired: { statuses: { "c:1": "completed", "c:2": "failed" } } },
-    "canary-snap": { exitCode: 0, results: ["snap command", "snap url", "snap sequence", "snap command id", "snap retry"].map(name => ({ name, ok: true })) },
+    // first-capture's anonymous public capture holds one slot of the window.
+    "rate-limit": { priorInWindow: 1, attempted: PUBLIC_CAPTURE_LIMIT, allowed: PUBLIC_CAPTURE_LIMIT - 1, refused: 1, refusedAfterQuota: true, retired: { statuses: { "c:1": "completed", "c:2": "failed" }, listedAfter: [] } },
+    "canary-snap": {
+      exitCode: 0,
+      results: ["snap command", "snap url", "snap sequence", "snap command id", "snap retry"].map(name => ({ name, ok: true })),
+      commandId: T.ids["canary-snap"],
+      expectedCommandId: T.ids["canary-snap"],
+    },
     boundary: {
-      invocations: ["inv-1", "inv-2"],
+      commands: [{ commandId: ids["first-private"], invocationId: "inv-1" }, { commandId: ids["drop-outcome"], invocationId: "inv-2" }, { commandId: ids.newer, absent: true }],
+      claimsByInvocation: { "inv-1": ["inv-1/s0/o1"], "inv-2": ["inv-2/s0/o1"] },
+      queries: [{ query: "broker-c5d-drive: inv-1", count: 2, limit: 1000 }, { query: "broker: inv-2", count: 2, limit: 1000 }],
+      poll: { attempts: 1, timedOut: false },
       brokerAudit: [
-        { service: DRIVE.broker, event: "execute", invocationId: "inv-1" },
-        { service: DRIVE.broker, event: "execute-step", invocationId: "inv-2" },
+        { service: DRIVE.broker, event: "execute", invocationId: "inv-1", opid: "inv-1/s0/o1" },
+        { service: DRIVE.broker, event: "execute-step", invocationId: "inv-2", opid: "inv-2/s0/o1", step: "publish" },
         { service: "broker", event: "receipts", invocationId: "inv-1" },
         { service: "broker", event: "reconcile", invocationId: "inv-2", opid: "inv-2/s0/o1" },
       ],
@@ -162,7 +179,11 @@ const passing = () => {
       fixtures: Object.values(FIXTURES),
       compilerCalls: [{ service: DRIVE.l0013r }, { service: DRIVE.l0176r }],
     },
-    cleanup: { commands: [{ commandId: "c:1", status: "completed" }, { commandId: "c:2", status: "failed" }], due: [] },
+    cleanup: {
+      commands: [{ commandId: "c:1", status: "completed" }, { commandId: "c:2", status: "failed" }, { commandId: "c:3", status: "uncertain" }, { commandId: "c:4", status: "partial" }, { commandId: "c:5", status: "absent" }],
+      due: [],
+      unresolvedIntents: [],
+    },
   };
 };
 
@@ -194,8 +215,25 @@ test("the drive's names only: production, B6's and the production buckets are re
   }
   for (const b of ["graffiticode-thumbnails", "graffiticode.appspot.com", "graffiticode-command-staging"]) assert.match(driveNamesProblem({ ...ok, bucket: b }), /never publishes/);
   assert.match(driveNamesProblem({ ...ok, api: "api-other" }), /not the drive's/);
-  assert.match(driveNamesProblem({ ...ok, apiUrl: url("api", "rel") }), /never calls a production service/);
-  assert.equal(driveNamesProblem({ ...ok, apiUrl: url("api-c5d-drive", "rel") }), null);
+});
+
+// #446 review, finding 1.
+test("each URL the runner sends to must be its role's own drive service, stable or tagged: custom domains and other services refused", () => {
+  const ok = { ...DRIVE };
+  for (const apiUrl of ["https://api.graffiticode.org", url("broker-c5d-drive"), url("api"), url("api", "rel"), url("api-c5d-driver"), "http://" + url("api-c5d-drive").slice(8), "not a url"]) {
+    assert.notEqual(driveNamesProblem({ ...ok, apiUrl }), null, apiUrl);
+  }
+  assert.equal(driveNamesProblem({ ...ok, apiUrl: url("api-c5d-drive") }), null);
+  assert.equal(driveNamesProblem({ ...ok, apiUrl: url("api-c5d-drive", "c5d-1") }), null);
+  assert.equal(driveNamesProblem({ ...ok, apiUrl: "https://api-c5d-drive-123456789.us-central1.run.app" }), null);
+  // Each role to its own service.
+  assert.equal(C.driveUrlProblem("broker", url("broker-c5d-drive")), null);
+  assert.equal(C.driveUrlProblem("l0013r", url("l0013r-c5d-drive", "t")), null);
+  assert.equal(C.driveUrlProblem("l0176r", url("l0176r-c5d-drive")), null);
+  assert.match(C.driveUrlProblem("l0176r", url("l0176r-drive")), /l0176r-drive's, not l0176r-c5d-drive's/);
+  assert.match(C.driveUrlProblem("l0013r", url("l0013r")), /l0013r's/);
+  assert.match(C.driveUrlProblem("broker", "https://broker.graffiticode.org"), /custom domain/);
+  assert.match(driveNamesProblem({ ...ok, l0013rUrl: url("api-c5d-drive") }), /api-c5d-drive's, not l0013r-c5d-drive's/);
 });
 
 test("whole service names from Cloud Run URLs and revisions", () => {
@@ -285,8 +323,12 @@ const MUTATIONS = {
     quota: o => { o.refusedAfterQuota = false; },
     retired: o => { o.retired.statuses["c:2"] = "pending"; },
   },
-  "canary-snap": { passed: o => { o.results[4].ok = false; } },
+  "canary-snap": {
+    passed: o => { o.results[4].ok = false; },
+    "command-recorded": o => { o.commandId = null; },
+  },
   boundary: {
+    "audit-complete": o => { o.queries[0].count = 1000; },
     // (An execute by production broker fails this and the bookkeeping check both.)
     "drive-broker-executes": o => { o.brokerAudit.push({ service: "broker-faults", event: "execute", invocationId: "inv-1" }); },
     "production-broker-bookkeeping": o => { o.reconcileBuckets[0].bucket = "graffiticode-thumbnails"; },
@@ -309,41 +351,33 @@ test("every check fails on its own", () => {
 });
 
 test("a missing observation fails, never reads as unchanged (the #441 lesson)", () => {
-  // Counters absent on both sides.
   const ear = clone(passing()["exit-after-reserve"]);
   delete ear.counterBefore;
   delete ear.counterAfter;
   assert.match(failsOnly("exit-after-reserve", ear, "same-reservation"), /counter isn't readable/);
-  // Generations missing on both sides of the retry.
   const drop = clone(passing()["drop-outcome"]);
   delete drop.objectAfterDrop.generation;
   delete drop.objectAfterRetry.generation;
   const r = judgePhase("drop-outcome", drop);
   assert.equal(r.passed, false);
   assert.ok(r.checks.find(c => c.id === "replayed").detail.includes("generation isn't readable"));
-  // An object read neither as present nor as absent.
   const direct = clone(passing()["direct-refused"]);
   direct.before = null;
   direct.after = null;
   assert.match(failsOnly("direct-refused", direct, "nothing-uploaded"), /not observed/);
-  // Listings absent on both sides.
   const b = clone(passing().boundary);
   delete b.thumbnailsBefore;
   delete b.thumbnailsAfter;
   assert.match(failsOnly("boundary", b, "thumbnails-unchanged"), /not observed/);
-  // A render count that wasn't read.
   const eas = clone(passing()["exit-after-stage"]);
   delete eas.renders;
   assert.match(failsOnly("exit-after-stage", eas, "staged-reused"), /render count isn't readable/);
-  // /status without the field.
   const checks = clone(passing().checks);
   checks.l0013rStatus = {};
   assert.match(failsOnly("checks", checks, "l0013r-env"), /thumbnailBucket not observed, expected null/);
-  // A stall that hit its bound never passes as a takeover.
   const sw = clone(passing()["stale-worker"]);
   sw.l0013Lines.push({ at: at(20), text: `WARN capture fault stall-before-stage command ${sw.capture.commandId}: probe unanswered at the bound` });
   assert.match(failsOnly("stale-worker", sw, "takeover-first"), /bound/);
-  // The drive's bucket missing from a capture.
   assert.match(captureProblem("x", { ...passing()["first-capture"].private, object: undefined }), /nothing readable published/);
 });
 
@@ -356,6 +390,200 @@ test("the dropped operation's result is compared field for field, with no extra 
   const r = judgePhase("drop-outcome", p);
   assert.ok(!r.checks.find(c => c.id === "dropped").ok);
   assert.ok(!r.checks.find(c => c.id === "reconciled").ok, "the expected url is the evidence bucket's, which a wrong bucket changes");
+});
+
+// #446 review, finding 5.
+test("L0013's own result, { item, url }, passes; its url and Broker's claim evidence are checked apart", () => {
+  const cap = passing()["first-capture"].private;
+  assert.deepEqual(Object.keys(cap.result).sort(), ["item", "url"]);
+  assert.equal(captureProblem("real", cap), null);
+  const extra = clone(cap);
+  extra.result.captureSequence = 5;
+  assert.match(captureProblem("extra", extra), /fields captureSequence,item,url/);
+  const wrongUrl = clone(cap);
+  wrongUrl.result.url = thumbnailUrl({ bucket: "graffiticode-thumbnails", item: cap.result.item, sha256: SHA("a") });
+  assert.match(captureProblem("url", wrongUrl), /isn't https:\/\/storage.googleapis.com\/graffiticode-c5d-drive\//);
+  const otherDigest = clone(cap);
+  otherDigest.result.url = thumbnailUrl({ bucket: DRIVE.bucket, item: cap.result.item, sha256: SHA("b") });
+  assert.match(captureProblem("digest", otherDigest), /isn't/);
+  const noClaim = clone(cap);
+  delete noClaim.claim;
+  assert.match(captureProblem("claim", noClaim), /claim evidence not observed/);
+  const claimSeq = clone(cap);
+  claimSeq.claim.evidence.captureSequence = 6;
+  assert.match(captureProblem("claim", claimSeq), /isn't the reservation's/);
+  const claimCommand = clone(cap);
+  claimCommand.claim.evidence.commandId = "c:" + "0".repeat(64);
+  assert.match(captureProblem("claim", claimCommand), /names command/);
+});
+
+// #446 review, finding 6.
+test("terminal states are named: uncertain, partial, completed and failed end a command; pending doesn't; anything else is an error", () => {
+  for (const s of ["completed", "failed", "uncertain", "partial"]) assert.equal(C.isTerminal(s), true, s);
+  assert.equal(C.isTerminal("pending"), false);
+  assert.throws(() => C.isTerminal("done"), /unknown command status/);
+  // A dropped outcome's command must finish uncertain.
+  const d = clone(passing()["drop-outcome"]);
+  d.capture.status = "completed";
+  assert.match(failsOnly("drop-outcome", d, "dropped"), /expected uncertain/);
+  // cleanup takes uncertain and partial as terminal, and fails an unknown status.
+  const c = clone(passing().cleanup);
+  c.commands.push({ commandId: "c:9", status: "done" });
+  assert.match(failsOnly("cleanup", c, "terminal"), /unknown command status/);
+  const p = clone(passing().cleanup);
+  p.commands.push({ commandId: "c:9", status: "pending" });
+  assert.match(failsOnly("cleanup", p, "terminal"), /not terminal: c:9 pending/);
+});
+
+test("reconciliation is polled while Broker answers too-early, within its deadline and grace; anything else ends it", async () => {
+  const op = "inv-2/s0/o1";
+  let t = Date.parse(at(0));
+  const now = () => t;
+  const sleep = async ms => { t += ms; };
+  const answers = verdicts => {
+    let i = 0;
+    return async () => ({ status: 200, operations: [{ operationId: op, verdict: verdicts[Math.min(i++, verdicts.length - 1)], final: true }] });
+  };
+  const applied = await C.reconcilePoll({ reconcile: answers(["too-early", "too-early", "applied"]), operationId: op, claimedAt: at(0), now, sleep });
+  assert.equal(applied.timedOut, false);
+  assert.deepEqual(applied.attempts.map(a => a.verdict), ["too-early", "too-early", "applied"]);
+  const unresolved = await C.reconcilePoll({ reconcile: answers(["unresolved"]), operationId: op, claimedAt: at(0), now, sleep });
+  assert.equal(unresolved.attempts.length, 1, "anything but too-early ends the poll");
+  const failed = await C.reconcilePoll({ reconcile: async () => ({ status: 503, operations: [] }), operationId: op, claimedAt: at(0), now, sleep });
+  assert.equal(failed.attempts.length, 1);
+  t = Date.parse(at(0));
+  const late = await C.reconcilePoll({ reconcile: answers(["too-early"]), operationId: op, claimedAt: at(0), now, sleep });
+  assert.equal(late.timedOut, true);
+  assert.ok(t - Date.parse(at(0)) <= C.MAX_EXECUTION_MS + C.RECONCILE_GRACE_MS + 60_000, "within the bound");
+  // The check fails a timed-out poll.
+  const d = clone(passing()["drop-outcome"]);
+  d.reconcile.timedOut = true;
+  assert.match(failsOnly("drop-outcome", d, "reconciled"), /too-early at its bound/);
+  await assert.rejects(C.reconcilePoll({ reconcile: answers(["applied"]), operationId: op, claimedAt: undefined, now, sleep }), /claim's time/);
+});
+
+// #446 review, finding 7.
+test("the quota burst is sized from the item's earlier public captures, against Policy's own limiter", async () => {
+  const { createMemoryCommandBackend, createCommandRecords } = await import("../../packages/policy/dist/command-records.js");
+  const now = 1_800_000_000_000;
+  const commandStore = { commands: new Map() };
+  const records = createCommandRecords({ backend: createMemoryCommandBackend({ commandStore }), now: () => now });
+  const item = "public-quota-fixture";
+  const reserve = async n => {
+    const commandId = "c:" + String(n).padStart(64, "0");
+    commandStore.commands.set(commandId, { commandId, status: "pending", owner: { generation: 1, leaseExpiresAt: now + 60_000 }, admission: { stages: { s0: { intents: [{ id: "i", scope: { kind: "item", id: item }, occurrences: ["o1"] }] } } } });
+    return records.reserve({ commandId, generation: 1, stage: "s0", occurrenceId: "o1", intentId: "i", item, publicCapture: true, limit: PUBLIC_CAPTURE_LIMIT, windowMs: C.PUBLIC_CAPTURE_WINDOW_MS });
+  };
+  await reserve(0); // first-capture's anonymous public capture
+  // Policy's item-captures record after it: one public capture, now.
+  const prior = C.priorPublicCaptures({ item, nextCaptureSequence: 2, publicCaptures: [now] }, now);
+  assert.equal(prior, 1);
+  const remaining = PUBLIC_CAPTURE_LIMIT - prior;
+  let allowed = 0;
+  let refused = 0;
+  for (let n = 1; n <= remaining + 1; n++) {
+    try {
+      await reserve(n);
+      allowed++;
+    } catch (e) {
+      assert.equal(e.reason, "rate-limited");
+      refused++;
+    }
+  }
+  assert.deepEqual({ allowed, refused }, { allowed: 11, refused: 1 });
+  const o = { ...clone(passing()["rate-limit"]), priorInWindow: prior, attempted: remaining + 1, allowed, refused };
+  assert.equal(judgePhase("rate-limit", o).passed, true);
+  // The old expectation, 12 allowed after an earlier capture, fails.
+  assert.match(failsOnly("rate-limit", { ...o, allowed: 12, refused: 0 }, "quota"), /12 allowed, expected 11|refused/);
+  // The window's edge, an absent record and unreadable times.
+  assert.equal(C.priorPublicCaptures({ publicCaptures: [now - C.PUBLIC_CAPTURE_WINDOW_MS, now - 1] }, now), 1);
+  assert.equal(C.priorPublicCaptures({ absent: true }, now), 0);
+  assert.throws(() => C.priorPublicCaptures({}, now), /publicCaptures/);
+  assert.match(failsOnly("rate-limit", { ...o, priorInWindow: undefined }, "quota"), /aren't readable/);
+});
+
+test("the quota phase's Policy client has what verifyRetired calls, due included", async () => {
+  const calls = [];
+  const client = C.policyFixtureClient(async (method, route, body) => {
+    calls.push([method, route, body ?? null]);
+    if (route.startsWith("/v1/commands-due")) return { commands: route.includes("scopes=1") ? [{ commandId: "c:2" }] : [] };
+    return { status: route.endsWith("c%3A2") ? "pending" : "failed" };
+  });
+  const verified = await verifyRetired({ client, ids: ["c:1", "c:2"] });
+  assert.deepEqual(verified.statuses, { "c:1": "failed", "c:2": "pending" });
+  assert.deepEqual(verified.listedAfter, ["c:2"]);
+  assert.ok(calls.some(([, r]) => r === "/v1/commands-due?limit=50&recording=1&repairs=1"));
+  assert.ok(calls.some(([, r]) => r === "/v1/commands-due?limit=50&recording=1&repairs=1&scopes=1"));
+  const o = clone(passing()["rate-limit"]);
+  o.retired.listedAfter = ["c:2"];
+  assert.match(failsOnly("rate-limit", o, "retired"), /still due: c:2/);
+});
+
+// #446 review, finding 8.
+test("boundary needs correlated coverage: every claimed operation's execute evidence, every invocation's claims, no truncation, a completed poll", () => {
+  // The repro: evidence for one invocation only.
+  const repro = clone(passing().boundary);
+  repro.brokerAudit = [repro.brokerAudit[0]];
+  repro.reconcileBuckets = [];
+  const r = judgePhase("boundary", repro);
+  assert.equal(r.passed, false);
+  assert.match(r.checks.find(c => c.id === "drive-broker-executes").detail, /no broker-c5d-drive execute evidence for inv-2\/s0\/o1/);
+  const missingClaims = clone(passing().boundary);
+  delete missingClaims.claimsByInvocation["inv-2"];
+  assert.match(judgePhase("boundary", missingClaims).checks.find(c => c.id === "audit-complete").detail, /claims not read for inv-2/);
+  const truncated = clone(passing().boundary);
+  truncated.queries[1].count = 1000;
+  assert.match(failsOnly("boundary", truncated, "audit-complete"), /truncated/);
+  const paged = clone(passing().boundary);
+  paged.queries[0].nextPageToken = "more";
+  assert.match(failsOnly("boundary", paged, "audit-complete"), /truncated/);
+  const timedOut = clone(passing().boundary);
+  timedOut.poll.timedOut = true;
+  assert.match(failsOnly("boundary", timedOut, "audit-complete"), /timed out before coverage/);
+  const unread = clone(passing().boundary);
+  unread.commands.push({ commandId: "c:" + "7".repeat(64) });
+  assert.match(failsOnly("boundary", unread, "audit-complete"), /commands not read/);
+  const unaccounted = clone(passing().boundary);
+  unaccounted.reconcileBuckets = [];
+  assert.match(failsOnly("boundary", unaccounted, "production-broker-bookkeeping"), /no bucket read: inv-2\/s0\/o1/);
+});
+
+// #446 review, finding 3.
+test("the command inventory: the plan's ids, every journaled request, every manifest id; an unanswered intent is reported", () => {
+  const j = (file, value) => ({ file, value });
+  const anonId = "c:" + "a".repeat(64);
+  const nonOwnerId = "c:" + "b".repeat(64);
+  const manifestId = "c:" + "c".repeat(64);
+  const inv = C.inventory({
+    plan: T,
+    journal: [
+      j("first-private.json", { kind: "keyed", commandId: T.ids["first-private"] }),
+      j("first-public.json", { kind: "anonymous", commandId: null }),
+      j("first-public.id.json", { commandId: anonId }),
+      j("rate-limit-13.json", { kind: "anonymous", commandId: null }),
+      j("rate-limit-13.id.json", { commandId: null }),
+      j("rate-limit-14.json", { kind: "anonymous", commandId: null }),
+      j("non-owner.json", { kind: "non-owner", commandId: null }),
+      j("non-owner.id.json", { commandId: nonOwnerId }),
+      j("canary-snap.json", { kind: "canary", commandId: T.ids["canary-snap"] }),
+    ],
+    manifests: [{ observations: { anything: { deep: [manifestId] } } }],
+  });
+  for (const id of [...Object.values(T.ids), anonId, nonOwnerId, manifestId]) assert.ok(inv.commandIds.includes(id), id);
+  assert.deepEqual(inv.unresolvedIntents, ["rate-limit-14.json"], "answered with no command is resolved; never answered isn't");
+  // The canary's id is planned from the run id canary.js is given.
+  assert.equal(T.ids["canary-snap"], commandIdFor(UID, `canary:${T.canaryRunId}:snap`));
+  assert.match(T.canaryRunId, /^[a-z0-9]{4,40}$/);
+  // cleanup fails on an unresolved intent.
+  const c = clone(passing().cleanup);
+  c.unresolvedIntents = ["rate-limit-14.json"];
+  assert.match(failsOnly("cleanup", c, "terminal"), /no recorded command id: rate-limit-14.json/);
+  // canary-snap fails without its command id, or with another.
+  const s = clone(passing()["canary-snap"]);
+  s.commandId = null;
+  assert.match(failsOnly("canary-snap", s, "command-recorded"), /no command id/);
+  s.commandId = "c:" + "d".repeat(64);
+  assert.match(failsOnly("canary-snap", s, "command-recorded"), /not the planned/);
 });
 
 // ------------------------------------------------------------------ manifests
@@ -378,9 +606,15 @@ test("manifests: named by phase and stamp, the latest per phase, and never overw
 
 const CLI = new URL("../c5d-drive.js", import.meta.url).pathname;
 const cli = argv => spawnSync(process.execPath, [CLI, ...argv], { encoding: "utf8", env: { ...process.env, PATH: "/nonexistent" } });
+const planned = () => {
+  const parent = mkdtempSync(path.join(tmpdir(), "c5d-drive-cli-"));
+  assert.equal(cli(["--phase", "plan", "--run", RUN, "--uid", UID, "--dir", parent]).status, 0);
+  return { parent, dir: path.join(parent, RUN) };
+};
 
-test("the CLI refuses production and B6 names before anything else", () => {
-  for (const argv of [["--api", "api"], ["--broker", "broker"], ["--l0013r", "l0013r"], ["--l0176r", "l0176r-drive"], ["--broker", "broker-faults"], ["--bucket", "graffiticode-thumbnails"], ["--bucket", "graffiticode.appspot.com"], ["--api-url", url("api")]]) {
+test("the CLI refuses production and B6 names, and other services' or custom-domain URLs, before anything else", () => {
+  for (const argv of [["--api", "api"], ["--broker", "broker"], ["--l0013r", "l0013r"], ["--l0176r", "l0176r-drive"], ["--broker", "broker-faults"], ["--bucket", "graffiticode-thumbnails"], ["--bucket", "graffiticode.appspot.com"],
+    ["--api-url", url("api")], ["--api-url", "https://api.graffiticode.org"], ["--api-url", url("broker-c5d-drive")]]) {
     const r = cli(["--phase", "checks", "--run", RUN, ...argv]);
     assert.equal(r.status, 2, argv.join(" "));
     assert.match(r.stderr, /^refused: /);
@@ -388,31 +622,45 @@ test("the CLI refuses production and B6 names before anything else", () => {
 });
 
 test("the CLI's plan is offline, written once, and the run's phases need it", () => {
-  const parent = mkdtempSync(path.join(tmpdir(), "c5d-drive-cli-"));
-  const r = cli(["--phase", "plan", "--run", RUN, "--uid", UID, "--dir", parent]);
-  assert.equal(r.status, 0, r.stderr);
+  const { parent } = planned();
   const plan = JSON.parse(readFileSync(path.join(parent, RUN, "plan.json"), "utf8"));
   assert.deepEqual(plan.faults, T.faults);
-  assert.ok(r.stdout.includes(`L0013_CAPTURE_FAULTS='${JSON.stringify(T.faults.L0013_CAPTURE_FAULTS)}'`));
+  assert.equal(plan.ids["canary-snap"], T.ids["canary-snap"]);
   const again = cli(["--phase", "plan", "--run", RUN, "--uid", UID, "--dir", parent]);
   assert.notEqual(again.status, 0);
   assert.match(again.stderr, /never overwritten/);
-  // Another uid would target other commands than the services were set with.
   const other = cli(["--phase", "checks", "--run", RUN, "--uid", "someone-else", "--dir", parent]);
   assert.equal(other.status, 2);
   assert.match(other.stderr, /differ from plan.json/);
   assert.equal(cli(["--phase", "checks", "--run", "zzzz9999", "--dir", parent]).status, 2, "no plan, no phase");
 });
 
-test("the CLI's judge reads each phase's latest manifest, joins the operator pauses, and writes a new report each time", () => {
-  const parent = mkdtempSync(path.join(tmpdir(), "c5d-drive-judge-"));
-  assert.equal(cli(["--phase", "plan", "--run", RUN, "--uid", UID, "--dir", parent]).status, 0);
-  const dir = path.join(parent, RUN);
-  const all = passing();
+// #446 review, finding 2.
+test("the CLI's baseline is the run's one: refused once captures have begun or once taken, and capture phases need it", () => {
+  const started = planned();
+  writeFileSync(path.join(started.dir, "first-capture-2026-11-20T00-00-01-000Z.json"), "{}");
+  const r = cli(["--phase", "baseline", "--run", RUN, "--uid", UID, "--dir", started.parent]);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /refused: captures have begun/);
+  const journaled = planned();
+  writeFileSync(path.join(journaled.dir, "journal", "first-private.json"), "{}");
+  assert.match(cli(["--phase", "baseline", "--run", RUN, "--uid", UID, "--dir", journaled.parent]).stderr, /captures have begun/);
+  const taken = planned();
+  writeFileSync(path.join(taken.dir, "baseline.json"), JSON.stringify({ observations: { thumbnails: listingOf() } }));
+  assert.match(cli(["--phase", "baseline", "--run", RUN, "--uid", UID, "--dir", taken.parent]).stderr, /refused: this run's baseline is fixed/);
+  const none = planned();
+  const capture = cli(["--phase", "first-capture", "--run", RUN, "--uid", UID, "--dir", none.parent]);
+  assert.equal(capture.status, 2);
+  assert.match(capture.stderr, /no baseline.json/);
+});
+
+// Every phase's manifest, as the runner writes them.
+const writeRun = (dir, all, { withBaselineFile = true } = {}) => {
   const stamp = s => `2026-11-20T00-00-${String(s).padStart(2, "0")}-000Z`;
+  if (withBaselineFile) writeFileSync(path.join(dir, "baseline.json"), JSON.stringify({ observations: all.baseline }));
   DRIVE_PHASES.forEach((p, i) => {
+    if (p === "baseline") return;
     let obs = all[p];
-    // The drop phase's own manifest, and its retry's (the operator pause).
     if (p === "drop-outcome") {
       const { stagedAfterDelete, stagedDeletedAt, retry, reconcile, objectAfterRetry, executeSteps, ...first } = obs;
       writeFileSync(path.join(dir, `drop-outcome-retry-${stamp(59)}.json`), JSON.stringify({ observations: { stagedAfterDelete, stagedDeletedAt, retry, reconcile, objectAfterRetry, executeSteps } }));
@@ -420,15 +668,57 @@ test("the CLI's judge reads each phase's latest manifest, joins the operator pau
     }
     writeFileSync(path.join(dir, `${p}-${stamp(i)}.json`), JSON.stringify({ observations: obs }));
   });
-  // An earlier failed run of a phase is superseded by its later one.
+};
+
+test("the CLI's judge reads each phase's latest manifest, joins the operator pauses, and writes a new report each time", () => {
+  const { parent, dir } = planned();
+  const all = passing();
+  writeRun(dir, all);
   writeFileSync(path.join(dir, "cleanup-2026-11-19T00-00-00-000Z.json"), JSON.stringify({ observations: { commands: [], due: [] } }));
   const r = cli(["--phase", "judge", "--run", RUN, "--uid", UID, "--dir", parent]);
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.match(r.stdout, /DRIVE PASSED/);
-  // A failing latest manifest fails the drive.
   writeFileSync(path.join(dir, "cleanup-2026-11-21T00-00-00-000Z.json"), JSON.stringify({ observations: { ...all.cleanup, due: ["c:1"] } }));
   const failed = cli(["--phase", "judge", "--run", RUN, "--uid", UID, "--dir", parent]);
   assert.equal(failed.status, 1);
   assert.match(failed.stdout, /FAILED cleanup\/terminal/);
   assert.equal(readdirSync(dir).filter(f => f.startsWith("report-")).length, 2, "each judgment its own report");
+});
+
+// #446 review, finding 2: the owner's reproduction.
+test("the CLI's judge holds boundary to baseline.json: a later baseline can't hide a production generation change", () => {
+  const { parent, dir } = planned();
+  const all = passing();
+  const changed = clone(all.baseline);
+  changed.thumbnails[0].generation = "1600000000099999";
+  // The run's baseline, then a production change, then a later "baseline"
+  // and a boundary that both carry the changed listing.
+  writeRun(dir, { ...all, boundary: { ...all.boundary, thumbnailsBefore: changed.thumbnails, thumbnailsAfter: changed.thumbnails } });
+  writeFileSync(path.join(dir, "baseline-2026-11-20T00-59-00-000Z.json"), JSON.stringify({ observations: changed }));
+  const r = cli(["--phase", "judge", "--run", RUN, "--uid", UID, "--dir", parent]);
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stdout, /FAILED boundary\/thumbnails-unchanged: the listing changed/);
+  // With no baseline.json at all, the baseline phase hasn't run.
+  const other = planned();
+  writeRun(other.dir, all, { withBaselineFile: false });
+  writeFileSync(path.join(other.dir, "baseline-2026-11-20T00-00-00-000Z.json"), JSON.stringify({ observations: all.baseline }));
+  const missing = cli(["--phase", "judge", "--run", RUN, "--uid", UID, "--dir", other.parent]);
+  assert.equal(missing.status, 1);
+  assert.match(missing.stdout, /FAILED baseline\/run: not run/);
+});
+
+// #446 review, finding 4.
+test("Step 34 stages the api with --stage and promotes it only with the canary's and canary.js --snap's evidence; Step 33 expects the floor's refusal", () => {
+  const doc = readFileSync(new URL("../../docs/capability-policy-iam-review.md", import.meta.url), "utf8");
+  const step33 = doc.slice(doc.indexOf("### Step 33:"), doc.indexOf("### Step 34:"));
+  const step34 = doc.slice(doc.indexOf("### Step 34:"), doc.indexOf("## 4. Verification"));
+  assert.match(step34, /npm run deploy -- api --stage/);
+  assert.match(step34, /npm run deploy -- promote api --release <the staged release id> --evidence docs\/evidence\/c5d\/activation\/api-promote-evidence\.json/);
+  assert.doesNotMatch(step34, /`npm run deploy -- api`\)/, "no unstaged api release");
+  assert.match(step33, /npm run rollback -- api --release rmwkxlbvy-b5fa92 --plan/);
+  assert.match(step33, /refus/);
+  for (const step of [step33, step34]) assert.match(step, /HELD/);
+  // Step 32 keeps both deletions.
+  const step32 = doc.slice(doc.indexOf("### Step 32:"), doc.indexOf("### Step 33:"));
+  assert.equal((step32.match(/gcloud storage rm 'gs:\/\/graffiticode-command-staging\//g) ?? []).length, 2);
 });

@@ -10,27 +10,35 @@
 //   node scripts/c5d-drive.js --phase judge   --run <id>                  the verdict over each phase's latest manifest
 //
 // Evidence: docs/evidence/c5d/drive/<run>/ (--dir to change the parent).
-// plan.json is written once per run; each phase's run writes
-// `<phase>-<stamp>.json` with exclusive creation, never overwriting one.
+// plan.json and baseline.json are written once per run; each phase's run
+// writes `<phase>-<stamp>.json`; every request that can allocate a command is
+// journaled in journal/ before it is sent. All with exclusive creation: no
+// evidence file is ever overwritten.
 //
 // It refuses to start unless every service and the bucket are the drive's own
 // names (broker-c5d-drive, l0013r-c5d-drive, l0176r-c5d-drive, api-c5d-drive,
 // gs://graffiticode-c5d-drive): never production's api, broker, policy,
 // l0013r or l0176r, never B6's l0176r-drive or broker-faults, and never the
 // graffiticode-thumbnails, graffiticode.appspot.com or staging bucket as the
-// drive bucket.
+// drive bucket. Every URL it sends to must be its role's own drive service,
+// stable or tagged (#441's whole-name rule): a custom domain, or another
+// service's URL, is refused before any request.
 //
 // What the runner does, and what the operator does (Step 32 holds every
 // operator command, reviewed):
 //   plan             runner: computes every key and command id from the canary
-//                    uid and the run id, and the two fault maps. Operator:
-//                    releases l0013r-c5d-drive with L0013_CAPTURE_FAULTS and
-//                    api-c5d-drive with API_COMMAND_FAULT_TARGETS set to them,
-//                    once, before any capture; never changed during the run.
+//                    uid and the run id (canary.js's too, by --run-id), and the
+//                    two fault maps. Operator: releases l0013r-c5d-drive with
+//                    L0013_CAPTURE_FAULTS and api-c5d-drive with
+//                    API_COMMAND_FAULT_TARGETS set to them, once, before any
+//                    capture; never changed during the run.
 //   checks           runner, read-only: Step 32's verification (environments,
-//                    /egress (the plan says /status; the route is /egress), the bucket's settings and IAM, the fault maps
-//                    equal to plan.json's).
-//   baseline         runner, read-only: graffiticode-thumbnails' listing.
+//                    /egress (the plan says /status; the route is /egress),
+//                    the bucket's settings and IAM, the fault maps equal to
+//                    plan.json's).
+//   baseline         runner, read-only, once per run: graffiticode-thumbnails'
+//                    listing into baseline.json; refused once any capture has
+//                    begun. Every capture phase needs it.
 //   first-capture    runner: the owner's private capture; an anonymous public one.
 //   direct-refused   runner: POST /compile straight to l0013r-c5d-drive as
 //                    api-run (A1b's refusal), the item's drive object read
@@ -41,13 +49,15 @@
 //   drop-outcome     operator first: BROKER_FAULTS=drop-outcome and
 //                    BROKER_FAULT_PRINCIPALS=<canary uid> on broker-c5d-drive
 //                    (Step 32). Runner: refuses unless that is what's set, runs
-//                    the capture, records the claim and the dropped request's
-//                    end, and prints the exact reviewed deletion of its staged
-//                    object (Step 32, deletion 2). Then the operator deletes it.
+//                    the capture until it is terminal (uncertain expected),
+//                    records the claim and the dropped request's end, and
+//                    prints the exact reviewed deletion of its staged object
+//                    (Step 32, deletion 2). Then the operator deletes it.
 //   drop-outcome-retry
 //                    runner: verifies the staged object is gone, retries the
-//                    command by its key, reconciles as the console, and reads
-//                    Broker's records. Operator after: removes BROKER_FAULTS.
+//                    command by its key, and reconciles as the console, polling
+//                    while Broker answers too-early (bounded by its deadline and
+//                    grace). Operator after: removes BROKER_FAULTS.
 //   stale-worker     runner: the doubly targeted capture (stop-renewal and
 //                    stall-before-stage); waits for it to finish; reads Policy's
 //                    audit and both services' lines.
@@ -55,13 +65,21 @@
 //                    it prints the exact reviewed deletion (Step 32, deletion 1),
 //                    waits (bounded) for the operator's deletion, then for the
 //                    takeover's failure; then a fresh, untargeted capture.
-//   older-after-newer, two-stage, mixed, non-owner, rate-limit
+//   older-after-newer, two-stage, mixed, non-owner
 //                    runner, as slice 3 lists them.
-//   canary-snap      runner: scripts/canary.js --snap against api-c5d-drive.
-//   boundary         runner, read-only: Broker's audit for every drive
-//                    invocation, the reconcile reads' buckets, the thumbnails
-//                    listing again, the compilers each plan pinned.
-//   cleanup          runner, read-only: every drive command terminal, none due.
+//   rate-limit       runner: reads the public item's public captures still in
+//                    Policy's window, then sends exactly one more anonymous
+//                    capture than the slots left; retires the burst's commands.
+//   canary-snap      runner: scripts/canary.js --snap against api-c5d-drive,
+//                    with the planned --run-id; its command id is journaled
+//                    before, and parsed from its output after.
+//   boundary         runner, read-only: every inventoried command (plan,
+//                    journal, manifests), each invocation's Broker claims, and
+//                    Broker's audit polled until every claim has its execute
+//                    evidence (or the bound), each query checked for truncation;
+//                    the thumbnails listing against baseline.json.
+//   cleanup          runner, read-only: every inventoried command terminal
+//                    (each state named), none due, no unresolved journal entry.
 //   judge            the verdict; exit 1 unless every phase passed.
 //
 // Needs canary-window-c5d (Step 32): OpenIdTokenCreator on console-run (to
@@ -72,12 +90,14 @@
 
 import { mkdirSync, readdirSync, readFileSync, existsSync } from "node:fs";
 import path from "node:path";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { writeManifestOnce } from "./lib/c5b-thumbnails.js";
 import {
-  DRIVE, FIXTURES, STAGING_BUCKET, PUBLIC_CAPTURE_LIMIT, driveTargets, driveNamesProblem, judgePhase, verdict,
-  stagedObject, operationIdOf, revisionService, PLAN_FILE, phaseFile, stampOf, latestByPhase, DRIVE_PHASES,
+  DRIVE, FIXTURES, STAGING_BUCKET, PUBLIC_CAPTURE_LIMIT, driveTargets, driveNamesProblem, driveUrlProblem, judgePhase, verdict,
+  stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
+  latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, inventory, isTerminal, reconcilePoll,
+  priorPublicCaptures, policyFixtureClient,
 } from "./lib/c5d-drive-checks.js";
 
 const args = process.argv.slice(2);
@@ -113,15 +133,18 @@ const region = flag("--region", "us-central1");
 const consoleAccount = flag("--console-account", "console-run@graffiticode-app.iam.gserviceaccount.com");
 const gatewayAccount = flag("--gateway-account", "api-run@graffiticode.iam.gserviceaccount.com");
 const waitMs = Number(flag("--wait-ms", "600000"));
+const auditTimeoutMs = Number(flag("--audit-timeout-ms", "300000"));
 const runId = phase === "plan" ? flag("--run", randomBytes(4).toString("hex")) : flag("--run");
 if (!runId || !/^[a-z0-9]{4,32}$/.test(runId)) {
   console.error("--run <id> (4-32 lowercase letters and digits) is required");
   process.exit(2);
 }
 const dir = path.join(flag("--dir", new URL("../docs/evidence/c5d/drive", import.meta.url).pathname), runId);
-mkdirSync(dir, { recursive: true });
+const journalDir = path.join(dir, JOURNAL_DIR);
+mkdirSync(journalDir, { recursive: true });
 const writeOnce = (file, value) => writeManifestOnce(path.join(dir, file), value);
 const readJson = file => JSON.parse(readFileSync(path.join(dir, file), "utf8"));
+const journalFiles = () => readdirSync(journalDir).filter(f => f.endsWith(".json")).sort();
 
 // ------------------------------------------------------------------- plan
 
@@ -143,22 +166,41 @@ if (JSON.stringify(driveTargets({ uid, runId }).faults) !== JSON.stringify(plan.
   console.error(`the targets for --uid ${uid} differ from ${PLAN_FILE}'s`);
   process.exit(2);
 }
+// The baseline once, before any capture; every capture phase after it.
+if (phase === "baseline") {
+  const problem = baselineRefusal({ files: readdirSync(dir), journal: journalFiles() });
+  if (problem) {
+    console.error(`refused: ${problem}`);
+    process.exit(2);
+  }
+}
+if (CAPTURE_PHASES.includes(phase) && !existsSync(path.join(dir, BASELINE_FILE))) {
+  console.error(`refused: no ${BASELINE_FILE}: run --phase baseline first`);
+  process.exit(2);
+}
 
 // ------------------------------------------------------------------ judge
 
 if (phase === "judge") {
   const latest = latestByPhase(readdirSync(dir));
   const phases = {};
+  // The run's one baseline, never a later file.
+  if (existsSync(path.join(dir, BASELINE_FILE))) phases.baseline = readJson(BASELINE_FILE).observations;
   for (const p of DRIVE_PHASES) {
-    if (!latest[p]) continue;
+    if (p === "baseline" || !latest[p]) continue;
     phases[p] = readJson(latest[p]).observations;
     // Each operator pause's own observations join its phase's.
     const step = { "drop-outcome": "drop-outcome-retry", "staging-gone": "staging-gone-delete" }[p];
-    if (step && latest[step]) phases[p] = { ...phases[p], ...readJson(latest[step]).observations, errors: { ...(phases[p].errors ?? {}), ...(readJson(latest[step]).observations.errors ?? {}) } };
+    if (step && latest[step]) {
+      const extra = readJson(latest[step]).observations;
+      phases[p] = { ...phases[p], ...extra, errors: { ...(phases[p].errors ?? {}), ...(extra.errors ?? {}) } };
+    }
   }
+  // boundary is judged against baseline.json, whatever its manifest says.
+  if (phases.boundary) phases.boundary = { ...phases.boundary, thumbnailsBefore: phases.baseline?.thumbnails };
   const result = verdict(phases);
   for (const p of result.phases) for (const c of p.checks) console.log(`${c.ok ? "ok    " : "FAILED"} ${p.phase}/${c.id}: ${c.detail}`);
-  const file = writeOnce(`report-${stampOf(new Date())}.json`, { runId, at: new Date().toISOString(), manifests: latest, ...result });
+  const file = writeOnce(`report-${stampOf(new Date())}.json`, { runId, at: new Date().toISOString(), manifests: { baseline: BASELINE_FILE, ...latest }, ...result });
   console.log(`${result.passed ? "DRIVE PASSED" : "DRIVE NOT PASSED"}; ${file}`);
   process.exit(result.passed ? 0 : 1);
 }
@@ -190,6 +232,9 @@ const finish = extra => {
   }
   console.log(`${phase}: ${file}`);
 };
+// One write-once journal entry per request, before it is sent.
+const journal = (name, value) => writeManifestOnce(path.join(journalDir, journalName(name)), { at: new Date().toISOString(), ...value });
+const journalId = (name, commandId) => writeManifestOnce(path.join(journalDir, journalIdName(name)), { at: new Date().toISOString(), commandId });
 
 // The operator's reads.
 let operatorToken;
@@ -225,18 +270,30 @@ const docs = async (database, collectionPath) => {
   } while (pageToken);
   return out;
 };
-const { createHash } = await import("node:crypto");
 const receiptDoc = (operationId, sub = "") => doc("broker", `receipts/${createHash("sha256").update(operationId).digest("hex")}${sub}`);
-const logs = async (filter, limit = 1000) => {
+// Broker's claims for one invocation: every receipt whose operation id is under it.
+const claimsOf = async invocationId => {
+  const range = (op, value) => ({ fieldFilter: { field: { fieldPath: "operationId" }, op, value: { stringValue: value } } });
+  const where = { compositeFilter: { op: "AND", filters: [range("GREATER_THAN_OR_EQUAL", `${invocationId}/`), range("LESS_THAN", `${invocationId}/`)] } };
+  const res = await http({ method: "POST", url: `https://firestore.googleapis.com/v1/projects/${project}/databases/broker/documents:runQuery`, headers: await asOperator(), body: { structuredQuery: { from: [{ collectionId: "receipts" }], where } } });
+  if (res.status !== 200 || !Array.isArray(res.json)) throw new Error(`Firestore broker receipts for ${invocationId}: ${res.status}`);
+  return res.json.filter(r => r.document).map(r => decode({ mapValue: r.document }).operationId).sort();
+};
+// Cloud Logging, with the limit kept: a read that reaches it is truncated.
+const LOG_LIMIT = 1000;
+const logs = async (filter, limit = LOG_LIMIT) => {
   const out = await gcloud(["logging", "read", filter, `--limit=${limit}`, "--format=json", "--order=asc"]);
   return out ? JSON.parse(out) : [];
 };
 const lines = async (service, text, since) => (await logs([
   "resource.type=\"cloud_run_revision\"", `resource.labels.service_name="${service}"`, `timestamp>="${since}"`, `textPayload:"${text}"`,
 ].join(" AND "))).map(e => ({ at: e.timestamp, text: e.textPayload }));
-const auditOf = async (service, query, since) => (await logs([
-  "resource.type=\"cloud_run_revision\"", `resource.labels.service_name="${service}"`, "jsonPayload.logName=\"security_audit\"", `timestamp>="${since}"`, query,
-].join(" AND "))).map(e => ({ at: e.timestamp, service, ...e.jsonPayload }));
+const auditQuery = async (service, query, since) => {
+  const filter = ["resource.type=\"cloud_run_revision\"", `resource.labels.service_name="${service}"`, "jsonPayload.logName=\"security_audit\"", `timestamp>="${since}"`, query].join(" AND ");
+  const entries = await logs(filter);
+  return { query: `${service}: ${query}`, count: entries.length, limit: LOG_LIMIT, entries: entries.map(e => ({ at: e.timestamp, service, ...e.jsonPayload })) };
+};
+const auditOf = async (service, query, since) => (await auditQuery(service, query, since)).entries;
 // An object's generation and metadata, or { absent: true } for gcloud's 404 only.
 const objectOf = async (bucket, name) => {
   try {
@@ -258,11 +315,18 @@ const servedEnv = async service => {
   if (!revision) throw new Error(`${service}: no revision serves 100%`);
   return { revision, env: revisionEnv(JSON.parse(await gcloud(["run", "revisions", "describe", revision, `--region=${region}`, "--format=json"]))) };
 };
+// A drive service's URL, resolved, then held to its role before any request.
+const driveUrl = async role => {
+  const url = await serviceUrl(config[role]);
+  const problem = driveUrlProblem(role, url);
+  if (problem) throw new Error(`refused: ${problem}`);
+  return url;
+};
 
 // The api-c5d-drive calls, as the console makes them: console-run's ID token,
 // whose audience is the service's stable URL (Cloud Run requires it, tag URL
 // or not), and the user's token.
-const apiAudience = await serviceUrl(config.api);
+const apiAudience = await driveUrl("api");
 const apiUrl = config.apiUrl ?? apiAudience;
 let canaryToken = null;
 let canaryAt = 0;
@@ -276,9 +340,25 @@ const need = name => {
   if (!v) throw new Error(`${name} is required for --phase ${phase}`);
   return v;
 };
-const command = async ({ task, key, user, connection = null }) => {
-  const res = await http({ method: "POST", url: `${apiUrl}/command`, headers: await asConsole(user), body: { id: task, idempotencyKey: key, ...(connection ? { connectionId: connection } : {}) } });
+const key = name => plan.keys[name];
+const ids = plan.ids;
+const since = new Date().toISOString();
+// A keyed command: journaled with its planned id before the request.
+const command = async ({ name, task, user, connection = null }) => {
+  journal(name, { kind: "keyed", key: key(name), commandId: ids[name] });
+  const res = await http({ method: "POST", url: `${apiUrl}/command`, headers: await asConsole(user), body: { id: task, idempotencyKey: key(name), ...(connection ? { connectionId: connection } : {}) } });
   return { status: res.status, commandId: res.json?.data?.commandId ?? null, outcome: res.json?.data?.outcome ?? null, reason: res.json?.data?.reason ?? res.json?.error?.reason ?? null };
+};
+// An anonymous capture through the bridge: its id isn't known until answered,
+// so the intent is journaled first and the id after; one never answered
+// stays an unresolved intent, which fails cleanup.
+const anonymousCompile = async (name, task) => {
+  journal(name, { kind: "anonymous", task, commandId: null });
+  const res = await http({ method: "POST", url: `${apiUrl}/compile`, headers: await asConsole(null), body: { id: task } });
+  const commandId = (res.json?.data ?? res.json)?.command?.commandId ?? null;
+  // Answered: its id, or null for an answer that allocated nothing.
+  journalId(name, commandId);
+  return { status: res.status, commandId };
 };
 // Policy's gateway routes (canary-window-c5d covers api-run).
 const asGateway = async () => ({
@@ -296,7 +376,9 @@ const asConsoleToPolicy = async () => ({
   Authorization: await canary(),
 });
 
-// A command's capture observation (c5d-drive-checks.js "capture").
+// A command's capture observation (c5d-drive-checks.js "capture"): Policy's
+// record, reservations and result (L0013's { item, url }), Broker's claim of
+// its first reservation, and the drive bucket's object.
 const captureOf = async commandId => {
   if (!commandId) throw new Error("no command id");
   const id = encodeURIComponent(commandId);
@@ -308,7 +390,7 @@ const captureOf = async commandId => {
     const read = await gateway("GET", `/v1/commands/${id}/records/result`);
     result = JSON.parse(read.result?.text ?? "null");
   }
-  const item = reservations[0]?.item;
+  const first = reservations[0];
   return {
     commandId,
     status: record.status,
@@ -317,30 +399,35 @@ const captureOf = async commandId => {
     admission: record.admission ?? null,
     result,
     reservations,
-    object: item ? await objectOf(config.bucket, `${item}.png`) : { absent: true },
+    claim: first ? await receiptDoc(operationIdOf(record.invocationId, first)) : { absent: true },
+    object: first ? await objectOf(config.bucket, `${first.item}.png`) : { absent: true },
   };
 };
-// Until the command is terminal (completed or failed), bounded.
+// Until the command is terminal: each of Policy's states by name (isTerminal;
+// an unknown status stops the run), bounded.
 const terminal = async commandId => {
   const { value, timedOut } = await pollUntil({
     read: () => doc("policy", `commands/${encodeURIComponent(commandId)}`),
-    done: r => ["completed", "failed"].includes(r?.status),
+    done: r => r?.absent !== true && isTerminal(r?.status),
     timeoutMs: waitMs,
     intervalMs: 5_000,
   });
-  if (timedOut) throw new Error(`${commandId} still ${value?.status} after ${waitMs} ms`);
+  if (timedOut) throw new Error(`${commandId} still ${value?.status ?? "absent"} after ${waitMs} ms`);
   return value;
 };
 const counterOf = async item => doc("policy", `item-captures/${encodeURIComponent(item)}`);
-const faultLines = (commandId, since) => lines(config.l0013r, "capture fault", since).then(ls => ls.filter(l => l.text.includes(commandId)));
+const faultLines = (commandId, from) => lines(config.l0013r, "capture fault", from).then(ls => ls.filter(l => l.text.includes(commandId)));
 // The compiler's `render` lines name the item, not the command (crates/capture
 // render(): "render item=<item> ..."), so a phase counts its item's renders in
 // its own window, while no other capture of that item runs.
 const rendersOf = async (item, from, to = null) => (await lines(config.l0013r, `render item=${item}`, from))
   .filter(l => to === null || Date.parse(l.at) < Date.parse(to)).length;
-const key = name => plan.keys[name];
-const ids = plan.ids;
-const since = new Date().toISOString();
+// Every command the drive may have allocated (c5d-drive-checks.js inventory).
+const driveInventory = () => inventory({
+  plan,
+  journal: journalFiles().map(f => ({ file: f, value: JSON.parse(readFileSync(path.join(journalDir, f), "utf8")) })),
+  manifests: readdirSync(dir).filter(f => f.endsWith(".json") && f !== PLAN_FILE && !f.startsWith("report-")).map(readJson),
+});
 
 // ----------------------------------------------------------------- phases
 
@@ -352,7 +439,7 @@ if (phase === "checks") {
   observations.services = services;
   observations.targets = plan.faults;
   await collect("l0013rStatus", async () => {
-    const url = await serviceUrl(config.l0013r);
+    const url = await driveUrl("l0013r");
     const res = await http({ method: "GET", url: `${url}/egress`, headers: { Authorization: `Bearer ${await idToken(gatewayAccount, url)}` } });
     if (res.status !== 200) throw new Error(`/egress ${res.status}`);
     const bucket = res.json?.language?.thumbnailBucket;
@@ -368,17 +455,21 @@ if (phase === "checks") {
 }
 
 if (phase === "baseline") {
-  await collect("thumbnails", () => listing("graffiticode-thumbnails"));
-  finish();
+  // A failed read writes nothing: the baseline is taken whole, once.
+  const thumbnails = await listing("graffiticode-thumbnails");
+  const file = writeOnce(BASELINE_FILE, { runId, phase, at: new Date().toISOString(), observations: { thumbnails, errors: {} } });
+  console.log(`baseline: ${thumbnails.length} objects; ${file}`);
 }
 
 if (phase === "first-capture") {
-  const owner = await command({ task: need("--private-task"), key: key("first-private"), user: await canary() });
+  const owner = await command({ name: "first-private", task: need("--private-task"), user: await canary() });
   await collect("private", () => captureOf(owner.commandId));
-  const anon = await http({ method: "POST", url: `${apiUrl}/compile`, headers: await asConsole(null), body: { id: need("--public-task") } });
-  const anonId = (anon.json?.data ?? anon.json)?.command?.commandId ?? null;
-  await collect("public", async () => captureOf((await terminal(anonId)).commandId));
-  observations.publicSubject = observations.public ? (await doc("policy", `commands/${encodeURIComponent(anonId)}`)).uid ?? null : null;
+  const anon = await anonymousCompile("first-public", need("--public-task"));
+  await collect("public", async () => {
+    await terminal(anon.commandId);
+    return captureOf(anon.commandId);
+  });
+  observations.publicSubject = observations.public ? (await doc("policy", `commands/${encodeURIComponent(anon.commandId)}`)).uid ?? null : null;
   finish();
 }
 
@@ -387,7 +478,7 @@ if (phase === "direct-refused") {
   await collect("before", () => objectOf(config.bucket, `${item}.png`));
   await collect("messages", async () => {
     // Straight to the drive compiler, outside any command, as api-run (an invoker).
-    const url = await serviceUrl(config.l0013r);
+    const url = await driveUrl("l0013r");
     const res = await http({ method: "POST", url: `${url}/compile`, headers: { Authorization: `Bearer ${await idToken(gatewayAccount, url)}` }, body: { code: JSON.parse(need("--direct-code")), data: {} } });
     observations.status = res.status;
     return (res.json?.error ? [res.json.error] : res.json?.data?.errors ?? res.json?.errors ?? []).map(e => (typeof e === "string" ? e : e?.message ?? JSON.stringify(e)));
@@ -398,7 +489,7 @@ if (phase === "direct-refused") {
 
 if (phase === "exit-after-reserve") {
   await collect("counterBefore", () => counterOf(FIXTURES.private));
-  const c = await command({ task: need("--private-task"), key: key("exit-after-reserve"), user: await canary() });
+  const c = await command({ name: "exit-after-reserve", task: need("--private-task"), user: await canary() });
   await terminal(ids["exit-after-reserve"]);
   await collect("capture", () => captureOf(ids["exit-after-reserve"]));
   await collect("counterAfter", () => counterOf(FIXTURES.private));
@@ -407,7 +498,7 @@ if (phase === "exit-after-reserve") {
 }
 
 if (phase === "exit-after-stage") {
-  const c = await command({ task: need("--private-task"), key: key("exit-after-stage"), user: await canary() });
+  const c = await command({ name: "exit-after-stage", task: need("--private-task"), user: await canary() });
   const id = ids["exit-after-stage"];
   // The staged record read as soon as the exit is logged, before the takeover.
   await collect("faultLines", async () => (await pollUntil({ read: () => faultLines(id, since), done: ls => ls.length > 0, timeoutMs: 120_000, intervalMs: 5_000 })).value);
@@ -428,15 +519,16 @@ if (phase === "drop-outcome") {
     process.exit(1);
   }
   const id = ids["drop-outcome"];
-  const answered = await command({ task: need("--private-task"), key: key("drop-outcome"), user: await canary() });
-  // The dropped request has finished once the api answered and the command is terminal.
+  const answered = await command({ name: "drop-outcome", task: need("--private-task"), user: await canary() });
+  // The dropped request has finished once the command is terminal: uncertain
+  // is Policy's outcome for a dropped write (the check requires it).
   await terminal(id);
   observations.droppedFinishedAt = new Date().toISOString();
   await collect("capture", () => captureOf(id));
   const r = observations.capture?.reservations?.[0];
   if (r) {
     observations.operationId = operationIdOf(observations.capture.invocationId, r);
-    await collect("claim", () => receiptDoc(observations.operationId));
+    observations.claim = observations.capture.claim;
     await collect("outcomeAfterDrop", () => receiptDoc(observations.operationId, "/outcome/final"));
     await collect("objectAfterDrop", () => objectOf(config.bucket, `${r.item}.png`));
     const staged = stagedObject(id, r);
@@ -459,22 +551,27 @@ if (phase === "drop-outcome-retry") {
     process.exit(1);
   }
   observations.stagedDeletedAt = new Date().toISOString();
-  observations.retry = await command({ task: need("--private-task"), key: key("drop-outcome"), user: await canary() });
-  await collect("reconcile", async () => {
-    const item = dropped.capture.reservations[0].item;
-    const res = await http({ method: "POST", url: `${policyUrl}/v1/receipts/reconcile`, headers: await asConsoleToPolicy(), body: { itemId: item, idempotencyKey: key("drop-outcome") } });
-    return { status: res.status, operations: res.json?.data?.operations ?? [] };
-  });
-  await collect("objectAfterRetry", () => objectOf(config.bucket, `${dropped.capture.reservations[0].item}.png`));
-  await collect("executeSteps", async () => [
-    ...(await auditOf(config.broker, `jsonPayload.opid="${dropped.operationId}"`, dropped.droppedFinishedAt ? new Date(Date.parse(dropped.droppedFinishedAt) - 15 * 60_000).toISOString() : since)),
-  ]);
+  // The same key again: the same command, journaled under its own name.
+  journal("drop-outcome-retry", { kind: "keyed", key: key("drop-outcome"), commandId: ids["drop-outcome"] });
+  const res = await http({ method: "POST", url: `${apiUrl}/command`, headers: await asConsole(await canary()), body: { id: need("--private-task"), idempotencyKey: key("drop-outcome") } });
+  observations.retry = { status: res.status, commandId: res.json?.data?.commandId ?? null, outcome: res.json?.data?.outcome ?? null };
+  const item = dropped.capture.reservations[0].item;
+  await collect("reconcile", () => reconcilePoll({
+    operationId: dropped.operationId,
+    claimedAt: dropped.claim?.claimedAt,
+    reconcile: async () => {
+      const r = await http({ method: "POST", url: `${policyUrl}/v1/receipts/reconcile`, headers: await asConsoleToPolicy(), body: { itemId: item, idempotencyKey: key("drop-outcome") } });
+      return { status: r.status, operations: r.json?.data?.operations ?? [] };
+    },
+  }));
+  await collect("objectAfterRetry", () => objectOf(config.bucket, `${item}.png`));
+  await collect("executeSteps", () => auditOf(config.broker, `jsonPayload.opid="${dropped.operationId}"`, new Date(Date.parse(dropped.droppedFinishedAt) - 15 * 60_000).toISOString()));
   finish({ dropped: latest });
 }
 
 if (phase === "stale-worker") {
   const id = ids["stale-worker"];
-  const answered = await command({ task: need("--private-task"), key: key("stale-worker"), user: await canary() });
+  const answered = await command({ name: "stale-worker", task: need("--private-task"), user: await canary() });
   await terminal(id);
   // The stalled request is released by the takeover, or at most at its bound.
   await sleep(10_000);
@@ -489,7 +586,7 @@ if (phase === "staging-gone") {
   const id = ids["staging-gone"];
   const item = FIXTURES.private;
   await collect("objectBefore", () => objectOf(config.bucket, `${item}.png`));
-  const answered = await command({ task: need("--private-task"), key: key("staging-gone"), user: await canary() });
+  const answered = await command({ name: "staging-gone", task: need("--private-task"), user: await canary() });
   await collect("faultLines", async () => (await pollUntil({ read: () => faultLines(id, since), done: ls => ls.length > 0, timeoutMs: 120_000, intervalMs: 2_000 })).value);
   await collect("stagedAtExit", async () => (await docs("policy", `commands/${encodeURIComponent(id)}/reservations`))[0] ?? null);
   const r = observations.stagedAtExit;
@@ -503,7 +600,7 @@ if (phase === "staging-gone") {
     observations.stagedDeletedAt = new Date().toISOString();
     await terminal(id);
     await collect("capture", () => captureOf(id));
-    await collect("claim", () => receiptDoc(operationIdOf(observations.capture.invocationId, r)));
+    observations.claim = observations.capture?.claim;
   }
   await collect("objectAfter", () => objectOf(config.bucket, `${item}.png`));
   // Before the fresh capture, which renders the same item.
@@ -512,16 +609,16 @@ if (phase === "staging-gone") {
     await sleep(30_000);
     return rendersOf(item, since, beforeFresh);
   });
-  const fresh = await command({ task: need("--private-task"), key: key("staging-gone-fresh"), user: await canary() });
+  const fresh = await command({ name: "staging-gone-fresh", task: need("--private-task"), user: await canary() });
   await collect("fresh", () => captureOf(fresh.commandId));
   finish({ answered });
 }
 
 if (phase === "older-after-newer") {
   // The older stops after staging; the newer runs while the older's lease is live.
-  const older = command({ task: need("--private-task"), key: key("older"), user: await canary() });
+  const older = command({ name: "older", task: need("--private-task"), user: await canary() });
   await collect("olderFaultLines", async () => (await pollUntil({ read: () => faultLines(ids.older, since), done: ls => ls.length > 0, timeoutMs: 120_000, intervalMs: 2_000 })).value);
-  const newer = await command({ task: need("--private-task"), key: key("newer"), user: await canary() });
+  const newer = await command({ name: "newer", task: need("--private-task"), user: await canary() });
   await terminal(ids.newer);
   await terminal(ids.older);
   await older.catch(() => null);
@@ -537,8 +634,8 @@ if (phase === "older-after-newer") {
 }
 
 if (phase === "two-stage") {
-  const distinct = await command({ task: need("--two-items-task"), key: key("two-stage"), user: await canary() });
-  const same = await command({ task: need("--same-program-task"), key: `${key("two-stage")}:same`, user: await canary() });
+  const distinct = await command({ name: "two-stage", task: need("--two-items-task"), user: await canary() });
+  const same = await command({ name: "two-stage-same", task: need("--same-program-task"), user: await canary() });
   await collect("distinctItems", () => captureOf(distinct.commandId));
   await collect("sameProgram", () => captureOf(same.commandId));
   observations.capture = observations.distinctItems;
@@ -546,7 +643,7 @@ if (phase === "two-stage") {
 }
 
 if (phase === "mixed") {
-  const mixed = await command({ task: need("--mixed-task"), key: key("mixed"), user: await canary(), connection: connectionId });
+  const mixed = await command({ name: "mixed", task: need("--mixed-task"), user: await canary(), connection: connectionId });
   await collect("capture", () => captureOf(mixed.commandId));
   await collect("tokens", async () => {
     const inv = observations.capture.invocationId;
@@ -565,7 +662,11 @@ if (phase === "mixed") {
 if (phase === "non-owner") {
   const token = process.env.C5D_NON_OWNER_TOKEN;
   if (!token) throw new Error("set C5D_NON_OWNER_TOKEN to a non-owner's access token");
-  const other = await command({ task: need("--private-task"), key: `${key("first-private")}:non-owner`, user: token });
+  // Another user's command: its id is that user's, known once answered.
+  journal("non-owner", { kind: "non-owner", commandId: null });
+  const res = await http({ method: "POST", url: `${apiUrl}/command`, headers: await asConsole(token), body: { id: need("--private-task"), idempotencyKey: `${key("first-private")}:non-owner` } });
+  const other = { status: res.status, commandId: res.json?.data?.commandId ?? null, outcome: res.json?.data?.outcome ?? null, reason: res.json?.data?.reason ?? res.json?.error?.reason ?? null };
+  journalId("non-owner", other.commandId);
   const record = other.commandId ? await doc("policy", `commands/${encodeURIComponent(other.commandId)}`) : { absent: true };
   observations.status = other.status;
   observations.outcome = record.status ?? other.outcome;
@@ -575,28 +676,30 @@ if (phase === "non-owner") {
 }
 
 if (phase === "rate-limit") {
+  // The slots left: the public item's public captures still in Policy's window
+  // (first-capture's anonymous capture among them) are counted first.
+  const before = await counterOf(FIXTURES.public);
+  const priorAt = Date.now();
+  observations.priorInWindow = priorPublicCaptures(before, priorAt);
+  const remaining = PUBLIC_CAPTURE_LIMIT - observations.priorInWindow;
+  if (remaining < 1) throw new Error(`no slot left for ${FIXTURES.public}: ${observations.priorInWindow} public captures in the window`);
   const from = new Date().toISOString();
   const allocated = [];
+  const client = policyFixtureClient(gateway);
   try {
-    for (let i = 0; i < PUBLIC_CAPTURE_LIMIT + 1; i++) {
-      const res = await http({ method: "POST", url: `${apiUrl}/compile`, headers: await asConsole(null), body: { id: need("--public-task") } });
-      const commandId = (res.json?.data ?? res.json)?.command?.commandId ?? null;
-      if (commandId) allocated.push(commandId);
+    for (let i = 0; i < remaining + 1; i++) {
+      const a = await anonymousCompile(`rate-limit-${i + 1}`, need("--public-task"));
+      if (a.commandId) allocated.push(a.commandId);
     }
   } finally {
-    const client = {
-      get: id => gateway("GET", `/v1/commands/${encodeURIComponent(id)}`),
-      lease: (id, body) => gateway("POST", `/v1/commands/${encodeURIComponent(id)}/lease`, body),
-      finish: (id, generation) => gateway("POST", `/v1/commands/${encodeURIComponent(id)}/finish`, { generation, result: null }),
-    };
     await collect("retired", async () => {
       await retireFixtures({ client, ids: allocated, worker: `c5d-drive-fixture:${runId}` });
       return verifyRetired({ client, ids: allocated });
     });
   }
+  observations.attempted = remaining + 1;
   await collect("quota", async () => {
-    const item = (await docs("policy", `commands/${encodeURIComponent(allocated[0])}/reservations`))[0]?.item;
-    const { value } = await pollUntil({ read: () => logs(policyReserveFilter(item, from)), done: reservesCover(allocated), timeoutMs: 180_000, intervalMs: 10_000 });
+    const { value } = await pollUntil({ read: () => logs(policyReserveFilter(FIXTURES.public, from)), done: reservesCover(allocated), timeoutMs: 180_000, intervalMs: 10_000 });
     return rateLimitFromAudit(value);
   });
   Object.assign(observations, observations.quota ?? {});
@@ -604,40 +707,54 @@ if (phase === "rate-limit") {
 }
 
 if (phase === "canary-snap") {
+  // Journaled with its planned id before the subprocess runs.
+  journal("canary-snap", { kind: "canary", key: key("canary-snap"), commandId: ids["canary-snap"] });
   const run = spawnSync(process.execPath, [new URL("./canary.js", import.meta.url).pathname,
     "--uid", uid, "--snap", FIXTURES.private, "--snap-only", "--thumbnail-bucket", config.bucket,
-    "--api-service", config.api, "--api-invoker", consoleAccount], { encoding: "utf8" });
+    "--api-service", config.api, "--api-invoker", consoleAccount, "--run-id", plan.canaryRunId], { encoding: "utf8" });
   observations.exitCode = run.status;
   observations.results = (run.stdout ?? "").split("\n").map(l => /^\s*(PASS|FAIL) ([^:]+):/.exec(l)).filter(Boolean).map(m => ({ name: m[2], ok: m[1] === "PASS" }));
+  // canary.js's "snap command" line: `command <id> completed for <item>`.
+  observations.commandId = /(?:PASS|FAIL) snap command: command (c:[0-9a-f]{64})/.exec(run.stdout ?? "")?.[1] ?? null;
+  observations.expectedCommandId = ids["canary-snap"];
   finish();
 }
 
-// Every command the drive allocated, from its phases' manifests.
-const driveCommands = () => {
-  const found = new Set();
-  for (const f of readdirSync(dir).filter(f => f.endsWith(".json") && f !== PLAN_FILE)) {
-    const walk = v => {
-      if (typeof v === "string" && /^c:[0-9a-f]{64}$/.test(v)) found.add(v);
-      else if (v && typeof v === "object") Object.values(v).forEach(walk);
-    };
-    walk(readJson(f));
-  }
-  return [...found];
-};
-
 if (phase === "boundary") {
-  const commands = driveCommands();
-  const records = [];
-  for (const id of commands) records.push({ id, record: await doc("policy", `commands/${encodeURIComponent(id)}`) });
-  observations.invocations = records.map(r => r.record?.invocationId).filter(Boolean);
-  const from = readJson(PLAN_FILE).at;
-  await collect("brokerAudit", async () => {
+  const { commandIds } = driveInventory();
+  await collect("commands", async () => {
     const out = [];
-    for (const service of [config.broker, "broker"]) {
-      for (const inv of observations.invocations) out.push(...(await auditOf(service, `jsonPayload.invocationId="${inv}"`, from)));
+    for (const id of commandIds) {
+      const record = await doc("policy", `commands/${encodeURIComponent(id)}`);
+      out.push(record.absent ? { commandId: id, absent: true } : { commandId: id, invocationId: record.invocationId, stages: Object.values(record.admission?.stages ?? {}).map(s => s.revision) });
     }
     return out;
   });
+  const invocations = [...new Set((observations.commands ?? []).map(c => c.invocationId).filter(Boolean))];
+  await collect("claimsByInvocation", async () => {
+    const out = {};
+    for (const inv of invocations) out[inv] = await claimsOf(inv);
+    return out;
+  });
+  const from = plan.at;
+  // Polled until every claimed operation has broker-c5d-drive's execute
+  // evidence (Cloud Logging ingests late), within the bound; every query's
+  // count is kept, so a truncated read fails the check.
+  const ops = invocations.flatMap(inv => observations.claimsByInvocation?.[inv] ?? []);
+  await collect("audit", async () => {
+    const read = async () => {
+      const queries = [];
+      for (const service of [config.broker, "broker"]) for (const inv of invocations) queries.push(await auditQuery(service, `jsonPayload.invocationId="${inv}"`, from));
+      return queries;
+    };
+    const covered = qs => ops.every(op => qs.some(q => q.entries.some(e => e.opid === op && (e.event === "execute" || e.event === "execute-step") && e.service === config.broker)));
+    const { value, attempts, timedOut } = await pollUntil({ read, done: covered, timeoutMs: auditTimeoutMs, intervalMs: 15_000 });
+    return { queries: value, poll: { attempts, timedOut } };
+  });
+  observations.queries = (observations.audit?.queries ?? []).map(({ entries, ...q }) => q);
+  observations.brokerAudit = (observations.audit?.queries ?? []).flatMap(q => q.entries);
+  observations.poll = observations.audit?.poll;
+  delete observations.audit;
   await collect("reconcileBuckets", async () => {
     const out = [];
     for (const e of (observations.brokerAudit ?? []).filter(x => x.service === "broker" && x.event === "reconcile" && x.opid)) {
@@ -646,24 +763,29 @@ if (phase === "boundary") {
     }
     return out;
   });
-  const baseline = latestByPhase(readdirSync(dir)).baseline;
-  observations.thumbnailsBefore = baseline ? readJson(baseline).observations.thumbnails : undefined;
+  // Judged against baseline.json, the run's one baseline (judge reads it too).
+  observations.thumbnailsBefore = readJson(BASELINE_FILE).observations.thumbnails;
   await collect("thumbnailsAfter", () => listing("graffiticode-thumbnails"));
   observations.fixtures = Object.values(FIXTURES);
-  observations.compilerCalls = records.flatMap(r => Object.values(r.record?.admission?.stages ?? {}).map(s => ({ revision: s.revision, service: revisionService(s.revision) })));
+  observations.compilerCalls = (observations.commands ?? []).flatMap(c => (c.stages ?? []).map(revision => ({ revision, service: revisionService(revision) })));
   finish();
 }
 
 if (phase === "cleanup") {
-  const commands = driveCommands();
+  const { commandIds, unresolvedIntents } = driveInventory();
+  observations.unresolvedIntents = unresolvedIntents;
   await collect("commands", async () => {
     const out = [];
-    for (const id of commands) out.push({ commandId: id, status: (await doc("policy", `commands/${encodeURIComponent(id)}`)).status ?? null });
+    for (const id of commandIds) {
+      const record = await doc("policy", `commands/${encodeURIComponent(id)}`);
+      out.push({ commandId: id, status: record.absent ? "absent" : record.status ?? null });
+    }
     return out;
   });
   await collect("due", async () => {
-    const due = await gateway("GET", "/v1/commands-due?limit=50&recording=1&repairs=1&scopes=1");
-    return (due.commands ?? []).map(c => c.commandId);
+    const listed = new Set();
+    for (const scopes of [false, true]) for (const c of (await policyFixtureClient(gateway).due({ scopes })).commands ?? []) listed.add(c.commandId);
+    return [...listed];
   });
   finish();
 }

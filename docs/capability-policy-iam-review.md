@@ -2236,7 +2236,12 @@ C5b slice 4: Broker's `THUMBNAIL_BUCKET` goes from `graffiticode-c5a-gate`, dele
 
 ### Step 32: the C5d drive's services, bucket, proxy hosts and window [HELD: not approved, not applied]
 
-C5d slices 2 and 3 ([`docs/c5d-snapshot-commands-plan.md`](c5d-snapshot-commands-plan.md), decision 3): an isolated drive of snapshot commands through production Policy, publishing only to its own bucket. **Every action below needs the owner's approval, and none has been taken.** The runner is [`scripts/c5d-drive.js`](../scripts/c5d-drive.js), judged by `scripts/lib/c5d-drive-checks.js`. Its evidence goes to `docs/evidence/c5d/drive/<run>/`.
+C5d slices 2 and 3 ([`docs/c5d-snapshot-commands-plan.md`](c5d-snapshot-commands-plan.md), decision 3): an isolated drive of snapshot commands through production Policy, publishing only to its own bucket. **Every action below needs the owner's approval, and none has been taken.** The runner is [`scripts/c5d-drive.js`](../scripts/c5d-drive.js), judged by `scripts/lib/c5d-drive-checks.js`. Its evidence goes to `docs/evidence/c5d/drive/<run>/`:
+- `plan.json` and `baseline.json`, each written once per run. The baseline is refused once any capture has begun, and `boundary` and `judge` read only it.
+- `journal/`, one write-once entry per request that can allocate a command, written before the request is sent. The canary's `--snap` command id is planned through `canary.js --run-id`.
+- Each phase's timestamped manifest.
+
+Nothing there is ever overwritten.
 
 **Names (decision 3).** The drive uses new, C5d-only names: `broker-c5d-drive`, `l0013r-c5d-drive`, `l0176r-c5d-drive`, `api-c5d-drive` and `gs://graffiticode-c5d-drive`.
 - **B6's `l0176r-drive` is untouched throughout:** its revisions, tags and approval records stay, so any recovery depending on them is preserved.
@@ -2463,10 +2468,28 @@ Decision 4: before activation, an api baseline at `3b6b4a50` marked `floor: true
 
 - **The change:** `deploy.json` only, in held draft **#443**. It merges first, with the owner's approval, before Step 34.
 - **No release is needed for the floor itself:** the CLI reads it at every `release`, `release-check` and `rollback`.
-- **Verify:**
-  - `npm run release-check -- api` passes;
-  - `npm run rollback -- api --release <the current release id> --plan` still targets `api-rmwkxlbvy-b5fa92`, which is at `3b6b4a50` and allowed;
-  - a rollback plan to any registry-8 revision is refused.
+- **What the floor does to today's rollback:**
+  - the serving api is `api-rmwkxlbvy-b5fa92` (release `rmwkxlbvy-b5fa92`, at `3b6b4a50`);
+  - its receipt's rollback target is the revision it replaced, a registry-8 api below `3b6b4a50`, which the floor refuses (`release.js` `belowFloors`, before any traffic moves, with no override, `--below-baseline` included);
+  - so from #443 on, **the serving api has no allowed rollback target** until Step 34's step 1 releases;
+  - that release's rollback target is `api-rmwkxlbvy-b5fa92`, at the floor's own commit, and allowed.
+- **Verify** (read-only; the refusal is shown, never exercised against production):
+  1. `npm run release-check -- api` passes.
+  2. The current receipt's target and its commit:
+
+     ```bash
+     npm run rollback -- api --release rmwkxlbvy-b5fa92 --plan
+     ```
+
+     This prints `restoreTraffic`, the previous revision. `--plan` reads only the receipt; it doesn't apply floors. Its own receipt (`.gc-deploy/releases/<that release id>.json`) names its `commit`.
+  3. That commit is below the floor:
+
+     ```bash
+     git merge-base --is-ancestor 3b6b4a50 <that commit>   # exits 1: not 3b6b4a50 or a descendant
+     ```
+
+     That is exactly the test the floor applies, so a real `rollback --release rmwkxlbvy-b5fa92` would be refused. The plan's output and the exit status go to `docs/evidence/c5d/activation/`.
+  4. **After Step 34's step 1:** `npm run rollback -- api --release <step 1's release id> --plan` prints `restoreTraffic` `{ "api-rmwkxlbvy-b5fa92": 100 }`, whose commit is `3b6b4a50` itself (`git merge-base --is-ancestor 3b6b4a50 3b6b4a50` exits 0): allowed.
 - **Rollback:** revert #443. Nothing has activated yet, so no artifact depends on registry 9.
 
 ### Step 34: activation (C5d slice 4, five ordered steps) [HELD: drafts #445 and #444]
@@ -2478,10 +2501,36 @@ Each step needs its own approval, after Steps 32 and 33. Before step 1:
 - a final read-only `--phase verify` of C5b's copy passes.
 
 1. **The api: held draft #445** (stacked on #443). It drops `COMMAND_SCOPES` from the api's `removeEnv` and adds `COMMANDS_L0013=on`, `COMMAND_SCOPES=on`, `INTERPRETER_L0013=on` and `COMPILE_GENERATION_L0013=c5d-1`, with `BRIDGE_L0013` unset (on).
-   - **Released staged** from its merge commit (`npm run deploy -- api`):
-     - the canary passes 36/36;
-     - `node scripts/canary.js --uid <canary uid> --snap <canary-owned item> --snap-only --api-url <the staged tag URL>` passes on the staged tag;
-     - then it's promoted.
+   - **Staged, never released directly.** From #445's merge commit:
+
+     ```bash
+     npm run deploy -- api --stage
+     ```
+
+     It runs the candidate checks and stops. The candidate keeps its tag and takes no traffic; the receipt is `staged`, and its `url` is the tag URL.
+   - **On the tag, both must pass:**
+
+     ```bash
+     node scripts/canary.js --uid <canary uid> --connection <canary connection id> --api-url <the staged tag URL>   # 36/36
+     node scripts/canary.js --uid <canary uid> --snap <canary-owned item> --snap-only --api-url <the staged tag URL>
+     ```
+
+     `--api-url` is the tag of `api` itself, so #441's rule accepts it.
+   - **The evidence,** `docs/evidence/c5d/activation/api-promote-evidence.json`, in the deploy CLI's format (`packages/deploy/README.md`, "Staging"):
+     - `service: "api"`, the staged `release` and `revision`, `networkHash: null`;
+     - `corpus`: the canary's run (`ranAt`, `tasks: 36`, `failures: 0`), after `stagedAt`;
+     - `refusals: []`, and a `reviewer`;
+     - `notes`: the canary's output and the `--snap` run's five passing checks, with its command id.
+
+     Written only if both runs passed.
+   - **Promoted, with that evidence:**
+
+     ```bash
+     npm run deploy -- promote api --release <the staged release id> --plan --evidence docs/evidence/c5d/activation/api-promote-evidence.json   # no cloud calls: the evidence's problems, if any
+     npm run deploy -- promote api --release <the staged release id> --evidence docs/evidence/c5d/activation/api-promote-evidence.json
+     ```
+
+     `promote` refuses unless the receipt is still `staged`, the service is unchanged since staging, and the evidence is valid. It then re-runs the candidate checks before moving traffic. If either run on the tag fails, nothing is promoted; the candidate stays tagged for inspection and is retired with the next release.
    - **Read-back:**
      - the serving revision's environment;
      - `release-check api`;

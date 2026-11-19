@@ -79,6 +79,11 @@
 //                           X-Serverless-Authorization, as the console invokes
 //                           it (console-run@graffiticode-app.iam.gserviceaccount.com,
 //                           under the operator's OpenIdTokenCreator on it)
+//   --run-id <id>           the run's id (4-40 lowercase letters and digits), in
+//                           every key the run makes (`canary:<id>:snap`), so a
+//                           caller can know the run's command ids beforehand
+//                           (C5d's drive journals its --snap command); random
+//                           when omitted
 //   --after-cutover        Policy runs MIN_CONTRACT_VERSION=2: v1-shaped
 //                           sessions must be refused
 //   --provider              AT-10 release-verify, on the gateway preview: signed by
@@ -119,6 +124,11 @@ const snapOnly = args.includes("--snap-only");
 const thumbnailBucket = flag("--thumbnail-bucket") ?? DEFAULT_THUMBNAIL_BUCKET;
 const apiServiceName = flag("--api-service") ?? "api";
 const apiInvoker = flag("--api-invoker") ?? null;
+const canaryRunId = flag("--run-id") ?? null;
+if (canaryRunId !== null && !/^[a-z0-9]{4,40}$/.test(canaryRunId)) {
+  console.error("--run-id must be 4-40 lowercase letters and digits");
+  process.exit(2);
+}
 if (!uid || (!connectionId && !snapOnly)) {
   console.error("usage: node scripts/canary.js --uid <canary uid> --connection <canary connection id> [--snap <item> [--snap-only]]");
   process.exit(2);
@@ -306,6 +316,6 @@ if (process.env.LRN_SANDBOX_KEY && process.env.LRN_SANDBOX_SECRET) {
   const { default: LearnositySDK } = await import("learnosity-sdk-nodejs");
   archiveDrafts = createDraftArchiver({ sdk: new LearnositySDK(), key: process.env.LRN_SANDBOX_KEY, secret: process.env.LRN_SANDBOX_SECRET, domain: process.env.LRN_SANDBOX_DOMAIN || "l0176.graffiticode.org" });
 }
-const { ok, results } = await runCanary({ http, archiveDrafts, auditEvents, snapReads, idToken, accessToken, parse, config, servingRevision, retryState, log: line => console.log(`  ${line}`) });
+const { ok, results } = await runCanary({ http, archiveDrafts, auditEvents, snapReads, idToken, accessToken, parse, config, servingRevision, retryState, ...(canaryRunId ? { runId: canaryRunId } : {}), log: line => console.log(`  ${line}`) });
 console.log(ok ? `canary passed (${results.length} checks)` : `canary FAILED (${results.filter(r => !r.ok).length} of ${results.length} checks)`);
 process.exit(ok ? 0 : 1);
