@@ -56,8 +56,8 @@ pub use error::Diagnostic;
 pub use eval::{Eval, Evaluator};
 pub use exec::{CacheClass, Restriction};
 pub use exec::{
-    EffectStatus, ExecContext, Identity, ProtectedEffect, Recorded, RecordedOccurrence, SystemSessionRefusal,
-    runtime_occurrence_id,
+    CommandClaims, EffectStatus, ExecContext, Identity, ProtectedEffect, Recorded, RecordedOccurrence,
+    SystemSessionRefusal, runtime_occurrence_id,
 };
 pub use lexicon::{Lexicon, LexiconEntry, LexiconError};
 pub use model::{Intent, IntentScope, Mode, Model, ModelKind};

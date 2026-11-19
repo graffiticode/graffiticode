@@ -14,6 +14,9 @@
 //! pure function of the pixels and lives here, in [`crop`].
 
 pub mod crop;
+pub mod faults;
+
+use faults::{Armed, CaptureFault, CaptureFaults, STALE_GENERATION};
 
 /// The protected registry's version (`packages/common/src/protected-registry.ts`), kept equal to
 /// it by `scripts/check-registry-version.js`. L0013 registers `snap` from version 9 (C5,
@@ -130,6 +133,8 @@ pub trait Camera: Send + Sync {
 pub struct L0013 {
     camera: Arc<dyn Camera>,
     protected: Vec<(String, ProtectedFunction)>,
+    /// The C5d drive's capture fault points ([`faults`]); none outside a drive.
+    faults: Option<CaptureFaults>,
 }
 
 impl L0013 {
@@ -137,7 +142,14 @@ impl L0013 {
         Self {
             camera: Arc::new(camera),
             protected: vec![("SNAP".to_owned(), ProtectedFunction::new(SNAP, ProtectedKind::Write))],
+            faults: None,
         }
+    }
+
+    /// With the drive's capture faults (`L0013_CAPTURE_FAULTS`, read by the server).
+    pub fn with_capture_faults(mut self, faults: CaptureFaults) -> Self {
+        self.faults = Some(faults);
+        self
     }
 }
 
@@ -291,9 +303,14 @@ impl L0013 {
             *n - 1
         };
         let item = request.item.clone();
+        // A drive's fault, armed only for its target command at owner generation 1 (C5d).
+        let armed = self.faults.as_ref().and_then(|faults| faults.armed(cx.exec().command_claims().as_ref()));
         let outcome: Result<serde_json::Value, String> = async {
             let occurrence = cx.exec().expand(&snap_intent_id(&site), &format!("{site}#{n}")).map_err(|e| e.to_string())?;
             let reserved = cx.exec().reserve_capture(&occurrence, &item).await.map_err(|e| e.to_string())?;
+            if let Some(armed) = armed.as_ref().filter(|a| a.fault == CaptureFault::ExitAfterReserve) {
+                return Err(exit(armed));
+            }
             let sha256 = match reserved.staged {
                 Some(staged) => staged.sha256,
                 None => {
@@ -301,9 +318,17 @@ impl L0013 {
                     // Policy gave this reservation, a public one under nothing.
                     let request = SnapRequest { token: None, render_grant: reserved.render_grant.clone(), ..request };
                     let png = self.camera.render(request).await.map_err(|e| e.to_string())?;
+                    if let Some(armed) = armed.as_ref().filter(|a| a.fault == CaptureFault::StallBeforeStage) {
+                        stall(cx, armed, &occurrence, &item).await;
+                    }
                     cx.exec().stage_capture(&occurrence, &png).await.map_err(|e| e.to_string())?.sha256
                 }
             };
+            // After staging, whether this run staged or found it staged: generation 1 never
+            // gets past here.
+            if let Some(armed) = armed.as_ref().filter(|a| a.fault == CaptureFault::ExitAfterStage) {
+                return Err(exit(armed));
+            }
             let call = ProtectedCall {
                 function: SNAP.to_owned(),
                 op: SNAP_OP.to_owned(),
@@ -332,6 +357,46 @@ impl L0013 {
             }
         }
     }
+}
+
+/// An exit fault: the process ends (in a test, the capture stops here with an error).
+fn exit(armed: &Armed) -> String {
+    armed.exit();
+    format!("capture fault {} exited", armed.fault.as_str())
+}
+
+/// `stall-before-stage`: holds the request open until the takeover is observed. Every probe
+/// interval it repeats the reservation of its own occurrence under its generation-1 session.
+/// Before a takeover that answers the recorded reservation; after one Policy refuses it as a
+/// stale generation, the signal to continue (to its own staging, which Policy refuses too).
+/// Any other answer keeps it waiting, up to the bound, where it logs `no-takeover` and
+/// continues.
+///
+/// The bound is one monotonic deadline over the sleeps and each probe's own wait, so a slow or
+/// hanging Policy request can't hold the stall past it: a probe still unanswered at the deadline
+/// is dropped.
+async fn stall(cx: &mut Evaluator<'_>, armed: &Armed, occurrence: &str, item: &str) {
+    armed.warn("stalling until the takeover");
+    let deadline = armed.deadline();
+    while !armed.remaining(deadline).is_zero() {
+        armed.sleep_until_probe(deadline).await;
+        if armed.remaining(deadline).is_zero() {
+            break;
+        }
+        match armed.before(deadline, cx.exec().reserve_capture(occurrence, item)).await {
+            Some(Err(error)) if error.reason() == Some(STALE_GENERATION) => {
+                armed.warn("takeover observed");
+                return;
+            }
+            Some(Ok(_)) => {}
+            Some(Err(error)) => armed.warn(&format!("probe refused ({error}), still waiting")),
+            None => {
+                armed.warn("probe unanswered at the bound");
+                break;
+            }
+        }
+    }
+    armed.warn("no-takeover");
 }
 
 fn snapshot_value(url: String, item: String) -> Value {

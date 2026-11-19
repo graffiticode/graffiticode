@@ -1472,11 +1472,13 @@ dependencies = [
 name = "l0013r-server"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "graffiticode-l0013",
  "l0000r-server",
  "l0013-capture",
  "reqwest",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
