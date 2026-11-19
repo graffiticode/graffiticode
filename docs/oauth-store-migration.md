@@ -20,7 +20,7 @@ Records written before installations name none; they are Graffiticode's. Other i
 
 A token is named by its key: the SHA-256 of its refresh token, or of its access token if it has none. Index entries are named `h:<that hash>`. The inventory gives an entry still under its raw name (`token-index.js`) its hashed name, so a dormant token is findable by its key afterwards.
 
-The fence and the seal are one-way, and need the operator's key as well as the internal key: `X-Migration-Operator-Key` must match `OAUTH_MIGRATION_OPERATOR_KEY`, which no service holds. When that variable is unset, both answer 500.
+The fence and the seal are one-way, and need the operator's key as well as the internal key: `X-Migration-Operator-Key` must match `OAUTH_MIGRATION_OPERATOR_KEY`, which no calling service (MCP, REST, the console) holds: only auth, which verifies it, and the operator do. When that variable is unset, both answer 500.
 
 ## Verification
 
@@ -63,7 +63,7 @@ Older auth code doesn't know the fence: it writes regardless. So before the fenc
 1. **Merge, then add the floor.** Once this change is on `main`, append the first entry to auth's `baselines` in `deploy.json`: `{ "milestone": "P5-fence", "commit": "<its merge commit>", "floor": true }`. From then on:
    - `rollback` refuses any auth target below it, with no override;
    - `release` refuses older source.
-2. **Release auth, with the operator key.** Put `OAUTH_MIGRATION_OPERATOR_KEY` in Secret Manager, readable by the operator only, and add it to auth's `secrets`. Without it, nobody can fence. Deploying changes nothing for callers until an operator fences: every write path keeps its behavior unfenced, and the new routes are unused.
+2. **Release auth, with the operator key.** The key is the Secret Manager secret `auth-migration-operator-key`, pinned in auth's `secrets` as `OAUTH_MIGRATION_OPERATOR_KEY`. Its only accessor is `auth-run`, which needs it to compare. The operator reads it with their own project access when fencing or sealing, and no calling service (MCP, REST, the console) gets it. Without it, nobody can fence. Deploying changes nothing for callers until an operator fences: every write path keeps its behavior unfenced, and the new routes are unused.
 3. **Verify the contract.** Run the shared suite against a disposable instance. It sets a fence that is never lifted, so never run it against production. When it passes, the operator may set `OAUTH_MIGRATION_VERIFIED_CONTRACT=1` on MCP (graffiticode-app).
 4. **Gate the fence.** Two checks must pass:
    - `npm run deploy -- release-check auth` (read-only). It fails while auth has a stale tag (a tagged revision serving no traffic; auth has `retireTags`) or serves a revision below `P5-fence`. Fix failures with `npm run deploy -- retire-tags auth`; that cleanup is best effort, so re-run `release-check` until it passes.

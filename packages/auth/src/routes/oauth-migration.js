@@ -13,7 +13,7 @@
 // Answers are bare JSON, exactly as the contract states them (not the
 // { status, data } envelope of auth's other routes). Every route needs the
 // internal key; the fence and the seal also need the operator's own key
-// (requireMigrationOperatorAuth), which no service holds.
+// (requireMigrationOperatorAuth), which no calling service holds.
 import { InvalidArgumentError } from "@graffiticode/common/errors";
 import { buildHttpHandler } from "@graffiticode/common/http";
 import { Router } from "express";

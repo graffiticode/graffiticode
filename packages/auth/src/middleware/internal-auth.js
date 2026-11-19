@@ -66,7 +66,7 @@ export const requireCleanupAuth = (req, res, next) => {
  * The OAuth-store migration's operator key (installations plan, P5). The fence and
  * the seal (routes/oauth-migration.js) are one-way, operator-only steps: on top of
  * the internal key, they need X-Migration-Operator-Key matching
- * OAUTH_MIGRATION_OPERATOR_KEY, which no service holds. Unset: refused (500), so
+ * OAUTH_MIGRATION_OPERATOR_KEY, which no calling service holds (only auth, to verify it). Unset: refused (500), so
  * neither can happen by accident.
  */
 export const requireMigrationOperatorAuth = (req, res, next) => {
