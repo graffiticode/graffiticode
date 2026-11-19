@@ -289,6 +289,13 @@
       "verify": {
         "module": "verify/auth.js"
       },
+      "baselines": [
+        {
+          "milestone": "P5-fence",
+          "commit": "e6110bf291972dcabc2b6f2e610a5cc3e1341662",
+          "floor": true
+        }
+      ],
       "retireTags": true,
       "minInstances": 0,
       "secrets": {
