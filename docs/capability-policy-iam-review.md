@@ -2206,7 +2206,7 @@ node scripts/c5b/bucket-policy.js check policy-after.json   # exits 1 unless exa
    - The jobs were deleted.
    - A cached anonymous 200 for the deleted probe object came from the public default `max-age=3600`. The bucket answered 404.
 
-### Step 31: Broker's thumbnail bucket (C5b) [PROPOSED; held for approval]
+### Step 31: Broker's thumbnail bucket (C5b) [LIVE 2026-11-19]
 
 C5b slice 4: Broker's `THUMBNAIL_BUCKET` goes from `graffiticode-c5a-gate`, deleted with the gate, to `graffiticode-thumbnails`. It comes after Step 30 and the migration copy.
 
@@ -2225,6 +2225,14 @@ C5b slice 4: Broker's `THUMBNAIL_BUCKET` goes from `graffiticode-c5a-gate`, dele
 - It restores the revision that names the deleted gate bucket.
 - That's harmless only while production admits no capture: a publish there would fail, and nothing publishes.
 - After C5d starts, roll forward with a config release instead.
+
+**Applied 2026-11-19 (owner-approved).** Evidence: [`docs/evidence/c5b/step31/`](evidence/c5b/step31/).
+1. **Released** `broker-rmwnqz13k-c374b1` (release `rmwnqz13k-c374b1`) from the merge commit `86e8e4ed` (#433), `dirty: false`. It replaced `broker-rmwkzsw86-98e2cf`, whose tag was retired.
+2. **Read back:** 100% traffic. `THUMBNAIL_BUCKET=graffiticode-thumbnails`; `COMMAND_STAGING_BUCKET` and `BROKER_MIN_CONTRACT_VERSION=2` are unchanged. The revision is Ready, with commit label `86e8e4ed`.
+3. **`release-check broker`:** `ok`.
+4. **Rollback plan:** `rollback --release rmwnqz13k-c374b1 --plan` restores `broker-rmwkzsw86-98e2cf` at 100%.
+5. **Production canary:** `canary-bpd85` passed 36/36.
+6. **Production unchanged:** no `COMMANDS_L0013`, `COMMAND_SCOPES` or `INTERPRETER_L0013`. The bucket holds the 33 migrated thumbnails. The service description is committed only in redacted form (`REDACTIONS.txt`).
 
 ## 4. Verification (read-only)
 

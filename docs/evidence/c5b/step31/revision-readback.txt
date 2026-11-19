@@ -1,0 +1,1 @@
+revision env THUMBNAIL_BUCKET: graffiticode-thumbnails | ready: True | commit label: 86e8e4edcecaea9c1fe02e0abdc1a6bcb4a478d3

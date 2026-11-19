@@ -693,7 +693,7 @@ Each *hermetic* row's record goes in the gate's evidence directory.
 
 Each gets its own detailed slices after C5a.
 
-- **C5b The thumbnails bucket** (detailed in [`c5b-thumbnails-bucket-plan.md`](c5b-thumbnails-bucket-plan.md), which proposes `legacyObjectReader` in place of decision 8's `objectViewer` so the public bucket can't be listed). Before activation, with nothing yet reading it:
+- **C5b The thumbnails bucket. Complete 2026-11-19** ([`docs/evidence/c5b/`](evidence/c5b/README.md)). It is detailed in [`c5b-thumbnails-bucket-plan.md`](c5b-thumbnails-bucket-plan.md), which proposes `legacyObjectReader` in place of decision 8's `objectViewer` so the public bucket can't be listed). Before activation, with nothing yet reading it:
   1. Create `graffiticode-thumbnails` (decision 8).
   2. Grant `broker-run` `objectUser` there and verify it live: a write, a `412`, and an overwrite.
   3. Run the migration copy of every `graffiticode.appspot.com/thumbnails/*.png` with `ifGenerationMatch=0`, keeping names and recording each source generation. Direct uploads still go only to the old bucket, and the console still reads it.

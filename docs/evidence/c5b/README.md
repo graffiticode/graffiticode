@@ -1,6 +1,8 @@
 # C5b: the thumbnails bucket, evidence
 
-Plan: [`docs/c5b-thumbnails-bucket-plan.md`](../../c5b-thumbnails-bucket-plan.md). IAM review: Step 30 (applied) and Step 31 (held).
+**C5b is complete (2026-11-19).** The bucket and its IAM (Step 30), the migration copy, and Broker's switch (Step 31) are all live and verified. Production activation remains held (C5d).
+
+Plan: [`docs/c5b-thumbnails-bucket-plan.md`](../../c5b-thumbnails-bucket-plan.md). IAM review: Step 30 and Step 31, both applied.
 
 ## Step 30: `gs://graffiticode-thumbnails` (`step30/`), applied 2026-11-19
 
@@ -49,3 +51,15 @@ The work ran from clean main `02c85d4f`, with owner approval at each stage: firs
   - no source updated since its copy.
 - **An independent read-back** (outside the tool) agreed: 33 objects, 3,535,395 bytes, all at the bucket root, all `image/png` with `Cache-Control: no-cache`, none carrying `captureSequence`.
 - **For C5d's catch-up:** each source's generation is in `plan-1.json`, and each destination's generation is in the copy manifest.
+
+## Step 31: Broker's thumbnail bucket (`step31/`), released 2026-11-19
+
+- **Released:** `broker-rmwnqz13k-c374b1`, from the merge commit `86e8e4ed` (#433). Its only change is `THUMBNAIL_BUCKET`, from `graffiticode-c5a-gate` to `graffiticode-thumbnails` (`receipt-rmwnqz13k-c374b1.json`, `release.log`).
+- **Before** (`before.json`): `broker-rmwkzsw86-98e2cf` served at 100%, with `THUMBNAIL_BUCKET=graffiticode-c5a-gate`.
+- **Read back** (`readback.json`, `revision-readback.txt`): 100% traffic; `THUMBNAIL_BUCKET=graffiticode-thumbnails`, with the staging bucket and `BROKER_MIN_CONTRACT_VERSION=2` unchanged; the revision is Ready, with commit label `86e8e4ed`.
+- **`release-check`** (`release-check.txt`): `broker: ok`.
+- **Rollback plan,** by this release's own id (`rollback-plan.txt`): it restores `broker-rmwkzsw86-98e2cf` at 100%. That revision names the deleted gate bucket, which is harmless only while production admits no capture.
+- **Production canary** (`canary-*.txt`): `canary-bpd85` passed 36/36.
+- **Production** (`production-flags.json`): the api is `api-rmwkxlbvy-b5fa92`, with no `COMMANDS_L0013`, `COMMAND_SCOPES` or `INTERPRETER_L0013`, and `COMPILE_GENERATION_L0013=rust-1`. The thumbnails bucket holds the 33 migrated objects (`bucket-after.txt`).
+- **The service description** is committed only as `service-after.redacted.json`. Its creator annotation's operator email is replaced, and `REDACTIONS.txt` records the original's sha256.
+- **Summary:** `summary.json`.
