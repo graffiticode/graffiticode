@@ -122,6 +122,53 @@ impl Recorded {
     }
 }
 
+/// What a command session's claims name (B5 decision 6): the command (`cmd`) and its owner's
+/// fencing generation (`fg`). See [`ExecContext::command_claims`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CommandClaims {
+    pub command: String,
+    pub generation: u64,
+}
+
+/// A JWT's claims, read and NOT verified: its payload segment, base64url, as a JSON object.
+fn unverified_claims(token: &str) -> Option<serde_json::Map<String, Json>> {
+    let mut segments = token.split('.');
+    let (Some(_header), Some(payload), Some(_signature), None) =
+        (segments.next(), segments.next(), segments.next(), segments.next())
+    else {
+        return None;
+    };
+    match serde_json::from_slice(&base64url_decode(payload)?).ok()? {
+        Json::Object(claims) => Some(claims),
+        _ => None,
+    }
+}
+
+/// Unpadded base64url (RFC 4648 §5), as a JWT's segments are written. Written out here so the
+/// kernel takes no dependency for one decoding.
+fn base64url_decode(text: &str) -> Option<Vec<u8>> {
+    let value = |c: u8| match c {
+        b'A'..=b'Z' => Some(c - b'A'),
+        b'a'..=b'z' => Some(c - b'a' + 26),
+        b'0'..=b'9' => Some(c - b'0' + 52),
+        b'-' => Some(62),
+        b'_' => Some(63),
+        _ => None,
+    };
+    if text.len() % 4 == 1 {
+        return None;
+    }
+    let mut out = Vec::with_capacity(text.len() * 3 / 4);
+    for chunk in text.as_bytes().chunks(4) {
+        let mut n = 0u32;
+        for (i, &c) in chunk.iter().enumerate() {
+            n |= u32::from(value(c)?) << (18 - 6 * i);
+        }
+        out.extend_from_slice(&n.to_be_bytes()[1..chunk.len()]);
+    }
+    Some(out)
+}
+
 /// The caller's VERIFIED identity and invocation, supplied by the language server from its
 /// authenticated request context — never from program input.
 #[derive(Clone, Default)]
@@ -480,6 +527,18 @@ impl ExecContext {
     /// The command session this compile runs under, if it is a command's `start`.
     pub fn command_session(&self) -> Option<&str> {
         self.identity.command_session.as_deref()
+    }
+
+    /// The command and owner generation this compile's command session names, read from the
+    /// session's claims (`cmd`, `fg`) WITHOUT verifying it. Never authority: Policy verifies the
+    /// session at every call it is presented with. It is for what a compiler does to itself,
+    /// such as a drive's targeted fault (C5d). `None` outside a command session, or when the
+    /// session doesn't name both.
+    pub fn command_claims(&self) -> Option<CommandClaims> {
+        let claims = unverified_claims(self.identity.command_session.as_deref()?)?;
+        let command = claims.get("cmd")?.as_str().filter(|c| !c.is_empty())?.to_owned();
+        let generation = claims.get("fg")?.as_u64()?;
+        Some(CommandClaims { command, generation })
     }
 
     /// Whether this compile is a command's `start` that admission accepted.
@@ -862,6 +921,55 @@ mod tests {
         let exec = ExecContext::new(Identity { uid: Some(String::new()), ..Identity::default() });
         assert_eq!(exec.uid(), None);
         assert_eq!(exec.connection_id(), None);
+    }
+
+    /// A JWT-shaped token whose payload is `claims`, unpadded base64url, with no real signature.
+    fn token(claims: &Json) -> String {
+        let payload = base64url(claims.to_string().as_bytes());
+        format!("eyJhbGciOiJFUzI1NiJ9.{payload}.c2ln")
+    }
+
+    fn base64url(bytes: &[u8]) -> String {
+        const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+        let mut out = String::new();
+        for chunk in bytes.chunks(3) {
+            let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
+            let n = (u32::from(b[0]) << 16) | (u32::from(b[1]) << 8) | u32::from(b[2]);
+            for (i, shift) in [18, 12, 6, 0].into_iter().enumerate() {
+                if i <= chunk.len() {
+                    out.push(ALPHABET[((n >> shift) & 63) as usize] as char);
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn command_claims_name_the_command_and_its_generation() {
+        let cmd = format!("c:{}", "a".repeat(64));
+        // Every payload length's padding: 0, 1 and 2 bytes short of a whole group.
+        for extra in ["", "x", "xy"] {
+            let session = token(&json!({ "cmd": cmd, "fg": 2, "sub": format!("u{extra}") }));
+            let exec = ExecContext::new(Identity { command_session: Some(session), ..Identity::default() });
+            assert_eq!(exec.command_claims(), Some(CommandClaims { command: cmd.clone(), generation: 2 }));
+        }
+    }
+
+    #[test]
+    fn command_claims_are_absent_unless_the_session_names_both() {
+        let claims = |session: Option<String>| {
+            ExecContext::new(Identity { command_session: session, ..Identity::default() }).command_claims()
+        };
+        assert_eq!(claims(None), None);
+        assert_eq!(claims(Some("session-s0".into())), None);
+        assert_eq!(claims(Some(token(&json!({ "fg": 1 })))), None);
+        assert_eq!(claims(Some(token(&json!({ "cmd": "c:x" })))), None);
+        assert_eq!(claims(Some(token(&json!({ "cmd": "", "fg": 1 })))), None);
+        assert_eq!(claims(Some(token(&json!({ "cmd": "c:x", "fg": "1" })))), None);
+        assert_eq!(claims(Some(token(&json!({ "cmd": "c:x", "fg": -1 })))), None);
+        assert_eq!(claims(Some(token(&json!(["cmd", "fg"])))), None);
+        assert_eq!(claims(Some("a.!!!.c".into())), None);
+        assert_eq!(claims(Some(format!("{}.extra", token(&json!({ "cmd": "c:x", "fg": 1 }))))), None);
     }
 
     #[test]
