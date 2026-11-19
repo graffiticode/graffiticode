@@ -853,34 +853,28 @@ export const inventory = ({ plan, journal, manifests }) => {
     if (typeof answered?.commandId === "string") add(answered.commandId, "journal");
     else if (!isRefusalBeforeAllocation(answered?.noAllocation)) unresolvedIntents.push(file);
   }
-  // A manifest's ids are the run's, except what a cleanup discovered in
-  // Policy's records (`policyEnumeration`): discovery never establishes
-  // ownership or inventory membership (#446 fourth review). Counted as the
-  // run's, a failed cleanup's own finding would hide the command from the
-  // next cleanup's "the inventory lacks" check and claim it away from the
-  // intent resolve-journal must correlate it with. Those ids are kept apart,
-  // as `discovered`, and the evidence stays where it is.
-  const discovered = new Set();
-  const collectDiscovered = v => {
-    if (typeof v === "string" && /^c:[0-9a-f]{64}$/.test(v)) discovered.add(v);
-    else if (v && typeof v === "object") Object.values(v).forEach(collectDiscovered);
+  // Ownership is explicit (#446 fourth and fifth reviews): only the plan's
+  // ids and the journal's allocation and resolution records establish that a
+  // command is the run's. Every request that can allocate one is journaled
+  // before it is sent, and every correlation is journaled, so nothing a phase
+  // saves needs to add to this. A manifest's ids are observations: what a
+  // query found (cleanup's Policy enumeration, the sweeper's shared `due`
+  // listing, which also names production's commands), never a claim. Read as
+  // claims, a failed cleanup's own finding would hide a late command from the
+  // next cleanup and from resolve-journal, and a production command in `due`
+  // would join the drive's inventory. They are returned apart, as `observed`,
+  // and the manifests are left as they are.
+  const observed = new Set();
+  const observe = v => {
+    if (typeof v === "string" && /^c:[0-9a-f]{64}$/.test(v)) observed.add(v);
+    else if (v && typeof v === "object") Object.values(v).forEach(observe);
   };
-  const walk = v => {
-    if (typeof v === "string") add(v, "manifest");
-    else if (Array.isArray(v)) v.forEach(walk);
-    else if (v && typeof v === "object") {
-      for (const [k, child] of Object.entries(v)) {
-        if (k === "policyEnumeration") collectDiscovered(child);
-        else walk(child);
-      }
-    }
-  };
-  manifests.forEach(walk);
+  manifests.forEach(observe);
   return {
     commandIds: [...ids.keys()].sort(),
     sources: Object.fromEntries(ids),
     unresolvedIntents: unresolvedIntents.sort(),
-    discovered: [...discovered].filter(id => !ids.has(id)).sort(),
+    observed: [...observed].filter(id => !ids.has(id)).sort(),
   };
 };
 

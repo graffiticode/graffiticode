@@ -562,7 +562,7 @@ test("boundary needs correlated coverage: every claimed operation's execute evid
 });
 
 // #446 review, finding 3.
-test("the command inventory: the plan's ids, every journaled request, every manifest id; an unanswered intent is reported", () => {
+test("the command inventory: the plan's ids and every journaled request own commands; a manifest's ids are only observed; an unanswered intent is reported", () => {
   const j = (file, value) => ({ file, value });
   const anonId = "c:" + "a".repeat(64);
   const nonOwnerId = "c:" + "b".repeat(64);
@@ -581,7 +581,10 @@ test("the command inventory: the plan's ids, every journaled request, every mani
     ],
     manifests: [{ observations: { anything: { deep: [manifestId] } } }],
   });
-  for (const id of [...Object.values(T.ids), anonId, nonOwnerId, manifestId]) assert.ok(inv.commandIds.includes(id), id);
+  for (const id of [...Object.values(T.ids), anonId, nonOwnerId]) assert.ok(inv.commandIds.includes(id), id);
+  // A manifest's ids are observations, never ownership (#446 fifth review).
+  assert.ok(!inv.commandIds.includes(manifestId));
+  assert.deepEqual(inv.observed, [manifestId]);
   assert.deepEqual(inv.unresolvedIntents, ["rate-limit-14.json"], "a refusal before allocation resolves; never answered doesn't");
   // The canary's id is planned from the run id canary.js is given.
   assert.equal(T.ids["canary-snap"], commandIdFor(UID, `canary:${T.canaryRunId}:snap`));
@@ -846,14 +849,18 @@ test("the owner's reproduction: a late allocation by the real api bridge fails c
   assert.equal(cleanupOf(after, "failed", []).passed, true);
 });
 
-// #446 fourth review: a failed cleanup's manifest records the command it
-// discovered in Policy (policyEnumeration). Discovery must establish neither
-// ownership nor inventory membership: resolve-journal still correlates the
-// intent with it, the next cleanup still reports it missing until then, and
-// the failed cleanup's evidence stays where it was, unchanged.
-test("a failed cleanup's discovered command stays a candidate: resolve-journal still correlates it, and the evidence is kept", () => {
+// #446 fourth and fifth reviews: a failed cleanup's manifest records what its
+// queries found: the command Policy's enumeration discovered, and the shared
+// sweeper `due` listing, which names that command and production's too. Queried
+// ids are observations, never ownership: resolve-journal still correlates the
+// intent with the late command, the next cleanup still reports it missing
+// until then, a production command in `due` never joins the drive's
+// inventory, and the failed cleanup's evidence stays where it was, unchanged.
+test("a failed cleanup's queried commands (enumeration and due) stay observations: resolve-journal still correlates, production's never joins, and the evidence is kept", () => {
   const known = "c:" + "1".repeat(64);
   const late = { commandId: "c:" + "2".repeat(64), uid: "anonymous", taskId: "task-public", createdAt: "2026-11-19T21:00:30Z", status: "pending" };
+  // A production command the shared sweeper query also lists as due.
+  const unrelated = "c:" + "9".repeat(64);
   const intent = { name: "rate-limit-1", kind: "anonymous", task: "task-public", sentAt: "2026-11-19T21:00:00Z", commandId: null };
   const j = (file, value) => ({ file, value });
   const journal = [j("rate-limit-1.json", intent), j("rate-limit-1.ambiguous.json", { task: intent.task, sentAt: intent.sentAt, status: null })];
@@ -870,13 +877,13 @@ test("a failed cleanup's discovered command stays a candidate: resolve-journal s
   assert.equal(failed.passed, false);
   const dir = mkdtempSync(path.join(tmpdir(), "c5d-cleanup-evidence-"));
   const file = path.join(dir, "cleanup-1.json");
-  writeFileSync(file, JSON.stringify({ phase: "cleanup", passed: false, observations: { commands: before.commandIds.map(id => ({ commandId: id, status: "completed" })), unresolvedIntents: before.unresolvedIntents, policyEnumeration: enumeration("pending") } }));
+  writeFileSync(file, JSON.stringify({ phase: "cleanup", passed: false, observations: { commands: before.commandIds.map(id => ({ commandId: id, status: "completed" })), due: [late.commandId, unrelated], unresolvedIntents: before.unresolvedIntents, policyEnumeration: enumeration("pending") } }));
   const saved = readFileSync(file, "utf8");
   const manifests = () => [JSON.parse(readFileSync(file, "utf8"))];
-  // Discovery isn't ownership: the late command is discovered, not inventoried.
+  // A query's ids aren't ownership: both are observed, neither inventoried.
   const withEvidence = C.inventory({ plan: { ids: { known } }, journal, manifests: manifests() });
-  assert.ok(!withEvidence.commandIds.includes(late.commandId), "a discovered id is never inventoried");
-  assert.deepEqual(withEvidence.discovered, [late.commandId]);
+  assert.deepEqual(withEvidence.commandIds, [known], "only the plan and the journal own commands");
+  assert.deepEqual(withEvidence.observed, [late.commandId, unrelated].sort());
   assert.deepEqual(withEvidence.unresolvedIntents, ["rate-limit-1.json"]);
   // So a second cleanup still reports it missing, rather than passing on its own earlier finding.
   assert.match(cleanupOf(withEvidence, "pending").checks.find(c => c.id === "policy-enumeration").detail, new RegExp(`inventory lacks: ${late.commandId}`));
@@ -886,7 +893,8 @@ test("a failed cleanup's discovered command stays a candidate: resolve-journal s
   const resolved = C.inventory({ plan: { ids: { known } }, journal: [...journal, j("rate-limit-1.id.json", resolutions["rate-limit-1"])], manifests: manifests() });
   assert.deepEqual(resolved.unresolvedIntents, []);
   assert.ok(resolved.commandIds.includes(late.commandId));
-  assert.deepEqual(resolved.discovered, [], "assigned now, by the journal");
+  assert.deepEqual(resolved.commandIds, [known, late.commandId].sort(), "assigned now, by the journal's resolution; production's command never");
+  assert.deepEqual(resolved.observed, [unrelated]);
   assert.equal(cleanupOf(resolved, "failed").passed, true);
   // The failed cleanup's evidence is neither moved nor changed.
   assert.deepEqual(readdirSync(dir), ["cleanup-1.json"]);
