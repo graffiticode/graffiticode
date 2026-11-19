@@ -98,6 +98,29 @@
 //                  and reconcile use that command's record
 //   denied final stage  sent as a command: failed, reason not-granted, never
 //                  admitted
+// Snapshots (`snap`, C5d slice 1 item 5, docs/c5d-snapshot-commands-plan.md):
+// as the canary, a capture of a canary-owned item (config.snap) through
+// connectionless POST /command, as the console's "Generate thumbnail" is once
+// the bridge makes it a command. `snapOnly` runs these checks alone (no
+// connection needed). The records come from Policy (the command's result, as
+// the gateway) and, through `snapReads` (the operator's credentials), from
+// Policy's database (the command's reservations, the item's capture sequence)
+// and the thumbnails bucket (the published object's metadata).
+//   snap command   the command completes, with a result
+//   snap url       the result's url is the item's object in
+//                  config.thumbnailBucket: https://storage.googleapis.com/
+//                  <bucket>/<item>.png?v=...
+//   snap sequence  the published object's captureSequence is the one Policy
+//                  reserved for the command (its one reservation)
+//   snap command id  the published object's commandId is the command's
+//   snap retry     the same key answers the same command and outcome, with
+//                  no second reservation (the command's reservations and the
+//                  item's next capture sequence unchanged) and no second
+//                  capture (the object's generation unchanged)
+// `apiInvoker` (any run): an account whose ID token for the api's URL goes in
+// X-Serverless-Authorization on every api request, for a private api (a
+// drive's), as the console invokes it.
+//
 // After the cutover (`afterCutover`, Policy's MIN_CONTRACT_VERSION=2):
 //   v1 refused      every new invocation is marked, and a snapshot without
 //                   an admitted plan (the v1 shape) is refused, plan-required
@@ -130,6 +153,25 @@ export const L0185_FETCH_TASK = Object.freeze({
     root: 5,
   },
 });
+
+// C5d (`snap`): `snap item "<item>" {}..`, as L0013's parser writes it: the
+// console's "Generate thumbnail" program.
+export const snapTask = item => ({
+  lang: "0013",
+  code: {
+    1: { tag: "STR", elts: [item] },
+    2: { tag: "RECORD", elts: [] },
+    3: { tag: "ITEM", elts: [1, 2] },
+    4: { tag: "SNAP", elts: [3] },
+    5: { tag: "EXPRS", elts: [4] },
+    6: { tag: "PROG", elts: [5] },
+    root: 6,
+  },
+});
+export const DEFAULT_THUMBNAIL_BUCKET = "graffiticode-thumbnails";
+// Where Broker publishes an item's capture (packages/broker/src/gcs.ts
+// thumbnailUrl), up to its `?v=` digest.
+export const snapUrlPrefix = (bucket, item) => `https://storage.googleapis.com/${bucket}/${item}.png?v=`;
 
 const sha256 = s => createHash("sha256").update(s).digest("hex");
 // The gateway's input digest for a compile without options (api's
@@ -285,16 +327,32 @@ const hasSavedItem = value => {
 // (GET /data, READ-01) and check each is freshly signed, keeps the saved
 // references, and writes nothing. config.auditCheck (default true) observes
 // the audit log for the last; false skips that part only, and says so.
-export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents = null, idToken, accessToken, parse, config, servingRevision = null, retryState = null, runId = randomBytes(4).toString("hex"), log = () => {}, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = Date.now }) => {
+//
+// snapReads (with config.snap), the operator's reads:
+//   reservations(commandId) -> Policy's reservation records of the command
+//   itemCaptures(item)      -> Policy's item-captures record, or null
+//   object(bucket, name)    -> { generation, metadata } of the object, or null
+export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents = null, snapReads = null, idToken, accessToken, parse, config, servingRevision = null, retryState = null, runId = randomBytes(4).toString("hex"), log = () => {}, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = Date.now }) => {
   const {
     apiUrl, policyUrl, brokerUrl, gatewayAccount, compilerAccount, consoleAccount, connectionId, revocationProbe = true,
     chainAdmission = false, afterCutover = false, languageUrl = null, reconcile = false, provider = null,
-    savedRead = false, auditCheck = true, command = false, bridgeRetired = false, l0185Tail = false
+    savedRead = false, auditCheck = true, command = false, bridgeRetired = false, l0185Tail = false,
+    snap = null, snapOnly = false, thumbnailBucket = DEFAULT_THUMBNAIL_BUCKET, apiInvoker = null
   } = config;
   const results = [];
   // Every response passes through here, so the run knows each draft it saved.
   const saved = new Set();
+  // A private api (`apiInvoker`): its invoker token on every api request.
+  const apiOrigin = new URL(apiUrl).origin;
+  let invokerToken = null;
+  const toApi = url => {
+    try { return new URL(url).origin === apiOrigin; } catch { return false; }
+  };
   const http = async request => {
+    if (apiInvoker && toApi(request.url)) {
+      invokerToken ??= idToken(apiInvoker, apiOrigin);
+      request = { ...request, headers: { ...(request.headers ?? {}), "X-Serverless-Authorization": `Bearer ${await invokerToken}` } };
+    }
     const res = await send(request);
     for (const r of savedItemReferences(res?.json)) saved.add(r);
     return res;
@@ -403,6 +461,84 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
     const effects = saveEffects(res);
     return effects.length === 1 && effects[0].status === "succeeded" && effects[0].replayed === true;
   };
+
+  // C5d (`snap`): a connectionless capture of a canary-owned item.
+  const snapChecks = () => attempt("snap", async () => {
+    if (!snapReads) throw new Error("no operator reads for the snapshot check");
+    const res = await http({ method: "POST", url: `${apiUrl}/task`, headers: asUser, body: { task: snapTask(snap) } });
+    const taskId = res.json?.data?.id;
+    if (res.status !== 200 || typeof taskId !== "string") throw new Error(`POST /task (L0013): ${res.status} ${JSON.stringify(res.json?.error ?? null)}`);
+    const key = `canary:${runId}:snap`;
+    // No connectionId: a capture needs none (C5, COMMAND_SCOPES=on).
+    const postSnap = () => http({ method: "POST", url: `${apiUrl}/command`, headers: asUser, body: { id: taskId, data: {}, idempotencyKey: key } });
+    const first = await postSnap();
+    const answer = answerOf(first);
+    const done = Boolean(answer) && !answer.protocol && typeof answer.commandId === "string" && answer.outcome === "completed" && answer.result === "available";
+    if (!record("snap command", done, done ? `command ${answer.commandId} completed for ${snap}` : describeRes(first))) return;
+    const { commandId } = answer;
+
+    // The result Policy recorded: L0013's `{ url, item }`.
+    const { result } = await commandRecords(commandId, "result");
+    let value = null;
+    try { value = JSON.parse(result?.text); } catch { /* not JSON */ }
+    const url = typeof value?.url === "string" ? value.url : null;
+    const prefix = snapUrlPrefix(thumbnailBucket, snap);
+    const underBucket = Boolean(url) && url.startsWith(prefix) && url.length > prefix.length;
+    record("snap url", underBucket, !url
+      ? `no url in the command's result: ${String(result?.text ?? "no result").slice(0, 200)}`
+      : underBucket ? url : `${url} is not ${prefix}...`);
+
+    // The reservation Policy made, and what Broker published.
+    const name = `${snap}.png`;
+    const where = `gs://${thumbnailBucket}/${name}`;
+    const reservations = await snapReads.reservations(commandId);
+    const object = await snapReads.object(thumbnailBucket, name);
+    const reservation = reservations.length === 1 ? reservations[0] : null;
+    const reserved = reservation?.captureSequence ?? null;
+    const meta = object?.metadata ?? {};
+    const published = meta.captureSequence ?? null;
+    const sameSequence = Boolean(object) && Number.isSafeInteger(reserved) && reservation.item === snap && published === String(reserved);
+    record("snap sequence", sameSequence, !object
+      ? `nothing published at ${where}`
+      : reservations.length !== 1
+        ? `${reservations.length} reservations for command ${commandId}, expected 1`
+        : reservation.item !== snap
+          ? `the reservation is for ${reservation.item}, not ${snap}`
+          : `reserved ${reserved}, published ${published ?? "none"} at ${where} (generation ${object.generation})`);
+    record("snap command id", Boolean(object) && meta.commandId === commandId, !object
+      ? `nothing published at ${where}`
+      : `${where} names command ${meta.commandId ?? "none"}${meta.commandId === commandId ? "" : `, not ${commandId}`}`);
+
+    // The same key again: the same command, nothing reserved or captured again.
+    const capturesBefore = await snapReads.itemCaptures(snap);
+    const again = answerOf(await postSnap());
+    const reservationsAfter = await snapReads.reservations(commandId);
+    const objectAfter = await snapReads.object(thumbnailBucket, name);
+    const capturesAfter = await snapReads.itemCaptures(snap);
+    const problems = [];
+    if (!again) problems.push("no answer for the same key");
+    else {
+      if (again.commandId !== commandId) problems.push(`command ${again.commandId}, not ${commandId}`);
+      if (again.outcome !== answer.outcome) problems.push(`outcome ${again.outcome}, not ${answer.outcome}`);
+    }
+    if (reservationsAfter.length !== reservations.length || reservationsAfter.some(r => r.captureSequence !== reserved)) {
+      problems.push(`the command's reservations ${JSON.stringify(reservations.map(r => r.captureSequence))} became ${JSON.stringify(reservationsAfter.map(r => r.captureSequence))}`);
+    }
+    const nextBefore = capturesBefore?.nextCaptureSequence ?? null;
+    const nextAfter = capturesAfter?.nextCaptureSequence ?? null;
+    if (nextBefore !== nextAfter) problems.push(`the item's next capture sequence moved from ${nextBefore ?? "none"} to ${nextAfter ?? "none"}`);
+    if ((object?.generation ?? null) !== (objectAfter?.generation ?? null)) {
+      problems.push(`${where} changed generation ${object?.generation ?? "none"} -> ${objectAfter?.generation ?? "none"}`);
+    }
+    record("snap retry", problems.length === 0, problems.length === 0
+      ? `the same command and outcome for the same key; one reservation, next capture sequence ${nextAfter ?? "none"} and generation ${objectAfter?.generation ?? "none"} unchanged`
+      : problems.join("; "));
+  });
+  if (snapOnly) {
+    if (!snap) throw new Error("snapOnly needs config.snap");
+    await snapChecks();
+    return { ok: results.length > 0 && results.every(r => r.ok), results, cleanup: { saved: 0, archived: 0, failed: 0, skipped: null } };
+  }
 
   // The retry across a deploy (W4): a write recorded by an earlier run, under
   // a plan pinned to the revision that served then, retried now.
@@ -930,6 +1066,7 @@ export const runCanary = async ({ http: send, archiveDrafts = null, auditEvents 
       ? `${ops.map(o => o.verdict).join(", ") || "no write operations"}; ${landed} record(s) carry the mark`
       : `${res.status} ${res.json?.error?.reason ?? ""}`);
   });
+  if (snap) await snapChecks();
   if (reconcile) {
     await reconcileKey("reconcile", saveKey, "gateway write");
     if (command) await reconcileKey("reconcile: command", commandKey, "command write");

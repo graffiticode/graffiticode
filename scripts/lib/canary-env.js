@@ -73,7 +73,9 @@ export const http = async ({ method, url, headers = {}, body }) => {
   return { status: res.status, json, headers: Object.fromEntries(res.headers) };
 };
 
-export const createCanaryEnv = ({ uid, project = "graffiticode", region = "us-central1", authUrl, apiUrl = () => null }) => {
+// `apiHeaders()`: headers for requests to the api (a private api's invoker
+// token), used for the lexicon fetch.
+export const createCanaryEnv = ({ uid, project = "graffiticode", region = "us-central1", authUrl, apiUrl = () => null, apiHeaders = async () => ({}) }) => {
   const gcloud = async gcloudArgs => String(await run("gcloud", [...gcloudArgs, `--project=${project}`, "--quiet"])).trim();
   const serviceUrl = name => gcloud(["run", "services", "describe", name, `--region=${region}`, "--format=value(status.url)"]);
 
@@ -107,7 +109,7 @@ export const createCanaryEnv = ({ uid, project = "graffiticode", region = "us-ce
   let lexicon;
   const parse = async src => {
     if (!lexicon) {
-      const res = await fetch(`${await apiUrl()}/L0176/lexicon.json`);
+      const res = await fetch(`${await apiUrl()}/L0176/lexicon.json`, { headers: await apiHeaders() });
       const text = await res.text();
       lexicon = JSON.parse(text.substring(text.indexOf("{")));
     }
