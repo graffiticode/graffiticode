@@ -2581,11 +2581,13 @@ Run `0aa69b9a` stopped at `first-capture` (the correction above). It is closed, 
      - **What it writes:** `journal/first-public.id.json`, with `noAllocation: { kind: "pre-allocation-answer", code: "preflight-unavailable", answeredAt, evidence: "first-public.ambiguous.json", source: "packages/api/src/commands/bridge.js" }`. The `.ambiguous.json` is left as it is.
      - **The consistency check:** it requires Policy's enumeration for the task since `sentAt` to hold no anonymous command, which is a check, not the proof. A candidate there refuses the resolution, and so does any code but the bridge's pre-allocation ones (`c5d-drive-checks.js` `BRIDGE_PRE_ALLOCATION_CODES`). An empty query alone never resolves an intent.
    - **`first-private` is keyed:** its id was planned, and its absent Policy record already proves nothing was allocated.
-   - **Then cleanup,** which must pass:
+   - **Then cleanup, as an aborted close,** which must pass:
 
      ```bash
-     node scripts/c5d-drive.js --phase cleanup --run 0aa69b9a
+     node scripts/c5d-drive.js --phase cleanup --run 0aa69b9a --aborted
      ```
+
+     `--aborted` is needed because the run allocated nothing: a plain `cleanup` fails "no allocated command found", its guard against an empty drive passing (run live 2026-11-20, kept in the evidence). The aborted close passes only when every inventoried id is absent in Policy, no intent is unresolved, nothing is due, and Policy's complete enumeration holds none of the run's commands; any allocated command fails it.
 
 2. **Start a fresh run:** `node scripts/c5d-drive.js --phase plan`. It writes a new run id, new keys and new fault maps; nothing of `0aa69b9a` carries over.
 3. **Bind `allUsers` on both compilers and read it back** (§3.2), before their releases: the deploy CLI refuses a public service whose policy has no unconditioned `allUsers`.

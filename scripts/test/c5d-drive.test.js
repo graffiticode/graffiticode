@@ -1251,3 +1251,22 @@ test("a rerun of resolve-intent confirms an unchanged resolution and rewrites no
   assert.match(C.confirmResolution({ recorded, recomputed: null }).problem, /no resolution/);
   assert.match(C.confirmResolution({ recorded: { commandId: null }, recomputed: recorded }).problem, /no noAllocation/);
 });
+
+// Step 32 §9, live 2026-11-20: run 0aa69b9a allocated nothing, and its cleanup
+// failed only "no allocated command found". An explicit aborted close passes
+// only when nothing was allocated, nothing is due and Policy holds none of the
+// run's commands; without --aborted an empty drive still fails.
+test("cleanup --aborted closes a run that allocated nothing, and only that", () => {
+  const id = n => "c:" + String(n).repeat(64);
+  const enumeration = commands => ({ since: "2026-11-19T23:00:00Z", tasks: ["t"], queries: [{ query: "policy commands where taskId == t", pages: 1, count: commands.length, complete: true }], commands });
+  const base = { commands: [{ commandId: id(1), status: "absent" }, { commandId: id(2), status: "absent" }], due: [], unresolvedIntents: [], policyEnumeration: enumeration([]) };
+  const terminal = obs => judgePhase("cleanup", obs).checks.find(c => c.id === "terminal");
+  assert.equal(terminal({ ...base, aborted: true }).ok, true);
+  assert.equal(judgePhase("cleanup", { ...base, aborted: true }).passed, true);
+  assert.match(terminal(base).detail, /no allocated command found/, "without --aborted an empty drive fails");
+  assert.match(terminal({ ...base, aborted: true, commands: [...base.commands, { commandId: id(3), status: "completed" }] }).detail, /close it as a run/);
+  assert.match(terminal({ ...base, aborted: true, due: [id(1)] }).detail, /due/);
+  const held = { commandId: id(4), uid: "anonymous", taskId: "t", createdAt: "2026-11-19T23:30:00Z", status: "pending" };
+  assert.equal(judgePhase("cleanup", { ...base, aborted: true, policyEnumeration: enumeration([held]) }).passed, false);
+  assert.match(terminal({ ...base, aborted: true, unresolvedIntents: ["first-public.json"] }).detail, /resolve-journal/);
+});

@@ -724,7 +724,18 @@ export const PHASES = Object.freeze({
       if (!Array.isArray(o.unresolvedIntents)) return "the journal's intents not observed";
       if (o.unresolvedIntents.length) return `journaled requests with no recorded command id: ${o.unresolvedIntents.join(", ")}; rerun --phase resolve-journal later (a late allocation may yet appear), or the owner decides`;
       const allocated = o.commands.filter(c => c.status !== "absent");
-      if (!allocated.length) return "no allocated command found";
+      // An aborted run (Step 32 §9: cleanup --aborted) allocated nothing: it
+      // closes only when every inventoried id is absent in Policy, nothing is
+      // due, and Policy's complete enumeration holds none of the run's
+      // commands (policy-enumeration checks completeness). Otherwise an empty
+      // drive never passes.
+      if (!allocated.length) {
+        if (o.aborted !== true) return "no allocated command found";
+        if (o.due.some(id => o.commands.some(c => c.commandId === id))) return "aborted run: a command is due";
+        if (!Array.isArray(o.policyEnumeration?.commands) || o.policyEnumeration.commands.length) return "aborted run: Policy's enumeration holds the run's commands";
+        return true;
+      }
+      if (o.aborted === true) return `aborted run, but ${allocated.length} command(s) were allocated: close it as a run, not as aborted`;
       for (const c of allocated) {
         let done;
         try {

@@ -983,6 +983,8 @@ if (phase === "boundary") {
 if (phase === "cleanup") {
   const { commandIds, unresolvedIntents } = driveInventory();
   observations.unresolvedIntents = unresolvedIntents;
+  // Step 32 §9: an aborted run's close (no capture ran); judged as such.
+  if (args.includes("--aborted")) observations.aborted = true;
   await collect("commands", async () => {
     const out = [];
     for (const id of commandIds) {
