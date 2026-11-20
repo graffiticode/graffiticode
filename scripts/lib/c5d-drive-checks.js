@@ -807,7 +807,18 @@ export const revisionService = revision => {
 // creation and never overwritten (a rerun writes its own). The two operator
 // pauses (`drop-outcome-retry`, `staging-gone-delete`) write their own.
 export const PLAN_FILE = "plan.json";
-export const STEP_PHASES = Object.freeze(["drop-outcome-retry", "staging-gone-delete", "resolve-journal"]);
+export const STEP_PHASES = Object.freeze(["drop-outcome-retry", "staging-gone-delete", "resolve-journal", "resolve-intent"]);
+
+// A rerun of resolve-intent on an intent already resolved (its .id.json is
+// write-once): the resolution recomputed now must be the recorded one, field
+// for field apart from when it was written; then only the phase's manifest is
+// written. Anything else is a problem, and nothing is rewritten.
+export const confirmResolution = ({ recorded, recomputed }) => {
+  if (!recorded?.noAllocation) return { problem: "the recorded resolution has no noAllocation" };
+  if (!recomputed?.noAllocation) return { problem: "no resolution could be recomputed" };
+  const same = JSON.stringify(recorded.noAllocation) === JSON.stringify(recomputed.noAllocation) && recorded.commandId === recomputed.commandId;
+  return same ? { confirmed: true } : { problem: `the recorded resolution differs from the one recomputed now: ${JSON.stringify(recorded.noAllocation)} vs ${JSON.stringify(recomputed.noAllocation)}` };
+};
 export const stampOf = date => date.toISOString().replace(/[:.]/g, "-");
 export const phaseFile = (phase, stamp) => {
   if (!PHASES[phase] && !STEP_PHASES.includes(phase)) throw new Error(`no such phase ${phase}`);

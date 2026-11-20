@@ -128,7 +128,7 @@ import {
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
   latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
   priorPublicCaptures, policyFixtureClient, answerResolution, correlateIntents, paginateAll, drivePolicyCommands, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
-  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession,
+  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution,
 } from "./lib/c5d-drive-checks.js";
 
 const args = process.argv.slice(2);
@@ -596,7 +596,7 @@ if (phase === "resolve-intent") {
   const name = need("--name");
   const files = journalFiles();
   if (!files.includes(journalAmbiguousName(name))) throw new Error(`${name}: no ${journalAmbiguousName(name)} in this run's journal`);
-  if (files.includes(journalIdName(name))) throw new Error(`${name}: already resolved (${journalIdName(name)})`);
+  const recorded = files.includes(journalIdName(name)) ? JSON.parse(readFileSync(path.join(journalDir, journalIdName(name)), "utf8")) : null;
   const intent = JSON.parse(readFileSync(path.join(journalDir, journalName(name)), "utf8"));
   const answer = JSON.parse(readFileSync(path.join(journalDir, journalAmbiguousName(name)), "utf8"));
   const q = await policyCommandsWhere("taskId", intent.task);
@@ -607,6 +607,17 @@ if (phase === "resolve-intent") {
   if (r.problem) {
     observations.errors.resolution = r.problem;
     console.error(`not resolved: ${r.problem}`);
+  } else if (recorded) {
+    // Already resolved: confirm, and write only this phase's manifest.
+    const c = confirmResolution({ recorded, recomputed: r.resolution });
+    if (c.problem) {
+      observations.errors.resolution = c.problem;
+      console.error(`not confirmed: ${c.problem}`);
+    } else {
+      observations.resolution = recorded;
+      observations.confirmed = true;
+      console.log(`${name}: resolution confirmed (${journalIdName(name)} unchanged)`);
+    }
   } else {
     journalId(name, r.resolution);
     observations.resolution = r.resolution;
