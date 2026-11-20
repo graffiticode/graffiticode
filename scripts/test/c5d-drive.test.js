@@ -1230,3 +1230,24 @@ test("Step 32's correction: public compilers with allUsers, the access probes, c
   assert.equal((step32.match(/gcloud storage rm 'gs:\/\/graffiticode-command-staging\//g) ?? []).length, 2);
   assert.match(step32, /HELD/);
 });
+
+// Step 32 live run, 2026-11-20: resolve-intent wrote its resolution, then
+// finish() threw ("no such phase resolve-intent") and no manifest was written.
+// Every phase the CLI ends with finish() must have a manifest name.
+test("every CLI phase that writes a manifest has a manifest name", () => {
+  const src = readFileSync(new URL("../c5d-drive.js", import.meta.url), "utf8");
+  const blocks = src.split(/\nif \(phase === "/).slice(1).map(b => ({ phase: b.slice(0, b.indexOf("\"")), body: b }));
+  const writing = blocks.filter(b => /\bfinish\(/.test(b.body)).map(b => b.phase);
+  assert.ok(writing.includes("resolve-intent") && writing.includes("cleanup") && writing.length > 15, JSON.stringify(writing));
+  const stamp = C.stampOf(new Date("2026-11-20T00:00:00Z"));
+  for (const phase of writing) assert.doesNotThrow(() => C.phaseFile(phase, stamp), phase);
+});
+
+test("a rerun of resolve-intent confirms an unchanged resolution and rewrites nothing", () => {
+  const noAllocation = { kind: "pre-allocation-answer", code: "preflight-unavailable", answeredAt: "2026-11-19T23:26:15.905Z", evidence: "first-public.ambiguous.json", source: "packages/api/src/commands/bridge.js" };
+  const recorded = { at: "2026-11-20T00:25:16.709Z", commandId: null, noAllocation };
+  assert.deepEqual(C.confirmResolution({ recorded, recomputed: { commandId: null, noAllocation: { ...noAllocation } } }), { confirmed: true });
+  assert.match(C.confirmResolution({ recorded, recomputed: { commandId: null, noAllocation: { ...noAllocation, code: "bridge-retired" } } }).problem, /differs/);
+  assert.match(C.confirmResolution({ recorded, recomputed: null }).problem, /no resolution/);
+  assert.match(C.confirmResolution({ recorded: { commandId: null }, recomputed: recorded }).problem, /no noAllocation/);
+});
