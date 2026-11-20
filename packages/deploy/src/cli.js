@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, open, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseArgs, loadConfig, loadEnvironment, requireValue } from "./config.js";
 import { planImageTags, applyImageTags } from "./image-tags.js";
@@ -8,6 +9,7 @@ import { snapshot } from "./snapshot.js";
 import { run, streamOutput } from "./process.js";
 import { release, rollback, readReceipt, retireTags, staleTags, releaseCheck, approveReleased, promote, evidenceProblems } from "./release.js";
 import { createFirestoreRest, createRevisionClient, retainedTags } from "./revisions.js";
+import { fetchProfile, profileAware, selectedProfile, validateProfile, writeProfile } from "./profile.js";
 
 // gcloud, scoped to a project (and, for Cloud Build and Cloud Run, its region).
 function gcloud({ project, region, root }) {
@@ -57,6 +59,10 @@ earlier. Retirement is scripts/revisions.js.
 reconcile-image-tags keeps the registry's serving-<revision> tags (which the
 cleanup policy keeps) equal to every revision Cloud Run can reach in the project,
 whoever deployed it, and warns of tagged revisions kept warm while serving nothing.
+
+A service with a pinned profile (deploy.json "profile") fetches it from its Git
+host on every release and --plan, so both need access to that repository (SSH
+access for an SSH URL).
 
 Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run service.`);
     return;
@@ -121,6 +127,9 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       }
       for (const p of result.requires ?? []) console.log(`  requires ${p.service} at ${p.milestone}, but reachable below it: ${p.below.join(", ")}`);
       for (const p of result.network ?? []) console.log(`  reachable without the network controls (${p.problems.join(", ")}): ${p.revision}`);
+      for (const p of result.profiles ?? []) {
+        if (p.state !== "bound" && p.state !== "none") console.log(`  reachable with a${p.state === "partial" ? " partial profile binding" : "n unreadable environment"}: ${p.revision}`);
+      }
       for (const p of result.forbiddenEnv ?? []) {
         console.log(`  reachable ${p.problem === "unreadable" ? "with an unreadable environment" : `carrying forbidden ${p.env.join(", ")}`}: ${p.revision}`);
       }
@@ -142,7 +151,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
   if (options.command === "promote" && options.plan) {
     const receipt = await readReceipt(root, options.release);
     const evidence = JSON.parse(await readFile(path.resolve(options.evidence), "utf8"));
-    console.log(JSON.stringify({ action: "promote", target: `${config.project}/${config.region}/${config.service}`, release: receipt.id, revision: receipt.revision, status: receipt.status, networkHash: receipt.networkHash ?? null, evidenceProblems: evidenceProblems(evidence, receipt, config) }, null, 2));
+    console.log(JSON.stringify({ action: "promote", target: `${config.project}/${config.region}/${config.service}`, release: receipt.id, revision: receipt.revision, status: receipt.status, networkHash: receipt.networkHash ?? null, ...(receipt.profile !== undefined ? { profile: receipt.profile } : {}), evidenceProblems: evidenceProblems(evidence, receipt, config) }, null, 2));
     return;
   }
   if (options.command === "rollback" && options.plan) {
@@ -152,6 +161,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
   }
   let source;
   let lock;
+  let profileTemp;
   const lockPath = path.join(root, ".gc-deploy", `${config.project}-${config.region}-${config.service}.lock`);
   try {
     if (!options.plan) {
@@ -188,7 +198,19 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       console.log(`Restored the traffic preceding ${receipt.id}.`);
       return;
     }
-    source = await snapshot(root, config, options.plan || options["allow-dirty"]);
+    // The pinned profile, fetched at its commit and checked against the
+    // reviewed digest, then validated by the app's own validator.
+    let profile = null;
+    const pinned = selectedProfile(config);
+    if (pinned) {
+      profileTemp = await mkdtemp(path.join(tmpdir(), "gc-deploy-profile-"));
+      profile = await fetchProfile(pinned, { temp: profileTemp, log: console.log });
+      const dir = path.join(profileTemp, "profile");
+      await writeProfile(dir, profile.files);
+      await validateProfile(config, dir, { root, log: console.log });
+    }
+    source = await snapshot(root, config, options.plan || options["allow-dirty"], profile?.files ?? null);
+    source.profile = profile?.binding ?? null;
     console.log(JSON.stringify({
       action: "deploy",
       target: `${config.project}/${config.region}/${config.service}`,
@@ -199,6 +221,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
       sourceHash: source.sourceHash,
       files: source.files.length,
       configHash: context.configHash,
+      ...(profileAware(config) ? { profile: source.profile } : {}),
       config,
       requiredVariables: context.unresolved
     }, null, 2));
@@ -213,6 +236,7 @@ Requires Node 22+, git, tar, gcloud, and an existing provisioned Cloud Run servi
     if (receipt.tagRetirementError) process.exitCode = 1;
   } finally {
     if (source) await rm(source.dir, { recursive: true, force: true });
+    if (profileTemp) await rm(profileTemp, { recursive: true, force: true });
     if (lock) {
       await lock.close();
       await rm(lockPath, { force: true });

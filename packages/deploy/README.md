@@ -37,6 +37,7 @@ Each service declares:
 - `env`: non-secret environment values to update. Unspecified existing settings are preserved. Do not put credentials here; settings are printed and stored in receipts.
 - `secrets`: environment names mapped to `secret-name:number`. `latest` and other aliases are rejected. Mounting is additive: deleting an entry does not unmount a secret that an earlier release mounted.
 - `retireTags`: `true` makes each release, after promotion, remove the tags of revisions that serve no traffic (keeping its own), so an old revision of a protected service is not callable through its tag URL. Traffic is verified unchanged. The receipt records the tags in `retiredTags` and, when there were any, `tagsRetiredAt`: when their removal was verified, no earlier than they stopped answering. A failure leaves the release released, records `tagRetirementError` in the receipt and prints a warning. Rollback targets revision names, so it is unaffected. `npm run deploy -- retire-tags <service>` does the same on demand and prints the verified time; `--plan` lists the stale tags (a read-only describe). Like every command it takes the local lock but not a cloud one, so do not run it while someone else's candidate is being verified.
+- `profile`, `profileHealth`, `profileValidate`: an installation profile, pinned and bound to each revision. See "Installation profiles" below.
 - `baselines`: `[{ "milestone": "W0", "commit": "<40-hex>" }, …]`, oldest first: the commit of each security milestone's release. A revision meets a milestone only if it was built cleanly (`gc-dirty=false`) from that commit or a descendant (`commit-sha`, both labels every release sets); its name or age never counts, so old code redeployed under a new release id does not. Ancestry comes from the local Git history (fetch first).
   - **Floors.** A baseline marked `"floor": true` is a floor: `rollback` refuses any target below it with no override, `--below-baseline` included, and `release` refuses a source commit that isn't the floor's commit or a descendant of it, before anything is built.
     - B5's D2b floor is the first api that understands command records. Rolling below it would drop command handling, so after it a language is rolled back by turning its flags off in a forward release.
@@ -161,6 +162,88 @@ While a candidate is staged, its tag reaches it like any candidate's, and `relea
 There is a per-workspace/per-target lock and optimistic remote drift detection before deployment and promotion. This is not a distributed transaction: two operators can race between the final read and Cloud Run update. Serialize production releases across machines. An interrupted local process can leave a lock; check its PID and cloud work before removing it. Old candidate tags are retained; remove them as an explicit maintenance operation when no longer needed.
 
 The four `configs/cloudbuild.*.yaml` files are legacy **build-only** recipes; normal deployment generates its build from `deploy.json`. They require explicit `_IMAGE`, `_RELEASE`, and a build service account if invoked directly. They cannot deploy. The older `packages/auth/cloudbuild.yaml` is an unrelated legacy service configuration and is not used by this CLI.
+
+## Installation profiles
+
+A frontend installation (graffiticode-app, `docs/installations-plan.md`, D-I4) runs one app release with an external, versioned profile: a directory in its own Git repository. A release builds the pinned profile into the image and binds the revision to it (`src/profile.js`). A service with neither `profile` nor `profileHealth` isn't profile-aware and releases exactly as before.
+
+### Settings
+
+```json
+"profile": {
+  "repo": "git@github.com:graffiticode/installation-graffiticode.git",
+  "ref": "<full 40-hex commit>",
+  "digest": "<the reviewed 64-hex profile digest>"
+},
+"profileHealth": "/api/health",
+"profileValidate": ["npm", "run", "profile", "--", "validate"]
+```
+
+- **`profile`** is usually set per environment, one environment per installation.
+  - `null` releases a profile-aware service without one.
+  - `ref` must be a full commit; branch and tag names are refused.
+  - `digest` is required. It is the reviewed value, so every profile change shows in review as a change to it.
+- **`profileHealth`** is required with a profile. It names the path where the service reports its installation receipt (`installation` in the JSON body). A service with `profileHealth` is profile-aware even without a profile.
+- **`profileValidate`** is optional: a local command, run from the workspace root with the fetched profile's directory appended, before anything is built. The candidate's own startup validation stays authoritative.
+- **The binding's variables** belong to the CLI: `PROFILE_DIR`, `PROFILE_REPO`, `PROFILE_REF`, `GC_PROFILE_DIGEST` and `GC_PROFILE_INSTALLATION`. No service may set them in `env` or `secrets`, or list them in `removeEnv` or `forbiddenEnv`.
+
+### What a release does
+
+1. **Fetch.** It fetches exactly the pinned commit (`git fetch --depth=1 <repo> <ref>`) into a temporary bare repository.
+   - It reads every file from Git's objects: the committed bytes, with no checkout filter or line-ending conversion.
+   - Only regular files with plain ASCII paths are accepted. A symlink or submodule is refused, as core refuses them.
+2. **Digest.** It computes the digest as core does (`core/src/profile/load.ts`, `profileDigest`).
+   - The digest is sha256 over `JSON.stringify` of `[[path, sha256(content)], ...]`, in JavaScript's default sort of full `/`-separated paths.
+   - Every file counts, `README.md` and hidden files included.
+   - A digest other than `profile.digest` stops the release before anything is built.
+   - The fixture `test/fixtures/profile-digest` pins gc-deploy to a value computed by core. It has README, hidden, empty and binary files, and paths whose order depends on `/` and case. graffiticode-app's own test holds core to the same value over a copy of the fixture.
+3. **Validate.** It runs `profileValidate`, when set, on the fetched files.
+4. **Snapshot.** The profile goes into the source snapshot under the reserved `.gc-profile/`.
+   - Every byte goes in, outside the workspace's own filters, and counts in `sourceHash`.
+   - A workspace that has anything at `.gc-profile` is refused, checked on the filesystem: an empty or Git-ignored directory, a file, or a symlink.
+   - A profile-aware service released without a profile gets the directory empty, so its Dockerfile works either way.
+5. **Deploy and bind.**
+   - The revision gets `PROFILE_DIR=/gc-profile`, `PROFILE_REPO`, `PROFILE_REF`, `GC_PROFILE_DIGEST` and `GC_PROFILE_INSTALLATION`, and the label `gc-profile=<first 40 hex of the digest>`.
+   - That is the full binding `{repo, ref, digest, installationId}`, on the revision itself. Read-only checks, promotion and rollback read it from Cloud Run, with no local receipt and no fetch.
+   - Released without a profile, a profile-aware service has all five variables and the label removed. Otherwise `--update-env-vars` and `--labels` would carry them forward.
+   - The receipt records `profile`: the binding, or `null`.
+6. **Check the candidate.** After the smoke checks and `verify`, it reads `profileHealth` on the candidate and requires the complete receipt:
+   - `appVersion` is the candidate's revision (core reports `K_REVISION`);
+   - `installationId`, `profileRepo`, `profileRef` and `profileDigest` are the binding's;
+   - released without a profile, the candidate reports no `installation` at all.
+
+   The request uses the smoke checks' safeguards: the candidate's tagged origin, the IAM headers for a private service, and refused redirects. Its timeout is no shorter than the service's longest smoke `timeoutMs`, in case it meets a cold instance. Then, with the other candidate checks, the revision's own binding must be the receipt's.
+
+A difference anywhere fails the release with traffic unchanged.
+
+### Promotion, rollback and release-check
+
+A revision's binding is **bound** (all five variables and the label, consistent), **none** (no variable and no label), or **partial** (anything else: a `PROFILE_DIR` set by hand, the label alone, even when the container details are unreadable). Known bindings are enforced from receipts and revision metadata, never only from today's settings, so removing `profileHealth` from `deploy.json` turns none of this off:
+
+- **`promote`** fetches nothing.
+  - It refuses when the profile `deploy.json` pins now isn't the one the candidate was staged with. Stage a new candidate instead.
+  - It re-reads the candidate's receipt at the `profileHealth` it was staged with (the receipt's), even if `deploy.json` no longer names one.
+  - It requires the revision's binding to be the receipt's.
+- **`rollback`** fetches nothing and never compares with `deploy.json`.
+  - Each target keeps its own binding, even when `deploy.json` now pins something newer.
+  - A target released before profiles has none (`null`).
+  - A target with a partial binding is refused for every service, with no override. One with an unreadable environment is refused whenever profiles are involved: through config, the receipt, the current template or revision, or any rollback target. The complete target set is read before applying this rule, so target order cannot change the decision.
+  - The rolled-back receipt records each target's binding (`rolledBackToProfiles`).
+- **`release-check`** reads every reachable revision's binding. It fails on a partial one for every service. A binding in the template or any reachable revision establishes profile context for the whole set, so an unreadable peer fails even without current profile settings. Only a service with no profile evidence retains the legacy unreadable exception and unchanged output.
+- **A release that isn't profile-aware** refuses a service whose template carries a binding, before building. The template is what a new revision inherits, and `--update-env-vars` and `--labels` would carry the old binding onto an image without the profile. A profile marker remains evidence when container details are unreadable; an unreadable template is accepted only when no reachable revision supplies profile evidence either. Release it once with `profileHealth` and `"profile": null` to unbind it.
+
+### Access
+
+A release of a service with a profile contacts the profile's Git host, and so does `deploy --plan`. Both need access to its repository: SSH access for an SSH URL. `--plan` prints the binding the release would have. `promote`, `rollback` and `release-check` never contact the host.
+
+### What a profile-aware app needs
+
+- **Every byte must survive Docker's build context.** `.dockerignore` must not filter `.gc-profile/`; graffiticode-app's drops `**/README.md` and `**/.env*`. End it with `!.gc-profile` and `!.gc-profile/**`. A dropped file changes the digest the candidate reports, which fails the release (step 6).
+- **The Dockerfile** copies `.gc-profile/` to `/gc-profile` in its runtime stage.
+- **Builds that bypass gc-deploy** (CI, a local `docker build`) create an empty `.gc-profile/` first, and keep it out of Git.
+- **The receipt route.** Each profile-aware server reports `installationReceipt()` at its `profileHealth`, uncached and behind its installation guard.
+
+Generating an installation's discovery files during the build isn't part of this. It remains a prerequisite for advertising another installation.
 
 ## Sharing with sibling repositories
 

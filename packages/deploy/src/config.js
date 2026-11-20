@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { PROFILE_ENV, profileConfigProblems } from "./profile.js";
 
 // ISOLATE-01 (W5 stage 4): a compiler's egress. Every revision runs on the
 // compiler network with all traffic through its VPC, reaches the outside only
@@ -34,7 +35,7 @@ export const SETTINGS = Object.freeze([
   "service", "project", "region", "image", "dockerfile", "port", "access", "runtimeServiceAccount", "buildServiceAccount",
   "smokeServiceAccount", "steps", "smoke", "verify", "env", "secrets", "removeSecrets", "removeEnv", "forbiddenEnv",
   "minInstances", "maxInstances", "concurrency", "retireTags", "pinnable", "baselines", "enforcesSwitch", "contractMinimum", "network",
-  "protectedExecution", "requires", "exclude", "include", "blocked",
+  "protectedExecution", "requires", "exclude", "include", "blocked", "profile", "profileHealth", "profileValidate",
 ]);
 
 export function parseArgs(args) {
@@ -171,7 +172,17 @@ export async function loadConfig(options, cwd = process.cwd(), env = process.env
   `${key} must be a non-empty array of distinct environment variable names`);
   envNames(config.removeEnv, "removeEnv");
   envNames(config.forbiddenEnv, "forbiddenEnv");
-  const managed = ["GC_RELEASE", "GC_IMAGE_DIGEST", ...(config.network ? ["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS", "NODE_USE_ENV_PROXY"] : [])];
+  // An installation profile (profile.js): pinned by commit and reviewed digest,
+  // checked on the candidate at profileHealth. Its binding variables are the
+  // CLI's, for every service.
+  const profileProblems = profileConfigProblems(config);
+  requireValue(profileProblems.length === 0, profileProblems.join("; "));
+  for (const name of PROFILE_ENV) {
+    for (const [key, list] of [["env", config.env], ["secrets", config.secrets]]) {
+      requireValue(!Object.prototype.hasOwnProperty.call(list || {}, name), `${name} is set by the deploy CLI from profile; remove it from ${key}`);
+    }
+  }
+  const managed = ["GC_RELEASE", "GC_IMAGE_DIGEST", ...PROFILE_ENV, ...(config.network ? ["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS", "NODE_USE_ENV_PROXY"] : [])];
   for (const name of config.removeEnv || []) {
     requireValue(!Object.prototype.hasOwnProperty.call(config.env || {}, name), `${name} cannot be both set in env and listed in removeEnv`);
     requireValue(!managed.includes(name), `${name} is set by the deploy CLI; it can't be in removeEnv`);
