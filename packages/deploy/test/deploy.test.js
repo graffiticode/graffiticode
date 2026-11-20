@@ -1812,8 +1812,16 @@ test("the C5d drive's deploy.json entries are isolated from production and carry
     assert.ok(s[name].network.allow.includes(host("broker-c5d-drive")));
   }
   assert.deepEqual(s["l0176r-c5d-drive"].pinnable, { lang: "0176", contractVersions: [1, 2] });
-  // Every drive service is private, with Step 32's exact invokers; the CLI keeps IAM as it is.
-  for (const name of ["broker-c5d-drive", "l0013r-c5d-drive", "l0176r-c5d-drive", "api-c5d-drive"]) {
+  // The drive compilers are public, as their production twins are (Step 32's
+  // correction, 2026-11-20): the api reaches them with X-Caller-Identity only,
+  // which the compiler verifies itself. Broker and the api stay private, with
+  // Step 32's exact invokers; the CLI keeps IAM as it is.
+  for (const name of ["l0013r-c5d-drive", "l0176r-c5d-drive"]) {
+    assert.equal(s[name].access, "public", name);
+    assert.equal(s[name].access, s[name.replace("-c5d-drive", "")].access, `${name}: as its production twin`);
+    assert.equal(s[name].smokeServiceAccount, undefined, `${name}: a public service's candidate needs no smoke identity`);
+  }
+  for (const name of ["broker-c5d-drive", "api-c5d-drive"]) {
     assert.equal(s[name].access, "private", name);
     assert.equal(s[name].smokeServiceAccount, "deploy-smoke@graffiticode.iam.gserviceaccount.com", name);
   }

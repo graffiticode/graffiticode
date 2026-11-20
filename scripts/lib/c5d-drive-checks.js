@@ -276,6 +276,62 @@ const sameMap = expected => value => {
   return a === b ? null : `names ${a}, not the run's targets ${b}`;
 };
 
+// ------------------------------------------------------------ access probes
+
+// The two public drive compilers, each probed as Step 32 §7 lists
+// (languages/l0000/crates/server/src/lib.rs `preflight`, `compile`'s
+// `form: "model"`, `interpret`'s `start`; gateway.rs `GoogleGateways::verify`):
+//   gateway-control      POST /preflight, X-Caller-Identity: api-run's ID token for
+//                        urn:graffiticode:<lang> -> 200 { status: "success", data: { manifest } }
+//   no-identity          POST /preflight, no X-Caller-Identity -> 401 reason caller-rejected
+//   malformed-identity   X-Caller-Identity: "not-a-token" -> 401 caller-rejected
+//   non-gateway          console-run's ID token for the same audience -> 403 route-not-allowed-for-caller
+//   model                POST /compile { code, data: {}, form: "model" } -> 200 { model with intents }
+//   start-malformed-session / start-forged-session
+//                        POST /interpret { model, input: {}, operation: "start", commandSession }
+//                        -> 200 { data: null, errors: [{ code: "bad-session" }] }, no url, no occurrences
+// Without the control, every refusal would prove nothing.
+export const ACCESS_PROBE_COMPILERS = Object.freeze(["l0013r", "l0176r"]);
+export const ACCESS_PROBES = Object.freeze(["gateway-control", "no-identity", "malformed-identity", "non-gateway", "model", "start-malformed-session", "start-forged-session"]);
+const preflightRefused = (p, status, reason) => {
+  if (!p) return "not observed";
+  if (p.status !== status) return `answered ${show(p.status)}, expected ${status}`;
+  if (p.body?.error?.reason !== reason) return `reason ${show(p.body?.error?.reason)}, expected ${reason}`;
+  return p.body?.data == null ? null : "it answered data";
+};
+const carriesUrl = v => JSON.stringify(v ?? null).includes("storage.googleapis.com");
+const startRefused = p => {
+  if (!p) return "not observed";
+  if (p.status !== 200) return `answered ${show(p.status)}, expected 200 with errors`;
+  const errors = p.body?.errors;
+  if (!Array.isArray(errors) || !errors.some(e => e?.code === "bad-session")) return `no bad-session error (${show(errors)})`;
+  if (p.body?.data != null) return "it answered data";
+  if (p.body?.occurrences !== undefined && !["{}", "[]", "null"].includes(JSON.stringify(p.body.occurrences))) return `it performed occurrences ${show(p.body.occurrences)}`;
+  return carriesUrl(p.body) ? "its answer carries a storage url" : null;
+};
+const ACCESS_PROBE_JUDGES = {
+  "gateway-control": p => {
+    if (!p) return "not observed";
+    if (p.status !== 200 || p.body?.status !== "success") return `answered ${show(p.status)} ${show(p.body?.status)}`;
+    return p.body?.data?.manifest && typeof p.body.data.manifest === "object" ? null : "no manifest";
+  },
+  "no-identity": p => preflightRefused(p, 401, "caller-rejected"),
+  "malformed-identity": p => preflightRefused(p, 401, "caller-rejected"),
+  "non-gateway": p => preflightRefused(p, 403, "route-not-allowed-for-caller"),
+  model: p => {
+    if (!p) return "not observed";
+    if (p.status !== 200 || !p.body?.model) return `answered ${show(p.status)} with no model`;
+    return Array.isArray(p.body.model.intents) && p.body.model.intents.length ? null : "the model declares no intents, so a start would be refused no-intents, proving nothing";
+  },
+  "start-malformed-session": startRefused,
+  "start-forged-session": startRefused,
+};
+const accessProbeChecks = compiler => ACCESS_PROBES.map(probe => [
+  `${compiler}-${probe}`,
+  `${DRIVE[compiler]}: ${probe}`,
+  o => ok(ACCESS_PROBE_JUDGES[probe](o.compilers?.[compiler]?.[probe])),
+]);
+
 export const PHASES = Object.freeze({
   // Step 32's verification, read before any capture.
   checks: [
@@ -310,6 +366,33 @@ export const PHASES = Object.freeze({
       if (members.some(m => m === "allUsers" || m === "allAuthenticatedUsers")) return "a public member has a role";
       const users = b.bindings.filter(x => x.role === "roles/storage.objectUser").flatMap(x => x.members ?? []);
       if (users.length !== 1 || users[0] !== BROKER_RUN) return `objectUser is ${show(users)}, expected [${BROKER_RUN}]`;
+      return true;
+    }],
+  ],
+
+  // The public drive compilers' own access control, live (Step 32 §7): a
+  // gateway's preflight works, nothing else's does, and protected work
+  // without a session Policy signed is refused, with nothing written.
+  "access-probes": [
+    ...ACCESS_PROBE_COMPILERS.flatMap(c => accessProbeChecks(c)),
+    ["drive-bucket-unchanged", "the drive bucket's listing is the same after the probes", o => {
+      const [a, b] = [o.bucketBefore, o.bucketAfter];
+      if (!Array.isArray(a) || !Array.isArray(b)) return "a drive bucket listing not observed";
+      const key = l => JSON.stringify(l.map(x => [x.name, x.generation]).sort());
+      return key(a) === key(b) ? true : "the drive bucket changed";
+    }],
+    ["policy-unchanged", "Policy holds no new command, and no fixture's capture counter moved", o => {
+      const [a, b] = [o.policyBefore, o.policyAfter];
+      if (!a || !b || !Array.isArray(a.commandIds) || !Array.isArray(b.commandIds)) return "Policy's commands not observed before and after";
+      if (a.complete !== true || b.complete !== true) return "Policy's enumeration incomplete";
+      const added = b.commandIds.filter(id => !a.commandIds.includes(id));
+      if (added.length) return `new commands: ${added.join(", ")}`;
+      for (const item of Object.values(FIXTURES)) {
+        const [x, y] = [a.itemCaptures?.[item], b.itemCaptures?.[item]];
+        const value = c => (c?.absent === true ? "absent" : Number.isSafeInteger(c?.nextCaptureSequence) ? c.nextCaptureSequence : null);
+        if (value(x) === null || value(y) === null) return `${item}'s capture counter not readable before and after`;
+        if (value(x) !== value(y)) return `${item}'s capture counter moved ${value(x)} -> ${value(y)}: something reserved`;
+      }
       return true;
     }],
   ],
@@ -679,7 +762,7 @@ export const PHASES = Object.freeze({
 
 // The phases the drive passes only if every one passes (slice 3); `checks`
 // and `baseline` are their preconditions, judged too.
-export const DRIVE_PHASES = Object.freeze(["checks", "baseline", "first-capture", "direct-refused", "exit-after-reserve", "exit-after-stage",
+export const DRIVE_PHASES = Object.freeze(["checks", "access-probes", "baseline", "first-capture", "direct-refused", "exit-after-reserve", "exit-after-stage",
   "drop-outcome", "stale-worker", "staging-gone", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap", "boundary", "cleanup"]);
 
 export const judgePhase = (phase, observations) => {
@@ -777,18 +860,69 @@ export const journalAmbiguousName = name => `${name}.ambiguous.json`;
 // (`not-owner`) comes after allocation, at reserve or admission, and its
 // answer names the command.
 export const PRE_ALLOCATION_REFUSALS = Object.freeze(["caller-not-entry-point", "bad-request", "no-user", "worker-unsupported", "idempotency-key-reused"]);
+// The api bridge's own refusals of an anonymous compile, each returned before
+// its first allocating call, `run(true)` (packages/api/src/commands/bridge.js
+// buildCommandBridge). An anonymous request has no held-key lookup (`held` is
+// only for a user's key), so nothing before these can allocate:
+//   policy-unavailable     no runner                      (bridge.js:205)
+//   preflight-unavailable  a stage's preflight failed     (bridge.js:252)
+//   worker-unsupported     no scopes on this api          (bridge.js:264)
+//   connection-required    a write needs a connection     (bridge.js:272)
+//   commands-not-enabled   a write's commands are off     (bridge.js:273, the verdict of :104)
+//   bridge-retired         the bridge is off for the lang (bridge.js:292)
+// The answer is the request's own: the api finished its work there, so it
+// proves no command was allocated. Not listed: `legacy-protocol` (:260 needs
+// a held key; :306 follows run(true)), and any Policy refusal from run(true)
+// (:300), which may come after an allocation (a lease, a run).
+export const BRIDGE_PRE_ALLOCATION_CODES = Object.freeze(["policy-unavailable", "preflight-unavailable", "worker-unsupported", "connection-required", "commands-not-enabled", "bridge-retired"]);
+export const BRIDGE_SOURCE = "packages/api/src/commands/bridge.js";
+
 const isRefusalBeforeAllocation = n => Boolean(n) && n.kind === "refusal" && Number.isInteger(n.status) && n.status >= 400 && n.status < 500 &&
   PRE_ALLOCATION_REFUSALS.includes(n.reason);
+const isPreAllocationAnswer = n => Boolean(n) && n.kind === "pre-allocation-answer" && BRIDGE_PRE_ALLOCATION_CODES.includes(n.code) &&
+  n.source === BRIDGE_SOURCE && typeof n.evidence === "string" && /\.(ambiguous|answer)\.json$/.test(n.evidence) && Number.isFinite(Date.parse(n.answeredAt ?? ""));
+const provesNoAllocation = n => isRefusalBeforeAllocation(n) || isPreAllocationAnswer(n);
+
+// The bridge's refusal code in an answer: a 200 compile envelope
+// ({ status, data: { errors } } or { errors }) whose only error carries one of
+// BRIDGE_PRE_ALLOCATION_CODES, and that names no command. Anything else: null.
+export const bridgePreAllocationCode = ({ status, body }) => {
+  if (status !== 200 || !body || typeof body !== "object") return null;
+  const envelope = body.data && typeof body.data === "object" ? body.data : body;
+  if (envelope.command || envelope.data !== undefined) return null;
+  const errors = Array.isArray(envelope.errors) ? envelope.errors : null;
+  if (!errors || errors.length !== 1) return null;
+  return BRIDGE_PRE_ALLOCATION_CODES.includes(errors[0]?.code) ? errors[0].code : null;
+};
 
 // What an anonymous request's answer proves. { commandId } when it names its
 // command; { commandId: null, noAllocation } for a refusal before
-// allocation; null (ambiguous: a 5xx, a network error, an unparseable body,
-// any other answer) otherwise.
-export const answerResolution = ({ status = null, body = null, commandId = null }) => {
+// allocation (Policy's 4xx, or the bridge's own pre-allocation answer, which
+// needs its answeredAt and evidence file); null (ambiguous: a 5xx, a network
+// error, an unparseable body, any other answer) otherwise.
+export const answerResolution = ({ status = null, body = null, commandId = null, answeredAt = null, evidence = null }) => {
   if (typeof commandId === "string" && /^c:[0-9a-f]{64}$/.test(commandId)) return { commandId };
   const reason = body?.error?.reason;
   const noAllocation = { kind: "refusal", status, reason };
-  return isRefusalBeforeAllocation(noAllocation) ? { commandId: null, noAllocation } : null;
+  if (isRefusalBeforeAllocation(noAllocation)) return { commandId: null, noAllocation };
+  const code = bridgePreAllocationCode({ status, body });
+  if (code && answeredAt && evidence) return { commandId: null, noAllocation: { kind: "pre-allocation-answer", code, answeredAt, evidence, source: BRIDGE_SOURCE } };
+  return null;
+};
+
+// An ambiguous intent, resolved from its own saved answer (`resolve-intent`):
+// the .ambiguous.json must carry a bridge pre-allocation code. Policy's
+// enumeration for the task since the request was sent is a consistency
+// check, not the proof: any anonymous candidate there refuses the
+// resolution. Returns { resolution } or { problem }.
+export const preAllocationResolution = ({ name, answer, candidates }) => {
+  if (!answer || typeof answer !== "object") return { problem: `${name}: no saved answer` };
+  const code = bridgePreAllocationCode({ status: answer.status, body: answer.body });
+  if (!code) return { problem: `${name}: its saved answer carries no bridge pre-allocation code (${BRIDGE_PRE_ALLOCATION_CODES.join(", ")})` };
+  if (!Number.isFinite(Date.parse(answer.answeredAt ?? ""))) return { problem: `${name}: its saved answer has no answeredAt` };
+  if (!Array.isArray(candidates)) return { problem: `${name}: Policy's enumeration for its task not observed` };
+  if (candidates.length) return { problem: `${name}: Policy holds anonymous commands for its task since it was sent (${candidates.map(c => c.commandId).join(", ")}): not resolved` };
+  return { resolution: { commandId: null, noAllocation: { kind: "pre-allocation-answer", code, answeredAt: answer.answeredAt, evidence: journalAmbiguousName(name), source: BRIDGE_SOURCE } } };
 };
 
 // Ambiguous anonymous requests, correlated with Policy's command records
@@ -844,14 +978,14 @@ export const inventory = ({ plan, journal, manifests }) => {
   const entries = new Map(journal.map(j => [j.file, j.value]));
   const unresolvedIntents = [];
   for (const [file, value] of entries) {
-    if (file.endsWith(".id.json") || file.endsWith(".ambiguous.json")) continue;
+    if (file.endsWith(".id.json") || file.endsWith(".ambiguous.json") || file.endsWith(".answer.json")) continue;
     if (typeof value?.commandId === "string") {
       add(value.commandId, "journal");
       continue;
     }
     const answered = entries.get(file.replace(/\.json$/, ".id.json"));
     if (typeof answered?.commandId === "string") add(answered.commandId, "journal");
-    else if (!isRefusalBeforeAllocation(answered?.noAllocation)) unresolvedIntents.push(file);
+    else if (!provesNoAllocation(answered?.noAllocation)) unresolvedIntents.push(file);
   }
   // Ownership is explicit (#446 fourth and fifth reviews): only the plan's
   // ids and the journal's allocation and resolution records establish that a
@@ -1008,3 +1142,31 @@ export const drivePolicyCommands = ({ records, since, tasks, principals }) => {
   }
   return [...byId.values()].sort((a, b) => (a.commandId < b.commandId ? -1 : 1));
 };
+
+// A recognized pre-allocation answer, saved as its own evidence.
+export const journalAnswerName = name => `${name}.answer.json`;
+
+// A phase's exit status (#Step 32 correction): nonzero whenever any of its
+// checks fails or any read failed. A phase judged in parts (drop-outcome and
+// staging-gone, judged with their operator pause), or one that judges
+// nothing itself (resolve-journal, resolve-intent, drop-outcome-retry),
+// fails on any failed read.
+export const PARTIAL_PHASES = Object.freeze(["drop-outcome", "staging-gone"]);
+export const phaseExitCode = ({ phase, observations }) => {
+  const readFailed = Object.keys(observations?.errors ?? {}).length > 0;
+  if (DRIVE_PHASES.includes(phase) && !PARTIAL_PHASES.includes(phase)) return judgePhase(phase, observations).passed && !readFailed ? 0 : 1;
+  return readFailed ? 1 : 0;
+};
+
+// The access probes' invalid credentials: a caller identity and a command
+// session that aren't tokens at all, and a session shaped like Policy's (an
+// ES256 JWT naming a command and a generation) whose signature is junk. None
+// can verify: Google's certificates and Policy's keys sign nothing here.
+export const ACCESS_PROBE_MALFORMED_IDENTITY = "not-a-token";
+export const ACCESS_PROBE_MALFORMED_SESSION = "not-a-session";
+const b64url = value => Buffer.from(JSON.stringify(value)).toString("base64url");
+export const forgedSession = () => [
+  b64url({ alg: "ES256", typ: "JWT", kid: "c5d-access-probe" }),
+  b64url({ iss: "c5d-access-probe", cmd: `c:${"0".repeat(64)}`, fg: 1, stg: "s0", exp: 4_102_444_800 }),
+  Buffer.from("not a signature").toString("base64url"),
+].join(".");

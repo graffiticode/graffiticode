@@ -43,6 +43,28 @@ const capture = ({ commandId, item = FIXTURES.private, seq = 5, sha = SHA("a"), 
 });
 const faultLines = (kind, commandId, extra = []) => [{ at: at(1), text: `WARN capture fault ${kind} command ${commandId}` }, ...extra.map((t, i) => ({ at: at(2 + i), text: `WARN capture fault ${kind} command ${commandId}: ${t}` }))];
 const listingOf = () => [{ name: "abc.png", generation: "1600000000000001" }, { name: "def.png", generation: "1600000000000002" }];
+// The public drive compilers' answers, as lib.rs and gateway.rs give them.
+const refusedPreflight = (status, reason) => ({ status, body: { status: "error", error: { code: status, message: "preflight is for the gateway only", reason }, data: null } });
+const refusedStart = () => ({ status: 200, body: { data: null, errors: [{ message: "This command's session isn't valid for this compiler.", from: -1, to: -1, code: "bad-session" }], revision: { revision: "l0013r-c5d-drive-r1" } } });
+const compilerProbes = () => ({
+  "gateway-control": { status: 200, body: { status: "success", data: { manifest: { stage: "s0", requiredFunctions: ["snap"] } } } },
+  "no-identity": refusedPreflight(401, "caller-rejected"),
+  "malformed-identity": refusedPreflight(401, "caller-rejected"),
+  "non-gateway": refusedPreflight(403, "route-not-allowed-for-caller"),
+  model: { status: 200, body: { model: { lang: "0013", kind: "plan", digest: "d", program: {}, intents: [{ id: "i1", fn: "snap" }] }, errors: [] } },
+  "start-malformed-session": refusedStart(),
+  "start-forged-session": refusedStart(),
+});
+const accessProbesPassing = () => {
+  const counters = { [FIXTURES.private]: { nextCaptureSequence: 7 }, [FIXTURES.public]: { absent: true } };
+  return {
+    compilers: { l0013r: compilerProbes(), l0176r: compilerProbes() },
+    bucketBefore: [],
+    bucketAfter: [],
+    policyBefore: { commandIds: ["c:1"], complete: true, pages: 1, itemCaptures: clone(counters) },
+    policyAfter: { commandIds: ["c:1"], complete: true, pages: 1, itemCaptures: clone(counters) },
+  };
+};
 
 // A passing observation for every phase.
 const passing = () => {
@@ -82,6 +104,7 @@ const passing = () => {
       },
       targets: T.faults,
     },
+    "access-probes": accessProbesPassing(),
     baseline: { thumbnails: listingOf() },
     "first-capture": {
       private: capture({ commandId: ids["first-private"] }),
@@ -281,6 +304,19 @@ const MUTATIONS = {
     "l0176r-env": o => { o.services.l0176r.env.BROKER_URL = url("broker"); },
     "api-env": o => { o.services.api.env.API_COMMAND_FAULT_TARGETS = JSON.stringify({ "c:other": "stop-renewal" }); },
     bucket: o => { o.bucket.bindings.push({ role: "roles/storage.objectViewer", members: ["allUsers"] }); },
+  },
+  "access-probes": {
+    ...Object.fromEntries(["l0013r", "l0176r"].flatMap(c => [
+      [`${c}-gateway-control`, o => { o.compilers[c]["gateway-control"] = { status: 401, body: { status: "error", error: { reason: "caller-rejected" }, data: null } }; }],
+      [`${c}-no-identity`, o => { o.compilers[c]["no-identity"] = { status: 200, body: { status: "success", data: { manifest: {} } } }; }],
+      [`${c}-malformed-identity`, o => { o.compilers[c]["malformed-identity"].body.error.reason = "route-not-allowed-for-caller"; }],
+      [`${c}-non-gateway`, o => { o.compilers[c]["non-gateway"] = { status: 401, body: { status: "error", error: { reason: "caller-rejected" }, data: null } }; }],
+      [`${c}-model`, o => { o.compilers[c].model.body.model.intents = []; }],
+      [`${c}-start-malformed-session`, o => { o.compilers[c]["start-malformed-session"].body = { data: { url: "https://storage.googleapis.com/graffiticode-c5d-drive/x.png" }, errors: [] }; }],
+      [`${c}-start-forged-session`, o => { o.compilers[c]["start-forged-session"].body.occurrences = { i1: ["o1"] }; }],
+    ])),
+    "drive-bucket-unchanged": o => { o.bucketAfter = [{ name: "x.png", generation: "1700000000000001" }]; },
+    "policy-unchanged": o => { o.policyAfter.itemCaptures[FIXTURES.private] = { nextCaptureSequence: 8 }; },
   },
   baseline: { "thumbnails-listed": o => { o.thumbnails = []; } },
   "first-capture": {
@@ -630,9 +666,12 @@ const planned = () => {
 test("the CLI refuses production and B6 names, and other services' or custom-domain URLs, before anything else", () => {
   for (const argv of [["--api", "api"], ["--broker", "broker"], ["--l0013r", "l0013r"], ["--l0176r", "l0176r-drive"], ["--broker", "broker-faults"], ["--bucket", "graffiticode-thumbnails"], ["--bucket", "graffiticode.appspot.com"],
     ["--api-url", url("api")], ["--api-url", "https://api.graffiticode.org"], ["--api-url", url("broker-c5d-drive")]]) {
-    const r = cli(["--phase", "checks", "--run", RUN, ...argv]);
+    // A temporary --dir: no run directory is ever left in docs/evidence.
+    const parent = mkdtempSync(path.join(tmpdir(), "c5d-drive-refused-"));
+    const r = cli(["--phase", "checks", "--run", RUN, "--dir", parent, ...argv]);
     assert.equal(r.status, 2, argv.join(" "));
     assert.match(r.stderr, /^refused: /);
+    assert.deepEqual(readdirSync(parent), [], "refused before anything was written");
   }
 });
 
@@ -1043,4 +1082,151 @@ test("Step 34's canary is the job against the tag with every flag of the establi
 test("the quota check says a window-edge failure needs a fresh run", () => {
   const o = { ...clone(passing()["rate-limit"]), allowed: 12, refused: 1 };
   assert.match(failsOnly("rate-limit", o, "quota"), /fresh run/);
+});
+
+// ------------------------------------------ Step 32's correction (run 0aa69b9a)
+
+test("access-probes runs after checks and before baseline, and a missing observation fails", () => {
+  assert.deepEqual(DRIVE_PHASES.slice(0, 3), ["checks", "access-probes", "baseline"]);
+  assert.deepEqual(PHASES["access-probes"].map(([id]) => id).filter(id => id.startsWith("l0013r-")), C.ACCESS_PROBES.map(p => `l0013r-${p}`));
+  // A compiler never probed: all its checks fail, the other's pass.
+  const missing = clone(passing()["access-probes"]);
+  delete missing.compilers.l0176r;
+  const r = judgePhase("access-probes", missing);
+  assert.deepEqual(r.checks.filter(c => !c.ok).map(c => c.id), C.ACCESS_PROBES.map(p => `l0176r-${p}`));
+  // No model, so no start probes: they fail as unobserved (the model check passes, it was read).
+  const noStarts = clone(passing()["access-probes"]);
+  delete noStarts.compilers.l0013r["start-malformed-session"];
+  delete noStarts.compilers.l0013r["start-forged-session"];
+  assert.deepEqual(judgePhase("access-probes", noStarts).checks.filter(c => !c.ok).map(c => c.id), ["l0013r-start-malformed-session", "l0013r-start-forged-session"]);
+  // An incomplete enumeration, or an unread counter, fails policy-unchanged.
+  const partial = clone(passing()["access-probes"]);
+  partial.policyAfter.complete = false;
+  assert.match(failsOnly("access-probes", partial, "policy-unchanged"), /incomplete/);
+  const unread = clone(passing()["access-probes"]);
+  delete unread.policyBefore.itemCaptures[FIXTURES.public];
+  assert.match(failsOnly("access-probes", unread, "policy-unchanged"), /not readable/);
+  const added = clone(passing()["access-probes"]);
+  added.policyAfter.commandIds.push("c:new");
+  assert.match(failsOnly("access-probes", added, "policy-unchanged"), /new commands: c:new/);
+  const unlisted = clone(passing()["access-probes"]);
+  delete unlisted.bucketBefore;
+  assert.match(failsOnly("access-probes", unlisted, "drive-bucket-unchanged"), /not observed/);
+  // The forged session is shaped like Policy's, and isn't the malformed one.
+  const parts = C.forgedSession().split(".");
+  assert.equal(parts.length, 3);
+  assert.equal(JSON.parse(Buffer.from(parts[0], "base64url")).alg, "ES256");
+  assert.equal(JSON.parse(Buffer.from(parts[1], "base64url")).fg, 1);
+  assert.notEqual(C.ACCESS_PROBE_MALFORMED_SESSION, C.forgedSession());
+});
+
+test("a failed phase exits nonzero: any failed check, or any failed read", () => {
+  const all = passing();
+  assert.equal(C.phaseExitCode({ phase: "access-probes", observations: all["access-probes"] }), 0);
+  const failing = clone(all["access-probes"]);
+  failing.compilers.l0013r["no-identity"] = { status: 200, body: { status: "success", data: { manifest: {} } } };
+  assert.equal(C.phaseExitCode({ phase: "access-probes", observations: failing }), 1);
+  assert.equal(C.phaseExitCode({ phase: "checks", observations: { ...all.checks, errors: { "env:api": "403" } } }), 1);
+  for (const p of DRIVE_PHASES.filter(x => !C.PARTIAL_PHASES.includes(x))) assert.equal(C.phaseExitCode({ phase: p, observations: all[p] }), 0, p);
+  // Phases judged in parts, or that judge nothing themselves: a failed read fails them.
+  for (const p of [...C.PARTIAL_PHASES, "resolve-journal", "resolve-intent", "drop-outcome-retry"]) {
+    assert.equal(C.phaseExitCode({ phase: p, observations: { errors: {} } }), 0, p);
+    assert.equal(C.phaseExitCode({ phase: p, observations: { errors: { resolution: "refused" } } }), 1, p);
+  }
+});
+
+// The answer run 0aa69b9a saved for first-public.
+const PREFLIGHT_UNAVAILABLE_ANSWER = {
+  task: "task-public",
+  sentAt: "2026-11-19T23:10:00.000Z",
+  answeredAt: "2026-11-19T23:10:02.000Z",
+  status: 200,
+  failure: null,
+  body: { status: "success", data: { errors: [{ message: "Error: preflight of s0 failed (403)", from: -1, to: -1, code: "preflight-unavailable", category: "temporary" }] } },
+};
+
+test("the bridge's pre-allocation codes are exactly its refusals before run(true)", () => {
+  const source = readFileSync(new URL("../../packages/api/src/commands/bridge.js", import.meta.url), "utf8");
+  const allocating = source.indexOf("ran = await run(true)");
+  assert.ok(allocating > 0);
+  for (const code of C.BRIDGE_PRE_ALLOCATION_CODES) {
+    const at = source.indexOf(`"${code}"`);
+    assert.ok(at > 0 && at < allocating, `${code} is returned before run(true)`);
+  }
+  // Not listed: refusals that may follow an allocating call.
+  assert.ok(source.lastIndexOf("\"legacy-protocol\"") > allocating);
+  assert.ok(!C.BRIDGE_PRE_ALLOCATION_CODES.includes("legacy-protocol"));
+  assert.equal(C.BRIDGE_SOURCE, "packages/api/src/commands/bridge.js");
+});
+
+test("resolve-intent: a saved bridge pre-allocation answer resolves the intent, the evidence preserved; a candidate or an unlisted code refuses", () => {
+  const answer = clone(PREFLIGHT_UNAVAILABLE_ANSWER);
+  const before = JSON.stringify(answer);
+  assert.equal(C.bridgePreAllocationCode({ status: answer.status, body: answer.body }), "preflight-unavailable");
+  const { resolution } = C.preAllocationResolution({ name: "first-public", answer, candidates: [] });
+  assert.deepEqual(resolution, {
+    commandId: null,
+    noAllocation: { kind: "pre-allocation-answer", code: "preflight-unavailable", answeredAt: answer.answeredAt, evidence: "first-public.ambiguous.json", source: "packages/api/src/commands/bridge.js" },
+  });
+  assert.equal(JSON.stringify(answer), before, "the saved answer is never changed");
+  // The inventory accepts it; the .ambiguous.json stays as evidence beside it.
+  const j = (file, value) => ({ file, value });
+  const journal = [j("first-public.json", { kind: "anonymous", task: answer.task, sentAt: answer.sentAt, commandId: null }), j("first-public.ambiguous.json", answer), j("first-public.id.json", resolution)];
+  assert.deepEqual(C.inventory({ plan: { ids: {} }, journal, manifests: [] }).unresolvedIntents, []);
+  // A candidate in Policy since it was sent refuses it.
+  const late = { commandId: `c:${"9".repeat(64)}`, uid: "anonymous", taskId: answer.task, createdAt: "2026-11-19T23:11:00.000Z" };
+  assert.match(C.preAllocationResolution({ name: "first-public", answer, candidates: [late] }).problem, /Policy holds anonymous commands/);
+  assert.match(C.preAllocationResolution({ name: "first-public", answer, candidates: undefined }).problem, /not observed/);
+  // An unlisted code, a command in the answer, or more than one error: no resolution.
+  for (const code of ["legacy-protocol", "rate-limited", "command-not-completed", "not-owner"]) {
+    const other = clone(answer);
+    other.body.data.errors[0].code = code;
+    assert.match(C.preAllocationResolution({ name: "x", answer: other, candidates: [] }).problem, /no bridge pre-allocation code/, code);
+  }
+  const named = clone(answer);
+  named.body.data.command = { commandId: late.commandId };
+  assert.match(C.preAllocationResolution({ name: "x", answer: named, candidates: [] }).problem, /no bridge pre-allocation code/);
+  const non200 = { ...clone(answer), status: 500 };
+  assert.match(C.preAllocationResolution({ name: "x", answer: non200, candidates: [] }).problem, /no bridge pre-allocation code/);
+  // A forged noAllocation of this kind isn't accepted: wrong code, wrong source, no evidence.
+  for (const forged of [
+    { ...resolution.noAllocation, code: "legacy-protocol" },
+    { ...resolution.noAllocation, source: "elsewhere.js" },
+    { ...resolution.noAllocation, evidence: null },
+    { ...resolution.noAllocation, answeredAt: "garbage" },
+  ]) {
+    assert.deepEqual(C.inventory({ plan: { ids: {} }, journal: [journal[0], j("first-public.id.json", { commandId: null, noAllocation: forged })], manifests: [] }).unresolvedIntents, ["first-public.json"]);
+  }
+  // An empty query alone still never resolves.
+  assert.deepEqual(C.correlateIntents({ intents: [{ name: "first-public", task: answer.task, sentAt: answer.sentAt }], commands: [], claimed: [] }), {});
+});
+
+test("anonymousCompile's answer-time resolution recognizes a bridge pre-allocation answer, with its evidence", () => {
+  const a = PREFLIGHT_UNAVAILABLE_ANSWER;
+  assert.deepEqual(C.answerResolution({ status: a.status, body: a.body, answeredAt: a.answeredAt, evidence: "first-public.answer.json" }), {
+    commandId: null,
+    noAllocation: { kind: "pre-allocation-answer", code: "preflight-unavailable", answeredAt: a.answeredAt, evidence: "first-public.answer.json", source: "packages/api/src/commands/bridge.js" },
+  });
+  // Without its evidence and time, it stays ambiguous.
+  assert.equal(C.answerResolution({ status: a.status, body: a.body }), null);
+  assert.equal(C.journalAnswerName("first-public"), "first-public.answer.json");
+});
+
+test("Step 32's correction: public compilers with allUsers, the access probes, closing access before parking, and the aborted run's successor", () => {
+  const doc = readFileSync(new URL("../../docs/capability-policy-iam-review.md", import.meta.url), "utf8");
+  const step32 = doc.slice(doc.indexOf("### Step 32:"), doc.indexOf("### Step 33:"));
+  assert.match(step32, /\*\*Correction \(2026-11-20\)/);
+  assert.match(step32, /\| `l0013r-c5d-drive` \| `allUsers`, `api-run`[^|]*, `deploy-smoke` \|/);
+  assert.match(step32, /\| `l0176r-c5d-drive` \| `allUsers`, `api-run`, `deploy-smoke` \|/);
+  assert.equal((step32.match(/add-iam-policy-binding "\$s" --project=graffiticode --region=us-central1 --member=allUsers --role=roles\/run.invoker/g) ?? []).length, 1);
+  assert.match(step32, /remove-iam-policy-binding "\$s" --project=graffiticode --region=us-central1 --member=allUsers --role=roles\/run.invoker/);
+  const teardown = step32.slice(step32.indexOf("#### 8."));
+  assert.ok(teardown.indexOf("--member=allUsers") < teardown.indexOf("--tag=parked"), "access closed before parking");
+  assert.match(step32, /--phase access-probes/);
+  for (const probe of C.ACCESS_PROBES) assert.ok(step32.includes(`\`${probe}\``), probe);
+  assert.match(step32, /#### 9\. An aborted run and its successor/);
+  assert.match(step32, /--phase resolve-intent --run 0aa69b9a --name first-public/);
+  // Both deletions stay, and every step is still held.
+  assert.equal((step32.match(/gcloud storage rm 'gs:\/\/graffiticode-command-staging\//g) ?? []).length, 2);
+  assert.match(step32, /HELD/);
 });

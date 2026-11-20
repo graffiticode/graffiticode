@@ -2249,13 +2249,27 @@ C5d slices 2 and 3 ([`docs/c5d-snapshot-commands-plan.md`](c5d-snapshot-commands
 
 Nothing there is ever overwritten.
 
+**Correction (2026-11-20): the drive compilers are public.** Run `0aa69b9a` passed every check before capture, then `first-capture` failed: `api-c5d-drive`'s preflight of `l0013r-c5d-drive` got Cloud Run's own 403 ("Empty Authorization header value").
+- **Why private compilers were wrong:** the protocol has the api call a compiler with `X-Caller-Identity` alone (`packages/api/src/admission.js`), and the compiler verifies that itself. It sends no Cloud Run `Authorization`, so a private compiler refuses the api before the app is reached. #447's review had made the compilers private, which the protocol can't use.
+- **No command was allocated:**
+  - Policy has no record for the planned `first-private` id, and no command exists on either task since 23:00Z;
+  - `first-public`'s anonymous answer was the bridge's own refusal, `preflight-unavailable`, returned before any allocating call (§9).
+- **The owner chose option A:** `l0013r-c5d-drive` and `l0176r-c5d-drive` are public, as their production twins `l0013r` and `l0176r` are. `broker-c5d-drive` and `api-c5d-drive` stay private.
+- **What protects a public drive compiler** is what protects production's:
+  - **`/preflight`** answers only a Google ID token for `urn:graffiticode:<lang>` from an account in `PREFLIGHT_GATEWAYS` (`languages/l0000/crates/server/src/gateway.rs`). No token, or one that doesn't verify, gets 401 `caller-rejected`; another account's gets 403 `route-not-allowed-for-caller`.
+  - **Protected work** (`POST /interpret` with `operation: "start"`) needs a command session Policy issued and verifies: no session, or one Policy refuses, gets `bad-session`, and nothing runs (`crates/core/src/compiler.rs`, `protected.rs` `admit_command`).
+  - **A compile** acts on nothing without a connection or an admitted plan, as production's does.
+  - **`l0013r-c5d-drive` has no `THUMBNAIL_BUCKET`**, so a direct snap uploads nothing.
+
+  `access-probes` (§7) checks all of this live before any capture.
+
 **Names (decision 3).** The drive uses new, C5d-only names: `broker-c5d-drive`, `l0013r-c5d-drive`, `l0176r-c5d-drive`, `api-c5d-drive` and `gs://graffiticode-c5d-drive`.
 - **B6's `l0176r-drive` is untouched throughout:** its revisions, tags and approval records stay, so any recovery depending on them is preserved.
 - **`broker-faults` is never recreated:** `l0176r-drive`'s `BROKER_URL` still names it, and a live service under that name would make B6's path reach a Broker again.
 - **The runner refuses** production's `api`, `broker`, `policy`, `l0013r` and `l0176r`, B6's `l0176r-drive`, `broker-faults` and `api-drive`, and `graffiticode-thumbnails`, `graffiticode.appspot.com` or the staging bucket as its bucket.
 
 **No new identity or role.** Each service runs as its production twin's runtime account (`broker-run`, `l0013r-run`, `l0176r-run`, `api-run`). The new grants are:
-- invokers on the four drive services only;
+- invokers on the four drive services only, `allUsers` on the two compilers among them (the correction above);
 - `broker-run` `objectUser` on the drive bucket only;
 - the 24-hour window.
 
@@ -2339,14 +2353,18 @@ gcloud storage buckets get-iam-policy gs://graffiticode-c5d-drive --format=json 
      Expect four `ok` lines, each with one traffic entry of `percent: 100` naming the service's `latestReadyRevisionName`.
    - **The Broker placeholder's environment, read back,** is exactly the generated file's, and its secrets are the three pinned versions (`gcloud run services describe broker-c5d-drive … --format=json`, `spec.template.spec.containers[0].env`). No `BROKER_FAULTS` is set.
 
-2. **Invokers,** on each service only:
+2. **Invokers,** on each service only. Each set below is exact, read back after the commands:
 
    | Service | `roles/run.invoker` |
    |---|---|
    | `broker-c5d-drive` | `l0013r-run`, `l0176r-run`, `deploy-smoke` |
-   | `l0013r-c5d-drive` | `api-run` (the drive api's calls, and the runner's `direct-refused` compile and `/egress` read, minted under the window), `deploy-smoke` |
-   | `l0176r-c5d-drive` | `api-run`, `deploy-smoke` |
+   | `l0013r-c5d-drive` | `allUsers`, `api-run` (the drive api's calls, and the runner's `direct-refused` compile and `/egress` read, minted under the window), `deploy-smoke` |
+   | `l0176r-c5d-drive` | `allUsers`, `api-run`, `deploy-smoke` |
    | `api-c5d-drive` | `console-run@graffiticode-app` (the canary's calls, as the console makes them), `command-sweeper` (its own sweeper), `deploy-smoke` |
+
+   - **`allUsers` on the two compilers** (the correction, 2026-11-20): the api reaches them with `X-Caller-Identity` only, as production's api reaches `l0013r` and `l0176r`.
+   - **It must be bound before their releases:** the deploy CLI refuses to release a service whose invocation policy differs from `deploy.json`'s `access` (`packages/deploy/src/release.js` `checkService`). Public means an unconditioned `allUsers` binding.
+   - **`api-run` and `deploy-smoke` are kept,** redundant under `allUsers`, so teardown closes access in a known order (§8).
 
    ```bash
    add() { gcloud run services add-iam-policy-binding "$1" --project=graffiticode --region=us-central1 --member="serviceAccount:$2" --role=roles/run.invoker; }
@@ -2360,12 +2378,18 @@ gcloud storage buckets get-iam-policy gs://graffiticode-c5d-drive --format=json 
    add api-c5d-drive console-run@graffiticode-app.iam.gserviceaccount.com
    add api-c5d-drive command-sweeper@graffiticode.iam.gserviceaccount.com
    add api-c5d-drive deploy-smoke@graffiticode.iam.gserviceaccount.com
+   # The two compilers are public (the correction, 2026-11-20):
+   for s in l0013r-c5d-drive l0176r-c5d-drive; do
+     gcloud run services add-iam-policy-binding "$s" --project=graffiticode --region=us-central1 --member=allUsers --role=roles/run.invoker
+   done
    ```
+
+   **Read back each:** `gcloud run services get-iam-policy <service> --project=graffiticode --region=us-central1 --format=json`. Expect exactly one `roles/run.invoker` binding with no condition, whose members are the table's set. The compilers' set is `allUsers` plus their two service accounts.
 
 3. **Releases with the deploy CLI,** from `main`, from `deploy.json` entries added by a reviewed PR before this step is approved:
    - **`broker-c5d-drive`:** `THUMBNAIL_BUCKET=graffiticode-c5d-drive`, `COMMAND_STAGING_BUCKET=graffiticode-command-staging`, `BROKER_FAULT_PRINCIPALS=<canary uid>`, and **no `BROKER_FAULTS`**.
-   - **`l0013r-c5d-drive`:** pinnable, recorded approved at `[3]` by its release. `BROKER_URL` = `broker-c5d-drive`'s URL, **no `THUMBNAIL_BUCKET`**, and `L0013_CAPTURE_FAULTS` = plan.json's map.
-   - **`l0176r-c5d-drive`:** a new service, pinnable, recorded approved at `[1, 2]`. `BROKER_URL` = `broker-c5d-drive`'s URL.
+   - **`l0013r-c5d-drive`:** `access: public`, pinnable, recorded approved at `[3]` by its release. `BROKER_URL` = `broker-c5d-drive`'s URL, **no `THUMBNAIL_BUCKET`** (in its `removeEnv` and `forbiddenEnv`), and `L0013_CAPTURE_FAULTS` = plan.json's map.
+   - **`l0176r-c5d-drive`:** `access: public`, a new service, pinnable, recorded approved at `[1, 2]`. `BROKER_URL` = `broker-c5d-drive`'s URL.
    - **`api-c5d-drive`:** `access: private` and the production api's environment, with these changes:
      - `COMMANDS_L0013=on`, `COMMANDS_L0176=on`, `COMMAND_SCOPES=on`, `INTERPRETER_L0013=on`, `COMPILE_GENERATION_L0013=c5d-drive-1`;
      - `BASE_URL_L0013` and `BASE_URL_L0176` = the drive compilers' URLs;
@@ -2456,9 +2480,25 @@ done
 - **`l0176r-c5d-drive`:** `BROKER_URL` names `broker-c5d-drive`.
 - **`api-c5d-drive`:** its environment is as in §3, `API_COMMAND_FAULT_TARGETS` is exactly plan.json's, and its sweeper is on.
 - **The bucket:** uniform, public access prevention enforced, no condition, no public member, and `broker-run` its only `objectUser`.
+- **The access probes,** `node scripts/c5d-drive.js --phase access-probes --run <run>`, after `checks` and before `baseline`. They run against each public compiler (`<url>` is its stable URL; `<lang>` is `0013` or `0176`):
+  - **Programs:** L0013 is the private fixture's snap (`snap item "7vwaCAIyMNCJEzgIfyYY" {}..`, `scripts/lib/canary.js` `snapTask`). L0176 is the mixed chain's save, `set-var "lrn-id" "canary-command" save-to-itembank items [item [questions [mcq []] {}]] {}..`, parsed against the compiler's own `/lexicon.json`.
+  - **Tokens:** two Google ID tokens for `urn:graffiticode:<lang>` are minted under the window: `api-run`'s (a gateway) and `console-run@graffiticode-app`'s (not one).
+
+  | Check | Request | Expected answer |
+  |---|---|---|
+  | `gateway-control` | `POST <url>/preflight`, `X-Caller-Identity: <api-run's token>`, `{ "stage": "s0", "lang": "<lang>", "code": <program> }` | 200 `{ "status": "success", "data": { "manifest": {…} } }`. The control: without it, every refusal below proves nothing |
+  | `no-identity` | the same, with no `X-Caller-Identity` | 401 `{ "status": "error", "error": { "reason": "caller-rejected", … }, "data": null }` |
+  | `malformed-identity` | `X-Caller-Identity: not-a-token` | 401, `caller-rejected` |
+  | `non-gateway` | `X-Caller-Identity: <console-run's token>` (a real Google identity, same audience) | 403, `route-not-allowed-for-caller` |
+  | `model` | `POST <url>/compile`, no identity, `{ "code": <program>, "data": {}, "form": "model" }` | 200 `{ "model": { …, "intents": [≥1] }, "errors": [] }` (with no intents, a start would be refused `no-intents`, proving nothing) |
+  | `start-malformed-session` | `POST <url>/interpret`, no identity, `{ "model": <the model>, "input": {}, "operation": "start", "commandSession": "not-a-session" }` | 200 `{ "data": null, "errors": [{ "code": "bad-session", … }] }`: no data, no storage url, no occurrences |
+  | `start-forged-session` | the same, with `commandSession` an ES256-shaped JWT naming a command at `fg: 1`, its signature junk (`c5d-drive-checks.js` `forgedSession`) | the same `bad-session` refusal |
+
+  - **Afterwards,** the drive bucket's listing is unchanged (`drive-bucket-unchanged`). Policy holds no new command of the canary, and neither fixture's capture counter moved (`policy-unchanged`).
+  - **A failure of any of these exits nonzero** and stops the drive before `baseline`.
 - **The baseline:** `graffiticode-thumbnails`' listing is recorded (the `baseline` phase).
 - **Also, by hand:**
-  - `gcloud run services get-iam-policy` on each drive service lists exactly the invokers above;
+  - `gcloud run services get-iam-policy` on each drive service lists exactly the invokers in §3.2: `allUsers`, `api-run` and `deploy-smoke` on each compiler; the Broker's and the api's sets with no public member;
   - `gcloud scheduler jobs describe command-sweep-c5d-drive` shows the sweeper's OIDC token and the service's URL;
   - `gcloud run services describe l0176r-drive` is unchanged from before this step.
 
@@ -2475,21 +2515,34 @@ done
    gcloud scheduler jobs delete command-sweep-c5d-drive --project=graffiticode --location=us-central1
    ```
 
-2. **Park each pinnable drive compiler** on a revision never recorded approved, so no approved drive revision serves. Use plain `gcloud`, not the deploy CLI, so nothing records an approval:
+2. **Close access to both compilers, then verify it is closed,** before anything is parked or retired. Remove `allUsers` first, then the remaining invokers:
 
    ```bash
    for s in l0013r-c5d-drive l0176r-c5d-drive; do
+     gcloud run services remove-iam-policy-binding "$s" --project=graffiticode --region=us-central1 --member=allUsers --role=roles/run.invoker
      for m in api-run deploy-smoke; do
        gcloud run services remove-iam-policy-binding "$s" --project=graffiticode --region=us-central1 \
          --member="serviceAccount:$m@graffiticode.iam.gserviceaccount.com" --role=roles/run.invoker
      done
+   done
+   ```
+
+   **Verify, for each compiler:**
+   - `gcloud run services get-iam-policy "$s" --project=graffiticode --region=us-central1 --format=json` shows no `roles/run.invoker` binding at all;
+   - `curl -s -o /dev/null -w '%{http_code}\n' <its stable URL>/` with no credentials answers Cloud Run's own 403. The body is Google's "Error: Forbidden" page, not the app's health answer.
+
+   Only then go on.
+3. **Park each pinnable drive compiler** on a revision never recorded approved, so no approved drive revision serves. Use plain `gcloud`, not the deploy CLI, so nothing records an approval. Its invoker bindings are already gone (step 2):
+
+   ```bash
+   for s in l0013r-c5d-drive l0176r-c5d-drive; do
      gcloud run deploy "$s" --project=graffiticode --region=us-central1 --image=<its serving image digest> \
        --no-allow-unauthenticated --tag=parked
      gcloud run services update-traffic "$s" --project=graffiticode --region=us-central1 --to-tags=parked=100
    done
    ```
 
-3. **Retire every approved drive revision,** one at a time:
+4. **Retire every approved drive revision,** one at a time:
 
    ```bash
    node scripts/revisions.js retire l0013r-c5d-drive --release <its release id>
@@ -2498,7 +2551,7 @@ done
 
    - A non-empty report (a plan still needing a revision) cancels the retirement, and is a finding to resolve. `--confirm-unrecoverable` only by the owner's named decision.
    - **Verify:** `node scripts/revisions.js status <service>` shows each drive release `retired`, and no drive tag URL answers.
-4. **Then delete:** the four services (`broker-c5d-drive` isn't pinnable, so nothing to retire) and the bucket, after its listing goes to the evidence:
+5. **Then delete:** the four services (`broker-c5d-drive` isn't pinnable, so nothing to retire) and the bucket, after its listing goes to the evidence:
 
    ```bash
    for s in api-c5d-drive l0013r-c5d-drive l0176r-c5d-drive broker-c5d-drive; do
@@ -2507,8 +2560,44 @@ done
    gcloud storage rm -r gs://graffiticode-c5d-drive
    ```
 
-5. **Remove the proxy host** from `compilers-l0013` and `compilers-l0176` and the drive entries from `deploy.json` (a reviewed PR). Roll the proxy and verify (`verify-rollout.js`), then delete the host's certificate secret. The window expires on its own.
-6. **B6's `l0176r-drive`:** read back, and unchanged.
+6. **Remove the proxy host** from `compilers-l0013` and `compilers-l0176` and the drive entries from `deploy.json` (a reviewed PR). Roll the proxy and verify (`verify-rollout.js`), then delete the host's certificate secret. The window expires on its own.
+7. **B6's `l0176r-drive`:** read back, and unchanged.
+
+#### 9. An aborted run and its successor
+
+Run `0aa69b9a` stopped at `first-capture` (the correction above). It is closed, not resumed, and stays in the evidence as aborted: no `judge` pass is expected of it. A new run takes its place.
+
+1. **Close run `0aa69b9a`:**
+   - **`first-public`, anonymous, is resolved from its own saved answer.** That answer was 200 `{ "status": "success", "data": { "errors": [{ "code": "preflight-unavailable", "message": "Error: preflight of s0 failed (403)" }] } }`, saved as `journal/first-public.ambiguous.json`, with no `.id.json`. `preflight-unavailable` is the bridge's refusal before any allocating call:
+     - an anonymous request has no held-key lookup (`packages/api/src/commands/bridge.js` lines 234–246);
+     - eligibility preflights every stage, and a `PreflightUnavailable` returns at line 252, before `run(true)` at line 296.
+
+     So the answer is the request's own proof that its work ended before allocation.
+
+     ```bash
+     node scripts/c5d-drive.js --phase resolve-intent --run 0aa69b9a --name first-public
+     ```
+
+     - **What it writes:** `journal/first-public.id.json`, with `noAllocation: { kind: "pre-allocation-answer", code: "preflight-unavailable", answeredAt, evidence: "first-public.ambiguous.json", source: "packages/api/src/commands/bridge.js" }`. The `.ambiguous.json` is left as it is.
+     - **The consistency check:** it requires Policy's enumeration for the task since `sentAt` to hold no anonymous command, which is a check, not the proof. A candidate there refuses the resolution, and so does any code but the bridge's pre-allocation ones (`c5d-drive-checks.js` `BRIDGE_PRE_ALLOCATION_CODES`). An empty query alone never resolves an intent.
+   - **`first-private` is keyed:** its id was planned, and its absent Policy record already proves nothing was allocated.
+   - **Then cleanup,** which must pass:
+
+     ```bash
+     node scripts/c5d-drive.js --phase cleanup --run 0aa69b9a
+     ```
+
+2. **Start a fresh run:** `node scripts/c5d-drive.js --phase plan`. It writes a new run id, new keys and new fault maps; nothing of `0aa69b9a` carries over.
+3. **Bind `allUsers` on both compilers and read it back** (§3.2), before their releases: the deploy CLI refuses a public service whose policy has no unconditioned `allUsers`.
+4. **Re-release, with the deploy CLI, from the merge commit of this correction:**
+   - `l0013r-c5d-drive`: public, with the new run's `L0013_CAPTURE_FAULTS`;
+   - `l0176r-c5d-drive`: public;
+   - `api-c5d-drive`: the new run's `API_COMMAND_FAULT_TARGETS`.
+
+   Broker is unchanged.
+5. **Then the new run's phases, in order:** `checks`, `access-probes` and `baseline`, then the capture phases. Each phase's failure exits nonzero, and the drive stops there.
+
+The existing window's expiry is unchanged, and no extension is allowed: if the new run can't finish within it, it stops, and the owner decides.
 
 ### Step 33: the api's rollback floor, `C5d-v9` [HELD: draft #443]
 

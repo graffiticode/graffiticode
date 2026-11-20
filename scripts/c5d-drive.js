@@ -36,6 +36,13 @@
 //                    /egress (the plan says /status; the route is /egress),
 //                    the bucket's settings and IAM, the fault maps equal to
 //                    plan.json's).
+//   access-probes    runner, after checks and before baseline: the public drive
+//                    compilers' own access control, live (Step 32 §7): a
+//                    gateway's preflight answers a manifest (the control); no,
+//                    malformed or non-gateway X-Caller-Identity is refused; a
+//                    start with a malformed or forged command session is
+//                    refused bad-session; the drive bucket and Policy are
+//                    unchanged.
 //   baseline         runner, read-only, once per run: graffiticode-thumbnails'
 //                    listing into baseline.json; refused once any capture has
 //                    begun. Every capture phase needs it.
@@ -83,7 +90,14 @@
 //                    than one, leaves it unresolved: an empty result never
 //                    proves no allocation. Rerun it later; cleanup fails
 //                    until every intent is resolved or the owner decides.
-//   boundary         runner, read-only: every inventoried command (plan,
+//   resolve-intent   --name <intent>: an ambiguous anonymous intent whose own
+//                    saved answer is the api bridge's refusal before any
+//                    allocating call (BRIDGE_PRE_ALLOCATION_CODES, e.g.
+//                    preflight-unavailable) is resolved as no allocation, its
+//                    .ambiguous.json kept as the evidence. Policy's
+//                    enumeration for its task since it was sent must hold no
+//                    anonymous candidate (a consistency check, not the proof).
+//   boundary        runner, read-only: every inventoried command (plan,
 //                    journal, manifests), each invocation's Broker claims, and
 //                    Broker's audit polled until every claim has its execute
 //                    evidence (or the bound), each query checked for truncation;
@@ -114,6 +128,7 @@ import {
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
   latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
   priorPublicCaptures, policyFixtureClient, answerResolution, correlateIntents, paginateAll, drivePolicyCommands, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
+  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession,
 } from "./lib/c5d-drive-checks.js";
 
 const args = process.argv.slice(2);
@@ -121,8 +136,8 @@ const flag = (name, fallback = null) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : fallback;
 };
-const PHASE_NAMES = ["plan", "checks", "baseline", "first-capture", "direct-refused", "exit-after-reserve", "exit-after-stage", "drop-outcome", "drop-outcome-retry",
-  "stale-worker", "staging-gone", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap", "resolve-journal", "boundary", "cleanup", "judge"];
+const PHASE_NAMES = ["plan", "checks", "access-probes", "baseline", "first-capture", "direct-refused", "exit-after-reserve", "exit-after-stage", "drop-outcome", "drop-outcome-retry",
+  "stale-worker", "staging-gone", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap", "resolve-journal", "resolve-intent", "boundary", "cleanup", "judge"];
 const phase = flag("--phase");
 if (!PHASE_NAMES.includes(phase)) {
   console.error(`usage: c5d-drive.js --phase <${PHASE_NAMES.join("|")}> --run <id> [flags]`);
@@ -246,7 +261,10 @@ const finish = extra => {
     const judged = judgePhase(phase, observations);
     for (const c of judged.checks) console.log(`${c.ok ? "ok    " : "FAILED"} ${c.id}: ${c.detail}`);
   }
-  console.log(`${phase}: ${file}`);
+  // A failed check or read fails the phase's exit status, not just its output.
+  const code = phaseExitCode({ phase, observations });
+  if (code) process.exitCode = code;
+  console.log(`${phase}: ${file}${code ? " (FAILED)" : ""}`);
 };
 // One write-once journal entry per request, before it is sent.
 const journal = (name, value) => writeManifestOnce(path.join(journalDir, journalName(name)), { at: new Date().toISOString(), ...value });
@@ -412,7 +430,12 @@ const anonymousCompile = async (name, task) => {
   // Resolved only by its id or a refusal before allocation; anything else
   // (a 5xx, a network error, an unparseable body) stays unresolved, its
   // answer kept, until Policy's records resolve it (--phase resolve-journal).
-  const resolution = res ? answerResolution({ status: res.status, body: res.json, commandId }) : null;
+  // The bridge's own refusal before allocation (bridgePreAllocationCode) is
+  // saved as its evidence, which the resolution names.
+  if (res && !commandId && bridgePreAllocationCode({ status: res.status, body: res.json })) {
+    writeManifestOnce(path.join(journalDir, journalAnswerName(name)), { task, sentAt, answeredAt, status: res.status, body: res.json });
+  }
+  const resolution = res ? answerResolution({ status: res.status, body: res.json, commandId, answeredAt, evidence: journalAnswerName(name) }) : null;
   if (resolution) journalId(name, { ...resolution, status: res.status });
   else writeManifestOnce(path.join(journalDir, journalAmbiguousName(name)), { task, sentAt, answeredAt, status: res?.status ?? null, failure, body: res?.json ?? null });
   return { status: res?.status ?? null, commandId };
@@ -508,6 +531,87 @@ if (phase === "checks") {
     const policy = JSON.parse(await gcloud(["storage", "buckets", "get-iam-policy", `gs://${config.bucket}`, "--format=json"]));
     return { settings: { uniform: d.uniform_bucket_level_access === true, publicAccessPrevention: d.public_access_prevention ?? null }, bindings: policy.bindings ?? [] };
   });
+  finish();
+}
+
+if (phase === "access-probes") {
+  // The public drive compilers' own access control, live (Step 32 §7;
+  // c5d-drive-checks.js ACCESS_PROBES): a gateway's preflight works, nothing
+  // else's does, and a start without a session Policy signed is refused.
+  const { snapTask, COMMAND_PROGRAM } = await import("./lib/canary.js");
+  const { parser } = await import("@graffiticode/parser");
+  const policyState = async () => {
+    const q = await policyCommandsWhere("uid", uid);
+    const itemCaptures = {};
+    for (const item of Object.values(FIXTURES)) itemCaptures[item] = await counterOf(item);
+    return { commandIds: q.records.map(r => r.commandId).sort(), complete: q.complete, pages: q.pages, itemCaptures };
+  };
+  await collect("bucketBefore", () => listing(config.bucket));
+  await collect("policyBefore", policyState);
+  const probe = async (role, lang, code) => {
+    const url = await driveUrl(role);
+    const audience = `urn:graffiticode:${lang}`;
+    const post = async (route, headers, body) => {
+      const res = await http({ method: "POST", url: `${url}${route}`, headers, body });
+      return { status: res.status, body: res.json };
+    };
+    const preflight = { stage: "s0", lang, code };
+    const out = {};
+    out["gateway-control"] = await post("/preflight", { "X-Caller-Identity": await idToken(gatewayAccount, audience) }, preflight);
+    out["no-identity"] = await post("/preflight", {}, preflight);
+    out["malformed-identity"] = await post("/preflight", { "X-Caller-Identity": ACCESS_PROBE_MALFORMED_IDENTITY }, preflight);
+    out["non-gateway"] = await post("/preflight", { "X-Caller-Identity": await idToken(consoleAccount, audience) }, preflight);
+    out.model = await post("/compile", {}, { code, data: {}, form: "model" });
+    const model = out.model.body?.model;
+    // Without a model the starts can't be probed: they stay unobserved, and fail.
+    if (model) {
+      out["start-malformed-session"] = await post("/interpret", {}, { model, input: {}, operation: "start", commandSession: ACCESS_PROBE_MALFORMED_SESSION });
+      out["start-forged-session"] = await post("/interpret", {}, { model, input: {}, operation: "start", commandSession: forgedSession() });
+    }
+    return out;
+  };
+  const compilers = {};
+  await collect("l0013r", async () => (compilers.l0013r = await probe("l0013r", "0013", snapTask(FIXTURES.private).code)));
+  await collect("l0176r", async () => {
+    const url = await driveUrl("l0176r");
+    const res = await http({ method: "GET", url: `${url}/lexicon.json` });
+    if (res.status !== 200 || !res.json) throw new Error(`${url}/lexicon.json: ${res.status}`);
+    const code = await parser.parse(176, COMMAND_PROGRAM, res.json);
+    return (compilers.l0176r = await probe("l0176r", "0176", code));
+  });
+  observations.compilers = compilers;
+  delete observations.l0013r;
+  delete observations.l0176r;
+  await collect("bucketAfter", () => listing(config.bucket));
+  await collect("policyAfter", policyState);
+  finish();
+}
+
+if (phase === "resolve-intent") {
+  // An ambiguous anonymous intent whose own saved answer is the bridge's
+  // refusal before allocation (c5d-drive-checks.js BRIDGE_PRE_ALLOCATION_CODES).
+  // Policy's enumeration for its task since it was sent must hold no
+  // anonymous candidate: a consistency check, not the proof. The
+  // .ambiguous.json stays as it is.
+  const name = need("--name");
+  const files = journalFiles();
+  if (!files.includes(journalAmbiguousName(name))) throw new Error(`${name}: no ${journalAmbiguousName(name)} in this run's journal`);
+  if (files.includes(journalIdName(name))) throw new Error(`${name}: already resolved (${journalIdName(name)})`);
+  const intent = JSON.parse(readFileSync(path.join(journalDir, journalName(name)), "utf8"));
+  const answer = JSON.parse(readFileSync(path.join(journalDir, journalAmbiguousName(name)), "utf8"));
+  const q = await policyCommandsWhere("taskId", intent.task);
+  observations.query = { query: q.query, pages: q.pages, count: q.count, complete: q.complete };
+  const candidates = q.complete ? q.records.filter(c => c.uid === ANONYMOUS_SUBJECT && Date.parse(c.createdAt) >= Date.parse(intent.sentAt)) : undefined;
+  observations.candidates = candidates ?? null;
+  const r = preAllocationResolution({ name, answer, candidates });
+  if (r.problem) {
+    observations.errors.resolution = r.problem;
+    console.error(`not resolved: ${r.problem}`);
+  } else {
+    journalId(name, r.resolution);
+    observations.resolution = r.resolution;
+    console.log(`${name}: no allocation (${r.resolution.noAllocation.code}, answered ${r.resolution.noAllocation.answeredAt})`);
+  }
   finish();
 }
 
@@ -885,7 +989,7 @@ if (phase === "cleanup") {
   // run's drive tasks (any principal) and every command of the run's
   // principals (the canary, the non-owner), each query paged to its end.
   await collect("policyEnumeration", async () => {
-    const entries = journalFiles().filter(f => !f.endsWith(".id.json") && !f.endsWith(".ambiguous.json")).map(f => JSON.parse(readFileSync(path.join(journalDir, f), "utf8")));
+    const entries = journalFiles().filter(f => !f.endsWith(".id.json") && !f.endsWith(".ambiguous.json") && !f.endsWith(".answer.json")).map(f => JSON.parse(readFileSync(path.join(journalDir, f), "utf8")));
     const tasks = new Set(entries.map(e => e.task).filter(t => typeof t === "string"));
     // canary.js posts its own snap task: its planned command's record names it.
     const canarySnap = await doc("policy", `commands/${encodeURIComponent(ids["canary-snap"])}`);

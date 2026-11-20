@@ -2131,7 +2131,7 @@
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0013r-c5d-drive",
       "dockerfile": "configs/Dockerfile.l0013r.yaml",
       "port": 8080,
-      "access": "private",
+      "access": "public",
       "retireTags": true,
       "runtimeServiceAccount": "l0013r-run@graffiticode.iam.gserviceaccount.com",
       "pinnable": {
@@ -2242,14 +2242,13 @@
       ],
       "forbiddenEnv": [
         "THUMBNAIL_BUCKET"
-      ],
-      "smokeServiceAccount": "deploy-smoke@graffiticode.iam.gserviceaccount.com"
+      ]
     },
     "l0176r-c5d-drive": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive",
       "dockerfile": "configs/Dockerfile.l0176r.yaml",
       "port": 8080,
-      "access": "private",
+      "access": "public",
       "retireTags": true,
       "runtimeServiceAccount": "l0176r-run@graffiticode.iam.gserviceaccount.com",
       "pinnable": {
@@ -2316,8 +2315,7 @@
         "SYSTEM_PREVIEW_DIRECT",
         "LEARNOSITY_KEY",
         "LEARNOSITY_SECRET"
-      ],
-      "smokeServiceAccount": "deploy-smoke@graffiticode.iam.gserviceaccount.com"
+      ]
     },
     "api-c5d-drive": {
       "image": "us-central1-docker.pkg.dev/graffiticode/services/api-c5d-drive",
