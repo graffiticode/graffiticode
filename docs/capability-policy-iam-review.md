@@ -2670,7 +2670,7 @@ enc() { node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$1"
    ```
 
    **Expect:**
-   - **The command:** `status` `pending`, `phase` `admitted`, `scopes` `1`, `admission.recording` `1`, no `publication` and no `result`. Record `owner.generation`, `owner.worker`, `owner.leaseExpiresAt` (expected near 19:55:14Z), `admission.planDigest`, the pinned `l0013r-c5d-drive` revision, and `invocationId`.
+   - **The command:** `status` `pending`, `phase` `admitted`, `scopes` `1`, `admission.recording` `1`, `publication` `{ state: "none", resultDigest: null }` and `result` `{ state: "none", digest: null }` (present, not absent: the saved record of 2026-11-20 holds exactly these). Record `owner.generation`, `owner.worker`, `owner.leaseExpiresAt` (expected near 19:55:14Z), `admission.planDigest`, the pinned `l0013r-c5d-drive` revision, and `invocationId`.
    - **`occurrences`:** exactly `$OCC`. Record its `minted[]` (`jti`, `exp`) and `argd`.
    - **`reservations`:** exactly `$OCC`, `state` `staged`, `stagedGeneration` `1`, `object` `$CMD/s0/x:9eb9….png`, and the `sha256`. Record `renderGrants[]`.
    - **`outcomes`, `refusals` and `ledger`:** empty.
@@ -2727,13 +2727,19 @@ enc() { node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$1"
    - Policy's `owner.generation` unchanged between read 1 and a second read taken at the end of this step.
 
    Production `api`'s logs for the same window name no `$CMD`.
-6. **Production `api` is not a scopes worker:**
+6. **Production `api` is not a scopes worker, on any revision that serves.** The service's template can differ from what serves (#460 review), so every revision with nonzero traffic, and every tagged revision (a tag URL reaches it), is read itself:
 
    ```bash
-   gcloud run services describe api --project=graffiticode --region=us-central1 --format=json | jq '[.spec.template.spec.containers[0].env[] | select(.name=="COMMAND_SCOPES")]'
+   gcloud run services describe api --project=graffiticode --region=us-central1 --format=json \
+     | jq -r '.status.traffic[] | select((.percent // 0) > 0 or .tag != null) | .revisionName' | sort -u \
+     | while read -r rev; do
+         printf '%s ' "$rev"
+         gcloud run revisions describe "$rev" --project=graffiticode --region=us-central1 --format=json \
+           | jq -c '[.spec.containers[0].env[]? | select(.name=="COMMAND_SCOPES")]'
+       done
    ```
 
-   **Expect:** `[]`.
+   **Expect:** at least one revision listed, and `[]` for every one. An empty list of revisions, or a read that fails, stops the procedure: neither shows that no revision runs scopes.
 
 Any difference from these expectations stops the procedure, and the owner decides.
 
@@ -2743,6 +2749,7 @@ Retiring revisions (§8 step 4) and deleting infrastructure (§8 step 5) **stay 
 
 1. **§10.3, in full,** before §8 step 1. Its output goes to `docs/evidence/c5d/drive/<run>/staging-gone-disposal/`, one file per read.
 2. **§8 step 1, `cleanup`: run it, and record it failed.**
+   - **It needs the window** (#460 review). Its due reads mint `api-run` ID tokens for Policy's gateway route (`policyFixtureClient(gateway).due`, `scripts/c5d-drive.js` cleanup), and the operator mints those only under `canary-window-c5d`, which expires `2026-11-20T23:14:39Z` with no extension. So it runs **before that expiry**. If it can't, cleanup is **not run** after expiry; instead the owner reviews an alternative, for example Policy's `commands` records read directly with the operator's own credentials, applying the due query's filter (`status` `pending`, lease expired, `ownableBy` for each `scopes` value; `packages/policy/src/firestore.ts:180–198`, `commands.ts:150–151`), recorded as that read and not as a `cleanup` manifest. **A minting failure is a failed read, never evidence that a command is absent**, and a cleanup manifest with a failed read is recorded failed for that reason.
    - `node scripts/c5d-drive.js --phase cleanup --run <run>` is expected to **exit nonzero**, naming this command and only this one: `status` `pending`, listed by the due query with `scopes` (`scripts/c5d-drive.js:1021–1025`; with `scopes`, line 1023). Any other command named is a separate finding.
    - Never run it with `--aborted`: that close is for a run that allocated nothing.
    - The manifest is kept as written, failed. **Cleanup is never marked passed for this run.**
@@ -2764,7 +2771,14 @@ Retiring revisions (§8 step 4) and deleting infrastructure (§8 step 5) **stay 
       ```
 
    4. **Verify:**
-      - `node scripts/revisions.js status l0013r-c5d-drive` shows the release `retired`, with `unrecoverable` exactly the plans step 2 accounted for (`revisions.ts:242–243`);
+      - `node scripts/revisions.js status l0013r-c5d-drive` shows the release `retired`;
+      - `unrecoverable` is read from the approval record itself, since `revisions.js status` doesn't print it (#460 review): database `revisions`, document `languages/0013/revisions/<the retired revision>` (`packages/deploy/src/revisions.js:20–21`; written at `packages/policy/src/revisions.ts:242–243`), and it lists exactly the plan digests step 2 accounted for, this command's `admission.planDigest` among them:
+
+        ```bash
+        curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+          "https://firestore.googleapis.com/v1/projects/graffiticode/databases/revisions/documents/languages/0013/revisions/<the retired revision>" \
+          | jq '{status: .fields.status.stringValue, retiredAt: .fields.retiredAt.stringValue, unrecoverable: [.fields.unrecoverable.arrayValue.values[]?.stringValue]}'
+        ```
       - the tag URL no longer answers;
       - Policy's command is unchanged from §10.3 read 1: same `owner.generation`, still `pending`.
 

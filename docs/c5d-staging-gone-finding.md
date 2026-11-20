@@ -35,7 +35,7 @@ Staging is soft-deleted for 7 days, so the second can come back. That makes the 
 
 **How it settles durably.** On the definite branch of 7c (staging read succeeded; the bytes are absent or don't hash to the bound digest; the re-read still finds no claim), Broker no longer just answers 409. It does three things:
 1. **It claims the operation.** The claim records the token's verified binding, exactly as a write's claim does (`writeBinding`, `pld`). Its evidence is `{ refused: "staging-unavailable" }` in place of the publish evidence.
-2. **It records the outcome.** `outcome/final` becomes `{ status: "failed", steps: [], result: null, reason: "staging-unavailable", category }`, with no run opened and no dispatch. The claim and the outcome commit in one transaction (or, if two writes are kept, the claim is never left without an outcome: see the race below).
+2. **It records the outcome.** `outcome/final` becomes `{ status: "failed", steps: [], result: null, reason: "staging-unavailable", category }`, with no run opened and no dispatch. **The claim and the outcome commit in one transaction, and nothing else is allowed** (#460 review). There is no two-write variant: a claim committed without its outcome reads `uncertain` (`receipts-read.ts`), and reconciliation returns `unresolved` for it, so a crash between two writes would leave the operation unsettled for good. The transaction creates the claim (failing if one exists) and `outcome/final` together, or neither.
 3. **It still answers 409 `staging-unavailable`,** now with the recorded outcome.
 
 **Settlement then follows the existing path:**
@@ -60,7 +60,7 @@ GCS reads are strongly consistent, and Policy marks a reservation `staged` only 
 - **A concurrent execute claims first** (for example, staging restored and read by another request): the refusal's create fails. It then replays the existing claim, as the raced branch does now (`broker.ts:651–653`). Nothing is recorded over it.
 - **The refusal claims first:** any later or concurrent execute finds the claim and replays `failed` (`replayClaim`). It never reads staging and never publishes, even if the bytes come back.
 - **A claimed run with no outcome yet** (in flight, or aborted under 7e): the refusal path isn't taken. In flight, the existing claim answers. Aborted, the reopen re-reads staging. If staging is then definitively missing, the reopening run records `failed` under its own run fence (`putOutcome` with `run`, `firestore.ts:122–139`), so a concurrent reopen can't double-record.
-- **If the claim and the outcome are separate writes,** the outcome is created with the same run fence immediately after the claim. A crash between them leaves a claim without an outcome, which reads as `uncertain` (`receipts-read.ts`). That is honest but needs reconciliation, so a single transaction is preferred.
+- **A crash during the refusal's record** leaves either both the claim and the outcome, or neither: they are one transaction. With neither, the next execute takes the same branch again and records once. A claim without an outcome can't come from this path.
 
 **Reconciliation.** A refusal receipt carries no publish evidence, so `reconcile.ts` must treat it as final and never read for it. It is not `unresolved`.
 
@@ -82,6 +82,7 @@ A command that can't settle (this one, or any future case of a definite refusal 
    - **A retry after a recorded refusal,** with the bytes restored: it replays `failed`, never reads staging, never publishes.
    - **The same operation id with different args:** `operation-id-reused`.
    - **Authorization denied or unavailable** for the refusal's record: nothing recorded, and the answer is as today.
+   - **A crash inside the refusal's transaction** (an injected failure after the claim's write is staged, before commit, in the memory store and under the Firestore emulator): neither the claim nor `outcome/final` exists, the receipt reads absent (not `uncertain`), and the next execute records the refusal exactly once.
 2. **Race (memory store with an interleaving hook, and `firestore.spec.ts` under the emulator):**
    - **A claims first:** A has staging and claims; B read staging as missing. B's record loses and B replays A's claim, so A's outcome stands.
    - **B records first:** A then replays `failed`, with no upload.
