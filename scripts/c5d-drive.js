@@ -128,7 +128,7 @@ import {
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
   latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
   priorPublicCaptures, policyFixtureClient, answerResolution, correlateIntents, paginateAll, drivePolicyCommands, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
-  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing, directCompileRequest,
+  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing, directCompileRequest, isRenderLine,
 } from "./lib/c5d-drive-checks.js";
 
 const args = process.argv.slice(2);
@@ -497,9 +497,19 @@ const counterOf = async item => doc("policy", `item-captures/${encodeURIComponen
 const faultLines = (commandId, from) => lines(config.l0013r, "capture fault", from).then(ls => ls.filter(l => l.text.includes(commandId)));
 // The compiler's `render` lines name the item, not the command (crates/capture
 // render(): "render item=<item> ..."), so a phase counts its item's renders in
-// its own window, while no other capture of that item runs.
-const rendersOf = async (item, from, to = null) => (await lines(config.l0013r, `render item=${item}`, from))
-  .filter(l => to === null || Date.parse(l.at) < Date.parse(to)).length;
+// its own window, while no other capture of that item runs. The lines carry
+// ANSI codes inside the field, so they are queried by the item id (plain in
+// the line) and matched without the codes (isRenderLine). Read until a render
+// is ingested (bounded), then once more after a settling wait, so a later
+// second render isn't missed.
+const RENDER_SETTLE_MS = 30_000;
+const rendersOnce = async (item, from, to) => (await lines(config.l0013r, item, from))
+  .filter(l => isRenderLine(l.text, item) && (to === null || Date.parse(l.at) < Date.parse(to))).length;
+const rendersOf = async (item, from, to = null) => {
+  await pollUntil({ read: () => rendersOnce(item, from, to), done: n => n > 0, timeoutMs: 120_000, intervalMs: 5_000 });
+  await sleep(RENDER_SETTLE_MS);
+  return rendersOnce(item, from, to);
+};
 // Every command the drive may have allocated (c5d-drive-checks.js inventory).
 const driveInventory = () => inventory({
   plan,

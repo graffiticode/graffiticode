@@ -857,6 +857,15 @@ export const directCompileRequest = ({ url, code, userToken }) => {
   return { method: "POST", url: `${url}/compile`, headers: { Authorization: userToken }, body: { code, data: {} } };
 };
 
+// The compiler's log lines are tracing's, with ANSI colour codes inside their
+// fields: `render \x1b[3mitem\x1b[0m\x1b[2m=\x1b[0m<item> …` (live, run
+// ad49c0ac, 2026-11-20), so "render item=<item>" never matches as written.
+// A line is a render of `item` when, without its colour codes, it says so.
+// The escape character built from its code, so the pattern holds no control character.
+const ANSI_RE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
+export const stripAnsi = text => String(text ?? "").replace(ANSI_RE, "");
+export const isRenderLine = (text, item) => new RegExp(`\\brender item=${item.replace(/[^A-Za-z0-9_-]/g, "")}(\\s|$)`).test(stripAnsi(text));
+
 export const confirmResolution = ({ recorded, recomputed }) => {
   if (!recorded?.noAllocation) return { problem: "the recorded resolution has no noAllocation" };
   if (!recomputed?.noAllocation) return { problem: "no resolution could be recomputed" };

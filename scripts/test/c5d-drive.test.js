@@ -1295,3 +1295,17 @@ test("direct-refused compiles as the canary user, never with a Google ID token",
   assert.match(block, /directCompileRequest\(/);
   assert.doesNotMatch(block, /idToken\(/, "no ID token on the direct compile");
 });
+
+// Live, run ad49c0ac (2026-11-20): exit-after-stage's staged-reused counted 0
+// renders; the compiler had logged one, as tracing writes it, with ANSI codes
+// inside the field. A render line is matched without its colour codes.
+test("render lines are matched without their ANSI colour codes", () => {
+  const item = "7vwaCAIyMNCJEzgIfyYY";
+  const live = "\u001b[2m2026-11-20T17:56:34.404289Z\u001b[0m \u001b[32m INFO\u001b[0m \u001b[2ml0013_capture\u001b[0m\u001b[2m:\u001b[0m render \u001b[3mitem\u001b[0m\u001b[2m=\u001b[0m7vwaCAIyMNCJEzgIfyYY \u001b[3mwidth\u001b[0m\u001b[2m=\u001b[0m1024";
+  assert.equal(C.isRenderLine(live, item), true);
+  assert.equal(C.isRenderLine(`render item=${item}`, item), true);
+  assert.equal(C.isRenderLine(live, "7vwaCAIyMNCJEzgIfyY"), false, "a prefix of the id is another item");
+  assert.equal(C.isRenderLine(live.replace("render", "resolve"), item), false);
+  assert.equal(C.isRenderLine("\u001b[33m WARN\u001b[0m capture fault exit-after-stage command c:ab", item), false);
+  assert.equal(C.stripAnsi("\u001b[3mitem\u001b[0m\u001b[2m=\u001b[0mx"), "item=x");
+});
