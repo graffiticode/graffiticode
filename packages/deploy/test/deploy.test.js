@@ -10,6 +10,7 @@ import { included, snapshot } from "../src/snapshot.js";
 import { run, streamOutput } from "../src/process.js";
 import { release, rollback, flagGenerationProblems, unmanagedFlagProblems, traffic, buildConfig, deployArgs, smokeCheck, verifyCandidate, waitForBuild, staleTags, retireTags, meetsMilestone, belowBaseline, releaseCheck, approveReleased, networkProblems, networkEnv, METADATA_ONLY, NETWORK_ENV, forbiddenEnvProblems, promote, networkHash } from "../src/release.js";
 import { createRevisionClient, decodeFields, encodeFields, reachableProblems, retainedTags } from "../src/revisions.js";
+import { bindingEnv, bindingLabel, revisionBinding } from "../src/profile.js";
 
 const digest = `sha256:${"a".repeat(64)}`;
 const config = {
@@ -1836,4 +1837,325 @@ test("the C5d drive's deploy.json entries are isolated from production and carry
   // B6's drive is untouched, and broker-faults never comes back.
   assert.equal(s["l0176r-drive"].env.BROKER_URL, url("broker-faults"));
   assert.equal(s["broker-faults"], undefined);
+});
+
+// Installation profiles (src/profile.js): each revision is bound to the
+// profile it was released with, and its own report is checked against it.
+const PROFILE_A = { repo: "git@github.com:example/installation-a.git", ref: "1".repeat(40), digest: "a1".repeat(32), installationId: "alpha" };
+const PROFILE_B = { repo: "git@github.com:example/installation-b.git", ref: "2".repeat(40), digest: "b2".repeat(32), installationId: "beta" };
+const pinOf = b => ({ repo: b.repo, ref: b.ref, digest: b.digest });
+// profile: a binding to pin, null for none (profile-aware either way).
+const profiled = b => ({ ...context, config: { ...config, profileHealth: "/health", profile: b ? pinOf(b) : null } });
+const sourceWith = b => ({ ...source, profile: b });
+// A profile-aware harness: api-old is a readable revision from before profiles.
+async function profileHarness(t, options) {
+  const h = await harness(t, options);
+  h.revisions.set("api-old", { metadata: { labels: {} }, spec: { containers: [{ env: [{ name: "AUTH_URL", value: "x" }] }] } });
+  return h;
+}
+// The candidate, answering as the app's runtime does (core/src/profile/runtime.ts):
+// appVersion is its revision (K_REVISION), the repo and ref come from its
+// environment, and the installation and digest from the profile in its image
+// (`image`, by default the one its binding names; null: no profile loaded).
+/** @param {any} h @param {{ image?: { digest: string, installationId: string } | null, seen?: string[] }} [options] */
+function appServer(h, { image, seen = [] } = {}) {
+  return async url => {
+    const revision = `api-${new URL(url).hostname.split("---")[0]}`;
+    seen.push(revision);
+    const env = Object.fromEntries(h.revisions.get(revision).spec.containers[0].env.map(e => [e.name, e.value]));
+    const loaded = image !== undefined ? image : env.PROFILE_DIR ? { digest: env.GC_PROFILE_DIGEST, installationId: env.GC_PROFILE_INSTALLATION } : null;
+    const body = loaded
+      ? { status: "ok", installation: { appVersion: revision, installationId: loaded.installationId, profileVersion: 1, profileRepo: env.PROFILE_REPO ?? null, profileRef: env.PROFILE_REF ?? null, profileDigest: loaded.digest } }
+      : { status: "ok" };
+    return new Response(JSON.stringify(body), { status: 200 });
+  };
+}
+const bindingOf = (h, revision) => revisionBinding(h.revisions.get(revision));
+
+test("profile A, profile B, then no profile: each release binds its revision and its receipt to what it ran", async t => {
+  const h = await profileHarness(t);
+  const deps = { ...h.deps, fetch: appServer(h) };
+  const a = await release(profiled(PROFILE_A), sourceWith(PROFILE_A), deps);
+  assert.equal(a.status, "released");
+  assert.deepEqual(a.profile, PROFILE_A);
+  assert.deepEqual(bindingOf(h, a.revision), { state: "bound", binding: PROFILE_A });
+  const b = await release(profiled(PROFILE_B), sourceWith(PROFILE_B), deps);
+  assert.deepEqual(b.profile, PROFILE_B);
+  assert.deepEqual(bindingOf(h, b.revision), { state: "bound", binding: PROFILE_B });
+  assert.deepEqual(bindingOf(h, a.revision), { state: "bound", binding: PROFILE_A }, "an earlier revision keeps its own binding");
+  const none = await release(profiled(null), sourceWith(null), deps);
+  assert.equal(none.profile, null);
+  assert.deepEqual(bindingOf(h, none.revision), { state: "none", binding: null }, "every managed variable is removed");
+  const unbind = h.calls.filter(c => c[1] === "deploy").at(-1);
+  assert.ok(unbind.includes("--remove-labels=gc-profile"));
+  const check = await releaseCheck(profiled(null), { cloud: h.deps.cloud, git: undefined });
+  assert.equal(check.ok, true);
+  assert.deepEqual(check.profiles.find(p => p.revision === none.revision), { revision: none.revision, state: "none", binding: null });
+});
+
+test("a candidate whose own receipt differs from its binding is never promoted", async t => {
+  /** @type {Array<[any, { digest: string, installationId: string } | null, RegExp]>} */
+  const cases = [
+    // The image holds other bytes than were reviewed (a Docker filter dropped README.md).
+    [PROFILE_A, { digest: "c3".repeat(32), installationId: "alpha" }, /differs in profileDigest/],
+    [PROFILE_A, { digest: PROFILE_A.digest, installationId: "beta" }, /differs in installationId/],
+    [PROFILE_A, null, /reports no installation receipt/],
+    [null, { digest: PROFILE_A.digest, installationId: "alpha" }, /released without a profile/],
+  ];
+  for (const [b, image, pattern] of cases) {
+    const h = await profileHarness(t);
+    await assert.rejects(release(profiled(b), sourceWith(b), { ...h.deps, fetch: appServer(h, { image }) }), pattern);
+    assert.equal(toRevisions(h.calls).length, 0, "no traffic moved");
+    assert.equal(h.getReceipt().status, "failed");
+  }
+});
+
+test("a release refuses a snapshot whose profile isn't the pinned one", async t => {
+  const h = await profileHarness(t);
+  const deps = { ...h.deps, fetch: appServer(h) };
+  await assert.rejects(release(profiled(PROFILE_A), sourceWith(PROFILE_B), deps), /isn't the one deploy.json pins/);
+  await assert.rejects(release(profiled(PROFILE_A), sourceWith(null), deps), /isn't the one deploy.json pins/);
+  await assert.rejects(release(profiled(null), sourceWith(PROFILE_A), deps), /isn't the one deploy.json pins/);
+  assert.equal(h.calls.filter(c => c[0] === "builds").length, 0, "nothing built");
+});
+
+test("promote checks the staged binding without fetching the profile: a changed pin is refused, the same one promotes", async t => {
+  const h = await profileHarness(t);
+  const seen = [];
+  const deps = { ...h.deps, fetch: appServer(h, { seen }) };
+  const staged = await release(profiled(PROFILE_A), sourceWith(PROFILE_A), { ...deps, stage: true });
+  assert.equal(staged.status, "staged");
+  await assert.rejects(promote(profiled(PROFILE_B), staged, stagedEvidence(staged), deps), /profile changed since this candidate was staged/);
+  await assert.rejects(promote(profiled(null), staged, stagedEvidence(staged), deps), /profile changed since this candidate was staged/);
+  assert.equal(toRevisions(h.calls).length, 0);
+  const before = seen.length;
+  const promoted = await promote(profiled(PROFILE_A), staged, stagedEvidence(staged), deps);
+  assert.equal(promoted.status, "released");
+  assert.deepEqual(seen.slice(before), [staged.revision], "the candidate's receipt is read again before it serves");
+});
+
+test("promote refuses a candidate whose revision no longer carries the staged binding", async t => {
+  const h = await profileHarness(t);
+  // The image really holds A, so the candidate's own report still matches.
+  const deps = { ...h.deps, fetch: appServer(h, { image: { digest: PROFILE_A.digest, installationId: "alpha" } }) };
+  const staged = await release(profiled(PROFILE_A), sourceWith(PROFILE_A), { ...deps, stage: true });
+  delete h.revisions.get(staged.revision).metadata.labels["gc-profile"];
+  await assert.rejects(promote(profiled(PROFILE_A), staged, stagedEvidence(staged), deps), /isn't bound to alpha/);
+  assert.equal(toRevisions(h.calls).length, 0);
+});
+
+test("rollback across profile changes keeps each target's own binding, whatever deploy.json pins now", async t => {
+  const h = await profileHarness(t);
+  const seen = [];
+  const deps = { ...h.deps, fetch: appServer(h, { seen }) };
+  const a = await release(profiled(PROFILE_A), sourceWith(PROFILE_A), deps);
+  const b = await release(profiled(PROFILE_B), sourceWith(PROFILE_B), deps);
+  const before = seen.length;
+  // deploy.json now pins B; the rollback restores A's revision, bound to A.
+  const rolled = await rollback(profiled(PROFILE_B), b, deps);
+  assert.equal(rolled.status, "rolled-back");
+  assert.deepEqual(rolled.rolledBackToProfiles, { [a.revision]: PROFILE_A });
+  assert.deepEqual(bindingOf(h, a.revision), { state: "bound", binding: PROFILE_A });
+  assert.equal(seen.length, before, "rollback reads Cloud Run only");
+  // And back past the first profile, to a revision from before profiles.
+  const h2 = await profileHarness(t);
+  const first = await release(profiled(PROFILE_A), sourceWith(PROFILE_A), { ...h2.deps, fetch: appServer(h2) });
+  const toOld = await rollback(profiled(PROFILE_A), first, h2.deps);
+  assert.deepEqual(toOld.rolledBackToProfiles, { "api-old": null });
+});
+
+test("rollback refuses a target with a partial or unreadable profile binding, with no override", async t => {
+  for (const [old, pattern] of [
+    [{ metadata: { labels: {} }, spec: { containers: [{ env: [{ name: "PROFILE_DIR", value: "/somewhere" }] }] } }, /partial profile binding \(PROFILE_DIR\)/],
+    [{ metadata: { labels: {} } }, /unreadable environment/],
+  ]) {
+    const h = await profileHarness(t);
+    const r = await release(profiled(PROFILE_A), sourceWith(PROFILE_A), { ...h.deps, fetch: appServer(h) });
+    h.revisions.set("api-old", old);
+    await assert.rejects(rollback(profiled(PROFILE_A), r, h.deps), pattern);
+    assert.equal(toRevisions(h.calls).length, 1, "only the release's own promotion moved traffic");
+    const check = await releaseCheck(profiled(PROFILE_A), { cloud: h.deps.cloud, git: undefined });
+    assert.equal(check.ok, true, "api-old isn't reachable; release-check judges reachable revisions only");
+  }
+});
+
+test("release-check fails on a reachable revision with a partial binding", async t => {
+  const h = await profileHarness(t);
+  const staged = await release(profiled(PROFILE_A), sourceWith(PROFILE_A), { ...h.deps, fetch: appServer(h), stage: true });
+  h.revisions.get(staged.revision).spec.containers[0].env = h.revisions.get(staged.revision).spec.containers[0].env.filter(e => e.name !== "GC_PROFILE_DIGEST");
+  const check = await releaseCheck(profiled(PROFILE_A), { cloud: h.deps.cloud, git: undefined });
+  assert.equal(check.ok, false);
+  assert.equal(check.profiles.find(p => p.revision === staged.revision).state, "partial");
+});
+
+// Review findings (2026-11-20): a binding stays enforced when profileHealth is
+// removed from deploy.json, and a staged receipt keeps its own health check.
+test("with profileHealth removed, rollback still refuses a partial binding", async t => {
+  // A release recorded with a profile, then deploy.json without profile settings.
+  const h = await profileHarness(t);
+  const r = await release(profiled(PROFILE_A), sourceWith(PROFILE_A), { ...h.deps, fetch: appServer(h) });
+  h.revisions.set("api-old", { metadata: { labels: {} }, spec: { containers: [{ env: [{ name: "PROFILE_DIR", value: "/somewhere" }] }] } });
+  await assert.rejects(rollback(context, r, h.deps), /partial profile binding \(PROFILE_DIR\)/);
+  assert.equal(toRevisions(h.calls).length, 1, "only the release's own promotion moved traffic");
+  // And for a service that never had profile settings at all.
+  const h2 = await profileHarness(t);
+  const plain = await release(context, source, h2.deps);
+  h2.revisions.set("api-old", { metadata: { labels: { "gc-profile": "x" } }, spec: { containers: [{ env: [] }] } });
+  await assert.rejects(rollback(context, plain, h2.deps), /partial profile binding \(label gc-profile\)/);
+  assert.equal(toRevisions(h2.calls).length, 1);
+});
+
+test("with profileHealth removed, a rollback still records each target's own binding", async t => {
+  const h = await profileHarness(t);
+  const deps = { ...h.deps, fetch: appServer(h) };
+  const a = await release(profiled(PROFILE_A), sourceWith(PROFILE_A), deps);
+  const b = await release(profiled(PROFILE_B), sourceWith(PROFILE_B), deps);
+  const rolled = await rollback(context, b, deps);
+  assert.deepEqual(rolled.rolledBackToProfiles, { [a.revision]: PROFILE_A });
+});
+
+test("with profileHealth removed, release-check still fails on a reachable partial binding", async t => {
+  const h = await profileHarness(t);
+  const staged = await release(profiled(PROFILE_A), sourceWith(PROFILE_A), { ...h.deps, fetch: appServer(h), stage: true });
+  const env = h.revisions.get(staged.revision).spec.containers[0].env;
+  h.revisions.get(staged.revision).spec.containers[0].env = env.filter(e => e.name !== "GC_PROFILE_DIGEST");
+  const check = await releaseCheck(context, { cloud: h.deps.cloud, git: undefined });
+  assert.equal(check.ok, false);
+  assert.equal(check.profiles.find(p => p.revision === staged.revision).state, "partial");
+  // A service without any binding reports nothing new.
+  const h2 = await harness(t);
+  const clean = await releaseCheck(context, { cloud: h2.deps.cloud, git: undefined });
+  assert.equal(clean.profiles, undefined);
+});
+
+test("promote keeps the staged receipt's profile check after profileHealth is removed", async t => {
+  // Staged profile-aware without a profile: the candidate must report none.
+  const h = await profileHarness(t);
+  const wrong = appServer(h, { image: { digest: PROFILE_A.digest, installationId: "alpha" } });
+  const staged = await release(profiled(null), sourceWith(null), { ...h.deps, fetch: appServer(h), stage: true });
+  const wrongDeps = { ...h.deps, fetch: wrong };
+  await assert.rejects(promote(context, staged, stagedEvidence(staged), wrongDeps), /released without a profile/);
+  assert.equal(toRevisions(h.calls).length, 0);
+  const seen = [];
+  const rightDeps = { ...h.deps, fetch: appServer(h, { seen }) };
+  const promoted = await promote(context, staged, stagedEvidence(staged), rightDeps);
+  assert.equal(promoted.status, "released");
+  assert.deepEqual(seen, [staged.revision], "read at the staged receipt's profileHealth");
+});
+
+test("a release that isn't profile-aware refuses a service whose template carries a binding", async t => {
+  const h = await profileHarness(t);
+  // Like Cloud Run, the template is what the latest revision was made from.
+  const cloud = async args => {
+    const result = await h.deps.cloud(args);
+    if (args[1] === "services" && args[2] === "describe") {
+      const latest = h.revisions.get(result.status.latestReadyRevisionName);
+      result.spec.template.metadata = { labels: latest.metadata.labels };
+      result.spec.template.spec.containers = latest.spec?.containers;
+    }
+    return result;
+  };
+  const deps = { ...h.deps, cloud, fetch: appServer(h) };
+  await release(profiled(PROFILE_A), sourceWith(PROFILE_A), deps);
+  const builds = h.calls.filter(c => c[0] === "builds" && c[1] === "submit").length;
+  await assert.rejects(release(context, source, deps), /template carries a profile binding \(alpha /);
+  assert.equal(h.calls.filter(c => c[0] === "builds" && c[1] === "submit").length, builds, "nothing built");
+  // A profile-aware release without a profile unbinds it; after that, plain releases work.
+  const unbound = await release(profiled(null), sourceWith(null), deps);
+  assert.deepEqual(bindingOf(h, unbound.revision), { state: "none", binding: null });
+  const plain = await release(context, source, deps);
+  assert.equal(plain.status, "released");
+});
+
+// Unreadable metadata is legacy-compatible only without any profile evidence.
+const revisionWithProfile = binding => ({
+  metadata: { labels: { "gc-profile": bindingLabel(binding) } },
+  spec: { containers: [{ env: Object.entries(bindingEnv(binding)).map(([name, value]) => ({ name, value })) }] },
+});
+
+test("rollback refuses an unreadable profile-labelled target without current profile settings", async t => {
+  const h = await profileHarness(t);
+  const r = await release(context, source, h.deps);
+  h.revisions.set("api-old", { metadata: { labels: { "gc-profile": bindingLabel(PROFILE_A) } } });
+  await assert.rejects(rollback(context, r, h.deps), /partial profile binding \(label gc-profile\)/);
+  assert.equal(toRevisions(h.calls).length, 1, "rollback moved no traffic");
+});
+
+test("release-check retains a profile marker when its revision's containers are unreadable", async t => {
+  const h = await profileHarness(t);
+  h.revisions.set("api-old", { metadata: { labels: { "gc-profile": bindingLabel(PROFILE_A) } } });
+  const result = await releaseCheck(context, { cloud: h.deps.cloud, git: undefined });
+  assert.equal(result.ok, false);
+  assert.equal(result.profiles.find(p => p.revision === "api-old").state, "partial");
+});
+
+test("a bound revision or template makes unreadable reachable peers fail release-check", async t => {
+  for (const witness of ["revision", "template"]) {
+    const h = await profileHarness(t, { tags: witness === "revision" ? ["bound-peer"] : [] });
+    h.revisions.set("api-old", { metadata: { labels: {} } });
+    if (witness === "revision") h.revisions.set("api-bound-peer", revisionWithProfile(PROFILE_A));
+    const cloud = async args => {
+      const result = await h.deps.cloud(args);
+      if (witness === "template" && args[1] === "services" && args[2] === "describe") {
+        const bound = revisionWithProfile(PROFILE_A);
+        result.spec.template.metadata = bound.metadata;
+        result.spec.template.spec.containers = bound.spec.containers;
+      }
+      return result;
+    };
+    const result = await releaseCheck(context, { cloud, git: undefined });
+    assert.equal(result.ok, false, witness);
+    assert.equal(result.profiles.find(p => p.revision === "api-old").state, "unreadable");
+  }
+});
+
+test("a plain release refuses a labelled unreadable template before building", async t => {
+  const h = await profileHarness(t);
+  const cloud = async args => {
+    const result = await h.deps.cloud(args);
+    if (args[1] === "services" && args[2] === "describe") {
+      result.spec.template.metadata = { labels: { "gc-profile": bindingLabel(PROFILE_A) } };
+      delete result.spec.template.spec.containers;
+    }
+    return result;
+  };
+  await assert.rejects(release(context, source, { ...h.deps, cloud }), /template carries a profile binding/);
+  assert.equal(h.calls.filter(c => c[0] === "builds" && c[1] === "submit").length, 0);
+  assert.equal(toRevisions(h.calls).length, 0);
+});
+
+test("a plain release refuses an unreadable template when a reachable revision carries a profile", async t => {
+  const h = await profileHarness(t);
+  h.revisions.set("api-old", revisionWithProfile(PROFILE_A));
+  await assert.rejects(release(context, source, h.deps), /template carries a profile binding/);
+  assert.equal(h.calls.filter(c => c[0] === "builds" && c[1] === "submit").length, 0);
+  assert.equal(toRevisions(h.calls).length, 0);
+});
+
+test("rollback scopes unreadable targets using the current revision and the complete target set", async t => {
+  for (const witness of ["current", "target-first", "target-last"]) {
+    const h = await profileHarness(t);
+    const r = await release(context, source, h.deps);
+    h.revisions.set("api-old", { metadata: { labels: {} } });
+    if (witness === "current") h.revisions.set(r.revision, revisionWithProfile(PROFILE_A));
+    else {
+      h.revisions.set("api-profiled", revisionWithProfile(PROFILE_A));
+      r.previousTraffic = witness === "target-first"
+        ? { "api-profiled": 50, "api-old": 50 }
+        : { "api-old": 50, "api-profiled": 50 };
+    }
+    await assert.rejects(rollback(context, r, h.deps), /unreadable environment/, witness);
+    assert.equal(toRevisions(h.calls).length, 1, witness);
+  }
+});
+
+test("legacy unreadable metadata keeps working when no profile evidence exists", async t => {
+  const h = await harness(t);
+  const r = await release(context, source, h.deps);
+  const result = await releaseCheck(context, { cloud: h.deps.cloud, git: undefined });
+  assert.equal(result.ok, true);
+  assert.equal(result.profiles, undefined);
+  const rolled = await rollback(context, r, h.deps);
+  assert.equal(rolled.status, "rolled-back");
+  assert.equal(rolled.rolledBackToProfiles, undefined);
 });

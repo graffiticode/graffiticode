@@ -4,6 +4,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { hash, requireValue } from "./config.js";
 import { approvalRecord, reachableProblems, retainedTags } from "./revisions.js";
+import { PROFILE_ENV, PROFILE_LABEL, bindingEnv, bindingLabel, describeBinding, hasProfileEvidence, profileAware, profileCheck, revisionBinding, sameBinding, selectedProfile, templateBinding } from "./profile.js";
 
 export function traffic(service) {
   const totals = {};
@@ -54,7 +55,12 @@ export function deployArgs(config, receipt) {
   // manifest (capability plan W4): its release, and the digest it runs (known
   // before the revision exists, since every release deploys by digest).
   const imageDigest = receipt.image?.split("@")[1];
-  const env = { ...(config.env || {}), GC_RELEASE: receipt.id, ...(imageDigest ? { GC_IMAGE_DIGEST: imageDigest } : {}), ...networkEnv(config.network) };
+  // A profile-aware service's revision is bound to its profile (profile.js):
+  // the binding variables and label, or, released without one, none of them.
+  const aware = profileAware(config);
+  const binding = aware ? receipt.profile ?? null : null;
+  if (binding) args[args.findIndex(a => a.startsWith("--labels="))] += `,${PROFILE_LABEL}=${bindingLabel(binding)}`;
+  const env = { ...(config.env || {}), GC_RELEASE: receipt.id, ...(imageDigest ? { GC_IMAGE_DIGEST: imageDigest } : {}), ...networkEnv(config.network), ...(binding ? bindingEnv(binding) : {}) };
   args.push(`--update-env-vars=${envFlag(env)}`);
   const secrets = { ...(config.secrets || {}), ...(config.network ? { [config.network.ca.path]: config.network.ca.secret } : {}) };
   if (Object.keys(secrets).length) args.push(`--update-secrets=${pairs(secrets)}`);
@@ -67,7 +73,9 @@ export function deployArgs(config, receipt) {
   if (config.removeSecrets?.length) args.push(`--remove-secrets=${config.removeSecrets.join(",")}`);
   // Likewise --update-env-vars keeps variables it isn't given: removeEnv
   // removes them (no name is in both; config.js refuses that).
-  if (config.removeEnv?.length) args.push(`--remove-env-vars=${config.removeEnv.join(",")}`);
+  const removeEnv = [...(config.removeEnv || []), ...(aware && !binding ? PROFILE_ENV : [])];
+  if (removeEnv.length) args.push(`--remove-env-vars=${removeEnv.join(",")}`);
+  if (aware && !binding) args.push(`--remove-labels=${PROFILE_LABEL}`);
   if (config.minInstances !== undefined) args.push(`--min-instances=${config.minInstances}`);
   if (config.maxInstances !== undefined) args.push(`--max-instances=${config.maxInstances}`);
   if (config.concurrency !== undefined) args.push(`--concurrency=${config.concurrency}`);
@@ -249,6 +257,11 @@ export async function release(context, source, deps) {
   requireValue(!config.blocked, config.blocked);
   requireValue(!context.unresolved.length, `Set required variables: ${context.unresolved.join(", ")}`);
   requireValue(!config.verify || source.files.includes(config.verify.module), `Verify module ${config.verify?.module} is missing from the source snapshot`);
+  // The profile the snapshot carries is exactly the one deploy.json pins.
+  const pinned = selectedProfile(config);
+  const binding = source.profile ?? null;
+  requireValue(pinned ? binding && binding.repo === pinned.repo && binding.ref === pinned.ref && binding.digest === pinned.digest : binding === null,
+    "The snapshot's profile isn't the one deploy.json pins");
   // A floor (`baselines` marked `floor: true`; B5's D2b, B6, C5a) is never
   // released below, as it is never rolled back below: the source must be a
   // clean commit, the floor's or a descendant of it, by the same provenance
@@ -266,6 +279,20 @@ export async function release(context, source, deps) {
   }
   log("Checking existing service, identity, and secret versions…");
   const initial = await checkService(config, cloud);
+  // A service that was bound to a profile keeps its binding in the template,
+  // which a release that isn't profile-aware would carry into an image
+  // without the profile. It is unbound only by a profile-aware release.
+  if (!profileAware(config)) {
+    const inherited = templateBinding(initial);
+    // An unreadable template is legacy-compatible only if the reachable
+    // revisions also provide no evidence of profiles.
+    const reachable = inherited.state === "unreadable"
+      ? await profileBindings(reachableRevisions(initial), { cloud })
+      : [];
+    const known = hasProfileEvidence(inherited) || reachable.some(hasProfileEvidence);
+    requireValue(inherited.state === "none" || (inherited.state === "unreadable" && !known),
+      `${config.service}'s template carries a profile binding (${inherited.state === "bound" ? describeBinding(inherited.binding) : inherited.state}). Keep profileHealth and release with "profile": null to unbind it. Nothing built.`);
+  }
   const { problems: flagProblems, unmanaged } = await releaseFlagProblems(config, initial, cloud);
   requireValue(unmanaged.length === 0, `${unmanaged.join(", ")} ${unmanaged.length > 1 ? "are" : "is"} set on the serving revision but not in deploy.json: a release keeps ${unmanaged.length > 1 ? "them" : "it"} as ${unmanaged.length > 1 ? "they are" : "it is"}. Set ${unmanaged.length > 1 ? "each" : "it"} explicitly ("on" or "off"), or list ${unmanaged.length > 1 ? "them" : "it"} in removeEnv. Nothing built.`);
   requireValue(flagProblems.length === 0, `${describeFlagProblems(flagProblems)}: an interpreter flag never changes without its language's compile generation. Nothing built.`);
@@ -295,6 +322,7 @@ export async function release(context, source, deps) {
     previousTraffic: traffic(initial),
     status: "building",
   };
+  if (profileAware(config)) receipt.profile = binding;
   const persist = async () => save(receipt);
   await persist();
   try {
@@ -334,7 +362,11 @@ export async function release(context, source, deps) {
     log("Checking the candidate revision…");
     await (deps.smoke || smokeCheck)(config, candidate, id, deps);
     if (config.verify) await verifyCandidate(config, candidate, id, source, receipt, { ...deps, persist });
-    await candidateChecks(context, receipt.revision, deps);
+    if (profileAware(config)) {
+      await profileCheck(config, await candidateAccess(config, candidate, id, cloud), receipt.revision, receipt.profile, { fetch: deps.fetch });
+      log(`  profile: ${describeBinding(receipt.profile)}`);
+    }
+    await candidateChecks(context, receipt.revision, deps, receipt);
     const beforePromotion = await cloud(["run", "services", "describe", config.service]);
     requireValue(fingerprint(beforePromotion) === fingerprint(candidate), "Service changed during verification; refusing promotion");
     if (deps.stage) {
@@ -364,8 +396,16 @@ const candidateUrl = (service, id) => (service.status?.traffic || []).find(entry
 // What a candidate must pass before any traffic reaches it, at release and
 // again at `promote`: the network controls, no forbidden variable, and the
 // cross-service requirements both ways.
-async function candidateChecks(context, revision, deps) {
+async function candidateChecks(context, revision, deps, receipt) {
   const { cloud } = deps;
+  // The candidate runs bound to the receipt's profile, by its own environment:
+  // for a receipt that recorded one (null included), whatever deploy.json says now.
+  if (profileAware(context.config) || receipt?.profile !== undefined) {
+    const found = revisionBinding(await cloud(["run", "revisions", "describe", revision]));
+    const expected = receipt.profile ?? null;
+    requireValue((found.state === "bound" || found.state === "none") && sameBinding(found.binding, expected),
+      `Candidate ${revision} isn't bound to ${describeBinding(expected)} (${found.state === "bound" || found.state === "none" ? describeBinding(found.binding) : `${found.state} binding`}). Not promoted.`);
+  }
   // Every current floor, by the candidate's own provenance (its commit-sha
   // and gc-dirty labels): a candidate staged before a floor was added, or
   // built dirty, is never promoted below it.
@@ -480,11 +520,26 @@ export async function promote(context, receipt, evidence, deps) {
   requireValue(receipt.version === 1 && receipt.project === config.project && receipt.region === config.region && receipt.service === config.service && receipt.environment === environment, "Release receipt does not match the deployment target");
   requireValue(receipt.status === "staged", `Release ${receipt.id} is ${receipt.status}, not staged; only a staged candidate can be promoted`);
   requireValue(receipt.networkHash === networkHash(config.network), "deploy.json's network configuration changed since this candidate was staged; stage a new candidate");
+  // The profile deploy.json pins now is the one the candidate was staged with
+  // (no fetch: the receipt and the revision carry the binding).
+  if (profileAware(config) || receipt.profile !== undefined) {
+    const pinned = selectedProfile(config);
+    const staged = receipt.profile ?? null;
+    requireValue(pinned ? staged && staged.repo === pinned.repo && staged.ref === pinned.ref && staged.digest === pinned.digest : staged === null,
+      `deploy.json's profile changed since this candidate was staged (staged with ${describeBinding(staged)}); stage a new candidate`);
+  }
   const problems = evidenceProblems(evidence, receipt, config);
   requireValue(problems.length === 0, `Evidence refused: ${problems.join("; ")}`);
   const current = await cloud(["run", "services", "describe", config.service]);
   requireValue(fingerprint(current) === receipt.stagedFingerprint, "Service changed since the candidate was staged; refusing promotion");
-  await candidateChecks(context, receipt.revision, deps);
+  // The staged candidate's receipt is read again at the path it was staged
+  // with, even if deploy.json no longer names one.
+  if (profileAware(config) || receipt.profile !== undefined) {
+    const profileHealth = receipt.config?.profileHealth ?? config.profileHealth;
+    requireValue(profileHealth, "The staged receipt records a profile binding but no profileHealth to check it at");
+    await profileCheck({ ...config, profileHealth }, await candidateAccess(config, current, receipt.id, cloud), receipt.revision, receipt.profile ?? null, { fetch: /** @type {any} */ (deps).fetch });
+  }
+  await candidateChecks(context, receipt.revision, deps, receipt);
   const beforePromotion = await cloud(["run", "services", "describe", config.service]);
   requireValue(fingerprint(beforePromotion) === receipt.stagedFingerprint, "Service changed during verification; refusing promotion");
   const promoted = { ...receipt, promotedWith: { reviewer: evidence.reviewer, reviewedAt: evidence.reviewedAt, evidenceHash: hash(canonicalJson(evidence)) } };
@@ -773,13 +828,21 @@ export async function releaseCheck(context, { cloud, git, revisions = undefined 
     ...(config.forbiddenEnv ? { forbiddenEnv: await forbiddenEnvProblems(context, reachableRevisions(service), { cloud }) } : {}),
     // Each required service's reachable revisions meet the milestone this one needs.
     ...(context.requires?.length ? { requires: await requirementProblems(context, { cloud, git }) } : {}),
+    // Each reachable revision's own profile binding, read from Cloud Run.
+    // Read for every service: a binding stays enforced if profileHealth is removed.
+    profiles: await profileBindings(reachableRevisions(service), { cloud }),
   };
+  // The template or any reachable binding establishes profile context for
+  // every reading. Removing profileHealth cannot make unreadable peers safe.
+  const profiled = profileAware(config) || hasProfileEvidence(templateBinding(service)) || result.profiles.some(hasProfileEvidence);
+  if (!profiled) delete result.profiles;
   const pinnedOk = !pinned || ["unapproved", "retiring", "retired", "unsupportedContract"].every(k => pinned[k].length === 0);
   const minimumOk = (result.contractMinimum ?? []).length === 0;
   const networkOk = (result.network ?? []).length === 0;
   const forbiddenOk = (result.forbiddenEnv ?? []).length === 0;
   const requiresOk = (result.requires ?? []).length === 0;
-  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk && minimumOk && networkOk && forbiddenOk && requiresOk };
+  const profilesOk = (result.profiles ?? []).every(p => p.state === "bound" || p.state === "none" || (p.state === "unreadable" && !profiled));
+  return { ...result, ok: result.staleTags.length === 0 && result.belowBaseline.length === 0 && pinnedOk && minimumOk && networkOk && forbiddenOk && requiresOk && profilesOk };
 }
 
 // Approves an already-released revision of a pinnable service from its
@@ -873,6 +936,23 @@ export async function rollback(context, receipt, deps) {
     requireValue(state.policy === false && state.broker === false,
       `Protected execution must be off before rolling back below a milestone or the contract minimum (policy ${state.policy ? "on" : "off"}, broker ${state.broker ? "on" : "off"})`);
   }
+  // Each target keeps its own profile binding, whatever deploy.json pins or
+  // names today (no fetch). Read for every service, so removing profileHealth
+  // doesn't stop it: a partial binding is always refused, with no override,
+  // and an unreadable environment wherever profiles are in play. A target
+  // released before profiles has none.
+  const bindings = {};
+  // Read the entire set before deciding whether the legacy exception applies:
+  // the current revision, template or any target can establish profile context.
+  const readings = await profileBindings([...new Set([receipt.revision, ...targets])], { cloud });
+  const profiled = profileAware(config) || receipt.profile !== undefined || hasProfileEvidence(templateBinding(current)) || readings.some(hasProfileEvidence);
+  for (const target of targets) {
+    const found = readings.find(r => r.revision === target);
+    requireValue(found.state !== "partial", `Rollback target ${target} has a partial profile binding (${found.present?.join(", ")}); refusing, with no override. Roll forward instead.`);
+    requireValue(found.state !== "unreadable" || !profiled, `Rollback target ${target} has an unreadable environment; refusing, with no override. Roll forward instead.`);
+    if (found.state !== "unreadable") bindings[target] = found.binding;
+  }
+  const recordBindings = profiled;
   log(`Restoring traffic to ${pairs(receipt.previousTraffic)}…`);
   await cloud(["run", "services", "update-traffic", config.service, `--to-revisions=${pairs(receipt.previousTraffic)}`]);
   const final = await cloud(["run", "services", "describe", config.service]);
@@ -881,9 +961,20 @@ export async function rollback(context, receipt, deps) {
     ...receipt,
     status: "rolled-back",
     rolledBackAt: new Date().toISOString(),
+    ...(recordBindings ? { rolledBackToProfiles: bindings } : {}),
     ...(below.length ? { rolledBackBelowBaseline: below } : {}),
     ...(belowFloor.length ? { rolledBackBelowContractMinimum: belowFloor } : {}),
   };
+}
+
+// The profile binding of each revision in `names` (profile.js, revisionBinding).
+export async function profileBindings(names, { cloud }) {
+  const out = [];
+  for (const name of names) {
+    const found = revisionBinding(await cloud(["run", "revisions", "describe", name]));
+    out.push({ revision: name, ...found, binding: found.binding ?? null });
+  }
+  return out;
 }
 
 export async function readReceipt(root, id) {

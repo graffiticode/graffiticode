@@ -1,0 +1,3 @@
+# The digest fixture is compared byte for byte with graffiticode-app core's
+# digest: no line-ending conversion, whatever the checkout settings.
+profile-digest/** -text

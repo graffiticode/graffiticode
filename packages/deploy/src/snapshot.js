@@ -4,6 +4,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { requireValue } from "./config.js";
 import { run } from "./process.js";
+import { PROFILE_CONTEXT, profileAware } from "./profile.js";
 
 const under = (file, p) => file === p || file.startsWith(`${p.replace(/\/$/, "")}/`);
 
@@ -16,7 +17,18 @@ export function included(file, excludes = [], includes = null) {
     !excludes.some(p => under(file, p));
 }
 
-export async function snapshot(root, config, allowDirty = false) {
+// `profileFiles` (a Map of profile-relative path to bytes, from fetchProfile)
+// goes into the snapshot under PROFILE_CONTEXT, every byte of it, outside the
+// workspace's own filters; a profile-aware service released without a profile
+// gets the directory empty, so its Dockerfile's COPY works either way. The
+// workspace itself may not contain the reserved path.
+export async function snapshot(root, config, allowDirty = false, profileFiles = null) {
+  // The reserved path, on the filesystem: an empty directory, a Git-ignored
+  // one, a file or a symlink there would all reach a local `docker build`.
+  if (profileAware(config)) {
+    const reserved = await lstat(path.join(root, PROFILE_CONTEXT)).catch(err => { if (err.code !== "ENOENT") throw err; });
+    requireValue(!reserved, `The workspace contains ${PROFILE_CONTEXT}, which is reserved for the release's profile; remove it`);
+  }
   // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
   const gitRoot = await run("git", ["rev-parse", "--show-toplevel"], { cwd: root });
   requireValue(await realpath(gitRoot) === await realpath(root), "deploy.json must be at the Git workspace root");
@@ -55,6 +67,18 @@ export async function snapshot(root, config, allowDirty = false) {
       manifest.push(file);
     }
     requireValue(manifest.includes(config.dockerfile), "Dockerfile is missing from the source snapshot");
+    requireValue(!profileFiles || profileAware(config), "A profile needs a profile-aware service (profileHealth)");
+    if (profileAware(config)) {
+      await mkdir(path.join(source, PROFILE_CONTEXT));
+      for (const [rel, data] of [...(profileFiles ?? new Map())].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+        const file = `${PROFILE_CONTEXT}/${rel}`;
+        digest.update(JSON.stringify([file, 0o644, data.length])).update("\0").update(data);
+        const destination = path.join(source, file);
+        await mkdir(path.dirname(destination), { recursive: true });
+        await writeFile(destination, data, { mode: 0o644 });
+        manifest.push(file);
+      }
+    }
     // Submit a prebuilt archive so gcloud cannot apply a second implicit ignore policy.
     // Entries are owned by root: Cloud Build keeps archive ownership, and npm runs
     // a package's scripts as its directory's owner, which cannot write $HOME.

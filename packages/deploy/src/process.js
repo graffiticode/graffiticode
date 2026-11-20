@@ -2,13 +2,20 @@ import { spawn } from "node:child_process";
 
 // No shell interpolation: configuration and paths are always individual arguments.
 // @ts-expect-error TS-MIGRATE: checkJs infers a destructured parameter's type from its default; optional fields read as missing
-export function run(command, args, { cwd, stream = false, raw = false } = {}) {
+// `binary` resolves the exact output bytes as a Buffer (a Git blob).
+export function run(command, args, { cwd, stream = false, raw = false, binary = false } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, stdio: ["ignore", stream ? "inherit" : "pipe", "inherit"] });
-    let output = "";
-    child.stdout?.on("data", data => { output += data; });
+    const chunks = [];
+    child.stdout?.on("data", data => { chunks.push(data); });
     child.on("error", reject);
-    child.on("close", code => code === 0 ? resolve(raw ? output : output.trim()) : reject(new Error(`${command} ${args.slice(0, 3).join(" ")} failed (${code})`)));
+    child.on("close", code => {
+      if (code !== 0) return reject(new Error(`${command} ${args.slice(0, 3).join(" ")} failed (${code})`));
+      const bytes = Buffer.concat(chunks);
+      if (binary) return resolve(bytes);
+      const output = bytes.toString("utf8");
+      resolve(raw ? output : output.trim());
+    });
   });
 }
 
