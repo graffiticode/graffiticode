@@ -1295,3 +1295,75 @@ test("direct-refused compiles as the canary user, never with a Google ID token",
   assert.match(block, /directCompileRequest\(/);
   assert.doesNotMatch(block, /idToken\(/, "no ID token on the direct compile");
 });
+
+// Live, run ad49c0ac (2026-11-20): exit-after-stage's staged-reused counted 0
+// renders; the compiler had logged one, as tracing writes it, with ANSI codes
+// inside the field. A render line is matched without its colour codes.
+test("render lines are matched without their ANSI colour codes", () => {
+  const item = "7vwaCAIyMNCJEzgIfyYY";
+  const live = "\u001b[2m2026-11-20T17:56:34.404289Z\u001b[0m \u001b[32m INFO\u001b[0m \u001b[2ml0013_capture\u001b[0m\u001b[2m:\u001b[0m render \u001b[3mitem\u001b[0m\u001b[2m=\u001b[0m7vwaCAIyMNCJEzgIfyYY \u001b[3mwidth\u001b[0m\u001b[2m=\u001b[0m1024";
+  assert.equal(C.isRenderLine(live, item), true);
+  assert.equal(C.isRenderLine(`render item=${item}`, item), true);
+  assert.equal(C.isRenderLine(live, "7vwaCAIyMNCJEzgIfyY"), false, "a prefix of the id is another item");
+  assert.equal(C.isRenderLine(live.replace("render", "resolve"), item), false);
+  assert.equal(C.isRenderLine("\u001b[33m WARN\u001b[0m capture fault exit-after-stage command c:ab", item), false);
+  assert.equal(C.stripAnsi("\u001b[3mitem\u001b[0m\u001b[2m=\u001b[0mx"), "item=x");
+});
+
+test("recount-renders: a new manifest of the phase, only its renders recounted in the original's window", () => {
+  const source = { runId: "ad49c0ac", phase: "exit-after-stage", at: "2026-11-20T17:58:16.261Z", answered: { status: 200, commandId: "c:x" }, observations: { uid: "u", errors: {}, faultLines: [{ at: "t" }], stagedAtExit: { staged: true }, capture: { status: "completed" }, renders: 0 } };
+  const m = C.recountManifest({ source, sourceFile: "exit-after-stage-2026-11-20T17-58-16-261Z.json", journalAt: "2026-11-20T17:56:25.100Z", renders: 1, observedMs: 300_000, at: "2026-11-20T19:00:00.000Z" });
+  assert.equal(m.phase, "exit-after-stage");
+  assert.deepEqual(m.observations, { ...source.observations, renders: 1 });
+  assert.deepEqual(m.recount, { of: "exit-after-stage-2026-11-20T17-58-16-261Z.json", field: "renders", from: "2026-11-20T17:56:25.100Z", to: "2026-11-20T17:58:16.261Z", before: 0, collectedAt: "2026-11-20T19:00:00.000Z", observedMs: 300_000 });
+  assert.equal(source.observations.renders, 0, "the original is untouched");
+  assert.throws(() => C.recountManifest({ source: { ...source, phase: "staging-gone" }, sourceFile: "f", journalAt: "2026-11-20T17:56:25Z", renders: 1, at: "x" }), /only for/);
+  assert.throws(() => C.recountManifest({ source, sourceFile: "f", journalAt: "2026-11-20T17:56:25Z", renders: -1, at: "x" }), /count/);
+  assert.throws(() => C.recountManifest({ source, sourceFile: "f", journalAt: "2026-11-20T18:59:00Z", renders: 1, at: "x" }), /window/);
+  assert.throws(() => C.recountManifest({ source: m, sourceFile: "f", journalAt: "2026-11-20T17:56:25Z", renders: 1, at: "x" }), /original manifest/);
+});
+
+// #457 review: a recount of a recount took that recount's collection time as
+// its cutoff, counted another phase's render and turned a pass into a failure.
+test("repeated recounts keep the original source and window", () => {
+  const original = { file: "exit-after-stage-2026-11-20T17-58-16-261Z.json", manifest: { runId: "r", phase: "exit-after-stage", at: "2026-11-20T17:58:16.261Z", observations: { renders: 0 } } };
+  const first = C.recountManifest({ ...C.recountSource([original]), journalAt: "2026-11-20T17:56:25.100Z", renders: 1, observedMs: 300_000, at: "2026-11-20T18:25:00.000Z" });
+  const files = [original, { file: "exit-after-stage-2026-11-20T18-25-00-000Z.json", manifest: first }];
+  const resolved = C.recountSource(files);
+  assert.equal(resolved.sourceFile, original.file, "the original, never the latest recount");
+  const second = C.recountManifest({ ...resolved, journalAt: "2026-11-20T17:56:25.100Z", renders: 1, observedMs: 300_000, at: "2026-11-20T18:26:00.000Z" });
+  assert.deepEqual([second.recount.of, second.recount.from, second.recount.to], [original.file, "2026-11-20T17:56:25.100Z", "2026-11-20T17:58:16.261Z"]);
+  assert.equal(second.recount.collectedAt, "2026-11-20T18:26:00.000Z");
+  // A recount naming another source, or no original or two, is refused.
+  assert.throws(() => C.recountSource([...files, { file: "x.json", manifest: { ...first, recount: { ...first.recount, of: "other.json" } } }]), /another source/);
+  assert.throws(() => C.recountSource([{ file: "y.json", manifest: first }]), /exactly one original/);
+  assert.throws(() => C.recountSource([original, { ...original, file: "z.json" }]), /exactly one original/);
+});
+
+// #457 review: a 30 s settle returned 1 though a second render from the same
+// window was ingested at 60 s. The count is watched for AUDIT_OBSERVATION_MS.
+test("a render count is watched for the drive's ingestion-observation period", async () => {
+  const clock = () => {
+    let t = 0;
+    return { now: () => t, sleep: async ms => { t += ms; } };
+  };
+  const delayedSecond = arrive => {
+    const c = clock();
+    return { c, read: async () => (c.now() >= arrive ? 2 : 1) };
+  };
+  for (const arrive of [60_000, 240_000, 290_000]) {
+    const { c, read } = delayedSecond(arrive);
+    const r = await C.observeCount({ read, observeMs: C.AUDIT_OBSERVATION_MS, sleep: c.sleep, now: c.now });
+    assert.equal(r.count, 2, `a second render ingested at ${arrive} ms is counted`);
+    assert.ok(r.observedMs >= C.AUDIT_OBSERVATION_MS);
+  }
+  // The first render arriving late (ingestion), then a second within the period.
+  const c = clock();
+  const r = await C.observeCount({ read: async () => (c.now() < 50_000 ? 0 : c.now() < 150_000 ? 1 : 2), observeMs: C.AUDIT_OBSERVATION_MS, sleep: c.sleep, now: c.now });
+  assert.equal(r.count, 2);
+  // Never less than the most seen.
+  const d = clock();
+  const r2 = await C.observeCount({ read: async () => (d.now() === 30_000 ? 3 : 1), observeMs: C.AUDIT_OBSERVATION_MS, sleep: d.sleep, now: d.now });
+  assert.equal(r2.count, 3);
+  assert.equal(C.AUDIT_OBSERVATION_MS, 5 * 60_000);
+});

@@ -128,7 +128,7 @@ import {
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
   latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
   priorPublicCaptures, policyFixtureClient, answerResolution, correlateIntents, paginateAll, drivePolicyCommands, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
-  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing, directCompileRequest,
+  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing, directCompileRequest, isRenderLine, RECOUNTABLE, recountManifest, recountSource, observeCount, AUDIT_OBSERVATION_MS,
 } from "./lib/c5d-drive-checks.js";
 
 const args = process.argv.slice(2);
@@ -137,7 +137,7 @@ const flag = (name, fallback = null) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 const PHASE_NAMES = ["plan", "checks", "access-probes", "baseline", "first-capture", "direct-refused", "exit-after-reserve", "exit-after-stage", "drop-outcome", "drop-outcome-retry",
-  "stale-worker", "staging-gone", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap", "resolve-journal", "resolve-intent", "boundary", "cleanup", "judge"];
+  "stale-worker", "staging-gone", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap", "resolve-journal", "resolve-intent", "recount-renders", "boundary", "cleanup", "judge"];
 const phase = flag("--phase");
 if (!PHASE_NAMES.includes(phase)) {
   console.error(`usage: c5d-drive.js --phase <${PHASE_NAMES.join("|")}> --run <id> [flags]`);
@@ -497,9 +497,17 @@ const counterOf = async item => doc("policy", `item-captures/${encodeURIComponen
 const faultLines = (commandId, from) => lines(config.l0013r, "capture fault", from).then(ls => ls.filter(l => l.text.includes(commandId)));
 // The compiler's `render` lines name the item, not the command (crates/capture
 // render(): "render item=<item> ..."), so a phase counts its item's renders in
-// its own window, while no other capture of that item runs.
-const rendersOf = async (item, from, to = null) => (await lines(config.l0013r, `render item=${item}`, from))
-  .filter(l => to === null || Date.parse(l.at) < Date.parse(to)).length;
+// its own window, while no other capture of that item runs. The lines carry
+// ANSI codes inside the field, so they are queried by the item id (plain in
+// the line) and matched without the codes (isRenderLine). The count is
+// watched for AUDIT_OBSERVATION_MS after the first render is ingested
+// (observeCount), so a later render from the window is counted.
+const rendersOnce = async (item, from, to) => (await lines(config.l0013r, item, from))
+  .filter(l => isRenderLine(l.text, item) && (to === null || Date.parse(l.at) < Date.parse(to))).length;
+const rendersObserved = (item, from, to = null) => observeCount({
+  read: () => rendersOnce(item, from, to), observeMs: AUDIT_OBSERVATION_MS, sleep, now: () => Date.now(),
+});
+const rendersOf = async (item, from, to = null) => (await rendersObserved(item, from, to)).count;
 // Every command the drive may have allocated (c5d-drive-checks.js inventory).
 const driveInventory = () => inventory({
   plan,
@@ -783,6 +791,24 @@ if (phase === "staging-gone") {
   const fresh = await command({ name: "staging-gone-fresh", task: need("--private-task"), user: await canary() });
   await collect("fresh", () => captureOf(fresh.commandId));
   finish({ answered });
+}
+
+if (phase === "recount-renders") {
+  // A recount of exit-after-stage's renders in the original's own window
+  // (recountSource, recountManifest): every recount reads the original.
+  const of = need("--of");
+  if (!RECOUNTABLE.includes(of)) throw new Error(`--of must be one of ${RECOUNTABLE.join(", ")}`);
+  const files = readdirSync(dir).filter(f => f.startsWith(`${of}-`) && f.endsWith(".json")).sort()
+    .map(file => ({ file, manifest: JSON.parse(readFileSync(path.join(dir, file), "utf8")) }));
+  const { source, sourceFile } = recountSource(files);
+  const journalAt = JSON.parse(readFileSync(path.join(journalDir, journalName(of)), "utf8")).at;
+  const { count, observedMs } = await rendersObserved(FIXTURES.private, journalAt, source.at);
+  const manifest = recountManifest({ source, sourceFile, journalAt, renders: count, observedMs, at: new Date().toISOString() });
+  const file = writeOnce(phaseFile(of, stampOf(new Date())), manifest);
+  const judged = judgePhase(of, manifest.observations);
+  for (const c of judged.checks) console.log(`${c.ok ? "ok    " : "FAILED"} ${c.id}: ${c.detail}`);
+  console.log(`${of} (recount of ${sourceFile}, window ${journalAt} to ${source.at}: renders ${manifest.recount.before} -> ${count}): ${file}`);
+  process.exitCode = phaseExitCode({ phase: of, observations: manifest.observations });
 }
 
 if (phase === "older-after-newer") {
