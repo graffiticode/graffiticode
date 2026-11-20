@@ -128,7 +128,7 @@ import {
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
   latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
   priorPublicCaptures, policyFixtureClient, answerResolution, correlateIntents, paginateAll, drivePolicyCommands, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
-  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution,
+  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing,
 } from "./lib/c5d-drive-checks.js";
 
 const args = process.argv.slice(2);
@@ -367,11 +367,9 @@ const objectOf = async (bucket, name) => {
     throw e;
   }
 };
-const listing = async bucket => {
-  const out = JSON.parse((await runCapturing("gcloud", ["storage", "ls", "--json", `gs://${bucket}/`, `--project=${project}`])).trim() || "null");
-  if (!Array.isArray(out)) throw new Error(`gs://${bucket}: the listing isn't a list`);
-  return out.map(o => ({ name: o.url.replace(`gs://${bucket}/`, ""), generation: String(o.metadata?.generation ?? "") }));
-};
+// runCapturing throws on a nonzero exit (a missing bucket, a refused read), so
+// what reaches parseListing exited 0.
+const listing = async bucket => parseListing(bucket, await runCapturing("gcloud", ["storage", "ls", "--json", `gs://${bucket}/`, `--project=${project}`]));
 const servedEnv = async service => {
   const described = JSON.parse(await gcloud(["run", "services", "describe", service, `--region=${region}`, "--format=json"]));
   const revision = routedRevision(described, null);
