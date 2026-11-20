@@ -1,0 +1,191 @@
+{
+  "apiVersion": "serving.knative.dev/v1",
+  "kind": "Service",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "586.0.0",
+      "run.googleapis.com/ingress": "all",
+      "run.googleapis.com/ingress-status": "all",
+      "run.googleapis.com/maxScale": "20",
+      "run.googleapis.com/operation-id": "9587ba0e-444f-49e3-82a1-1777bbcf30c0",
+      "run.googleapis.com/urls": "[\"https://l0176r-c5d-drive-656973052505.us-central1.run.app\",\"https://l0176r-c5d-drive-sja7fatcta-uc.a.run.app\"]",
+      "serving.knative.dev/creator": "<operator>",
+      "serving.knative.dev/lastModifier": "<operator>"
+    },
+    "creationTimestamp": "2026-11-19T22:46:34.323375Z",
+    "generation": 3,
+    "labels": {
+      "cloud.googleapis.com/location": "us-central1",
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo5egv6-a16b77"
+    },
+    "name": "l0176r-c5d-drive",
+    "namespace": "656973052505",
+    "resourceVersion": "AAZgqTMF6fo",
+    "selfLink": "/apis/serving.knative.dev/v1/namespaces/656973052505/services/l0176r-c5d-drive",
+    "uid": "5eff1464-1ef6-456e-9930-f302d8f31ab2"
+  },
+  "spec": {
+    "template": {
+      "metadata": {
+        "annotations": {
+          "run.googleapis.com/client-name": "gcloud",
+          "run.googleapis.com/client-version": "586.0.0",
+          "run.googleapis.com/network-interfaces": "[{\"network\":\"compilers\",\"subnetwork\":\"compilers-l0176\",\"tags\":[\"compiler\"]}]",
+          "run.googleapis.com/startup-cpu-boost": "true",
+          "run.googleapis.com/vpc-access-egress": "all-traffic"
+        },
+        "labels": {
+          "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+          "gc-dirty": "false",
+          "gc-release": "rmwo5egv6-a16b77",
+          "run.googleapis.com/startupProbeType": "Default"
+        },
+        "name": "l0176r-c5d-drive-rmwo5egv6-a16b77"
+      },
+      "spec": {
+        "containerConcurrency": 80,
+        "containers": [
+          {
+            "env": [
+              {
+                "name": "AUTH_URL",
+                "value": "https://auth.graffiticode.org"
+              },
+              {
+                "name": "POLICY_URL",
+                "value": "https://policy-sja7fatcta-uc.a.run.app"
+              },
+              {
+                "name": "BROKER_URL",
+                "value": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app"
+              },
+              {
+                "name": "PREFLIGHT_GATEWAYS",
+                "value": "api-run@graffiticode.iam.gserviceaccount.com"
+              },
+              {
+                "name": "GC_RELEASE",
+                "value": "rmwo5egv6-a16b77"
+              },
+              {
+                "name": "GC_IMAGE_DIGEST",
+                "value": "sha256:d58099e81fa08e69ce0d7e099d41c693999126bf4692addc78ef874d3cc3869d"
+              },
+              {
+                "name": "HTTPS_PROXY",
+                "value": "http://10.8.0.2:3128"
+              },
+              {
+                "name": "HTTP_PROXY",
+                "value": "http://10.8.0.2:3128"
+              },
+              {
+                "name": "NO_PROXY",
+                "value": "169.254.169.254,metadata.google.internal"
+              },
+              {
+                "name": "NODE_EXTRA_CA_CERTS",
+                "value": "/etc/egress-ca/ca.pem"
+              },
+              {
+                "name": "NODE_USE_ENV_PROXY",
+                "value": "1"
+              }
+            ],
+            "image": "us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive@sha256:d58099e81fa08e69ce0d7e099d41c693999126bf4692addc78ef874d3cc3869d",
+            "ports": [
+              {
+                "containerPort": 8080,
+                "name": "http1"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "1000m",
+                "memory": "512Mi"
+              }
+            },
+            "startupProbe": {
+              "failureThreshold": 1,
+              "periodSeconds": 240,
+              "tcpSocket": {
+                "port": 8080
+              },
+              "timeoutSeconds": 240
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/etc/egress-ca",
+                "name": "egress-proxy-ca-bundle-fey-paf"
+              }
+            ]
+          }
+        ],
+        "sandboxes": {},
+        "serviceAccountName": "l0176r-run@graffiticode.iam.gserviceaccount.com",
+        "timeoutSeconds": 300,
+        "volumes": [
+          {
+            "name": "egress-proxy-ca-bundle-fey-paf",
+            "secret": {
+              "items": [
+                {
+                  "key": "1",
+                  "path": "ca.pem"
+                }
+              ],
+              "secretName": "egress-proxy-ca-bundle"
+            }
+          }
+        ]
+      }
+    },
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "l0176r-c5d-drive-rmwo5egv6-a16b77"
+      },
+      {
+        "revisionName": "l0176r-c5d-drive-rmwo5egv6-a16b77",
+        "tag": "rmwo5egv6-a16b77"
+      }
+    ]
+  },
+  "status": {
+    "address": {
+      "url": "https://l0176r-c5d-drive-sja7fatcta-uc.a.run.app"
+    },
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-11-19T23:08:02.028217Z",
+        "status": "True",
+        "type": "Ready"
+      },
+      {
+        "lastTransitionTime": "2026-11-19T23:07:49.583066Z",
+        "status": "True",
+        "type": "ConfigurationsReady"
+      },
+      {
+        "lastTransitionTime": "2026-11-19T23:08:01.993627Z",
+        "status": "True",
+        "type": "RoutesReady"
+      }
+    ],
+    "latestCreatedRevisionName": "l0176r-c5d-drive-rmwo5egv6-a16b77",
+    "latestReadyRevisionName": "l0176r-c5d-drive-rmwo5egv6-a16b77",
+    "observedGeneration": 3,
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "l0176r-c5d-drive-rmwo5egv6-a16b77",
+        "tag": "rmwo5egv6-a16b77",
+        "url": "https://rmwo5egv6-a16b77---l0176r-c5d-drive-sja7fatcta-uc.a.run.app"
+      }
+    ],
+    "url": "https://l0176r-c5d-drive-sja7fatcta-uc.a.run.app"
+  }
+}

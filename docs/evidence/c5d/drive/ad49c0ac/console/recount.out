@@ -1,0 +1,5 @@
+ok     observations-read: ok
+ok     fault-fired: ok
+ok     staged-reused: ok
+exit-after-stage (recount of exit-after-stage-2026-11-20T17-58-16-261Z.json, window 2026-11-20T17:56:26.961Z to 2026-11-20T17:58:16.261Z: renders 0 -> 1): /private/tmp/claude-501/-Users-jeffdyer-work-graffiticode-graffiticode/3b9960ea-9e37-4af7-b859-610265f8269c/scratchpad/c5d-step32/drive/ad49c0ac/exit-after-stage-2026-11-20T19-28-32-143Z.json
+exit 0

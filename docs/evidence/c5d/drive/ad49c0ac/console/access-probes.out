@@ -1,0 +1,20 @@
+FAILED to observe bucketBefore: gs://graffiticode-c5d-drive: the listing isn't a list
+FAILED to observe bucketAfter: gs://graffiticode-c5d-drive: the listing isn't a list
+FAILED observations-read: reads failed: bucketBefore (gs://graffiticode-c5d-drive: the listing isn't a list); bucketAfter (gs://graffiticode-c5d-drive: the listing isn't a list)
+ok     l0013r-gateway-control: ok
+ok     l0013r-no-identity: ok
+ok     l0013r-malformed-identity: ok
+ok     l0013r-non-gateway: ok
+ok     l0013r-model: ok
+ok     l0013r-start-malformed-session: ok
+ok     l0013r-start-forged-session: ok
+ok     l0176r-gateway-control: ok
+ok     l0176r-no-identity: ok
+ok     l0176r-malformed-identity: ok
+ok     l0176r-non-gateway: ok
+ok     l0176r-model: ok
+ok     l0176r-start-malformed-session: ok
+ok     l0176r-start-forged-session: ok
+FAILED drive-bucket-unchanged: a drive bucket listing not observed
+ok     policy-unchanged: ok
+access-probes: /private/tmp/claude-501/-Users-jeffdyer-work-graffiticode-graffiticode/3b9960ea-9e37-4af7-b859-610265f8269c/scratchpad/c5d-step32/drive/ad49c0ac/access-probes-2026-11-20T01-16-44-351Z.json (FAILED)

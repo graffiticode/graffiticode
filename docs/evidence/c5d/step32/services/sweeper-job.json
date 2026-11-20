@@ -1,0 +1,29 @@
+{
+  "attemptDeadline": "180s",
+  "httpTarget": {
+    "headers": {
+      "User-Agent": "Google-Cloud-Scheduler"
+    },
+    "httpMethod": "POST",
+    "oidcToken": {
+      "audience": "https://api-c5d-drive-sja7fatcta-uc.a.run.app",
+      "serviceAccountEmail": "command-sweeper@graffiticode.iam.gserviceaccount.com"
+    },
+    "uri": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+  },
+  "name": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+  "retryConfig": {
+    "maxBackoffDuration": "3600s",
+    "maxDoublings": 5,
+    "maxRetryDuration": "0s",
+    "minBackoffDuration": "5s"
+  },
+  "schedule": "* * * * *",
+  "scheduleTime": "2026-11-19T23:14:00Z",
+  "state": "ENABLED",
+  "status": {
+    "code": -1
+  },
+  "timeZone": "Etc/UTC",
+  "userUpdateTime": "2026-11-19T23:13:16.023808Z"
+}

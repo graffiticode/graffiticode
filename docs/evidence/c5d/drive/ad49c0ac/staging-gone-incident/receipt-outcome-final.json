@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": 404,
+    "message": "Document \"projects/graffiticode/databases/broker/documents/receipts/89c0fb7fe69642cfa032267d839b5f063ec6446c0329f50cc01461ed42140f98/outcome/final\" not found.",
+    "status": "NOT_FOUND"
+  }
+}

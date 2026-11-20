@@ -1,0 +1,235 @@
+# Compiler VPC and subnets (IPv4 only)
+gcloud services enable compute.googleapis.com dns.googleapis.com secretmanager.googleapis.com iam.googleapis.com logging.googleapis.com monitoring.googleapis.com --project=graffiticode
+gcloud compute networks create compilers --project=graffiticode --subnet-mode=custom
+gcloud compute networks subnets create egress-proxy --project=graffiticode --region=us-central1 --network=compilers --range=10.8.0.0/27 --stack-type=IPV4_ONLY
+gcloud compute networks subnets create compilers-default --project=graffiticode --region=us-central1 --network=compilers --range=10.8.16.0/22 --stack-type=IPV4_ONLY
+gcloud compute networks subnets create compilers-l0185 --project=graffiticode --region=us-central1 --network=compilers --range=10.8.20.0/22 --stack-type=IPV4_ONLY
+gcloud compute networks subnets create compilers-l0000 --project=graffiticode --region=us-central1 --network=compilers --range=10.8.24.0/22 --stack-type=IPV4_ONLY
+gcloud compute networks subnets create compilers-l0176 --project=graffiticode --region=us-central1 --network=compilers --range=10.8.28.0/22 --stack-type=IPV4_ONLY
+gcloud compute networks subnets create compilers-l0013 --project=graffiticode --region=us-central1 --network=compilers --range=10.8.32.0/22 --stack-type=IPV4_ONLY
+gcloud compute addresses create egress-proxy-lb --project=graffiticode --region=us-central1 --subnet=egress-proxy --addresses=10.8.0.2 --purpose=GCE_ENDPOINT '--description=ISOLATE-01: the egress proxy'\''s internal load balancer'
+
+# Firewall: compilers reach only the load balancer (a network firewall policy, matched by the compiler subnets' source ranges)
+gcloud compute network-firewall-policies create compilers-egress --global --project=graffiticode '--description=ISOLATE-01: compiler subnets reach only the egress proxy'
+gcloud compute network-firewall-policies rules create 100 --firewall-policy=compilers-egress --global-firewall-policy --project=graffiticode --direction=EGRESS --action=allow --layer4-configs=tcp:3128 --src-ip-ranges=10.8.16.0/22,10.8.20.0/22,10.8.24.0/22,10.8.28.0/22,10.8.32.0/22 --dest-ip-ranges=10.8.0.2/32 '--description=compilers to the proxy'\''s load balancer'
+gcloud compute network-firewall-policies rules create 200 --firewall-policy=compilers-egress --global-firewall-policy --project=graffiticode --direction=EGRESS --action=deny --layer4-configs=tcp:53,udp:53,tcp:853 --src-ip-ranges=10.8.16.0/22,10.8.20.0/22,10.8.24.0/22,10.8.28.0/22,10.8.32.0/22 --dest-ip-ranges=0.0.0.0/0 --enable-logging '--description=no DNS but the metadata server'\''s'
+gcloud compute network-firewall-policies rules create 1000 --firewall-policy=compilers-egress --global-firewall-policy --project=graffiticode --direction=EGRESS --action=deny --layer4-configs=all --src-ip-ranges=10.8.16.0/22,10.8.20.0/22,10.8.24.0/22,10.8.28.0/22,10.8.32.0/22 --dest-ip-ranges=0.0.0.0/0 --enable-logging '--description=nothing else'
+gcloud compute network-firewall-policies associations create --firewall-policy=compilers-egress --global-firewall-policy --project=graffiticode --network=compilers --name=compilers-egress
+# Step 0 (2026-10-18) confirmed Cloud Run Direct VPC egress traffic matches these source ranges.
+
+# Firewall: the proxy VMs (stateful: replies to compilers and health checks are return traffic)
+gcloud compute firewall-rules create egress-proxy-allow-compilers --project=graffiticode --network=compilers --direction=INGRESS --action=ALLOW --rules=tcp:3128 --source-ranges=10.8.16.0/22,10.8.20.0/22,10.8.24.0/22,10.8.28.0/22,10.8.32.0/22 --target-service-accounts=egress-proxy@graffiticode.iam.gserviceaccount.com --priority=1000
+gcloud compute firewall-rules create egress-proxy-allow-health --project=graffiticode --network=compilers --direction=INGRESS --action=ALLOW --rules=tcp:3129 --source-ranges=35.191.0.0/16,130.211.0.0/22 --target-service-accounts=egress-proxy@graffiticode.iam.gserviceaccount.com --priority=1000
+gcloud compute firewall-rules create egress-proxy-deny-internal --project=graffiticode --network=compilers --direction=EGRESS --action=DENY --rules=all --destination-ranges=0.0.0.0/8,10.0.0.0/8,100.64.0.0/10,127.0.0.0/8,169.254.0.0/16,172.16.0.0/12,192.168.0.0/16,224.0.0.0/4,240.0.0.0/4,199.36.153.4/30,199.36.153.8/30,10.8.16.0/22,10.8.20.0/22,10.8.24.0/22,10.8.28.0/22,10.8.32.0/22,10.8.0.2/32 --target-service-accounts=egress-proxy@graffiticode.iam.gserviceaccount.com --priority=900 --enable-logging
+gcloud compute firewall-rules create egress-proxy-allow-resolvers --project=graffiticode --network=compilers --direction=EGRESS --action=ALLOW --rules=tcp:53,udp:53 --destination-ranges=8.8.8.8/32,8.8.4.4/32 --target-service-accounts=egress-proxy@graffiticode.iam.gserviceaccount.com --priority=950
+gcloud compute firewall-rules create egress-proxy-allow-web --project=graffiticode --network=compilers --direction=EGRESS --action=ALLOW --rules=tcp:80,tcp:443 --destination-ranges=0.0.0.0/0 --target-service-accounts=egress-proxy@graffiticode.iam.gserviceaccount.com --priority=1000
+gcloud compute firewall-rules create egress-proxy-deny-rest --project=graffiticode --network=compilers --direction=EGRESS --action=DENY --rules=all --destination-ranges=0.0.0.0/0 --target-service-accounts=egress-proxy@graffiticode.iam.gserviceaccount.com --priority=65000
+
+# DNS: compilers resolve nothing but the metadata server
+gcloud dns managed-zones create compilers-root --project=graffiticode --dns-name=. --visibility=private --networks=compilers '--description=ISOLATE-01: an empty root for the compiler VPC'
+gcloud dns record-sets create metadata.google.internal. --project=graffiticode --zone=compilers-root --type=A --ttl=300 --rrdatas=169.254.169.254
+
+# Cloud NAT for the proxy subnet only
+gcloud compute routers create egress-proxy-router --project=graffiticode --region=us-central1 --network=compilers
+gcloud compute routers nats create egress-proxy-nat --project=graffiticode --region=us-central1 --router=egress-proxy-router --auto-allocate-nat-external-ips --nat-custom-subnet-ip-ranges=egress-proxy --enable-logging --min-ports-per-vm=4096 --udp-idle-timeout=10s
+
+# The proxy's identity: certificate keys, logs and metrics, nothing else
+gcloud iam service-accounts create egress-proxy --project=graffiticode '--display-name=ISOLATE-01 egress proxy'
+gcloud projects add-iam-policy-binding graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/logging.logWriter --condition=None
+gcloud projects add-iam-policy-binding graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/monitoring.metricWriter --condition=None
+
+# Secrets: the public CA bundle (compilers) and one certificate key per host (the proxy only)
+gcloud secrets create egress-proxy-ca-bundle --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-ca-bundle --project=graffiticode --data-file=ca.crt
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0000-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0000r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0003r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0010r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0013r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0014r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0174r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0175r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0176-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0176r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0177r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0178r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0179r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0180r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0181r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0182r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0183r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0184-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0185r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0186r-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding egress-proxy-ca-bundle --project=graffiticode --member=serviceAccount:l0187-run@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-api-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-api-graffiticode-org --project=graffiticode --data-file=certs/api-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-api-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-app-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-app-graffiticode-org --project=graffiticode --data-file=certs/app-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-app-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-auth-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-auth-graffiticode-org --project=graffiticode --data-file=certs/auth-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-auth-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-broker-c5d-drive-sja7fatcta-uc-a-run-app --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-broker-c5d-drive-sja7fatcta-uc-a-run-app --project=graffiticode --data-file=certs/broker-c5d-drive-sja7fatcta-uc-a-run-app.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-broker-c5d-drive-sja7fatcta-uc-a-run-app --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-broker-sja7fatcta-uc-a-run-app --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-broker-sja7fatcta-uc-a-run-app --project=graffiticode --data-file=certs/broker-sja7fatcta-uc-a-run-app.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-broker-sja7fatcta-uc-a-run-app --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0000-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0000-graffiticode-org --project=graffiticode --data-file=certs/l0000-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0000-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0001-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0001-graffiticode-org --project=graffiticode --data-file=certs/l0001-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0001-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0002-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0002-graffiticode-org --project=graffiticode --data-file=certs/l0002-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0002-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0003-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0003-graffiticode-org --project=graffiticode --data-file=certs/l0003-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0003-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0010-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0010-graffiticode-org --project=graffiticode --data-file=certs/l0010-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0010-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0011-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0011-graffiticode-org --project=graffiticode --data-file=certs/l0011-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0011-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0012-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0012-graffiticode-org --project=graffiticode --data-file=certs/l0012-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0012-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0013-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0013-graffiticode-org --project=graffiticode --data-file=certs/l0013-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0013-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0014-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0014-graffiticode-org --project=graffiticode --data-file=certs/l0014-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0014-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0137-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0137-graffiticode-org --project=graffiticode --data-file=certs/l0137-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0137-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0151-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0151-graffiticode-org --project=graffiticode --data-file=certs/l0151-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0151-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0152-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0152-graffiticode-org --project=graffiticode --data-file=certs/l0152-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0152-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0153-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0153-graffiticode-org --project=graffiticode --data-file=certs/l0153-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0153-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0154-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0154-graffiticode-org --project=graffiticode --data-file=certs/l0154-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0154-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0155-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0155-graffiticode-org --project=graffiticode --data-file=certs/l0155-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0155-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0156-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0156-graffiticode-org --project=graffiticode --data-file=certs/l0156-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0156-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0157-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0157-graffiticode-org --project=graffiticode --data-file=certs/l0157-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0157-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0158-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0158-graffiticode-org --project=graffiticode --data-file=certs/l0158-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0158-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0159-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0159-graffiticode-org --project=graffiticode --data-file=certs/l0159-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0159-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0160-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0160-graffiticode-org --project=graffiticode --data-file=certs/l0160-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0160-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0161-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0161-graffiticode-org --project=graffiticode --data-file=certs/l0161-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0161-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0163-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0163-graffiticode-org --project=graffiticode --data-file=certs/l0163-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0163-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0166-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0166-graffiticode-org --project=graffiticode --data-file=certs/l0166-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0166-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0169-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0169-graffiticode-org --project=graffiticode --data-file=certs/l0169-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0169-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0170-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0170-graffiticode-org --project=graffiticode --data-file=certs/l0170-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0170-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0171-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0171-graffiticode-org --project=graffiticode --data-file=certs/l0171-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0171-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0172-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0172-graffiticode-org --project=graffiticode --data-file=certs/l0172-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0172-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0173-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0173-graffiticode-org --project=graffiticode --data-file=certs/l0173-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0173-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0174-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0174-graffiticode-org --project=graffiticode --data-file=certs/l0174-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0174-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0175-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0175-graffiticode-org --project=graffiticode --data-file=certs/l0175-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0175-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0176-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0176-graffiticode-org --project=graffiticode --data-file=certs/l0176-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0176-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0177-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0177-graffiticode-org --project=graffiticode --data-file=certs/l0177-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0177-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0178-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0178-graffiticode-org --project=graffiticode --data-file=certs/l0178-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0178-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0179-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0179-graffiticode-org --project=graffiticode --data-file=certs/l0179-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0179-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0180-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0180-graffiticode-org --project=graffiticode --data-file=certs/l0180-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0180-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0181-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0181-graffiticode-org --project=graffiticode --data-file=certs/l0181-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0181-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0182-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0182-graffiticode-org --project=graffiticode --data-file=certs/l0182-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0182-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0183-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0183-graffiticode-org --project=graffiticode --data-file=certs/l0183-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0183-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0184-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0184-graffiticode-org --project=graffiticode --data-file=certs/l0184-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0184-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0185-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0185-graffiticode-org --project=graffiticode --data-file=certs/l0185-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0185-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-l0186-graffiticode-org --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-l0186-graffiticode-org --project=graffiticode --data-file=certs/l0186-graffiticode-org.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-l0186-graffiticode-org --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-policy-sja7fatcta-uc-a-run-app --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-policy-sja7fatcta-uc-a-run-app --project=graffiticode --data-file=certs/policy-sja7fatcta-uc-a-run-app.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-policy-sja7fatcta-uc-a-run-app --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-storage-googleapis-com --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-storage-googleapis-com --project=graffiticode --data-file=certs/storage-googleapis-com.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-storage-googleapis-com --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets create egress-proxy-cert-www-googleapis-com --project=graffiticode --replication-policy=automatic
+gcloud secrets versions add egress-proxy-cert-www-googleapis-com --project=graffiticode --data-file=certs/www-googleapis-com.pem
+gcloud secrets add-iam-policy-binding egress-proxy-cert-www-googleapis-com --project=graffiticode --member=serviceAccount:egress-proxy@graffiticode.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+
+# Instance template (pinned COS image, cloud-init from generate.js) and the managed instance group
+gcloud compute instance-templates create egress-proxy-9a1404b049a2 --project=graffiticode --machine-type=e2-small --image=cos-129-19506-549-7 --image-project=cos-cloud --network=compilers --subnet=egress-proxy --region=us-central1 --no-address --service-account=egress-proxy@graffiticode.iam.gserviceaccount.com --scopes=cloud-platform --shielded-secure-boot --metadata=google-logging-enabled=true,google-monitoring-enabled=true,cos-update-strategy=update_disabled,isolate01-config-sha256=94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697 --metadata-from-file=user-data=out/cloud-init.yaml
+gcloud compute health-checks create http egress-proxy-ready --project=graffiticode --region=us-central1 --port=3129 --request-path=/ready --enable-logging
+gcloud compute instance-groups managed create egress-proxy --project=graffiticode --region=us-central1 --template=egress-proxy-9a1404b049a2 --size=2 --zones=us-central1-a,us-central1-b --health-check=projects/graffiticode/regions/us-central1/healthChecks/egress-proxy-ready --initial-delay=120 --target-distribution-shape=EVEN
+
+# Internal passthrough Network Load Balancer (keeps the compiler's source address)
+gcloud compute backend-services create egress-proxy --project=graffiticode --region=us-central1 --load-balancing-scheme=INTERNAL --protocol=TCP --health-checks=egress-proxy-ready --health-checks-region=us-central1
+gcloud compute backend-services add-backend egress-proxy --project=graffiticode --region=us-central1 --instance-group=egress-proxy --instance-group-region=us-central1
+gcloud compute forwarding-rules create egress-proxy --project=graffiticode --region=us-central1 --load-balancing-scheme=INTERNAL --network=compilers --subnet=egress-proxy --address=egress-proxy-lb --ip-protocol=TCP --ports=3128 --backend-service=egress-proxy --backend-service-region=us-central1
+
+# Alerts: a failing health check, a spike in refusals, the logging heartbeat, and a config mismatch
+gcloud logging metrics create egress-proxy-access --project=graffiticode '--description=ISOLATE-01 proxy access log lines' '--log-filter=jsonPayload.isolate01=("egress" OR "terminate")'
+gcloud logging metrics create egress-proxy-heartbeat --project=graffiticode '--description=ISOLATE-01 proxy health-check log lines (the logging path'\''s heartbeat)' '--log-filter=jsonPayload.isolate01="health"'
+gcloud logging metrics create egress-proxy-refused --project=graffiticode '--description=ISOLATE-01 proxy refusals' '--log-filter=jsonPayload.isolate01=("egress" OR "terminate") AND jsonPayload.decision="refuse"'
+gcloud logging metrics create egress-proxy-config-mismatch --project=graffiticode '--description=ISOLATE-01 a proxy VM running another config than its template'\''s' '--log-filter=jsonPayload.isolate01="config" AND jsonPayload.match=false'
+gcloud logging metrics create egress-proxy-unhealthy --project=graffiticode '--description=ISOLATE-01 proxy VMs marked unhealthy' '--log-filter=resource.type="gce_instance_group" AND jsonPayload.healthCheckProbeResult.healthState="UNHEALTHY"'
+gcloud monitoring policies create --project=graffiticode --policy-from-file=out/alerts/egress-proxy-heartbeat-low.json
+gcloud monitoring policies create --project=graffiticode --policy-from-file=out/alerts/egress-proxy-refused-spike.json
+gcloud monitoring policies create --project=graffiticode --policy-from-file=out/alerts/egress-proxy-config-mismatch.json
+gcloud monitoring policies create --project=graffiticode --policy-from-file=out/alerts/egress-proxy-unhealthy.json
+
+# Rolling update (patching: a new template, new VMs up before old ones go)
+gcloud compute instance-groups managed rolling-action start-update egress-proxy --project=graffiticode --region=us-central1 --version=template=egress-proxy-9a1404b049a2 --max-surge=2 --max-unavailable=0 --type=proactive

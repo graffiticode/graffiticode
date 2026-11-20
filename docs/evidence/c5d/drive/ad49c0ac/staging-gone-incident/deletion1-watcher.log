@@ -1,0 +1,7 @@
+2026-11-20T19:37:43.689Z watching for the staging-gone deletion of c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f
+2026-11-20T19:38:07.741Z printed: gs://graffiticode-command-staging/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png @ 1795203474250242
+2026-11-20T19:38:08.646Z 1 fault line for c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: true
+2026-11-20T19:38:08.932Z 2 reservation: 1 doc(s), staged at stagedGeneration 1: true
+2026-11-20T19:38:08.933Z 3 object name from the reservation: true
+2026-11-20T19:38:09.368Z 4 live generation 1795203474250242 == printed 1795203474250242: true
+2026-11-20T19:38:10.634Z DELETED gs://graffiticode-command-staging/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png @ 1795203474250242

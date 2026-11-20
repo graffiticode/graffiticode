@@ -1,0 +1,1042 @@
+[
+  {
+    "httpRequest": {
+      "latency": "0.789726428s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "0.0.0.0",
+      "requestMethod": "POST",
+      "requestSize": "2997",
+      "requestUrl": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app/v1/execute",
+      "responseSize": "358",
+      "serverIp": "34.143.75.2",
+      "status": 409
+    },
+    "insertId": "6b00a1db000cc6cc6e3ca259",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:39:07.842685075Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "WARNING",
+    "spanId": "3fad0d0682cfd507",
+    "timestamp": "2026-11-20T19:39:07.024147Z",
+    "trace": "projects/graffiticode/traces/3ee6415630896a1993b54475d00fb546",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a1db000afea44455e5a4",
+    "jsonPayload": {
+      "at": "2026-11-20T19:39:07.720Z",
+      "callerRole": "compiler",
+      "category": "conflict",
+      "event": "execute",
+      "fn": "snap",
+      "invocationId": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3",
+      "itemId": "7vwaCAIyMNCJEzgIfyYY",
+      "jti": "9e573d2a-ae62-41b0-8ef8-5847eed6f921",
+      "lang": "0013",
+      "logName": "security_audit",
+      "op": "gcs.put-thumbnail",
+      "opid": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "outcome": "denied",
+      "planDigest": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6",
+      "provenance": "user",
+      "reason": "staging-unavailable",
+      "registryVersion": 9,
+      "requestId": "f3def3aa-59ef-46bc-89b0-9b68e8670533",
+      "stage": "s0",
+      "user": "f70edb9f82429f72ac89b1ca"
+    },
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:39:07.727508400Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-20T19:39:07.720548Z"
+  },
+  {
+    "insertId": "6b00a1db000cc224bb785b66",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:39:08.065451840Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "::ffff:169.254.169.126 - - [20/Nov/2026:19:39:07 +0000] \"POST /v1/execute HTTP/1.1\" 409 131 \"-\" \"-\"",
+    "timestamp": "2026-11-20T19:39:07.836132Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.600360289s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "0.0.0.0",
+      "requestMethod": "POST",
+      "requestSize": "2997",
+      "requestUrl": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app/v1/execute",
+      "responseSize": "358",
+      "serverIp": "34.143.75.2",
+      "status": 409
+    },
+    "insertId": "6b00a226000725a84eb036bf",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:40:22.526876077Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "WARNING",
+    "spanId": "bec6d168f9217dd1",
+    "timestamp": "2026-11-20T19:40:21.846731Z",
+    "trace": "projects/graffiticode/traces/e38ccfbec413dcb64b94bcca324ab21c",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a2260005bbd2117979b9",
+    "jsonPayload": {
+      "at": "2026-11-20T19:40:22.376Z",
+      "callerRole": "compiler",
+      "category": "conflict",
+      "event": "execute",
+      "fn": "snap",
+      "invocationId": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3",
+      "itemId": "7vwaCAIyMNCJEzgIfyYY",
+      "jti": "eef72e60-15c4-49c5-8b4a-faa15fa2cfe9",
+      "lang": "0013",
+      "logName": "security_audit",
+      "op": "gcs.put-thumbnail",
+      "opid": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "outcome": "denied",
+      "planDigest": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6",
+      "provenance": "user",
+      "reason": "staging-unavailable",
+      "registryVersion": 9,
+      "requestId": "24d2b019-7555-4ba3-a353-89f7bd819fca",
+      "stage": "s0",
+      "user": "f70edb9f82429f72ac89b1ca"
+    },
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:40:22.533710304Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-20T19:40:22.375762Z"
+  },
+  {
+    "insertId": "6b00a226000726bd09df94d8",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:40:22.716861571Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "::ffff:169.254.169.126 - - [20/Nov/2026:19:40:22 +0000] \"POST /v1/execute HTTP/1.1\" 409 131 \"-\" \"-\"",
+    "timestamp": "2026-11-20T19:40:22.468669Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.713986264s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "0.0.0.0",
+      "requestMethod": "POST",
+      "requestSize": "2997",
+      "requestUrl": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app/v1/execute",
+      "responseSize": "358",
+      "serverIp": "34.143.73.2",
+      "status": 409
+    },
+    "insertId": "6b00a28d000be1a910272fc1",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:42:05.785497852Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "WARNING",
+    "spanId": "805c49449e7150db",
+    "timestamp": "2026-11-20T19:42:05.043481Z",
+    "trace": "projects/graffiticode/traces/68226f76a852305efcb6f3c9637b3f0d",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a28d000a6e5e0fa5482a",
+    "jsonPayload": {
+      "at": "2026-11-20T19:42:05.684Z",
+      "callerRole": "compiler",
+      "category": "conflict",
+      "event": "execute",
+      "fn": "snap",
+      "invocationId": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3",
+      "itemId": "7vwaCAIyMNCJEzgIfyYY",
+      "jti": "cfc88797-6b59-485d-95e4-41fb08ca3095",
+      "lang": "0013",
+      "logName": "security_audit",
+      "op": "gcs.put-thumbnail",
+      "opid": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "outcome": "denied",
+      "planDigest": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6",
+      "provenance": "user",
+      "reason": "staging-unavailable",
+      "registryVersion": 9,
+      "requestId": "cacbff70-bfef-4329-b831-8000916933d3",
+      "stage": "s0",
+      "user": "f70edb9f82429f72ac89b1ca"
+    },
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:42:05.691294067Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-20T19:42:05.683614Z"
+  },
+  {
+    "insertId": "6b00a28d000be0c6fbca7ce3",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:42:06.027031660Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "::ffff:169.254.169.126 - - [20/Nov/2026:19:42:05 +0000] \"POST /v1/execute HTTP/1.1\" 409 131 \"-\" \"-\"",
+    "timestamp": "2026-11-20T19:42:05.778438Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.771551891s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "0.0.0.0",
+      "requestMethod": "POST",
+      "requestSize": "2998",
+      "requestUrl": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app/v1/execute",
+      "responseSize": "358",
+      "serverIp": "34.143.73.2",
+      "status": 409
+    },
+    "insertId": "6b00a307000c2eea16a46b5b",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:44:07.805145240Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "WARNING",
+    "spanId": "9126335cd542a228",
+    "timestamp": "2026-11-20T19:44:07.006089Z",
+    "trace": "projects/graffiticode/traces/3e7f30859bc649cccf43a7a2a1180ed4",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a307000a14cbca006047",
+    "jsonPayload": {
+      "at": "2026-11-20T19:44:07.660Z",
+      "callerRole": "compiler",
+      "category": "conflict",
+      "event": "execute",
+      "fn": "snap",
+      "invocationId": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3",
+      "itemId": "7vwaCAIyMNCJEzgIfyYY",
+      "jti": "c1b37dba-fca9-4591-8174-b92d9d7e0391",
+      "lang": "0013",
+      "logName": "security_audit",
+      "op": "gcs.put-thumbnail",
+      "opid": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "outcome": "denied",
+      "planDigest": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6",
+      "provenance": "user",
+      "reason": "staging-unavailable",
+      "registryVersion": 9,
+      "requestId": "778241f1-5c2a-42e7-ab00-f8fc8c37d60d",
+      "stage": "s0",
+      "user": "f70edb9f82429f72ac89b1ca"
+    },
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:44:07.669576834Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-20T19:44:07.660683Z"
+  },
+  {
+    "insertId": "6b00a307000c2cfc4738fd0c",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:44:07.997008012Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "::ffff:169.254.169.126 - - [20/Nov/2026:19:44:07 +0000] \"POST /v1/execute HTTP/1.1\" 409 131 \"-\" \"-\"",
+    "timestamp": "2026-11-20T19:44:07.797948Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.553759013s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "0.0.0.0",
+      "requestMethod": "POST",
+      "requestSize": "2997",
+      "requestUrl": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app/v1/execute",
+      "responseSize": "358",
+      "serverIp": "34.143.78.2",
+      "status": 409
+    },
+    "insertId": "6b00a37e000c910c13ad5ec6",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:46:06.833155386Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "WARNING",
+    "spanId": "7faf90d748666b66",
+    "timestamp": "2026-11-20T19:46:06.248803Z",
+    "trace": "projects/graffiticode/traces/81c0572965394c3ecd4c79ff4cd3894e",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a37e000b6ef6cb39e8c7",
+    "jsonPayload": {
+      "at": "2026-11-20T19:46:06.750Z",
+      "callerRole": "compiler",
+      "category": "conflict",
+      "event": "execute",
+      "fn": "snap",
+      "invocationId": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3",
+      "itemId": "7vwaCAIyMNCJEzgIfyYY",
+      "jti": "ff98eab1-214a-4757-80e4-5ef7f14a2f68",
+      "lang": "0013",
+      "logName": "security_audit",
+      "op": "gcs.put-thumbnail",
+      "opid": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "outcome": "denied",
+      "planDigest": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6",
+      "provenance": "user",
+      "reason": "staging-unavailable",
+      "registryVersion": 9,
+      "requestId": "565b825e-e092-47bd-88d9-a9628a5e239a",
+      "stage": "s0",
+      "user": "f70edb9f82429f72ac89b1ca"
+    },
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:46:06.755607461Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-20T19:46:06.749302Z"
+  },
+  {
+    "insertId": "6b00a37e000c8f47adb3f5e3",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:46:07.095077487Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "::ffff:169.254.169.126 - - [20/Nov/2026:19:46:06 +0000] \"POST /v1/execute HTTP/1.1\" 409 131 \"-\" \"-\"",
+    "timestamp": "2026-11-20T19:46:06.823111Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.556583468s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "0.0.0.0",
+      "requestMethod": "POST",
+      "requestSize": "2997",
+      "requestUrl": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app/v1/execute",
+      "responseSize": "358",
+      "serverIp": "34.143.79.2",
+      "status": 409
+    },
+    "insertId": "6b00a3c20008203baa15b0dc",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:47:14.541812208Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "WARNING",
+    "spanId": "5ff4cbcb543f2887",
+    "timestamp": "2026-11-20T19:47:13.955345Z",
+    "trace": "projects/graffiticode/traces/097bc8dbcfe6a041c926689664435a95",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a3c200073b113676b55c",
+    "jsonPayload": {
+      "at": "2026-11-20T19:47:14.474Z",
+      "callerRole": "compiler",
+      "category": "conflict",
+      "event": "execute",
+      "fn": "snap",
+      "invocationId": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3",
+      "itemId": "7vwaCAIyMNCJEzgIfyYY",
+      "jti": "53888c4a-d631-4516-ba3e-cc10cef2ba44",
+      "lang": "0013",
+      "logName": "security_audit",
+      "op": "gcs.put-thumbnail",
+      "opid": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "outcome": "denied",
+      "planDigest": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6",
+      "provenance": "user",
+      "reason": "staging-unavailable",
+      "registryVersion": 9,
+      "requestId": "d36f88c3-3229-41b8-8e45-021de8c82752",
+      "stage": "s0",
+      "user": "f70edb9f82429f72ac89b1ca"
+    },
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:47:14.479693317Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-20T19:47:14.473873Z"
+  },
+  {
+    "insertId": "6b00a3c200081f69de8851dd",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:47:14.813587323Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "::ffff:169.254.169.126 - - [20/Nov/2026:19:47:14 +0000] \"POST /v1/execute HTTP/1.1\" 409 131 \"-\" \"-\"",
+    "timestamp": "2026-11-20T19:47:14.532329Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.731952644s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "0.0.0.0",
+      "requestMethod": "POST",
+      "requestSize": "2997",
+      "requestUrl": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app/v1/execute",
+      "responseSize": "358",
+      "serverIp": "34.143.79.2",
+      "status": 409
+    },
+    "insertId": "6b00a4310004ab606ddfddfd",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:49:05.314120536Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "WARNING",
+    "spanId": "8c71016a2aa8c8db",
+    "timestamp": "2026-11-20T19:49:04.550472Z",
+    "trace": "projects/graffiticode/traces/8edeeec0c92e671258273245b174a804",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a4310000e2bef844b57b",
+    "jsonPayload": {
+      "at": "2026-11-20T19:49:05.059Z",
+      "callerRole": "compiler",
+      "category": "conflict",
+      "event": "execute",
+      "fn": "snap",
+      "invocationId": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3",
+      "itemId": "7vwaCAIyMNCJEzgIfyYY",
+      "jti": "13429394-f7da-465f-acee-fbab9c02c991",
+      "lang": "0013",
+      "logName": "security_audit",
+      "op": "gcs.put-thumbnail",
+      "opid": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "outcome": "denied",
+      "planDigest": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6",
+      "provenance": "user",
+      "reason": "staging-unavailable",
+      "registryVersion": 9,
+      "requestId": "7cf67dcf-4f02-45b9-83d3-5ca07143c5f7",
+      "stage": "s0",
+      "user": "f70edb9f82429f72ac89b1ca"
+    },
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:49:05.065691406Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-20T19:49:05.058046Z"
+  },
+  {
+    "insertId": "6b00a4310004a9db17eaf825",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:49:05.398471017Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "::ffff:169.254.169.126 - - [20/Nov/2026:19:49:05 +0000] \"POST /v1/execute HTTP/1.1\" 409 131 \"-\" \"-\"",
+    "timestamp": "2026-11-20T19:49:05.305627Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.534120174s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "0.0.0.0",
+      "requestMethod": "POST",
+      "requestSize": "2997",
+      "requestUrl": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app/v1/execute",
+      "responseSize": "358",
+      "serverIp": "34.143.79.2",
+      "status": 409
+    },
+    "insertId": "6b00a46d000e725b3b50ff7b",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:50:05.954312759Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "WARNING",
+    "spanId": "7a0f2ede877a0290",
+    "timestamp": "2026-11-20T19:50:05.386522Z",
+    "trace": "projects/graffiticode/traces/d919f7079477a26c19644146a95e1512",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a46d000c6d5ca6bb7e3d",
+    "jsonPayload": {
+      "at": "2026-11-20T19:50:05.815Z",
+      "callerRole": "compiler",
+      "category": "conflict",
+      "event": "execute",
+      "fn": "snap",
+      "invocationId": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3",
+      "itemId": "7vwaCAIyMNCJEzgIfyYY",
+      "jti": "1d0f11ca-1b3f-405a-8268-746763e990e2",
+      "lang": "0013",
+      "logName": "security_audit",
+      "op": "gcs.put-thumbnail",
+      "opid": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "outcome": "denied",
+      "planDigest": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6",
+      "provenance": "user",
+      "reason": "staging-unavailable",
+      "registryVersion": 9,
+      "requestId": "17eafef1-fa36-45a0-9171-1b5ea53e57ee",
+      "stage": "s0",
+      "user": "f70edb9f82429f72ac89b1ca"
+    },
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:50:05.822455298Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-20T19:50:05.814428Z"
+  },
+  {
+    "insertId": "6b00a46d000e774ecbaa5ae8",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:50:06.159747297Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "::ffff:169.254.169.126 - - [20/Nov/2026:19:50:05 +0000] \"POST /v1/execute HTTP/1.1\" 409 131 \"-\" \"-\"",
+    "timestamp": "2026-11-20T19:50:05.948046Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.620546241s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "0.0.0.0",
+      "requestMethod": "POST",
+      "requestSize": "2999",
+      "requestUrl": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app/v1/execute",
+      "responseSize": "358",
+      "serverIp": "34.143.77.2",
+      "status": 409
+    },
+    "insertId": "6b00a4ef000687b16a529c93",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:52:15.442261542Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "WARNING",
+    "spanId": "93fe79cbaa9f1cf0",
+    "timestamp": "2026-11-20T19:52:14.776572Z",
+    "trace": "projects/graffiticode/traces/6ba30216e0efd9e3e983b3357d5bbf9e",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a4ef0004d9c7c98476e0",
+    "jsonPayload": {
+      "at": "2026-11-20T19:52:15.318Z",
+      "callerRole": "compiler",
+      "category": "conflict",
+      "event": "execute",
+      "fn": "snap",
+      "invocationId": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3",
+      "itemId": "7vwaCAIyMNCJEzgIfyYY",
+      "jti": "dd1adb8e-687d-46bf-b6d6-d800adf10e18",
+      "lang": "0013",
+      "logName": "security_audit",
+      "op": "gcs.put-thumbnail",
+      "opid": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "outcome": "denied",
+      "planDigest": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6",
+      "provenance": "user",
+      "reason": "staging-unavailable",
+      "registryVersion": 9,
+      "requestId": "e567cd68-4920-4667-b5ae-09f5a02b2a30",
+      "stage": "s0",
+      "user": "f70edb9f82429f72ac89b1ca"
+    },
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:52:15.327731938Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-20T19:52:15.317895Z"
+  },
+  {
+    "insertId": "6b00a4ef00068878ac5e52f0",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:52:15.655629108Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "::ffff:169.254.169.126 - - [20/Nov/2026:19:52:15 +0000] \"POST /v1/execute HTTP/1.1\" 409 131 \"-\" \"-\"",
+    "timestamp": "2026-11-20T19:52:15.428152Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.612732080s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "0.0.0.0",
+      "requestMethod": "POST",
+      "requestSize": "2999",
+      "requestUrl": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app/v1/execute",
+      "responseSize": "358",
+      "serverIp": "34.143.72.2",
+      "status": 409
+    },
+    "insertId": "6b00a56900053a5da14123e2",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:54:17.349617730Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "WARNING",
+    "spanId": "aab55922171fbe87",
+    "timestamp": "2026-11-20T19:54:16.708743Z",
+    "trace": "projects/graffiticode/traces/1a27bb7902fbdf1204bf7d3fac8e3d67",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a5690003d82952ca117e",
+    "jsonPayload": {
+      "at": "2026-11-20T19:54:17.252Z",
+      "callerRole": "compiler",
+      "category": "conflict",
+      "event": "execute",
+      "fn": "snap",
+      "invocationId": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3",
+      "itemId": "7vwaCAIyMNCJEzgIfyYY",
+      "jti": "7aa01b81-f491-4ed5-8b03-121307f2bcfb",
+      "lang": "0013",
+      "logName": "security_audit",
+      "op": "gcs.put-thumbnail",
+      "opid": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "outcome": "denied",
+      "planDigest": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6",
+      "provenance": "user",
+      "reason": "staging-unavailable",
+      "registryVersion": 9,
+      "requestId": "225b3182-99fc-4f00-9180-8f9a42afcea1",
+      "stage": "s0",
+      "user": "f70edb9f82429f72ac89b1ca"
+    },
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:54:17.258603009Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-20T19:54:17.251945Z"
+  },
+  {
+    "insertId": "6b00a569000539a06777de5d",
+    "labels": {
+      "commit-sha": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9",
+      "gc-dirty": "false",
+      "gc-release": "rmwo55sk0-feb2b6",
+      "instanceId": "00e8a408bdcd01616d7026210f40d4875cbd87eabb2ac0cce1e586b10937d9ee1624eaff3dba8a3f31a5e35f2e20ca3ae79745101d4fe75babd42f892da5f626ab03f193af935109e34aac336a040aee57a7c216b1068a54"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:54:17.592031512Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "broker-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "broker-c5d-drive-rmwo55sk0-feb2b6",
+        "service_name": "broker-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "::ffff:169.254.169.126 - - [20/Nov/2026:19:54:17 +0000] \"POST /v1/execute HTTP/1.1\" 409 131 \"-\" \"-\"",
+    "timestamp": "2026-11-20T19:54:17.342432Z"
+  }
+]

@@ -1,0 +1,284 @@
+[
+  {
+    "httpRequest": {
+      "status": 200
+    },
+    "insertId": "ge91ixf126gl0",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptFinished",
+      "debugInfo": "URL_CRAWLED. Original HTTP response code number = 200",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:55:13.096688995Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:55:13.096688995Z"
+  },
+  {
+    "insertId": "153zct6els62v",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptStarted",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "scheduledTime": "2026-11-20T19:55:04.759587Z",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:55:13.042002048Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:55:13.042002048Z"
+  },
+  {
+    "insertId": "vnik0efemblys",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptStarted",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "scheduledTime": "2026-11-20T19:54:13.948075Z",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:54:18.627338963Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:54:18.627338963Z"
+  },
+  {
+    "httpRequest": {
+      "status": 200
+    },
+    "insertId": "t5niw7ezwxcf",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptFinished",
+      "debugInfo": "URL_CRAWLED. Original HTTP response code number = 200",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:54:18.610758432Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:54:18.610758432Z"
+  },
+  {
+    "insertId": "dwz7jgfgdicqm",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptStarted",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "scheduledTime": "2026-11-20T19:53:02.359037Z",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:53:06.821120209Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:53:06.821120209Z"
+  },
+  {
+    "httpRequest": {
+      "status": 200
+    },
+    "insertId": "10xfiijexvbzx",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptFinished",
+      "debugInfo": "URL_CRAWLED. Original HTTP response code number = 200",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:53:06.790018234Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:53:06.790018234Z"
+  },
+  {
+    "httpRequest": {
+      "status": 200
+    },
+    "insertId": "17miet4f16n9ef",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptFinished",
+      "debugInfo": "URL_CRAWLED. Original HTTP response code number = 200",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:52:18.428485816Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:52:18.428485816Z"
+  },
+  {
+    "insertId": "1yhzgaifgh3suf",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptStarted",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "scheduledTime": "2026-11-20T19:52:12.378456Z",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:52:15.122384359Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:52:15.122384359Z"
+  },
+  {
+    "insertId": "pk4pmdeyr8hz",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptStarted",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "scheduledTime": "2026-11-20T19:51:01.765216Z",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:51:08.921293634Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:51:08.921293634Z"
+  },
+  {
+    "httpRequest": {
+      "status": 200
+    },
+    "insertId": "mracktf186ya7",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptFinished",
+      "debugInfo": "URL_CRAWLED. Original HTTP response code number = 200",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:51:08.316255702Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:51:08.316255702Z"
+  },
+  {
+    "httpRequest": {
+      "status": 200
+    },
+    "insertId": "pjbr60fceltak",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptFinished",
+      "debugInfo": "URL_CRAWLED. Original HTTP response code number = 200",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:50:07.839033099Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:50:07.839033099Z"
+  },
+  {
+    "insertId": "19k3eu5exxcr5",
+    "jsonPayload": {
+      "@type": "type.googleapis.com/google.cloud.scheduler.logging.AttemptStarted",
+      "jobName": "projects/graffiticode/locations/us-central1/jobs/command-sweep-c5d-drive",
+      "scheduledTime": "2026-11-20T19:50:02.539728Z",
+      "targetType": "HTTP",
+      "url": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep"
+    },
+    "logName": "projects/graffiticode/logs/cloudscheduler.googleapis.com%2Fexecutions",
+    "receiveTimestamp": "2026-11-20T19:50:04.631034491Z",
+    "resource": {
+      "labels": {
+        "job_id": "command-sweep-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode"
+      },
+      "type": "cloud_scheduler_job"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-20T19:50:04.631034491Z"
+  }
+]

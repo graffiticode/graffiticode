@@ -1,0 +1,25 @@
+C5d Step 32 evidence: redactions (2026-11-20)
+
+The operator's email address was replaced by <operator> in every file below (Cloud Run's creator and last-modifier annotations, and the window's IAM member). Nothing else was changed. The originals are kept outside the repository.
+
+step32/before/l0176r-drive.json
+step32/readback/l0176r-drive-after.json
+step32/run2/api.json
+step32/run2/broker-after-restore.json
+step32/run2/broker-fault-on.json
+step32/run2/broker-serving-fault.json
+step32/run2/l0013r.json
+step32/run2/l0176r.json
+step32/run2/rev-00003.json
+step32/services/api-released.json
+step32/services/broker-released.json
+step32/services/l0013r-released.json
+step32/services/l0176r-released.json
+step32/services/placeholder-api-c5d-drive.json
+step32/services/placeholder-broker-c5d-drive.json
+step32/services/placeholder-l0013r-c5d-drive.json
+step32/services/placeholder-l0176r-c5d-drive.json
+step32/window/api-run.json
+step32/window/console-run.json
+
+step32/proxy/instances.json: each VM's user-data (the proxy cloud-init, already pinned by config digest 94ecf108...) replaced by its length and sha256.

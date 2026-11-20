@@ -1,0 +1,13 @@
+{
+  "runId": "0aa69b9a",
+  "phase": "first-capture",
+  "at": "2026-11-19T23:36:12.740Z",
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {
+      "private": "no command id",
+      "public": "null still absent after 600000 ms"
+    },
+    "publicSubject": null
+  }
+}
