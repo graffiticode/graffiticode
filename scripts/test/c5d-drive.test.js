@@ -1270,3 +1270,15 @@ test("cleanup --aborted closes a run that allocated nothing, and only that", () 
   assert.equal(judgePhase("cleanup", { ...base, aborted: true, policyEnumeration: enumeration([held]) }).passed, false);
   assert.match(terminal({ ...base, aborted: true, unresolvedIntents: ["first-public.json"] }).detail, /resolve-journal/);
 });
+
+// Live, Step 32 run ad49c0ac (2026-11-20): gcloud storage ls --json on the
+// empty drive bucket exits 0 with no output; access-probes failed "the listing
+// isn't a list". An empty output is an empty listing; anything else unparsed fails.
+test("a bucket listing: empty output is an empty bucket, anything unparsed fails", () => {
+  assert.deepEqual(C.parseListing("graffiticode-c5d-drive", ""), []);
+  assert.deepEqual(C.parseListing("graffiticode-c5d-drive", "\n"), []);
+  assert.deepEqual(C.parseListing("graffiticode-c5d-drive", JSON.stringify([{ url: "gs://graffiticode-c5d-drive/abc.png", metadata: { generation: 17 } }])), [{ name: "abc.png", generation: "17" }]);
+  assert.throws(() => C.parseListing("graffiticode-c5d-drive", "ERROR: something"), /isn't JSON/);
+  assert.throws(() => C.parseListing("graffiticode-c5d-drive", "{}"), /isn't a list/);
+  assert.throws(() => C.parseListing("graffiticode-c5d-drive", JSON.stringify([{ url: "gs://graffiticode-thumbnails/abc.png" }])), /isn't this bucket's/);
+});

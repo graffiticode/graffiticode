@@ -824,6 +824,27 @@ export const STEP_PHASES = Object.freeze(["drop-outcome-retry", "staging-gone-de
 // write-once): the resolution recomputed now must be the recorded one, field
 // for field apart from when it was written; then only the phase's manifest is
 // written. Anything else is a problem, and nothing is rewritten.
+// `gcloud storage ls --json gs://<bucket>/`'s output, from a run that exited 0:
+// a JSON array of objects, or nothing at all for an empty bucket (live, Step 32
+// run ad49c0ac, 2026-11-20: the drive bucket before its first capture). A
+// failed read exits nonzero and never reaches here; any other output is not a
+// listing and fails.
+export const parseListing = (bucket, stdout) => {
+  const text = String(stdout ?? "").trim();
+  if (text === "") return [];
+  let out;
+  try {
+    out = JSON.parse(text);
+  } catch {
+    throw new Error(`gs://${bucket}: the listing isn't JSON`);
+  }
+  if (!Array.isArray(out)) throw new Error(`gs://${bucket}: the listing isn't a list`);
+  return out.map(o => {
+    if (typeof o?.url !== "string" || !o.url.startsWith(`gs://${bucket}/`)) throw new Error(`gs://${bucket}: a listing entry isn't this bucket's object`);
+    return { name: o.url.replace(`gs://${bucket}/`, ""), generation: String(o.metadata?.generation ?? "") };
+  });
+};
+
 export const confirmResolution = ({ recorded, recomputed }) => {
   if (!recorded?.noAllocation) return { problem: "the recorded resolution has no noAllocation" };
   if (!recomputed?.noAllocation) return { problem: "no resolution could be recomputed" };
