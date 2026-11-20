@@ -4,7 +4,7 @@
 
 **Verdict: the drive has not passed.** It stopped at `staging-gone` on a blocking product finding (below). Its sweeper is paused, Broker's fault is off, the stuck command stays recorded pending, and `cleanup` stays failed. Compiler retirement and infrastructure deletion are held pending review of the command's disposal procedure.
 
-The operator's address is redacted throughout as `<operator>` ([`REDACTIONS.txt`](REDACTIONS.txt)). No token or key is in this evidence.
+The operator's address is redacted throughout as `<operator>` ([`REDACTIONS.txt`](REDACTIONS.txt)). No production credential, and no token or key, is in this evidence; two local-test JWT fixtures in the build logs are redacted ([`REDACTIONS.txt`](REDACTIONS.txt)).
 
 ## Layout
 

@@ -3657,7 +3657,7 @@ Step #6: [0mGET /for-testing [32m200[0m 2.729 ms - 2[0m
 Step #6: [0mGET /for-testing [33m401[0m 27.923 ms - 92[0m
 Step #6: [0mGET /for-testing [32m200[0m 10.876 ms - 2[0m
 Step #6: [0mGET /for-testing [32m200[0m 17.454 ms - 2[0m
-Step #6: [0mGET /for-testing?access_token=eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImNDWE1QbkdYWktpbUp5RnRFRHQ5In0.eyJpc3MiOiJ1cm46Z3JhZmZpdGljb2RlOmF1dGgiLCJzdWIiOiJhYmMxMjMiLCJpYXQiOjE3OTUxMjkyODQsImV4cCI6MTc5NTEyOTU4NH0.f6E_vOJWAbwC7YUq__pUU0g8wfxBbR3PNyZd0nXzakDggR-AEl0k0AUqQY1wtYIuu7N9XWKV4NFGiBGyfPhodA [32m200[0m 8.198 ms - 2[0m
+Step #6: [0mGET /for-testing?access_token=<redacted: a local-test JWT from the build's auth spec (ES256, iss urn:graffiticode:auth, sub abc123, expired)> [32m200[0m 8.198 ms - 2[0m
 Step #6: PASS src/routes/auth.spec.js
 Step #6:   ● Console
 Step #6: 

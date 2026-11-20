@@ -23,3 +23,5 @@ step32/window/api-run.json
 step32/window/console-run.json
 
 step32/proxy/instances.json: each VM's user-data (the proxy cloud-init, already pinned by config digest 94ecf108...) replaced by its length and sha256.
+
+step32/run2/release-api.log, step32/releases-run1/release-api.log: one local-test JWT each (the api build's auth spec fixture: ES256, iss urn:graffiticode:auth, sub abc123, expired, signed by the build's own test key) replaced by a marker. Correction after #458's review: the earlier "no token" scan matched only eyJhbGci headers.
