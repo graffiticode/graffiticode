@@ -874,18 +874,57 @@ export const isRenderLine = (text, item) => new RegExp(`\\brender item=${item.re
 // manifest of that phase. Everything else is the earlier manifest's,
 // unchanged; the earlier manifest is kept.
 export const RECOUNTABLE = Object.freeze(["exit-after-stage"]);
-export const recountManifest = ({ prior, priorFile, journalAt, renders, at }) => {
-  if (!RECOUNTABLE.includes(prior?.phase)) throw new Error(`renders are recounted only for ${RECOUNTABLE.join(", ")}`);
+// The recount's source is always the phase's original manifest (one with no
+// `recount`), never an earlier recount (#457 review: a recount of a recount
+// widened the window to that recount's collection time and took in another
+// phase's render). Every earlier recount must name that same original.
+// `files`: [{ file, manifest }] of the phase, in name (stamp) order.
+export const recountSource = files => {
+  const originals = files.filter(f => !f.manifest?.recount);
+  if (originals.length !== 1) throw new Error(`expected exactly one original manifest of the phase, found ${originals.length}`);
+  const [original] = originals;
+  const strays = files.filter(f => f.manifest?.recount && f.manifest.recount.of !== original.file);
+  if (strays.length) throw new Error(`recounts of another source: ${strays.map(f => f.file).join(", ")}`);
+  return { source: original.manifest, sourceFile: original.file };
+};
+// The new manifest: the original's observations with only `renders` replaced,
+// counted in the original's own window (its journal entry, written just
+// before its request, to the original manifest's end), which no recount ever
+// moves. When it was collected is recorded apart, as recount.collectedAt.
+export const recountManifest = ({ source, sourceFile, journalAt, renders, observedMs, at }) => {
+  if (!RECOUNTABLE.includes(source?.phase)) throw new Error(`renders are recounted only for ${RECOUNTABLE.join(", ")}`);
+  if (source.recount) throw new Error("the source must be the original manifest, not a recount");
   if (!Number.isSafeInteger(renders) || renders < 0) throw new Error("the recount isn't a count");
-  if (!(Date.parse(journalAt) < Date.parse(prior.at))) throw new Error("the phase's window isn't readable");
+  if (!(Date.parse(journalAt) < Date.parse(source.at))) throw new Error("the phase's window isn't readable");
   return {
-    runId: prior.runId,
-    phase: prior.phase,
+    runId: source.runId,
+    phase: source.phase,
     at,
-    ...(prior.answered !== undefined ? { answered: prior.answered } : {}),
-    recount: { of: priorFile, field: "renders", from: journalAt, to: prior.at, before: prior.observations?.renders ?? null },
-    observations: { ...prior.observations, renders },
+    ...(source.answered !== undefined ? { answered: source.answered } : {}),
+    recount: { of: sourceFile, field: "renders", from: journalAt, to: source.at, before: source.observations?.renders ?? null, collectedAt: at, observedMs: observedMs ?? null },
+    observations: { ...source.observations, renders },
   };
+};
+
+// A count of log lines, read until the first is ingested (bounded by
+// firstMs), then watched for the drive's ingestion-observation period
+// (AUDIT_OBSERVATION_MS, as the boundary's audit) before a final read, so a
+// later line from the same window is counted (#457 review: a 30 s settle
+// passed two renders as one). Counts only grow as lines are ingested; the
+// result is never less than the most seen.
+export const observeCount = async ({ read, observeMs, firstMs = 120_000, intervalMs = 10_000, sleep, now }) => {
+  const started = now();
+  let most = await read();
+  while (most === 0 && now() - started < firstMs) {
+    await sleep(intervalMs);
+    most = Math.max(most, await read());
+  }
+  const from = now();
+  while (now() - from < observeMs) {
+    await sleep(Math.min(intervalMs, observeMs - (now() - from)));
+    most = Math.max(most, await read());
+  }
+  return { count: most, observedMs: now() - from };
 };
 
 export const confirmResolution = ({ recorded, recomputed }) => {

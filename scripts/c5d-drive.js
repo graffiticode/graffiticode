@@ -128,7 +128,7 @@ import {
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
   latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
   priorPublicCaptures, policyFixtureClient, answerResolution, correlateIntents, paginateAll, drivePolicyCommands, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
-  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing, directCompileRequest, isRenderLine, RECOUNTABLE, recountManifest,
+  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing, directCompileRequest, isRenderLine, RECOUNTABLE, recountManifest, recountSource, observeCount, AUDIT_OBSERVATION_MS,
 } from "./lib/c5d-drive-checks.js";
 
 const args = process.argv.slice(2);
@@ -499,17 +499,15 @@ const faultLines = (commandId, from) => lines(config.l0013r, "capture fault", fr
 // render(): "render item=<item> ..."), so a phase counts its item's renders in
 // its own window, while no other capture of that item runs. The lines carry
 // ANSI codes inside the field, so they are queried by the item id (plain in
-// the line) and matched without the codes (isRenderLine). Read until a render
-// is ingested (bounded), then once more after a settling wait, so a later
-// second render isn't missed.
-const RENDER_SETTLE_MS = 30_000;
+// the line) and matched without the codes (isRenderLine). The count is
+// watched for AUDIT_OBSERVATION_MS after the first render is ingested
+// (observeCount), so a later render from the window is counted.
 const rendersOnce = async (item, from, to) => (await lines(config.l0013r, item, from))
   .filter(l => isRenderLine(l.text, item) && (to === null || Date.parse(l.at) < Date.parse(to))).length;
-const rendersOf = async (item, from, to = null) => {
-  await pollUntil({ read: () => rendersOnce(item, from, to), done: n => n > 0, timeoutMs: 120_000, intervalMs: 5_000 });
-  await sleep(RENDER_SETTLE_MS);
-  return rendersOnce(item, from, to);
-};
+const rendersObserved = (item, from, to = null) => observeCount({
+  read: () => rendersOnce(item, from, to), observeMs: AUDIT_OBSERVATION_MS, sleep, now: () => Date.now(),
+});
+const rendersOf = async (item, from, to = null) => (await rendersObserved(item, from, to)).count;
 // Every command the drive may have allocated (c5d-drive-checks.js inventory).
 const driveInventory = () => inventory({
   plan,
@@ -796,20 +794,20 @@ if (phase === "staging-gone") {
 }
 
 if (phase === "recount-renders") {
-  // A recount of exit-after-stage's renders in its own window (recountManifest).
+  // A recount of exit-after-stage's renders in the original's own window
+  // (recountSource, recountManifest): every recount reads the original.
   const of = need("--of");
   if (!RECOUNTABLE.includes(of)) throw new Error(`--of must be one of ${RECOUNTABLE.join(", ")}`);
-  const earlier = readdirSync(dir).filter(f => f.startsWith(`${of}-`) && f.endsWith(".json")).sort();
-  if (!earlier.length) throw new Error(`no ${of} manifest in this run`);
-  const priorFile = earlier.at(-1);
-  const prior = JSON.parse(readFileSync(path.join(dir, priorFile), "utf8"));
+  const files = readdirSync(dir).filter(f => f.startsWith(`${of}-`) && f.endsWith(".json")).sort()
+    .map(file => ({ file, manifest: JSON.parse(readFileSync(path.join(dir, file), "utf8")) }));
+  const { source, sourceFile } = recountSource(files);
   const journalAt = JSON.parse(readFileSync(path.join(journalDir, journalName(of)), "utf8")).at;
-  const renders = await rendersOf(FIXTURES.private, journalAt, prior.at);
-  const manifest = recountManifest({ prior, priorFile, journalAt, renders, at: new Date().toISOString() });
+  const { count, observedMs } = await rendersObserved(FIXTURES.private, journalAt, source.at);
+  const manifest = recountManifest({ source, sourceFile, journalAt, renders: count, observedMs, at: new Date().toISOString() });
   const file = writeOnce(phaseFile(of, stampOf(new Date())), manifest);
   const judged = judgePhase(of, manifest.observations);
   for (const c of judged.checks) console.log(`${c.ok ? "ok    " : "FAILED"} ${c.id}: ${c.detail}`);
-  console.log(`${of} (recount of ${priorFile}: renders ${manifest.recount.before} -> ${renders}): ${file}`);
+  console.log(`${of} (recount of ${sourceFile}, window ${journalAt} to ${source.at}: renders ${manifest.recount.before} -> ${count}): ${file}`);
   process.exitCode = phaseExitCode({ phase: of, observations: manifest.observations });
 }
 
