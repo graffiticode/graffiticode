@@ -1,0 +1,216 @@
+{
+  "apiVersion": "serving.knative.dev/v1",
+  "kind": "Service",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "586.0.0",
+      "run.googleapis.com/ingress": "all",
+      "run.googleapis.com/ingress-status": "all",
+      "run.googleapis.com/maxScale": "10",
+      "run.googleapis.com/operation-id": "f1787fd6-15e9-4b78-94f6-96117bf8a648",
+      "run.googleapis.com/urls": "[\"https://l0013r-c5d-drive-656973052505.us-central1.run.app\",\"https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app\"]",
+      "serving.knative.dev/creator": "<operator>",
+      "serving.knative.dev/lastModifier": "<operator>"
+    },
+    "creationTimestamp": "2026-11-19T22:46:26.791410Z",
+    "generation": 5,
+    "labels": {
+      "cloud.googleapis.com/location": "us-central1",
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmhz-e7abb8"
+    },
+    "name": "l0013r-c5d-drive",
+    "namespace": "656973052505",
+    "resourceVersion": "AAZgqvvoJnw",
+    "selfLink": "/apis/serving.knative.dev/v1/namespaces/656973052505/services/l0013r-c5d-drive",
+    "uid": "8be5a470-1fa4-457b-b02c-9254a09a8aaa"
+  },
+  "spec": {
+    "template": {
+      "metadata": {
+        "annotations": {
+          "run.googleapis.com/client-name": "gcloud",
+          "run.googleapis.com/client-version": "586.0.0",
+          "run.googleapis.com/network-interfaces": "[{\"network\":\"compilers\",\"subnetwork\":\"compilers-l0013\",\"tags\":[\"compiler\"]}]",
+          "run.googleapis.com/startup-cpu-boost": "true",
+          "run.googleapis.com/vpc-access-egress": "all-traffic"
+        },
+        "labels": {
+          "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+          "gc-dirty": "false",
+          "gc-release": "rmwo9rmhz-e7abb8",
+          "run.googleapis.com/startupProbeType": "Default"
+        },
+        "name": "l0013r-c5d-drive-rmwo9rmhz-e7abb8"
+      },
+      "spec": {
+        "containerConcurrency": 4,
+        "containers": [
+          {
+            "env": [
+              {
+                "name": "AUTH_URL",
+                "value": "https://auth.graffiticode.org"
+              },
+              {
+                "name": "POLICY_URL",
+                "value": "https://policy-sja7fatcta-uc.a.run.app"
+              },
+              {
+                "name": "BROKER_URL",
+                "value": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app"
+              },
+              {
+                "name": "PREFLIGHT_GATEWAYS",
+                "value": "api-run@graffiticode.iam.gserviceaccount.com"
+              },
+              {
+                "name": "L0013_CAPTURE_FAULTS",
+                "value": "{\"c:243cb8d642acdcb31c3c2debe433e03d89ca70209366f621df10bbbc0bf02633\":\"exit-after-reserve\",\"c:2b4b1a4be81ab9a2b3b62dc4a110bd1641e865a8526ea121b1d8d436505000f2\":\"exit-after-stage\",\"c:9bb069e676f3df8283986db09267ad730f6a1a3ea9fc7c2a9b72bd8e115469be\":\"stall-before-stage\",\"c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f\":\"exit-after-stage\",\"c:31b3736a724b89bf51cd7e3b65dadb7ac2acbfd44a375d0881ce5f35747a8e2f\":\"exit-after-stage\"}"
+              },
+              {
+                "name": "GC_RELEASE",
+                "value": "rmwo9rmhz-e7abb8"
+              },
+              {
+                "name": "GC_IMAGE_DIGEST",
+                "value": "sha256:baa510aaf56392f55997f2ad65fe8f87ff8cd6cca684aafcd927681a9e8767b8"
+              },
+              {
+                "name": "HTTPS_PROXY",
+                "value": "http://10.8.0.2:3128"
+              },
+              {
+                "name": "HTTP_PROXY",
+                "value": "http://10.8.0.2:3128"
+              },
+              {
+                "name": "NO_PROXY",
+                "value": "169.254.169.254,metadata.google.internal"
+              },
+              {
+                "name": "NODE_EXTRA_CA_CERTS",
+                "value": "/etc/egress-ca/ca.pem"
+              },
+              {
+                "name": "NODE_USE_ENV_PROXY",
+                "value": "1"
+              }
+            ],
+            "image": "us-central1-docker.pkg.dev/graffiticode/services/l0013r-c5d-drive@sha256:baa510aaf56392f55997f2ad65fe8f87ff8cd6cca684aafcd927681a9e8767b8",
+            "ports": [
+              {
+                "containerPort": 8080,
+                "name": "http1"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "2",
+                "memory": "2Gi"
+              }
+            },
+            "startupProbe": {
+              "failureThreshold": 1,
+              "periodSeconds": 240,
+              "tcpSocket": {
+                "port": 8080
+              },
+              "timeoutSeconds": 240
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/etc/egress-ca",
+                "name": "egress-proxy-ca-bundle-dar-sus"
+              }
+            ]
+          }
+        ],
+        "sandboxes": {},
+        "serviceAccountName": "l0013r-run@graffiticode.iam.gserviceaccount.com",
+        "timeoutSeconds": 300,
+        "volumes": [
+          {
+            "name": "egress-proxy-ca-bundle-wer-lof",
+            "secret": {
+              "items": [
+                {
+                  "key": "1",
+                  "path": "ca.pem"
+                }
+              ],
+              "secretName": "egress-proxy-ca-bundle"
+            }
+          },
+          {
+            "name": "egress-proxy-ca-bundle-dar-sus",
+            "secret": {
+              "items": [
+                {
+                  "key": "1",
+                  "path": "ca.pem"
+                }
+              ],
+              "secretName": "egress-proxy-ca-bundle"
+            }
+          }
+        ]
+      }
+    },
+    "traffic": [
+      {
+        "percent": 100,
+        "revisionName": "l0013r-c5d-drive-rmwo9rmhz-e7abb8"
+      },
+      {
+        "revisionName": "l0013r-c5d-drive-rmwo5eh0t-66f668",
+        "tag": "rmwo5eh0t-66f668"
+      },
+      {
+        "revisionName": "l0013r-c5d-drive-rmwo9rmhz-e7abb8",
+        "tag": "rmwo9rmhz-e7abb8"
+      }
+    ]
+  },
+  "status": {
+    "address": {
+      "url": "https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+    },
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-11-20T01:15:47.263574Z",
+        "status": "True",
+        "type": "Ready"
+      },
+      {
+        "lastTransitionTime": "2026-11-20T01:15:34.772272Z",
+        "status": "True",
+        "type": "ConfigurationsReady"
+      },
+      {
+        "lastTransitionTime": "2026-11-20T01:15:47.219491Z",
+        "status": "True",
+        "type": "RoutesReady"
+      }
+    ],
+    "latestCreatedRevisionName": "l0013r-c5d-drive-rmwo9rmhz-e7abb8",
+    "latestReadyRevisionName": "l0013r-c5d-drive-rmwo9rmhz-e7abb8",
+    "observedGeneration": 5,
+    "traffic": [
+      {
+        "revisionName": "l0013r-c5d-drive-rmwo5eh0t-66f668",
+        "tag": "rmwo5eh0t-66f668",
+        "url": "https://rmwo5eh0t-66f668---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+      },
+      {
+        "percent": 100,
+        "revisionName": "l0013r-c5d-drive-rmwo9rmhz-e7abb8",
+        "tag": "rmwo9rmhz-e7abb8",
+        "url": "https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+      }
+    ],
+    "url": "https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+  }
+}

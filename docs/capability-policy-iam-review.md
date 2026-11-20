@@ -2234,7 +2234,9 @@ C5b slice 4: Broker's `THUMBNAIL_BUCKET` goes from `graffiticode-c5a-gate`, dele
 5. **Production canary:** `canary-bpd85` passed 36/36.
 6. **Production unchanged:** no `COMMANDS_L0013`, `COMMAND_SCOPES` or `INTERPRETER_L0013`. The bucket holds the 33 migrated thumbnails. The service description is committed only in redacted form (`REDACTIONS.txt`).
 
-### Step 32: the C5d drive's services, bucket, proxy hosts and window [HELD: not approved, not applied]
+### Step 32: the C5d drive's services, bucket, proxy hosts and window [APPLIED IN PART: drive stopped; teardown held]
+
+> **Status (2026-11-20).** Approved 2026-11-19 and corrected by #452–#457 (public drive compilers, the runner's fixes). Infrastructure, releases, the proxy (`egress-proxy-9a1404b049a2`, `94ecf108…`) and the window (expiring 2026-11-20T23:14:39Z) were applied as recorded in [`docs/evidence/c5d/`](evidence/c5d/README.md). Run `0aa69b9a` aborted at `first-capture` (private compilers) and was closed `cleanup --aborted`. Run `ad49c0ac` passed `checks`, `access-probes`, `baseline`, `first-capture`, `direct-refused`, `exit-after-reserve`, `exit-after-stage` (by recount), `drop-outcome` and `stale-worker`, then **stopped at `staging-gone`: a blocking product finding** (a definitive pre-claim refusal is never settled; see the evidence README). The drive has **not passed**. Its sweeper is paused; Broker's fault is off. The stuck command stays recorded pending, with an unsettled occurrence and no Broker claim, and `cleanup` stays failed. Compiler retirement and infrastructure deletion are held pending review of the command's disposal procedure.
 
 C5d slices 2 and 3 ([`docs/c5d-snapshot-commands-plan.md`](c5d-snapshot-commands-plan.md), decision 3): an isolated drive of snapshot commands through production Policy, publishing only to its own bucket. **Every action below needs the owner's approval, and none has been taken.** The runner is [`scripts/c5d-drive.js`](../scripts/c5d-drive.js), judged by `scripts/lib/c5d-drive-checks.js`. Its evidence goes to `docs/evidence/c5d/drive/<run>/`:
 - `plan.json` and `baseline.json`, each written once per run. The baseline is refused once any capture has begun, and `boundary` and `judge` read only it.
@@ -2429,12 +2431,28 @@ done
 
 1. **Before `drop-outcome`:** set the fault on `broker-c5d-drive` alone. Broker isn't pinned, so no pin moves.
 
+   > **Correction (2026-11-20, run `ad49c0ac`).** The update alone doesn't make the fault live. The deploy CLI routes traffic to its released revision by name, so `gcloud run services update` creates a ready revision carrying the fault (`broker-c5d-drive-00003-st7`) with **no traffic**, and the released revision (`broker-c5d-drive-rmwo55sk0-feb2b6`) keeps serving without it; `drop-outcome` refuses, since it reads the serving revision. Traffic is moved to the fault revision, and back to the released revision afterwards, explicitly. The owner verified the two revision specs differ only by `BROKER_FAULTS=drop-outcome` (image, runtime identity, the canary-only principal, the drive bucket and the three pinned secrets match). Evidence: [`docs/evidence/c5d/step32/run2/`](evidence/c5d/step32/run2/) (`broker-fault-on.*`, `traffic-to-fault.*`, `broker-serving-fault.json`, `rev-00003.json`, `traffic-restore.*`, `template-remove.log`, `broker-after-restore.json`).
+
    ```bash
    gcloud run services update broker-c5d-drive --project=graffiticode --region=us-central1 \
      --update-env-vars=BROKER_FAULTS=drop-outcome
+   # The new revision has no traffic: route it, by name, after reading its spec.
+   gcloud run services update-traffic broker-c5d-drive --project=graffiticode --region=us-central1 \
+     --to-revisions=<the new revision>=100
    ```
 
-   After `drop-outcome-retry`, remove it again (`--remove-env-vars=BROKER_FAULTS`) and read the environment back before the next phase.
+   **Verify** the serving revision: 100% on the new revision, Ready, `BROKER_FAULTS=drop-outcome`, `BROKER_FAULT_PRINCIPALS` the canary alone, `THUMBNAIL_BUCKET=graffiticode-c5d-drive`, the three pinned secrets, `broker-run`.
+
+   After `drop-outcome-retry`, restore the released revision and clear the template, and verify both:
+
+   ```bash
+   gcloud run services update-traffic broker-c5d-drive --project=graffiticode --region=us-central1 \
+     --to-revisions=<the released revision>=100
+   gcloud run services update broker-c5d-drive --project=graffiticode --region=us-central1 \
+     --remove-env-vars=BROKER_FAULTS
+   ```
+
+   The removal creates another revision, which takes no traffic. **Verify** the released revision serves 100% without `BROKER_FAULTS`, and the template has none, before the next phase.
 
 2. **Deletion 1, `staging-gone`.** It's the drive's one write to the staging bucket outside `drop-outcome`.
 

@@ -1,0 +1,55 @@
+ok     checks/observations-read: ok
+ok     checks/broker-env: ok
+ok     checks/l0013r-env: ok
+ok     checks/l0176r-env: ok
+ok     checks/api-env: ok
+ok     checks/bucket: ok
+ok     access-probes/observations-read: ok
+ok     access-probes/l0013r-gateway-control: ok
+ok     access-probes/l0013r-no-identity: ok
+ok     access-probes/l0013r-malformed-identity: ok
+ok     access-probes/l0013r-non-gateway: ok
+ok     access-probes/l0013r-model: ok
+ok     access-probes/l0013r-start-malformed-session: ok
+ok     access-probes/l0013r-start-forged-session: ok
+ok     access-probes/l0176r-gateway-control: ok
+ok     access-probes/l0176r-no-identity: ok
+ok     access-probes/l0176r-malformed-identity: ok
+ok     access-probes/l0176r-non-gateway: ok
+ok     access-probes/l0176r-model: ok
+ok     access-probes/l0176r-start-malformed-session: ok
+ok     access-probes/l0176r-start-forged-session: ok
+ok     access-probes/drive-bucket-unchanged: ok
+ok     access-probes/policy-unchanged: ok
+ok     baseline/observations-read: ok
+ok     baseline/thumbnails-listed: ok
+ok     first-capture/observations-read: ok
+ok     first-capture/private: ok
+ok     first-capture/public-anonymous: ok
+ok     direct-refused/observations-read: ok
+ok     direct-refused/refused: ok
+ok     direct-refused/nothing-uploaded: ok
+ok     exit-after-reserve/observations-read: ok
+ok     exit-after-reserve/fault-fired: ok
+ok     exit-after-reserve/taken-over: ok
+ok     exit-after-reserve/same-reservation: ok
+ok     exit-after-stage/observations-read: ok
+ok     exit-after-stage/fault-fired: ok
+ok     exit-after-stage/staged-reused: ok
+ok     drop-outcome/observations-read: ok
+ok     drop-outcome/fault-scoped: ok
+ok     drop-outcome/dropped: ok
+ok     drop-outcome/staging-deleted: ok
+ok     drop-outcome/replayed: ok
+ok     drop-outcome/reconciled: ok
+FAILED stale-worker/run: not run
+FAILED staging-gone/run: not run
+FAILED older-after-newer/run: not run
+FAILED two-stage/run: not run
+FAILED mixed/run: not run
+FAILED non-owner/run: not run
+FAILED rate-limit/run: not run
+FAILED canary-snap/run: not run
+FAILED boundary/run: not run
+FAILED cleanup/run: not run
+DRIVE NOT PASSED; /private/tmp/claude-501/-Users-jeffdyer-work-graffiticode-graffiticode/3b9960ea-9e37-4af7-b859-610265f8269c/scratchpad/c5d-step32/drive/ad49c0ac/report-2026-11-20T19-35-29-985Z.json

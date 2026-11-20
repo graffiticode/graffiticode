@@ -1,0 +1,3 @@
+Created [https://www.googleapis.com/compute/v1/projects/graffiticode/global/instanceTemplates/egress-proxy-9a1404b049a2].
+NAME                       MACHINE_TYPE  PREEMPTIBLE  CREATION_TIMESTAMP
+egress-proxy-9a1404b049a2  e2-small                   2026-11-19T14:49:36.015-08:00

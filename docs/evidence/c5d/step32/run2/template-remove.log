@@ -1,0 +1,5 @@
+Deploying...
+Creating Revision.................done
+Done.
+Service [[1mbroker-c5d-drive[m] revision [[1mbroker-c5d-drive-00003-st7[m] has been deployed and is serving [1m0[m percent of traffic.
+Proxy locally with: gcloud run services proxy broker-c5d-drive --region us-central1 --project graffiticode

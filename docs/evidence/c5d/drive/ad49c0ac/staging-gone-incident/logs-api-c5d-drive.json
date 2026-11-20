@@ -1,0 +1,2035 @@
+[
+  {
+    "httpRequest": {
+      "latency": "7.626876556s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "50.209.174.90",
+      "requestMethod": "POST",
+      "requestSize": "1351",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/command",
+      "responseSize": "565",
+      "serverIp": "34.143.78.2",
+      "status": 200,
+      "userAgent": "node"
+    },
+    "insertId": "6b00a19200079f79e15658c9",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:37:54.507159532Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "75d92c7544de2ffe",
+    "timestamp": "2026-11-20T19:37:46.852905Z",
+    "trace": "projects/graffiticode/traces/1df9046c7180578d49c5c24fc5e24e63",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a18a000e692366df0784",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:46.950632928Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "postTasks() count=1 bytes=95",
+    "timestamp": "2026-11-20T19:37:46.944419Z"
+  },
+  {
+    "insertId": "6b00a18d00079295db6b45e4",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:49.617281730Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: call start s0 L0013 at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-20T19:37:49.496277Z"
+  },
+  {
+    "insertId": "6b00a192000573fbaf1c2fe5",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "ERROR StatusError: Service Unavailable",
+    "timestamp": "2026-11-20T19:37:54.357371Z"
+  },
+  {
+    "insertId": "6b00a192000574004bb9c98b",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    at ClientRequest.<anonymous> (/usr/src/app/node_modules/bent/src/nodejs.js:133:23)",
+    "timestamp": "2026-11-20T19:37:54.357376Z"
+  },
+  {
+    "insertId": "6b00a192000574032ebc6135",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    at Object.onceWrapper (node:events:634:26)",
+    "timestamp": "2026-11-20T19:37:54.357379Z"
+  },
+  {
+    "insertId": "6b00a192000574058e66e13c",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    at ClientRequest.emit (node:events:519:28)",
+    "timestamp": "2026-11-20T19:37:54.357381Z"
+  },
+  {
+    "insertId": "6b00a1920005740afa03c855",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    at HTTPParser.parserOnIncomingClient (node:_http_client:780:27)",
+    "timestamp": "2026-11-20T19:37:54.357386Z"
+  },
+  {
+    "insertId": "6b00a1920005740c21f1c21d",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)",
+    "timestamp": "2026-11-20T19:37:54.357388Z"
+  },
+  {
+    "insertId": "6b00a1920005740e73d27e8a",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    at TLSSocket.socketOnData (node:_http_client:615:22)",
+    "timestamp": "2026-11-20T19:37:54.357390Z"
+  },
+  {
+    "insertId": "6b00a19200057410ef6de9f5",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    at TLSSocket.emit (node:events:519:28)",
+    "timestamp": "2026-11-20T19:37:54.357392Z"
+  },
+  {
+    "insertId": "6b00a1920005741246b858ff",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    at addChunk (node:internal/streams/readable:561:12)",
+    "timestamp": "2026-11-20T19:37:54.357394Z"
+  },
+  {
+    "insertId": "6b00a19200057414db9bd3a2",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)",
+    "timestamp": "2026-11-20T19:37:54.357396Z"
+  },
+  {
+    "insertId": "6b00a192000574161862c211",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    at Readable.push (node:internal/streams/readable:392:5) {",
+    "timestamp": "2026-11-20T19:37:54.357398Z"
+  },
+  {
+    "insertId": "6b00a192000574177c1f9713",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "  statusCode: 503,",
+    "timestamp": "2026-11-20T19:37:54.357399Z"
+  },
+  {
+    "insertId": "6b00a192000574191a111c4d",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "  json: [AsyncFunction (anonymous)],",
+    "timestamp": "2026-11-20T19:37:54.357401Z"
+  },
+  {
+    "insertId": "6b00a1920005741b4cee0c6a",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "  text: [Function (anonymous)],",
+    "timestamp": "2026-11-20T19:37:54.357403Z"
+  },
+  {
+    "insertId": "6b00a1920005741d35bb7ec6",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "  arrayBuffer: [Function (anonymous)],",
+    "timestamp": "2026-11-20T19:37:54.357405Z"
+  },
+  {
+    "insertId": "6b00a1920005741f41661fd0",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "  headers: {",
+    "timestamp": "2026-11-20T19:37:54.357407Z"
+  },
+  {
+    "insertId": "6b00a1920005742b5dcfd12c",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    'content-type': 'text/plain',",
+    "timestamp": "2026-11-20T19:37:54.357419Z"
+  },
+  {
+    "insertId": "6b00a1920005742d4323dd3f",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    'x-cloud-trace-context': '29be7d66b98b41688e10e636d0df3093',",
+    "timestamp": "2026-11-20T19:37:54.357421Z"
+  },
+  {
+    "insertId": "6b00a1920005742f5aba8e10",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    date: 'Fri, 20 Nov 2026 19:37:54 GMT',",
+    "timestamp": "2026-11-20T19:37:54.357423Z"
+  },
+  {
+    "insertId": "6b00a192000574367c3ec6e6",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    server: 'Google Frontend',",
+    "timestamp": "2026-11-20T19:37:54.357430Z"
+  },
+  {
+    "insertId": "6b00a19200057438e9b8ca8d",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    'content-length': '19',",
+    "timestamp": "2026-11-20T19:37:54.357432Z"
+  },
+  {
+    "insertId": "6b00a1920005743a01cda7ab",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "    'alt-svc': 'h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000'",
+    "timestamp": "2026-11-20T19:37:54.357434Z"
+  },
+  {
+    "insertId": "6b00a1920005743cb395c8ab",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "  }",
+    "timestamp": "2026-11-20T19:37:54.357436Z"
+  },
+  {
+    "insertId": "6b00a1920005743e52930a1f",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "}",
+    "timestamp": "2026-11-20T19:37:54.357438Z"
+  },
+  {
+    "insertId": "6b00a19200079ad4cfb2c10f",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:37:54.611197126Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: left pending for recovery, s0's answer was lost with its expansion open",
+    "timestamp": "2026-11-20T19:37:54.498388Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.074231683s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "35.243.23.142",
+      "requestMethod": "POST",
+      "requestSize": "1278",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.79.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a19e0001b5e67eba773d",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:38:06.118539782Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "2dfe2797048b61ab",
+    "timestamp": "2026-11-20T19:38:06.015688Z",
+    "trace": "projects/graffiticode/traces/f16c0cf7597475481b51eeb6164a0c3a",
+    "traceSampled": true
+  },
+  {
+    "httpRequest": {
+      "latency": "4.882108172s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "107.178.194.230",
+      "requestMethod": "POST",
+      "requestSize": "1277",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a1dc00095d6a9dd863ee",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:39:08.621698891Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "f178d3f3c8345b9e",
+    "timestamp": "2026-11-20T19:39:03.713041Z",
+    "trace": "projects/graffiticode/traces/4790c79dd1a8dbd7853ff15eb34a4a66",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a1d8000a70a9bc4375ab",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:39:04.694518366Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: resuming at s0, its pinned input",
+    "timestamp": "2026-11-20T19:39:04.684201Z"
+  },
+  {
+    "insertId": "6b00a1d900018fb591e2f657",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:39:05.357998347Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: call start s0 L0013 at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-20T19:39:05.102325Z"
+  },
+  {
+    "insertId": "6b00a1dc0009582200c83468",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:39:08.690283817Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: recovery stopped: policy refused: occurrences-unsettled",
+    "timestamp": "2026-11-20T19:39:08.612386Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "3.336295650s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.127.136.132",
+      "requestMethod": "POST",
+      "requestSize": "1279",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.78.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a227000096286abb11d0",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:40:23.047185761Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "2233c7cb3de522e9",
+    "timestamp": "2026-11-20T19:40:19.683223Z",
+    "trace": "projects/graffiticode/traces/710d39e7b94107ac3ddf2c0e26174224",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a2240004e6f2339c8c10",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:40:20.326472797Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: resuming at s0, its pinned input",
+    "timestamp": "2026-11-20T19:40:20.321266Z"
+  },
+  {
+    "insertId": "6b00a224000da9bde9ed5cff",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:40:20.997877812Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: call start s0 L0013 at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-20T19:40:20.895421Z"
+  },
+  {
+    "insertId": "6b00a227000091c0db8ce678",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:40:23.325220766Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: recovery stopped: policy refused: occurrences-unsettled",
+    "timestamp": "2026-11-20T19:40:23.037312Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.074906710s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "35.187.132.230",
+      "requestMethod": "POST",
+      "requestSize": "1278",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.79.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a24f00042bfc2259757d",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:41:03.281802060Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "1e9da5cefe4c3e6c",
+    "timestamp": "2026-11-20T19:41:03.176048Z",
+    "trace": "projects/graffiticode/traces/93ef41f7c6dc0adc4f31be98e6c71fb7",
+    "traceSampled": true
+  },
+  {
+    "httpRequest": {
+      "latency": "4.041817626s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.116.39.137",
+      "requestMethod": "POST",
+      "requestSize": "1279",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a28e000946ed250af559",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:42:06.615026206Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "e55245a8aca74f5d",
+    "timestamp": "2026-11-20T19:42:02.540775Z",
+    "trace": "projects/graffiticode/traces/31ee945198ac2e6b8d514606c2cb241f",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a28b0005d4755666b03c",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:42:03.391625392Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: resuming at s0, its pinned input",
+    "timestamp": "2026-11-20T19:42:03.382069Z"
+  },
+  {
+    "insertId": "6b00a28b000b5e29eb0b4a2f",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:42:04.056443999Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: call start s0 L0013 at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-20T19:42:03.745001Z"
+  },
+  {
+    "insertId": "6b00a28e0009421fb7e1645a",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:42:06.719744246Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: recovery stopped: policy refused: occurrences-unsettled",
+    "timestamp": "2026-11-20T19:42:06.606751Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.124381120s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "35.187.132.103",
+      "requestMethod": "POST",
+      "requestSize": "1279",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.77.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a2c6000b30a50b890330",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:43:02.742721573Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "fdb49c95c92a8037",
+    "timestamp": "2026-11-20T19:43:02.590492Z",
+    "trace": "projects/graffiticode/traces/2aacc67e186dcd18ddbbe26f2f6c0553",
+    "traceSampled": true
+  },
+  {
+    "httpRequest": {
+      "latency": "4.218987201s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "35.243.23.32",
+      "requestMethod": "POST",
+      "requestSize": "1279",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.78.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a3080004dcb4dd57ecb1",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:44:08.326208841Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "0c44faa088c604cc",
+    "timestamp": "2026-11-20T19:44:04.071257Z",
+    "trace": "projects/graffiticode/traces/8ee38c923f6bb114c69bbeb3b1b5d774",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a3050000d8330bc5d0c5",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:44:05.063203811Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: resuming at s0, its pinned input",
+    "timestamp": "2026-11-20T19:44:05.055347Z"
+  },
+  {
+    "insertId": "6b00a305000a1317f6140ce5",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:44:05.730570052Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: call start s0 L0013 at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-20T19:44:05.660247Z"
+  },
+  {
+    "insertId": "6b00a3080004d82c5162afaf",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:44:08.391831836Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: recovery stopped: policy refused: occurrences-unsettled",
+    "timestamp": "2026-11-20T19:44:08.317484Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.228813813s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.127.136.133",
+      "requestMethod": "POST",
+      "requestSize": "1279",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a33f00038b217b0befca",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:45:03.239272787Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "9ebb4f0bb255dee1",
+    "timestamp": "2026-11-20T19:45:02.976906Z",
+    "trace": "projects/graffiticode/traces/36b7150e5ab2a3d31fc221eea261ca4c",
+    "traceSampled": true
+  },
+  {
+    "httpRequest": {
+      "latency": "4.505002509s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.98.143.99",
+      "requestMethod": "POST",
+      "requestSize": "1279",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.77.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a37f00073a823389a2da",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:46:07.480718649Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "c818c3091884a472",
+    "timestamp": "2026-11-20T19:46:02.947836Z",
+    "trace": "projects/graffiticode/traces/6fe7891ffb1b45afa42013b661573845",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a37c0006fc53449631c3",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:46:04.466949687Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: resuming at s0, its pinned input",
+    "timestamp": "2026-11-20T19:46:04.457811Z"
+  },
+  {
+    "insertId": "6b00a37c000ddd45c23d3618",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:46:05.130274830Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: call start s0 L0013 at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-20T19:46:04.908613Z"
+  },
+  {
+    "insertId": "6b00a37f000735b35c4add1f",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:46:07.795991855Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: recovery stopped: policy refused: occurrences-unsettled",
+    "timestamp": "2026-11-20T19:46:07.472499Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "3.163751965s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "107.178.194.166",
+      "requestMethod": "POST",
+      "requestSize": "1278",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.78.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a3c3000202986d3fa281",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:47:15.140418330Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "ccbf6a50ea39f9a7",
+    "timestamp": "2026-11-20T19:47:11.952749Z",
+    "trace": "projects/graffiticode/traces/1bfc09dbe1490b0484748c77fc125397",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a3c00009900fea203438",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:47:12.633934100Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: resuming at s0, its pinned input",
+    "timestamp": "2026-11-20T19:47:12.626703Z"
+  },
+  {
+    "insertId": "6b00a3c10001e7f17a4ddb61",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:47:13.300871419Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: call start s0 L0013 at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-20T19:47:13.124913Z"
+  },
+  {
+    "insertId": "6b00a3c30001fd03991f8db2",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:47:15.301428212Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: recovery stopped: policy refused: occurrences-unsettled",
+    "timestamp": "2026-11-20T19:47:15.130307Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.110361829s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.127.136.100",
+      "requestMethod": "POST",
+      "requestSize": "1279",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.72.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a3f30001e1c68a60e9e9",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:48:03.129824994Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "18bbc2f8da3cd9b7",
+    "timestamp": "2026-11-20T19:48:02.991389Z",
+    "trace": "projects/graffiticode/traces/d892cf23a069bc80ab98e9854615319b",
+    "traceSampled": true
+  },
+  {
+    "httpRequest": {
+      "latency": "4.296688194s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "35.187.132.134",
+      "requestMethod": "POST",
+      "requestSize": "1279",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.75.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a43200019f0b2f032512",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:49:06.113332263Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "2eab02cc3101a3b8",
+    "timestamp": "2026-11-20T19:49:01.788741Z",
+    "trace": "projects/graffiticode/traces/4446426ec0d3efd95ec917a656616890",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a42e000b7eaa71f2cb5d",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:49:02.759343133Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: resuming at s0, its pinned input",
+    "timestamp": "2026-11-20T19:49:02.753322Z"
+  },
+  {
+    "insertId": "6b00a42f0001e0723f75d176",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:49:03.426094814Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: call start s0 L0013 at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-20T19:49:03.122994Z"
+  },
+  {
+    "insertId": "6b00a43200019aeb08e12871",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:49:06.424235331Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: recovery stopped: policy refused: occurrences-unsettled",
+    "timestamp": "2026-11-20T19:49:06.105195Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "3.938520910s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "35.187.132.70",
+      "requestMethod": "POST",
+      "requestSize": "1279",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.79.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a46e00080ed562fce467",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:50:06.535374068Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "f44ca92f82471225",
+    "timestamp": "2026-11-20T19:50:02.566551Z",
+    "trace": "projects/graffiticode/traces/19ecb3302145de5b8f06dbdce3658f41",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a46b00094d86631c91f4",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:50:03.614511261Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: resuming at s0, its pinned input",
+    "timestamp": "2026-11-20T19:50:03.609670Z"
+  },
+  {
+    "insertId": "6b00a46c0003c3a6815f2e72",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:50:04.281951211Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: call start s0 L0013 at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-20T19:50:04.246694Z"
+  },
+  {
+    "insertId": "6b00a46e00080a21df33427d",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:50:06.616395549Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: recovery stopped: policy refused: occurrences-unsettled",
+    "timestamp": "2026-11-20T19:50:06.526881Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.138302123s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "35.187.132.5",
+      "requestMethod": "POST",
+      "requestSize": "1278",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.72.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a4a5000e7829f9d885bd",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:51:01.955966711Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "d4dad2615da422e1",
+    "timestamp": "2026-11-20T19:51:01.787477Z",
+    "trace": "projects/graffiticode/traces/49cc7ce7c7c3d5a3f04221f23264225a",
+    "traceSampled": true
+  },
+  {
+    "httpRequest": {
+      "latency": "3.872932586s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.116.39.129",
+      "requestMethod": "POST",
+      "requestSize": "1279",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.77.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a4f00004b602209f9f2e",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:52:16.316511881Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "0d9bfc70c73fb005",
+    "timestamp": "2026-11-20T19:52:12.410451Z",
+    "trace": "projects/graffiticode/traces/bb69bbfc324e655fc50d80f94d26939e",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a4ed0002a811b42b00bb",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:52:13.180455256Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: resuming at s0, its pinned input",
+    "timestamp": "2026-11-20T19:52:13.174097Z"
+  },
+  {
+    "insertId": "6b00a4ed0009b9ea12082fde",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:52:13.847043048Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: call start s0 L0013 at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-20T19:52:13.637418Z"
+  },
+  {
+    "insertId": "6b00a4f00004b081474386e8",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:52:16.512227786Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: recovery stopped: policy refused: occurrences-unsettled",
+    "timestamp": "2026-11-20T19:52:16.307329Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.105576438s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.116.39.72",
+      "requestMethod": "POST",
+      "requestSize": "1278",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.72.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a51e0007c3891990a8b8",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:53:02.517602167Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "ad2a8e5f721b9f97",
+    "timestamp": "2026-11-20T19:53:02.379717Z",
+    "trace": "projects/graffiticode/traces/d12f21474d3226b4075acc249cb9640c",
+    "traceSampled": true
+  },
+  {
+    "httpRequest": {
+      "latency": "3.968229499s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "35.187.132.72",
+      "requestMethod": "POST",
+      "requestSize": "1279",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.79.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a569000e9d2d42562407",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:54:17.968670630Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "aed9b2fb6186fd02",
+    "timestamp": "2026-11-20T19:54:13.966420Z",
+    "trace": "projects/graffiticode/traces/9c25c8701fd2a4f51a55a15e27e7e901",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b00a566000cc3523a6f544e",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:54:14.844714542Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: resuming at s0, its pinned input",
+    "timestamp": "2026-11-20T19:54:14.836434Z"
+  },
+  {
+    "insertId": "6b00a56700045301f3d34451",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:54:15.516390399Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: call start s0 L0013 at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-20T19:54:15.283393Z"
+  },
+  {
+    "insertId": "6b00a569000e9860b22be342",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T19:54:18.178967628Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f: recovery stopped: policy refused: occurrences-unsettled",
+    "timestamp": "2026-11-20T19:54:17.956512Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.203773519s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "35.187.132.36",
+      "requestMethod": "POST",
+      "requestSize": "1278",
+      "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/internal/commands/sweep",
+      "responseSize": "375",
+      "serverIp": "34.143.73.2",
+      "status": 200,
+      "userAgent": "Google-Cloud-Scheduler"
+    },
+    "insertId": "6b00a599000007539378b96a",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmds-75d10c",
+      "instanceId": "00e8a408bd2b9486cf8b4a4b7bbaa779cff0ea4bf5ea151b7b41eea0f66a6a050533a666a0dad874d82b499bffce669e2277679f1249d934edd9d677e3a26e3eafa8450df6278dc9aefa6893e769dc464096dad14764759765d4c4"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-20T19:55:05.017657373Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwo9rmds-75d10c",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "b75f86b6ede7baa0",
+    "timestamp": "2026-11-20T19:55:04.777742Z",
+    "trace": "projects/graffiticode/traces/af602c50619f5825e714481deffed2af",
+    "traceSampled": true
+  }
+]

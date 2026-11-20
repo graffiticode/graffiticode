@@ -1,0 +1,8 @@
+ok     observations-read: ok
+ok     faults-fired: ok
+ok     takeover-first: ok
+ok     stage-refused: ok
+ok     generation-2-published: ok
+ok     old-worker-finished-nothing: ok
+stale-worker: /private/tmp/claude-501/-Users-jeffdyer-work-graffiticode-graffiticode/3b9960ea-9e37-4af7-b859-610265f8269c/scratchpad/c5d-step32/drive/ad49c0ac/stale-worker-2026-11-20T19-37-34-818Z.json
+exit 0

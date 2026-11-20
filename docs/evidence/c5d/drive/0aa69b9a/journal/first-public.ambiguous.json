@@ -1,0 +1,22 @@
+{
+  "task": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+  "sentAt": "2026-11-19T23:26:15.421Z",
+  "answeredAt": "2026-11-19T23:26:15.905Z",
+  "status": 200,
+  "failure": null,
+  "body": {
+    "status": "success",
+    "id": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+    "data": {
+      "errors": [
+        {
+          "message": "Error: preflight of s0 failed (403)",
+          "from": -1,
+          "to": -1,
+          "code": "preflight-unavailable",
+          "category": "unavailable"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,4 @@
+ok     observations-read: ok
+FAILED refused: no refusal "THUMBNAIL_BUCKET is not set: this server stores no captures" in ["401 - "]
+ok     nothing-uploaded: ok
+direct-refused: /private/tmp/claude-501/-Users-jeffdyer-work-graffiticode-graffiticode/3b9960ea-9e37-4af7-b859-610265f8269c/scratchpad/c5d-step32/drive/ad49c0ac/direct-refused-2026-11-20T17-42-36-210Z.json (FAILED)

@@ -1,0 +1,2642 @@
+
+> deploy
+> node packages/deploy/src/cli.js l0013r-c5d-drive
+
+{
+  "action": "deploy",
+  "target": "graffiticode/us-central1/l0013r-c5d-drive",
+  "environment": "production",
+  "commit": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+  "dirty": false,
+  "sourceHash": "159f98c8aae011cdaf2482e20933f204e0ecc4f95cd195688e453689cd31222b",
+  "files": 223,
+  "configHash": "6910d38a539be7725c8facc8d7832c5bb51fb64fcb17f11447f4caebf8c982e1",
+  "config": {
+    "project": "graffiticode",
+    "region": "us-central1",
+    "buildServiceAccount": "deploy-build@graffiticode.iam.gserviceaccount.com",
+    "exclude": [],
+    "protectedExecution": {
+      "policyUrl": "https://policy-sja7fatcta-uc.a.run.app",
+      "brokerUrl": "https://broker-sja7fatcta-uc.a.run.app"
+    },
+    "image": "us-central1-docker.pkg.dev/graffiticode/services/l0013r-c5d-drive",
+    "dockerfile": "configs/Dockerfile.l0013r.yaml",
+    "port": 8080,
+    "access": "public",
+    "retireTags": true,
+    "runtimeServiceAccount": "l0013r-run@graffiticode.iam.gserviceaccount.com",
+    "pinnable": {
+      "lang": "0013",
+      "contractVersions": [
+        3
+      ]
+    },
+    "network": {
+      "network": "compilers",
+      "subnet": "compilers-l0013",
+      "tags": [
+        "compiler"
+      ],
+      "proxy": "http://10.8.0.2:3128",
+      "ca": {
+        "secret": "egress-proxy-ca-bundle:1",
+        "path": "/etc/egress-ca/ca.pem"
+      },
+      "allow": [
+        "api.graffiticode.org",
+        "app.graffiticode.org",
+        "auth.graffiticode.org",
+        "broker-c5d-drive-sja7fatcta-uc.a.run.app",
+        "l0000.graffiticode.org",
+        "l0001.graffiticode.org",
+        "l0002.graffiticode.org",
+        "l0003.graffiticode.org",
+        "l0010.graffiticode.org",
+        "l0011.graffiticode.org",
+        "l0012.graffiticode.org",
+        "l0013.graffiticode.org",
+        "l0014.graffiticode.org",
+        "l0137.graffiticode.org",
+        "l0151.graffiticode.org",
+        "l0152.graffiticode.org",
+        "l0153.graffiticode.org",
+        "l0154.graffiticode.org",
+        "l0155.graffiticode.org",
+        "l0156.graffiticode.org",
+        "l0157.graffiticode.org",
+        "l0158.graffiticode.org",
+        "l0159.graffiticode.org",
+        "l0160.graffiticode.org",
+        "l0161.graffiticode.org",
+        "l0163.graffiticode.org",
+        "l0166.graffiticode.org",
+        "l0169.graffiticode.org",
+        "l0170.graffiticode.org",
+        "l0171.graffiticode.org",
+        "l0172.graffiticode.org",
+        "l0173.graffiticode.org",
+        "l0174.graffiticode.org",
+        "l0175.graffiticode.org",
+        "l0176.graffiticode.org",
+        "l0177.graffiticode.org",
+        "l0178.graffiticode.org",
+        "l0179.graffiticode.org",
+        "l0180.graffiticode.org",
+        "l0181.graffiticode.org",
+        "l0182.graffiticode.org",
+        "l0183.graffiticode.org",
+        "l0184.graffiticode.org",
+        "l0185.graffiticode.org",
+        "l0186.graffiticode.org",
+        "policy-sja7fatcta-uc.a.run.app",
+        "storage.googleapis.com",
+        "www.googleapis.com"
+      ]
+    },
+    "steps": [
+      {
+        "name": "rust:1.99-bookworm",
+        "entrypoint": "cargo",
+        "dir": "languages/l0013",
+        "args": [
+          "test",
+          "--locked"
+        ]
+      }
+    ],
+    "env": {
+      "AUTH_URL": "https://auth.graffiticode.org",
+      "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
+      "BROKER_URL": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app",
+      "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com",
+      "L0013_CAPTURE_FAULTS": "{\"c:243cb8d642acdcb31c3c2debe433e03d89ca70209366f621df10bbbc0bf02633\":\"exit-after-reserve\",\"c:2b4b1a4be81ab9a2b3b62dc4a110bd1641e865a8526ea121b1d8d436505000f2\":\"exit-after-stage\",\"c:9bb069e676f3df8283986db09267ad730f6a1a3ea9fc7c2a9b72bd8e115469be\":\"stall-before-stage\",\"c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f\":\"exit-after-stage\",\"c:31b3736a724b89bf51cd7e3b65dadb7ac2acbfd44a375d0881ce5f35747a8e2f\":\"exit-after-stage\"}"
+    },
+    "smoke": [
+      {
+        "path": "/",
+        "status": 200
+      },
+      {
+        "path": "/lexicon.json",
+        "status": 200
+      }
+    ],
+    "include": [
+      "languages/l0013",
+      "languages/l0000",
+      "configs/Dockerfile.l0013r.yaml"
+    ],
+    "minInstances": 0,
+    "removeEnv": [
+      "THUMBNAIL_BUCKET"
+    ],
+    "forbiddenEnv": [
+      "THUMBNAIL_BUCKET"
+    ],
+    "service": "l0013r-c5d-drive"
+  },
+  "requiredVariables": []
+}
+Checking existing service, identity, and secret versions…
+Building rmwo9rmhz-e7abb8 from snapshot 159f98c8aae0…
+Uploading local file [/var/folders/yc/3zb4lhls0kxd8wb7l89_vpsm0000gn/T/gc-deploy-pj6spB/source.tar.gz] to [gs://graffiticode_cloudbuild/source/1795136238.703303-75c8cc1cd6e5480faee6c9298c79cd10.gz].
+Created [https://cloudbuild.googleapis.com/v1/projects/graffiticode/locations/us-central1/builds/7b9fdd91-ad80-4f6d-8d62-51a289f54843].
+Logs are available at [ https://console.cloud.google.com/cloud-build/builds;region=us-central1/7b9fdd91-ad80-4f6d-8d62-51a289f54843?project=656973052505 ].
+
+gcloud builds log --stream only displays logs from Cloud Storage. To view logs from Cloud Logging, run:
+gcloud beta builds log --stream
+
+Waiting for build to complete. Polling interval: 1 second(s).
+----------------------------- REMOTE BUILD OUTPUT ------------------------------
+starting build "7b9fdd91-ad80-4f6d-8d62-51a289f54843" using release legacy
+
+FETCHSOURCE
+Fetching storage object: gs://graffiticode_cloudbuild/source/1795136238.703303-75c8cc1cd6e5480faee6c9298c79cd10.gz#1795136239635590
+BUILD
+Starting Step #0
+Step #0: Pulling image: rust:1.99-bookworm
+Step #0: 1.99-bookworm: Pulling from library/rust
+Step #0: 69245854ad58: Pulling fs layer
+Step #0: 338554e9113f: Pulling fs layer
+Step #0: d6c30932f8d3: Pulling fs layer
+Step #0: 9bab93d346cd: Pulling fs layer
+Step #0: 197527a0befa: Pulling fs layer
+Step #0: 338554e9113f: Verifying Checksum
+Step #0: 338554e9113f: Download complete
+Step #0: 69245854ad58: Verifying Checksum
+Step #0: 69245854ad58: Download complete
+Step #0: d6c30932f8d3: Verifying Checksum
+Step #0: d6c30932f8d3: Download complete
+Step #0: 9bab93d346cd: Verifying Checksum
+Step #0: 9bab93d346cd: Download complete
+Step #0: 197527a0befa: Verifying Checksum
+Step #0: 197527a0befa: Download complete
+Step #0: 69245854ad58: Pull complete
+Step #0: 338554e9113f: Pull complete
+Step #0: d6c30932f8d3: Pull complete
+Step #0: 9bab93d346cd: Pull complete
+Step #0: 197527a0befa: Pull complete
+Step #0: Digest: sha256:e6f2cff35d0f309acf8433b4f05878ed77092602c5065cc81801177da0bb3a9c
+Step #0: Status: Downloaded newer image for rust:1.99-bookworm
+Step #0: docker.io/library/rust:1.99-bookworm
+Step #0:     Updating crates.io index
+Step #0:  Downloading crates ...
+Step #0:   Downloaded lru-slab v0.1.3
+Step #0:   Downloaded serde_urlencoded v0.7.1
+Step #0:   Downloaded adler2 v2.0.1
+Step #0:   Downloaded subtle v2.6.1
+Step #0:   Downloaded universal-hash v0.6.1
+Step #0:   Downloaded block-padding v0.4.2
+Step #0:   Downloaded matchers v0.2.0
+Step #0:   Downloaded version_check v0.9.5
+Step #0:   Downloaded serde_path_to_error v0.1.20
+Step #0:   Downloaded synstructure v0.14.0
+Step #0:   Downloaded unicase v2.10.0
+Step #0:   Downloaded aead v0.6.1
+Step #0:   Downloaded serde_derive v1.0.229
+Step #0:   Downloaded sha2 v0.11.1
+Step #0:   Downloaded stacker v0.1.25
+Step #0:   Downloaded lock_api v0.4.14
+Step #0:   Downloaded log v0.4.34
+Step #0:   Downloaded signal-hook-registry v1.4.8
+Step #0:   Downloaded thiserror-impl v2.0.21
+Step #0:   Downloaded tracing-attributes v0.1.31
+Step #0:   Downloaded want v0.3.2
+Step #0:   Downloaded yoke-derive v0.8.4
+Step #0:   Downloaded zerovec-derive v0.11.6
+Step #0:   Downloaded mime v0.3.17
+Step #0:   Downloaded num v0.4.3
+Step #0:   Downloaded tower-service v0.3.3
+Step #0:   Downloaded cpubits v0.1.1
+Step #0:   Downloaded rustc-hash v2.1.3
+Step #0:   Downloaded autocfg v1.5.1
+Step #0:   Downloaded chromiumoxide_types v0.9.1
+Step #0:   Downloaded signature v2.2.0
+Step #0:   Downloaded tempfile v3.27.0
+Step #0:   Downloaded cfg-if v1.0.5
+Step #0:   Downloaded num-iter v0.1.46
+Step #0:   Downloaded scopeguard v1.2.0
+Step #0:   Downloaded cpufeatures v0.3.1
+Step #0:   Downloaded outref v0.5.2
+Step #0:   Downloaded allocator-api2 v0.2.21
+Step #0:   Downloaded bit-vec v0.8.0
+Step #0:   Downloaded tinystr v0.8.4
+Step #0:   Downloaded uuid-simd v0.8.0
+Step #0:   Downloaded crypto-common v0.1.7
+Step #0:   Downloaded tracing-core v0.1.36
+Step #0:   Downloaded try-lock v0.2.5
+Step #0:   Downloaded typenum v1.20.1
+Step #0:   Downloaded utf8_iter v1.0.4
+Step #0:   Downloaded atomic-waker v1.1.2
+Step #0:   Downloaded bit-set v0.8.0
+Step #0:   Downloaded borrow-or-share v0.2.4
+Step #0:   Downloaded uuid v1.28.0
+Step #0:   Downloaded zerofrom-derive v0.1.8
+Step #0:   Downloaded ref-cast v1.0.27
+Step #0:   Downloaded tokio-macros v2.7.2
+Step #0:   Downloaded async-tungstenite v0.32.1
+Step #0:   Downloaded openssl-probe v0.2.1
+Step #0:   Downloaded byteorder-lite v0.1.0
+Step #0:   Downloaded thread_local v1.1.10
+Step #0:   Downloaded tokio-rustls v0.26.6
+Step #0:   Downloaded percent-encoding v2.3.2
+Step #0:   Downloaded cmov v0.5.4
+Step #0:   Downloaded ctutils v0.4.3
+Step #0:   Downloaded sha1 v0.11.0
+Step #0:   Downloaded untrusted v0.7.1
+Step #0:   Downloaded zeroize_derive v1.5.0
+Step #0:   Downloaded block-buffer v0.10.4
+Step #0:   Downloaded futures-sink v0.3.34
+Step #0:   Downloaded num-cmp v0.1.0
+Step #0:   Downloaded potential_utf v0.1.6
+Step #0:   Downloaded rand_pcg v0.10.2
+Step #0:   Downloaded ref-cast-impl v1.0.27
+Step #0:   Downloaded strum_macros v0.28.0
+Step #0:   Downloaded sync_wrapper v1.0.2
+Step #0:   Downloaded unicode-general-category v1.1.0
+Step #0:   Downloaded untrusted v0.9.0
+Step #0:   Downloaded url v2.5.8
+Step #0:   Downloaded yoke v0.8.3
+Step #0:   Downloaded block-buffer v0.12.1
+Step #0:   Downloaded cfg_aliases v0.2.2
+Step #0:   Downloaded chromiumoxide_pdl v0.9.1
+Step #0:   Downloaded crypto-common v0.2.2
+Step #0:   Downloaded data-encoding v2.11.1
+Step #0:   Downloaded digest v0.10.7
+Step #0:   Downloaded futures-io v0.3.34
+Step #0:   Downloaded futures-macro v0.3.34
+Step #0:   Downloaded pin-project-internal v1.1.13
+Step #0:   Downloaded psm v0.1.32
+Step #0:   Downloaded rand_core v0.9.5
+Step #0:   Downloaded rand_core v0.10.1
+Step #0:   Downloaded tower-layer v0.3.3
+Step #0:   Downloaded ahash v0.8.12
+Step #0:   Downloaded bigdecimal v0.4.11
+Step #0:   Downloaded strum v0.28.0
+Step #0:   Downloaded thiserror v2.0.21
+Step #0:   Downloaded utf-8 v0.7.6
+Step #0:   Downloaded vsimd v0.8.0
+Step #0:   Downloaded zerofrom v0.1.8
+Step #0:   Downloaded axum-core v0.5.6
+Step #0:   Downloaded displaydoc v0.2.7
+Step #0:   Downloaded dunce v1.0.5
+Step #0:   Downloaded fnv v1.0.7
+Step #0:   Downloaded generic-array v0.14.7
+Step #0:   Downloaded ghash v0.6.0
+Step #0:   Downloaded heck v0.5.0
+Step #0:   Downloaded nu-ansi-term v0.50.3
+Step #0:   Downloaded num-integer v0.1.47
+Step #0:   Downloaded num-rational v0.4.2
+Step #0:   Downloaded pkg-config v0.3.34
+Step #0:   Downloaded polyval v0.7.3
+Step #0:   Downloaded ppv-lite86 v0.2.21
+Step #0:   Downloaded quinn-udp v0.5.16
+Step #0:   Downloaded quote v1.0.47
+Step #0:   Downloaded rand_chacha v0.9.0
+Step #0:   Downloaded rand_core v0.6.4
+Step #0:   Downloaded simd-adler32 v0.3.10
+Step #0:   Downloaded stable_deref_trait v1.2.1
+Step #0:   Downloaded tracing-futures v0.2.5
+Step #0:   Downloaded which v8.0.6
+Step #0:   Downloaded zerovec v0.11.8
+Step #0:   Downloaded bytecount v0.6.9
+Step #0:   Downloaded cbc v0.2.1
+Step #0:   Downloaded cpufeatures v0.2.17
+Step #0:   Downloaded ctr v0.10.1
+Step #0:   Downloaded fastrand v2.5.0
+Step #0:   Downloaded futures-core v0.3.34
+Step #0:   Downloaded hex v0.4.3
+Step #0:   Downloaded http-body-util v0.1.5
+Step #0:   Downloaded httpdate v1.0.3
+Step #0:   Downloaded hybrid-array v0.4.15
+Step #0:   Downloaded hyper-rustls v0.27.10
+Step #0:   Downloaded idna_adapter v1.2.2
+Step #0:   Downloaded inout v0.2.2
+Step #0:   Downloaded itoa v1.0.18
+Step #0:   Downloaded lazy_static v1.5.1
+Step #0:   Downloaded matchit v0.8.4
+Step #0:   Downloaded mime_guess v2.0.5
+Step #0:   Downloaded once_cell v1.21.4
+Step #0:   Downloaded parking_lot v0.12.5
+Step #0:   Downloaded parking_lot_core v0.9.12
+Step #0:   Downloaded pin-project-lite v0.2.17
+Step #0:   Downloaded rustls-native-certs v0.8.5
+Step #0:   Downloaded rustls-pki-types v1.15.1
+Step #0:   Downloaded ryu v1.0.23
+Step #0:   Downloaded serde_core v1.0.229
+Step #0:   Downloaded serde_json v1.0.154
+Step #0:   Downloaded sha1 v0.10.7
+Step #0:   Downloaded shlex v2.0.1
+Step #0:   Downloaded tracing-log v0.2.0
+Step #0:   Downloaded unicode-ident v1.0.27
+Step #0:   Downloaded writeable v0.6.4
+Step #0:   Downloaded async-trait v0.1.92
+Step #0:   Downloaded chacha20 v0.10.2
+Step #0:   Downloaded cipher v0.5.2
+Step #0:   Downloaded const-oid v0.10.2
+Step #0:   Downloaded crc32fast v1.5.2
+Step #0:   Downloaded either v1.19.0
+Step #0:   Downloaded equivalent v1.0.3
+Step #0:   Downloaded futures-task v0.3.34
+Step #0:   Downloaded gcp_auth v0.12.7
+Step #0:   Downloaded ipnet v2.12.2
+Step #0:   Downloaded micromap v0.3.0
+Step #0:   Downloaded miniz_oxide v0.8.9
+Step #0:   Downloaded num-complex v0.4.6
+Step #0:   Downloaded num-traits v0.2.19
+Step #0:   Downloaded pin-project v1.1.13
+Step #0:   Downloaded proc-macro2 v1.0.107
+Step #0:   Downloaded smallvec v1.16.3
+Step #0:   Downloaded digest v0.11.3
+Step #0:   Downloaded futures-executor v0.3.34
+Step #0:   Downloaded http-range-header v0.4.2
+Step #0:   Downloaded jsonschema-regex v0.58.6
+Step #0:   Downloaded miniz_oxide v0.9.1
+Step #0:   Downloaded referencing v0.58.6
+Step #0:   Downloaded rustls-platform-verifier v0.7.1
+Step #0:   Downloaded slab v0.4.12
+Step #0:   Downloaded tinyvec v1.13.3
+Step #0:   Downloaded tungstenite v0.28.0
+Step #0:   Downloaded zeroize v1.9.1
+Step #0:   Downloaded zmij v1.0.23
+Step #0:   Downloaded bitflags v2.13.2
+Step #0:   Downloaded bytemuck v1.25.2
+Step #0:   Downloaded bytes v1.12.1
+Step #0:   Downloaded cmake v0.1.58
+Step #0:   Downloaded futures v0.3.34
+Step #0:   Downloaded futures-channel v0.3.34
+Step #0:   Downloaded futures-timer v3.0.4
+Step #0:   Downloaded iana-time-zone v0.1.65
+Step #0:   Downloaded fdeflate v0.3.7
+Step #0:   Downloaded tower v0.5.3
+Step #0:   Downloaded fs_extra v1.3.0
+Step #0:   Downloaded getrandom v0.3.4
+Step #0:   Downloaded email_address v0.2.9
+Step #0:   Downloaded errno v0.3.14
+Step #0:   Downloaded fluent-uri v0.4.1
+Step #0:   Downloaded socket2 v0.6.5
+Step #0:   Downloaded base64 v0.22.1
+Step #0:   Downloaded sharded-slab v0.1.7
+Step #0:   Downloaded aes-gcm v0.11.1
+Step #0:   Downloaded ar_archive_writer v0.5.3
+Step #0:   Downloaded find-msvc-tools v0.1.14
+Step #0:   Downloaded jobserver v0.1.35
+Step #0:   Downloaded aes v0.9.3
+Step #0:   Downloaded base64 v0.23.1
+Step #0:   Downloaded foldhash v0.2.0
+Step #0:   Downloaded zerotrie v0.2.5
+Step #0:   Downloaded zlib-rs v0.6.8
+Step #0:   Downloaded getrandom v0.4.3
+Step #0:   Downloaded icu_collections v2.3.0
+Step #0:   Downloaded icu_locale_core v2.3.0
+Step #0:   Downloaded icu_provider v2.3.1
+Step #0:   Downloaded quinn v0.11.12
+Step #0:   Downloaded rand v0.10.3
+Step #0:   Downloaded rustls-webpki v0.103.15
+Step #0:   Downloaded serde v1.0.229
+Step #0:   Downloaded chromiumoxide v0.9.1
+Step #0:   Downloaded fraction v0.17.0
+Step #0:   Downloaded jsonwebtoken v11.1.0
+Step #0:   Downloaded memchr v2.8.3
+Step #0:   Downloaded mio v1.2.4
+Step #0:   Downloaded num-bigint v0.4.8
+Step #0:   Downloaded rand v0.9.5
+Step #0:   Downloaded aho-corasick v1.1.5
+Step #0:   Downloaded cc v1.8.0
+Step #0:   Downloaded icu_normalizer_data v2.3.0
+Step #0:   Downloaded indexmap v2.14.2
+Step #0:   Downloaded tokio-util v0.7.20
+Step #0:   Downloaded tower-http v0.7.1
+Step #0:   Downloaded axum v0.8.9
+Step #0:   Downloaded getrandom v0.2.17
+Step #0:   Downloaded icu_properties_data v2.3.0
+Step #0:   Downloaded idna v1.1.0
+Step #0:   Downloaded litemap v0.8.3
+Step #0:   Downloaded png v0.18.1
+Step #0:   Downloaded regex v1.13.1
+Step #0:   Downloaded reqwest v0.13.5
+Step #0:   Downloaded tower-http v0.6.11
+Step #0:   Downloaded tracing-subscriber v0.3.23
+Step #0:   Downloaded h2 v0.4.20
+Step #0:   Downloaded hyper v1.12.0
+Step #0:   Downloaded jsonschema-value v0.58.6
+Step #0:   Downloaded libm v0.2.16
+Step #0:   Downloaded aws-lc-rs v1.18.2
+Step #0:   Downloaded moxcms v0.8.1
+Step #0:   Downloaded fancy-regex v0.19.2
+Step #0:   Downloaded quinn-proto v0.11.19
+Step #0:   Downloaded chrono v0.4.45
+Step #0:   Downloaded flate2 v1.1.10
+Step #0:   Downloaded syn v2.0.119
+Step #0:   Downloaded syn v3.0.9
+Step #0:   Downloaded hashbrown v0.17.1
+Step #0:   Downloaded image v0.25.10
+Step #0:   Downloaded object v0.39.1
+Step #0:   Downloaded regex-syntax v0.8.11
+Step #0:   Downloaded rustls v0.23.45
+Step #0:   Downloaded zerocopy v0.8.63
+Step #0:   Downloaded tracing v0.1.44
+Step #0:   Downloaded libc v0.2.190
+Step #0:   Downloaded rustix v1.1.5
+Step #0:   Downloaded tokio v1.53.3
+Step #0:   Downloaded icu_normalizer v2.3.0
+Step #0:   Downloaded regex-automata v0.4.18
+Step #0:   Downloaded chromiumoxide_cdp v0.9.1
+Step #0:   Downloaded jsonschema v0.58.6
+Step #0:   Downloaded pxfm v0.1.30
+Step #0:   Downloaded ring v0.17.14
+Step #0:   Downloaded icu_properties v2.3.0
+Step #0:   Downloaded linux-raw-sys v0.12.1
+Step #0:   Downloaded http v1.5.0
+Step #0:   Downloaded form_urlencoded v1.2.2
+Step #0:   Downloaded hyper-util v0.1.21
+Step #0:   Downloaded httparse v1.10.1
+Step #0:   Downloaded futures-util v0.3.34
+Step #0:   Downloaded http-body v1.1.0
+Step #0:   Downloaded aws-lc-sys v0.46.0
+Step #0:    Compiling proc-macro2 v1.0.107
+Step #0:    Compiling quote v1.0.47
+Step #0:    Compiling unicode-ident v1.0.27
+Step #0:    Compiling libc v0.2.190
+Step #0:    Compiling syn v3.0.9
+Step #0:    Compiling cfg-if v1.0.5
+Step #0:    Compiling syn v2.0.119
+Step #0:    Compiling once_cell v1.21.4
+Step #0:    Compiling memchr v2.8.3
+Step #0:    Compiling jobserver v0.1.35
+Step #0:    Compiling serde_core v1.0.229
+Step #0:    Compiling itoa v1.0.18
+Step #0:    Compiling find-msvc-tools v0.1.14
+Step #0:    Compiling shlex v2.0.1
+Step #0:    Compiling typenum v1.20.1
+Step #0:    Compiling cc v1.8.0
+Step #0:    Compiling pin-project-lite v0.2.17
+Step #0:    Compiling synstructure v0.14.0
+Step #0:    Compiling bytes v1.12.1
+Step #0:    Compiling futures-core v0.3.34
+Step #0:    Compiling log v0.4.34
+Step #0:    Compiling autocfg v1.5.1
+Step #0:    Compiling zerofrom-derive v0.1.8
+Step #0:    Compiling equivalent v1.0.3
+Step #0:    Compiling serde v1.0.229
+Step #0:    Compiling allocator-api2 v0.2.21
+Step #0:    Compiling foldhash v0.2.0
+Step #0:    Compiling hashbrown v0.17.1
+Step #0:    Compiling zerofrom v0.1.8
+Step #0:    Compiling yoke-derive v0.8.4
+Step #0:    Compiling serde_derive v1.0.229
+Step #0:    Compiling getrandom v0.4.3
+Step #0:    Compiling futures-sink v0.3.34
+Step #0:    Compiling smallvec v1.16.3
+Step #0:    Compiling stable_deref_trait v1.2.1
+Step #0:    Compiling yoke v0.8.3
+Step #0:    Compiling indexmap v2.14.2
+Step #0:    Compiling num-traits v0.2.19
+Step #0:    Compiling hybrid-array v0.4.15
+Step #0:    Compiling tracing-core v0.1.36
+Step #0:    Compiling errno v0.3.14
+Step #0:    Compiling version_check v0.9.5
+Step #0:    Compiling rand_core v0.10.1
+Step #0:    Compiling signal-hook-registry v1.4.8
+Step #0:    Compiling http v1.5.0
+Step #0:    Compiling cmake v0.1.58
+Step #0:    Compiling tracing-attributes v0.1.31
+Step #0:    Compiling tokio-macros v2.7.2
+Step #0:    Compiling zerovec-derive v0.11.6
+Step #0:    Compiling socket2 v0.6.5
+Step #0:    Compiling mio v1.2.4
+Step #0:    Compiling dunce v1.0.5
+Step #0:    Compiling fs_extra v1.3.0
+Step #0:    Compiling pkg-config v0.3.34
+Step #0:    Compiling slab v0.4.12
+Step #0:    Compiling zerovec v0.11.8
+Step #0:    Compiling aws-lc-sys v0.46.0
+Step #0:    Compiling tokio v1.53.3
+Step #0:    Compiling tracing v0.1.44
+Step #0:    Compiling futures-channel v0.3.34
+Step #0:    Compiling displaydoc v0.2.7
+Step #0:    Compiling zmij v1.0.23
+Step #0:    Compiling zeroize_derive v1.5.0
+Step #0:    Compiling futures-macro v0.3.34
+Step #0:    Compiling futures-io v0.3.34
+Step #0:    Compiling futures-task v0.3.34
+Step #0:    Compiling percent-encoding v2.3.2
+Step #0:    Compiling serde_json v1.0.154
+Step #0:    Compiling futures-util v0.3.34
+Step #0:    Compiling zeroize v1.9.1
+Step #0:    Compiling crypto-common v0.2.2
+Step #0:    Compiling getrandom v0.3.4
+Step #0:    Compiling aws-lc-rs v1.18.2
+Step #0:    Compiling zerocopy v0.8.63
+Step #0:    Compiling tinystr v0.8.4
+Step #0:    Compiling http-body v1.1.0
+Step #0:    Compiling ring v0.17.14
+Step #0:    Compiling httparse v1.10.1
+Step #0:    Compiling writeable v0.6.4
+Step #0:    Compiling litemap v0.8.3
+Step #0:    Compiling icu_locale_core v2.3.0
+Step #0:    Compiling zerotrie v0.2.5
+Step #0:    Compiling potential_utf v0.1.6
+Step #0:    Compiling icu_properties_data v2.3.0
+Step #0:    Compiling regex-syntax v0.8.11
+Step #0:    Compiling icu_normalizer_data v2.3.0
+Step #0:    Compiling utf8_iter v1.0.4
+Step #0:    Compiling tower-service v0.3.3
+Step #0:    Compiling untrusted v0.7.1
+Step #0:    Compiling icu_collections v2.3.0
+Step #0:    Compiling icu_provider v2.3.1
+Step #0:    Compiling rustls-pki-types v1.15.1
+Step #0:    Compiling tokio-util v0.7.20
+Step #0:    Compiling aho-corasick v1.1.5
+Step #0:    Compiling getrandom v0.2.17
+Step #0:    Compiling atomic-waker v1.1.2
+Step #0:    Compiling untrusted v0.9.0
+Step #0:    Compiling regex-automata v0.4.18
+Step #0:    Compiling num-integer v0.1.47
+Step #0:    Compiling block-buffer v0.12.1
+Step #0:    Compiling bitflags v2.13.2
+Step #0:    Compiling fnv v1.0.7
+Step #0:    Compiling httpdate v1.0.3
+Step #0:    Compiling try-lock v0.2.5
+Step #0:    Compiling rustls v0.23.45
+Step #0:    Compiling want v0.3.2
+Step #0:    Compiling h2 v0.4.20
+Step #0:    Compiling rustls-webpki v0.103.15
+Step #0:    Compiling icu_normalizer v2.3.0
+Step #0:    Compiling icu_properties v2.3.0
+Step #0:    Compiling form_urlencoded v1.2.2
+Step #0:    Compiling block-padding v0.4.2
+Step #0:    Compiling subtle v2.6.1
+Step #0:    Compiling object v0.39.1
+Step #0:    Compiling tower-layer v0.3.3
+Step #0:    Compiling idna_adapter v1.2.2
+Step #0:    Compiling inout v0.2.2
+Step #0:    Compiling hyper v1.12.0
+Step #0:    Compiling num-bigint v0.4.8
+Step #0:    Compiling http-body-util v0.1.5
+Step #0:    Compiling sync_wrapper v1.0.2
+Step #0:    Compiling base64 v0.23.1
+Step #0:    Compiling ipnet v2.12.2
+Step #0:    Compiling thiserror v2.0.21
+Step #0:    Compiling openssl-probe v0.2.1
+Step #0:    Compiling cpufeatures v0.3.1
+Step #0:    Compiling heck v0.5.0
+Step #0:    Compiling rustls-native-certs v0.8.5
+Step #0:    Compiling hyper-util v0.1.21
+Step #0:    Compiling idna v1.1.0
+Step #0:    Compiling ahash v0.8.12
+Step #0:    Compiling thiserror-impl v2.0.21
+Step #0:    Compiling cmov v0.5.4
+Step #0:    Compiling ref-cast v1.0.27
+Step #0:    Compiling parking_lot_core v0.9.12
+Step #0:    Compiling ctutils v0.4.3
+Step #0:    Compiling ar_archive_writer v0.5.3
+Step #0:    Compiling url v2.5.8
+Step #0:    Compiling tower v0.5.3
+Step #0:    Compiling tokio-rustls v0.26.6
+Step #0:    Compiling num-rational v0.4.2
+Step #0:    Compiling cipher v0.5.2
+Step #0:    Compiling num-iter v0.1.46
+Step #0:    Compiling regex v1.13.1
+Step #0:    Compiling num-complex v0.4.6
+Step #0:    Compiling ref-cast-impl v1.0.27
+Step #0:    Compiling cpubits v0.1.1
+Step #0:    Compiling ryu v1.0.23
+Step #0:    Compiling scopeguard v1.2.0
+Step #0:    Compiling data-encoding v2.11.1
+Step #0:    Compiling lock_api v0.4.14
+Step #0:    Compiling serde_urlencoded v0.7.1
+Step #0:    Compiling num v0.4.3
+Step #0:    Compiling hyper-rustls v0.27.10
+Step #0:    Compiling psm v0.1.32
+Step #0:    Compiling universal-hash v0.6.1
+Step #0:    Compiling borrow-or-share v0.2.4
+Step #0:    Compiling libm v0.2.16
+Step #0:    Compiling const-oid v0.10.2
+Step #0:    Compiling unicode-general-category v1.1.0
+Step #0:    Compiling base64 v0.22.1
+Step #0:    Compiling bit-vec v0.8.0
+Step #0:    Compiling jsonschema-value v0.58.6
+Step #0:    Compiling bit-set v0.8.0
+Step #0:    Compiling digest v0.11.3
+Step #0:    Compiling parking_lot v0.12.5
+Step #0:    Compiling fluent-uri v0.4.1
+Step #0:    Compiling polyval v0.7.3
+Step #0:    Compiling fraction v0.17.0
+Step #0:    Compiling tower-http v0.6.11
+Step #0:    Compiling rustls-platform-verifier v0.7.1
+Step #0:    Compiling strum_macros v0.28.0
+Step #0:    Compiling bigdecimal v0.4.11
+Step #0:    Compiling stacker v0.1.25
+Step #0:    Compiling micromap v0.3.0
+Step #0:    Compiling vsimd v0.8.0
+Step #0:    Compiling num-cmp v0.1.0
+Step #0:    Compiling outref v0.5.2
+Step #0:    Compiling bytecount v0.6.9
+Step #0:    Compiling uuid-simd v0.8.0
+Step #0:    Compiling strum v0.28.0
+Step #0:    Compiling referencing v0.58.6
+Step #0:    Compiling reqwest v0.13.5
+Step #0:    Compiling ghash v0.6.0
+Step #0:    Compiling fancy-regex v0.19.2
+Step #0:    Compiling aes v0.9.3
+Step #0:    Compiling ctr v0.10.1
+Step #0:    Compiling aead v0.6.1
+Step #0:    Compiling jsonschema-regex v0.58.6
+Step #0:    Compiling email_address v0.2.9
+Step #0:    Compiling async-trait v0.1.92
+Step #0:    Compiling signature v2.2.0
+Step #0:    Compiling jsonwebtoken v11.1.0
+Step #0:    Compiling jsonschema v0.58.6
+Step #0:    Compiling aes-gcm v0.11.1
+Step #0:    Compiling sha2 v0.11.1
+Step #0:    Compiling cbc v0.2.1
+Step #0:    Compiling uuid v1.28.0
+Step #0:    Compiling generic-array v0.14.7
+Step #0:    Compiling hex v0.4.3
+Step #0:    Compiling simd-adler32 v0.3.10
+Step #0:    Compiling block-buffer v0.10.4
+Step #0:    Compiling crypto-common v0.1.7
+Step #0:    Compiling ppv-lite86 v0.2.21
+Step #0:    Compiling rand_core v0.9.5
+Step #0:    Compiling adler2 v2.0.1
+Step #0:    Compiling crc32fast v1.5.2
+Step #0:    Compiling graffiticode-l0000 v0.1.0 (/workspace/languages/l0000/crates/core)
+Step #0:    Compiling graffiticode-l0013 v0.1.0 (/workspace/languages/l0013/crates/core)
+Step #0:    Compiling rand_chacha v0.9.0
+Step #0:    Compiling digest v0.10.7
+Step #0:    Compiling cpufeatures v0.2.17
+Step #0:    Compiling mime v0.3.17
+Step #0:    Compiling sha1 v0.10.7
+Step #0:    Compiling rand v0.9.5
+Step #0:    Compiling miniz_oxide v0.9.1
+Step #0:    Compiling chromiumoxide_types v0.9.1
+Step #0:    Compiling pin-project-internal v1.1.13
+Step #0:    Compiling either v1.19.0
+Step #0:    Compiling rustix v1.1.5
+Step #0:    Compiling utf-8 v0.7.6
+Step #0:    Compiling tungstenite v0.28.0
+Step #0:    Compiling pin-project v1.1.13
+Step #0:    Compiling chromiumoxide_pdl v0.9.1
+Step #0:    Compiling flate2 v1.1.10
+Step #0:    Compiling miniz_oxide v0.8.9
+Step #0:    Compiling fdeflate v0.3.7
+Step #0:    Compiling futures-executor v0.3.34
+Step #0:    Compiling iana-time-zone v0.1.65
+Step #0:    Compiling linux-raw-sys v0.12.1
+Step #0:    Compiling pxfm v0.1.30
+Step #0:    Compiling moxcms v0.8.1
+Step #0:    Compiling chrono v0.4.45
+Step #0:    Compiling png v0.18.1
+Step #0:    Compiling futures v0.3.34
+Step #0:    Compiling chromiumoxide_cdp v0.9.1
+Step #0:    Compiling async-tungstenite v0.32.1
+Step #0:    Compiling tracing-futures v0.2.5
+Step #0:    Compiling axum-core v0.5.6
+Step #0:    Compiling serde_path_to_error v0.1.20
+Step #0:    Compiling which v8.0.6
+Step #0:    Compiling matchit v0.8.4
+Step #0:    Compiling byteorder-lite v0.1.0
+Step #0:    Compiling bytemuck v1.25.2
+Step #0:    Compiling futures-timer v3.0.4
+Step #0:    Compiling fastrand v2.5.0
+Step #0:    Compiling tempfile v3.27.0
+Step #0:    Compiling image v0.25.10
+Step #0:    Compiling axum v0.8.9
+Step #0:    Compiling gcp_auth v0.12.7
+Step #0:    Compiling sha1 v0.11.0
+Step #0:    Compiling unicase v2.10.0
+Step #0:    Compiling mime_guess v2.0.5
+Step #0:    Compiling lazy_static v1.5.1
+Step #0:    Compiling sharded-slab v0.1.7
+Step #0:    Compiling matchers v0.2.0
+Step #0:    Compiling tracing-log v0.2.0
+Step #0:    Compiling thread_local v1.1.10
+Step #0:    Compiling http-range-header v0.4.2
+Step #0:    Compiling nu-ansi-term v0.50.3
+Step #0:    Compiling tracing-subscriber v0.3.23
+Step #0:    Compiling tower-http v0.7.1
+Step #0:    Compiling l0000r-server v0.1.0 (/workspace/languages/l0000/crates/server)
+Step #0:    Compiling chromiumoxide v0.9.1
+Step #0:    Compiling l0013-capture v0.1.0 (/workspace/languages/l0013/crates/capture)
+Step #0:    Compiling l0013r-server v0.1.0 (/workspace/languages/l0013/crates/server)
+Step #0:     Finished `test` profile [unoptimized + debuginfo] target(s) in 4m 10s
+Step #0:      Running unittests src/lib.rs (target/debug/deps/graffiticode_l0013-366714053438f982)
+Step #0: 
+Step #0: running 8 tests
+Step #0: test crop::tests::a_slice_frames_all_the_ink_at_its_aspect ... ok
+Step #0: test crop::tests::a_tiny_frame_does_not_stall_the_size_search ... ok
+Step #0: test crop::tests::an_aspect_is_two_positive_numbers ... ok
+Step #0: test crop::tests::the_background_is_whatever_the_top_left_pixel_is ... ok
+Step #0: test crop::tests::the_default_crop_trims_to_the_ink_with_a_margin ... ok
+Step #0: test crop::tests::a_blank_page_crops_to_its_top_region ... ok
+Step #0: test crop::tests::the_margin_stops_at_the_edge_of_the_image ... ok
+Step #0: test crop::tests::zoom_one_finds_the_densest_region_and_zoom_interpolates_toward_it ... ok
+Step #0: 
+Step #0: test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+Step #0: 
+Step #0:      Running tests/commands.rs (target/debug/deps/commands-cba1c7d925bc4cec)
+Step #0: 
+Step #0: running 10 tests
+Step #0: test a_blocked_capture_is_never_reserved_rendered_or_staged ... ok
+Step #0: test a_bound_item_is_reserved_as_the_data_names_it ... ok
+Step #0: test a_command_renders_under_its_reservations_grant_never_a_user_token ... ok
+Step #0: test a_capture_refused_for_now_resumes_later_with_nothing_closed ... ok
+Step #0: test a_command_snap_reserves_renders_stages_binds_and_invokes ... ok
+Step #0: test outside_a_command_snap_is_unchanged_and_asks_policy_nothing_whatever_connection_was_sent ... ok
+Step #0: test a_retry_after_staging_does_not_render ... ok
+Step #0: test preflight_reports_snap_and_the_registry_version ... ok
+Step #0: test two_stages_with_the_same_snap_each_reserve_and_stage_their_own_capture ... ok
+Step #0: test the_model_names_a_literal_item_and_leaves_a_computed_one_bound ... ok
+Step #0: 
+Step #0: test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+Step #0: 
+Step #0:      Running tests/conformance.rs (target/debug/deps/conformance-8893e20d7fef141d)
+Step #0: 
+Step #0: running 1 test
+Step #0: test agrees_with_the_typescript_implementation ... ok
+Step #0: 
+Step #0: test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+Step #0: 
+Step #0:      Running tests/dialect.rs (target/debug/deps/dialect-555869f66170b7f0)
+Step #0: 
+Step #0: running 7 tests
+Step #0: test a_failed_photograph_is_a_compile_error_at_the_snap ... ok
+Step #0: test a_program_cannot_read_the_token_through_its_config ... ok
+Step #0: test a_program_cannot_name_the_task_or_language_rendered_under_an_item ... ok
+Step #0: test options_left_out_are_left_to_the_camera ... ok
+Step #0: test only_a_verified_token_reaches_the_camera ... ok
+Step #0: test the_lexicon_is_the_base_language_and_the_screenshot_words ... ok
+Step #0: test snap_hands_the_camera_everything_the_options_say ... ok
+Step #0: 
+Step #0: test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+Step #0: 
+Step #0:      Running tests/faults.rs (target/debug/deps/faults-66cfed368fc15e61)
+Step #0: 
+Step #0: running 15 tests
+Step #0: test a_malformed_map_is_refused ... ok
+Step #0: test exit_after_reserve_exits_its_target_at_generation_1_before_rendering ... ok
+Step #0: test a_hanging_probe_is_dropped_at_the_240_s_bound ... ok
+Step #0: test exit_after_stage_exits_its_target_at_generation_1_before_invoking ... ok
+Step #0: test no_fault_fires_for_a_session_without_command_claims ... ok
+Step #0: test no_fault_fires_at_generation_2 ... ok
+Step #0: test no_fault_fires_for_an_untargeted_command ... ok
+Step #0: test stall_before_stage_continues_only_once_its_probe_is_refused_as_stale ... ok
+Step #0: test slow_probes_count_against_the_240_s_bound ... ok
+Step #0: test stall_before_stage_logs_no_takeover_at_its_bound_and_continues ... ok
+Step #0: test stall_before_stage_probes_are_state_neutral_before_the_takeover ... ok
+Step #0: test the_default_stall_is_10_s_probes_bounded_at_240_s ... ok
+Step #0: test the_map_names_commands_and_faults ... ok
+Step #0: test the_generation_2_takeover_of_an_exited_capture_completes_from_what_was_staged ... ok
+Step #0: test the_production_service_refuses_the_variable ... ok
+Step #0: 
+Step #0: test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+Step #0: 
+Step #0:      Running unittests src/lib.rs (target/debug/deps/l0013_capture-24e5eaa718c0b5f3)
+Step #0: 
+Step #0: running 14 tests
+Step #0: test egress::tests::a_proxy_without_a_ca_is_refused ... ok
+Step #0: test egress::tests::a_proxy_sets_the_server_and_the_ca ... ok
+Step #0: test egress::tests::chromes_background_traffic_is_off ... ok
+Step #0: test egress::tests::no_proxy_adds_nothing ... ok
+Step #0: test egress::tests::the_nss_database_trusts_the_ca_for_tls ... ok
+Step #0: test egress::tests::the_pac_script_proxies_only_graffiticode ... ok
+Step #0: test pixels::tests::finishing_crops_then_resizes_and_writes_a_png ... ok
+Step #0: test pixels::tests::the_output_fits_inside_whatever_bounds_are_given ... ok
+Step #0: test storage::tests::an_upload_carries_its_metadata_then_its_bytes ... ok
+Step #0: test storage::tests::without_a_bucket_nothing_is_stored ... ok
+Step #0: test tests::a_thumbnail_path_is_safe_whatever_the_item_is_called ... ok
+Step #0: test tests::the_form_url_carries_the_task_and_whatever_else_is_known ... ok
+Step #0: test tests::without_a_bucket_a_snapshot_is_refused_before_rendering ... ok
+Step #0: test pixels::tests::a_scan_is_greyscale_and_no_wider_than_asked ... ok
+Step #0: 
+Step #0: test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.72s
+Step #0: 
+Step #0:      Running tests/chrome.rs (target/debug/deps/chrome-611dad367a4977ba)
+Step #0: 
+Step #0: running 8 tests
+Step #0: test a_render_grant_reaches_the_resolver_and_the_apis_reads_in_its_header_only ... ok
+Step #0: test a_slice_frames_the_content_at_its_aspect ... ok
+Step #0: test a_snap_trims_to_the_content_and_stores_a_crisp_png ... ok
+Step #0: test an_explicit_crop_is_taken_as_given ... ok
+Step #0: test a_direct_snap_never_carries_a_render_grant ... ok
+Step #0: test the_callers_token_goes_to_the_resolver_and_the_form ... ok
+Step #0: test the_output_fits_the_size_asked_for ... ok
+Step #0: test an_item_that_cannot_be_resolved_is_refused_before_any_browser_starts ... ok
+Step #0: 
+Step #0: test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+Step #0: 
+Step #0:      Running tests/l0179.rs (target/debug/deps/l0179-9757ad18713e5bbc)
+Step #0: 
+Step #0: running 2 tests
+Step #0: test a_capture_of_l0179_posts_no_compile_and_photographs_the_settled_sheet_cold_and_cached ... ok
+Step #0: test the_released_view_posts_the_compile_production_photographed ... ok
+Step #0: 
+Step #0: test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+Step #0: 
+Step #0:      Running unittests src/main.rs (target/debug/deps/l0013r-447c3df1728f0339)
+Step #0: 
+Step #0: running 0 tests
+Step #0: 
+Step #0: test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+Step #0: 
+Step #0:    Doc-tests graffiticode_l0013
+Step #0: 
+Step #0: running 0 tests
+Step #0: 
+Step #0: test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+Step #0: 
+Step #0:    Doc-tests l0013_capture
+Step #0: 
+Step #0: running 0 tests
+Step #0: 
+Step #0: test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+Step #0:
+Finished Step #0
+Starting Step #1
+Step #1: Already have image (with digest): gcr.io/cloud-builders/docker
+Step #1: Sending build context to Docker daemon  3.513GB
+Step #1: Step 1/27 : FROM node:22-alpine AS static
+Step #1: 22-alpine: Pulling from library/node
+Step #1: 881fc932939e: Already exists
+Step #1: 87aaee1f6667: Pulling fs layer
+Step #1: e868d1035e50: Pulling fs layer
+Step #1: 177fffbd7f51: Pulling fs layer
+Step #1: 177fffbd7f51: Verifying Checksum
+Step #1: 177fffbd7f51: Download complete
+Step #1: e868d1035e50: Verifying Checksum
+Step #1: e868d1035e50: Download complete
+Step #1: 87aaee1f6667: Verifying Checksum
+Step #1: 87aaee1f6667: Download complete
+Step #1: 87aaee1f6667: Pull complete
+Step #1: e868d1035e50: Pull complete
+Step #1: 177fffbd7f51: Pull complete
+Step #1: Digest: sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
+Step #1: Status: Downloaded newer image for node:22-alpine
+Step #1:  ---> 8049382e2048
+Step #1: Step 2/27 : WORKDIR /src
+Step #1:  ---> Running in d1a076fdab12
+Step #1: Removing intermediate container d1a076fdab12
+Step #1:  ---> 495b61633a94
+Step #1: Step 3/27 : ENV PUPPETEER_SKIP_DOWNLOAD=true
+Step #1:  ---> Running in 91c863057b3f
+Step #1: Removing intermediate container 91c863057b3f
+Step #1:  ---> 0549d2faa354
+Step #1: Step 4/27 : COPY languages/l0013/package*.json ./
+Step #1:  ---> 3891780556b3
+Step #1: Step 5/27 : COPY languages/l0013/packages/core/package*.json ./packages/core/
+Step #1:  ---> 2ed0e06dc39e
+Step #1: Step 6/27 : COPY languages/l0013/packages/api/package*.json ./packages/api/
+Step #1:  ---> 31f51984c47b
+Step #1: Step 7/27 : COPY languages/l0013/packages/view/package*.json ./packages/view/
+Step #1:  ---> 8a7d7601e820
+Step #1: Step 8/27 : RUN npm ci
+Step #1:  ---> Running in 93bfb75b1ff9
+Step #1: [91mnpm warn deprecated puppeteer@23.11.1: < 24.15.0 is no longer supported
+Step #1: [0m[91mnpm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+Step #1: [0m[91mnpm warn deprecated uuid@10.0.0: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+Step #1: [0m
+Step #1: added 646 packages, and audited 650 packages in 1m
+Step #1: 
+Step #1: 120 packages are looking for funding
+Step #1:   run `npm fund` for details
+Step #1: 
+Step #1: 43 vulnerabilities (1 low, 24 moderate, 17 high, 1 critical)
+Step #1: 
+Step #1: To address issues that do not require attention, run:
+Step #1:   npm audit fix
+Step #1: 
+Step #1: To address all issues (including breaking changes), run:
+Step #1:   npm audit fix --force
+Step #1: 
+Step #1: Run `npm audit` for details.
+Step #1: [91mnpm notice
+Step #1: npm notice New major version of npm available! 10.9.9 -> 12.2.3
+Step #1: npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.3
+Step #1: npm notice To update run: npm install -g npm@12.2.3
+Step #1: npm notice
+Step #1: [0mRemoving intermediate container 93bfb75b1ff9
+Step #1:  ---> a29784807317
+Step #1: Step 9/27 : COPY languages/l0013/tsconfig.base.json ./
+Step #1:  ---> 0c090fe6cba0
+Step #1: Step 10/27 : COPY languages/l0013/packages ./packages
+Step #1:  ---> 62fb44f9f576
+Step #1: Step 11/27 : COPY languages/l0013/tools ./tools
+Step #1:  ---> 9df74c4d9fe6
+Step #1: Step 12/27 : RUN node tools/assemble-static.mjs --skip-install
+Step #1:  ---> Running in 8921c3064e8f
+Step #1: 
+Step #1: > @graffiticode/l0013@0.1.0 build
+Step #1: > tsc -p tsconfig.json
+Step #1:
+Step #1: 
+Step #1: > @graffiticode/l0013@0.1.0 build-static
+Step #1: > node tools/build-static.js
+Step #1: 
+Step #1: build-static: wrote /src/packages/core/dist/static
+Step #1: 
+Step #1: > @graffiticode/l0013-view@0.1.0 build
+Step #1: > tsc -p tsconfig.json && vite build
+Step #1:
+Step #1: vite v8.3.0 building client environment for production...
+Step #1: transforming...
+Step #1: ✓ 7 modules transformed.
+Step #1: rendering chunks...
+Step #1: 
+Step #1: [unplugin:dts] Start generate declaration files...
+Step #1: [unplugin:dts] Start bundling declaration files...
+Step #1: Analysis will use the bundled TypeScript version 5.9.3
+Step #1: [unplugin:dts] Declaration files built in 5010ms.
+Step #1: 
+Step #1: computing gzip size...
+Step #1: dist/style.css  4.12 kB │ gzip: 1.28 kB
+Step #1: dist/index.js   4.80 kB │ gzip: 1.85 kB │ map: 13.10 kB
+Step #1: 
+Step #1: ✓ built in 5.76s
+Step #1: [91m[33m[PLUGIN_TIMINGS] [0mPlugin hooks ran for 5.7s of this 5.7s build (100%).
+Step #1: The slowest hooks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+Step #1:   - unplugin-dts buildStart (56%, 3.2s, 1 call)
+Step #1:   - unplugin-dts writeBundle (31%, 1.8s, 1 call)
+Step #1: Additional hook time came from hooks under 1s.
+Step #1: See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+Step #1: 
+Step #1: [0m
+Step #1: > @graffiticode/l0013-view@0.1.0 build:embed
+Step #1: > vite build --config vite.embed.config.ts
+Step #1: 
+Step #1: vite v8.3.0 building client environment for production...
+Step #1: transforming...
+Step #1: ✓ 19 modules transformed.
+Step #1: rendering chunks...
+Step #1: computing gzip size...
+Step #1: dist-embed/index.html                   0.65 kB │ gzip:  0.36 kB
+Step #1: dist-embed/assets/index-DzJ20cwJ.css    4.11 kB │ gzip:  1.27 kB
+Step #1: dist-embed/assets/index-DOFDS1FF.js   144.62 kB │ gzip: 47.34 kB
+Step #1: 
+Step #1: ✓ built in 845ms
+Step #1: assemble-static: wrote /src/static
+Step #1: Removing intermediate container 8921c3064e8f
+Step #1:  ---> 285c995cda77
+Step #1: Step 13/27 : FROM rust:1.99-bookworm AS server
+Step #1:  ---> 527305910196
+Step #1: Step 14/27 : WORKDIR /src/languages/l0013
+Step #1:  ---> Running in 9548bcb02edb
+Step #1: Removing intermediate container 9548bcb02edb
+Step #1:  ---> 58b4a0571330
+Step #1: Step 15/27 : COPY languages/l0000/Cargo.toml /src/languages/l0000/Cargo.toml
+Step #1:  ---> d96d59ef6a6f
+Step #1: Step 16/27 : COPY languages/l0000/crates /src/languages/l0000/crates
+Step #1:  ---> e3815df44be9
+Step #1: Step 17/27 : COPY languages/l0013/Cargo.toml languages/l0013/Cargo.lock ./
+Step #1:  ---> 504d1ede8f80
+Step #1: Step 18/27 : COPY languages/l0013/crates ./crates
+Step #1:  ---> b09f3e0dfe75
+Step #1: Step 19/27 : RUN cargo build --release --locked -p l0013r-server
+Step #1:  ---> Running in 30b200e8a9bc
+Step #1: [91m    Updating crates.io index
+Step #1: [0m[91m Downloading crates ...
+Step #1: [0m[91m  Downloaded[0m[91m adler2 v2.0.1
+Step #1: [0m[91m  Downloaded utf-8 v0.7.6
+Step #1: [0m[91m  Downloaded serde_urlencoded v0.7.1
+Step #1: [0m[91m  Downloaded matchers v0.2.0
+Step #1: [0m[91m  Downloaded serde_path_to_error v0.1.20
+Step #1: [0m[91m  Downloaded lru-slab v0.1.3
+Step #1: [0m[91m  Downloaded utf8_iter v1.0.4
+Step #1: [0m[91m  Downloaded sha1 v0.10.7
+Step #1: [0m[91m  Downloaded[0m[91m signal-hook-registry v1.4.8
+Step #1: [0m[91m  Downloaded[0m[91m tokio-rustls v0.26.6
+Step #1: [0m[91m  Downloaded[0m[91m ahash v0.8.12
+Step #1: [0m[91m  Downloaded[0m[91m block-padding v0.4.2
+Step #1: [0m[91m  Downloaded[0m[91m sha1 v0.11.0
+Step #1: [0m[91m  Downloaded[0m[91m tracing-attributes v0.1.31
+Step #1: [0m[91m  Downloaded[0m[91m tracing-core v0.1.36
+Step #1: [0m[91m  Downloaded[0m[91m strum v0.28.0
+Step #1: [0m[91m  Downloaded[0m[91m tower-service v0.3.3
+Step #1: [0m[91m  Downloaded[0m[91m subtle v2.6.1
+Step #1: [0m[91m  Downloaded[0m[91m lock_api v0.4.14
+Step #1: [0m[91m  Downloaded[0m[91m log v0.4.34
+Step #1: [0m[91m  Downloaded[0m[91m serde_derive v1.0.229
+Step #1: [0m[91m  Downloaded[0m[91m shlex v2.0.1
+Step #1: [0m[91m  Downloaded[0m[91m signature v2.2.0
+Step #1: [0m[91m  Downloaded[0m[91m stable_deref_trait v1.2.1
+Step #1: [0m[91m  Downloaded[0m[91m synstructure v0.14.0
+Step #1: [0m[91m  Downloaded[0m[91m untrusted v0.9.0
+Step #1: [0m[91m  Downloaded[0m[91m yoke-derive v0.8.4
+Step #1: [0m[91m  Downloaded[0m[91m strum_macros v0.28.0
+Step #1: [0m[91m  Downloaded[0m[91m thiserror v2.0.21
+Step #1: [0m[91m  Downloaded thread_local v1.1.10
+Step #1: [0m[91m  Downloaded zerovec-derive v0.11.6
+Step #1: [0m[91m  Downloaded[0m[91m ref-cast v1.0.27
+Step #1: [0m[91m  Downloaded[0m[91m smallvec v1.16.3
+Step #1: [0m[91m  Downloaded[0m[91m tracing-futures v0.2.5
+Step #1: [0m[91m  Downloaded[0m[91m tracing-log v0.2.0
+Step #1: [0m[91m  Downloaded[0m[91m vsimd v0.8.0
+Step #1: [0m[91m  Downloaded[0m[91m want v0.3.2
+Step #1: [0m[91m  Downloaded[0m[91m zerovec v0.11.8
+Step #1: [0m[91m  Downloaded block-buffer v0.10.4
+Step #1: [0m[91m  Downloaded futures-sink v0.3.34
+Step #1: [0m[91m  Downloaded heck v0.5.0
+Step #1: [0m[91m  Downloaded num-iter v0.1.46
+Step #1: [0m[91m  Downloaded once_cell v1.21.4
+Step #1: [0m[91m  Downloaded rand_core v0.9.5
+Step #1: [0m[91m  Downloaded[0m[91m serde_json v1.0.154
+Step #1: [0m[91m  Downloaded[0m[91m sha2 v0.11.1
+Step #1: [0m[91m  Downloaded bitflags v2.13.2
+Step #1: [0m[91m  Downloaded cmov v0.5.4
+Step #1: [0m[91m  Downloaded nu-ansi-term v0.50.3
+Step #1: [0m[91m  Downloaded crc32fast v1.5.2
+Step #1: [0m[91m  Downloaded digest v0.10.7
+Step #1: [0m[91m  Downloaded parking_lot_core v0.9.12
+Step #1: [0m[91m  Downloaded referencing v0.58.6
+Step #1: [0m[91m  Downloaded bytemuck v1.25.2
+Step #1: [0m[91m  Downloaded mime v0.3.17
+Step #1: [0m[91m  Downloaded mime_guess v2.0.5
+Step #1: [0m[91m  Downloaded num-traits v0.2.19
+Step #1: [0m[91m  Downloaded cpufeatures v0.2.17
+Step #1: [0m[91m  Downloaded matchit v0.8.4
+Step #1: [0m[91m  Downloaded micromap v0.3.0
+Step #1: [0m[91m  Downloaded miniz_oxide v0.8.9
+Step #1: [0m[91m  Downloaded miniz_oxide v0.9.1
+Step #1: [0m[91m  Downloaded num v0.4.3
+Step #1: [0m[91m  Downloaded num-bigint v0.4.8
+Step #1: [0m[91m  Downloaded num-integer v0.1.47
+Step #1: [0m[91m  Downloaded num-rational v0.4.2
+Step #1: [0m[91m  Downloaded openssl-probe v0.2.1
+Step #1: [0m[91m  Downloaded outref v0.5.2
+Step #1: [0m[91m  Downloaded parking_lot v0.12.5
+Step #1: [0m[91m  Downloaded percent-encoding v2.3.2
+Step #1: [0m[91m  Downloaded pin-project-internal v1.1.13
+Step #1: [0m[91m  Downloaded proc-macro2 v1.0.107
+Step #1: [0m[91m  Downloaded psm v0.1.32
+Step #1: [0m[91m  Downloaded rand_pcg v0.10.2
+Step #1: [0m[91m  Downloaded ref-cast-impl v1.0.27
+Step #1: [0m[91m  Downloaded rustc-hash v2.1.3
+Step #1: [0m[91m  Downloaded rustls-native-certs v0.8.5
+Step #1: [0m[91m  Downloaded rustls-platform-verifier v0.7.1
+Step #1: [0m[91m  Downloaded serde_core v1.0.229
+Step #1: [0m[91m  Downloaded slab v0.4.12
+Step #1: [0m[91m  Downloaded sync_wrapper v1.0.2
+Step #1: [0m[91m  Downloaded tokio-macros v2.7.2
+Step #1: [0m[91m  Downloaded tower-layer v0.3.3
+Step #1: [0m[91m  Downloaded try-lock v0.2.5
+Step #1: [0m[91m  Downloaded unicode-ident v1.0.27
+Step #1: [0m[91m  Downloaded universal-hash v0.6.1
+Step #1: [0m[91m  Downloaded untrusted v0.7.1
+Step #1: [0m[91m  Downloaded uuid-simd v0.8.0
+Step #1: [0m[91m  Downloaded version_check v0.9.5
+Step #1: [0m[91m  Downloaded which v8.0.6
+Step #1: [0m[91m  Downloaded zerofrom v0.1.8
+Step #1: [0m[91m  Downloaded zerofrom-derive v0.1.8
+Step #1: [0m[91m  Downloaded zeroize v1.9.1
+Step #1: [0m[91m  Downloaded zeroize_derive v1.5.0
+Step #1: [0m[91m  Downloaded zmij v1.0.23
+Step #1: [0m[91m  Downloaded allocator-api2 v0.2.21
+Step #1: [0m[91m  Downloaded base64 v0.22.1
+Step #1: [0m[91m  Downloaded bit-set v0.8.0
+Step #1: [0m[91m  Downloaded byteorder-lite v0.1.0
+Step #1: [0m[91m  Downloaded chromiumoxide v0.9.1
+Step #1: [0m[91m  Downloaded crypto-common v0.1.7
+Step #1: [0m[91m  Downloaded crypto-common v0.2.2
+Step #1: [0m[91m  Downloaded data-encoding v2.11.1
+Step #1: [0m[91m  Downloaded futures-core v0.3.34
+Step #1: [0m[91m  Downloaded http-body-util v0.1.5
+Step #1: [0m[91m  Downloaded num-cmp v0.1.0
+Step #1: [0m[91m  Downloaded pin-project v1.1.13
+Step #1: [0m[91m  Downloaded pin-project-lite v0.2.17
+Step #1: [0m[91m  Downloaded polyval v0.7.3
+Step #1: [0m[91m  Downloaded ppv-lite86 v0.2.21
+Step #1: [0m[91m  Downloaded quote v1.0.47
+Step #1: [0m[91m  Downloaded rand v0.9.5
+Step #1: [0m[91m  Downloaded rand_core v0.10.1
+Step #1: [0m[91m  Downloaded rustls-webpki v0.103.15
+Step #1: [0m[91m  Downloaded sharded-slab v0.1.7
+Step #1: [0m[91m  Downloaded simd-adler32 v0.3.10
+Step #1: [0m[91m  Downloaded socket2 v0.6.5
+Step #1: [0m[91m  Downloaded stacker v0.1.25
+Step #1: [0m[91m  Downloaded thiserror-impl v2.0.21
+Step #1: [0m[91m  Downloaded tower-http v0.6.11
+Step #1: [0m[91m  Downloaded unicase v2.10.0
+Step #1: [0m[91m  Downloaded writeable v0.6.4
+Step #1: [0m[91m  Downloaded aead v0.6.1
+Step #1: [0m[91m  Downloaded async-trait v0.1.92
+Step #1: [0m[91m  Downloaded atomic-waker v1.1.2
+Step #1: [0m[91m  Downloaded autocfg v1.5.1
+Step #1: [0m[91m  Downloaded axum-core v0.5.6
+Step #1: [0m[91m  Downloaded bit-vec v0.8.0
+Step #1: [0m[91m  Downloaded block-buffer v0.12.1
+Step #1: [0m[91m  Downloaded cfg_aliases v0.2.2
+Step #1: [0m[91m  Downloaded chromiumoxide_pdl v0.9.1
+Step #1: [0m[91m  Downloaded cipher v0.5.2
+Step #1: [0m[91m  Downloaded const-oid v0.10.2
+Step #1: [0m[91m  Downloaded ctutils v0.4.3
+Step #1: [0m[91m  Downloaded fdeflate v0.3.7
+Step #1: [0m[91m  Downloaded fluent-uri v0.4.1
+Step #1: [0m[91m  Downloaded ghash v0.6.0
+Step #1: [0m[91m  Downloaded hex v0.4.3
+Step #1: [0m[91m  Downloaded moxcms v0.8.1
+Step #1: [0m[91m  Downloaded quinn v0.11.12
+Step #1: [0m[91m  Downloaded rand_chacha v0.9.0
+Step #1: [0m[91m  Downloaded rand_core v0.6.4
+Step #1: [0m[91m  Downloaded reqwest v0.13.5
+Step #1: [0m[91m  Downloaded ryu v1.0.23
+Step #1: [0m[91m  Downloaded tempfile v3.27.0
+Step #1: [0m[91m  Downloaded tinystr v0.8.4
+Step #1: [0m[91m  Downloaded tinyvec v1.13.3
+Step #1: [0m[91m  Downloaded tungstenite v0.28.0
+Step #1: [0m[91m  Downloaded typenum v1.20.1
+Step #1: [0m[91m  Downloaded unicode-general-category v1.1.0
+Step #1: [0m[91m  Downloaded url v2.5.8
+Step #1: [0m[91m  Downloaded yoke v0.8.3
+Step #1: [0m[91m  Downloaded zerotrie v0.2.5
+Step #1: [0m[91m  Downloaded ar_archive_writer v0.5.3
+Step #1: [0m[91m  Downloaded async-tungstenite v0.32.1
+Step #1: [0m[91m  Downloaded axum v0.8.9
+Step #1: [0m[91m  Downloaded base64 v0.23.1
+Step #1: [0m[91m  Downloaded borrow-or-share v0.2.4
+Step #1: [0m[91m  Downloaded chacha20 v0.10.2
+Step #1: [0m[91m  Downloaded chromiumoxide_types v0.9.1
+Step #1: [0m[91m  Downloaded cpubits v0.1.1
+Step #1: [0m[91m  Downloaded digest v0.11.3
+Step #1: [0m[91m  Downloaded fastrand v2.5.0
+Step #1: [0m[91m  Downloaded getrandom v0.4.3
+Step #1: [0m[91m  Downloaded iana-time-zone v0.1.65
+Step #1: [0m[91m  Downloaded potential_utf v0.1.6
+Step #1: [0m[91m  Downloaded regex v1.13.1
+Step #1: [0m[91m  Downloaded tokio-util v0.7.20
+Step #1: [0m[91m  Downloaded aes v0.9.3
+Step #1: [0m[91m  Downloaded bytecount v0.6.9
+Step #1: [0m[91m  Downloaded email_address v0.2.9
+Step #1: [0m[91m  Downloaded flate2 v1.1.10
+Step #1: [0m[91m  Downloaded futures v0.3.34
+Step #1: [0m[91m  Downloaded http-range-header v0.4.2
+Step #1: [0m[91m  Downloaded itoa v1.0.18
+Step #1: [0m[91m  Downloaded object v0.39.1
+Step #1: [0m[91m  Downloaded[0m[91m png v0.18.1
+Step #1: [0m[91m  Downloaded rustls-pki-types v1.15.1
+Step #1: [0m[91m  Downloaded tower v0.5.3
+Step #1: [0m[91m  Downloaded cbc v0.2.1
+Step #1: [0m[91m  Downloaded cfg-if v1.0.5
+Step #1: [0m[91m  Downloaded memchr v2.8.3
+Step #1: [0m[91m  Downloaded regex-syntax v0.8.11
+Step #1: [0m[91m  Downloaded generic-array v0.14.7
+Step #1: [0m[91m  Downloaded h2 v0.4.20
+Step #1: [0m[91m  Downloaded chrono v0.4.45
+Step #1: [0m[91m  Downloaded hashbrown v0.17.1
+Step #1: [0m[91m  Downloaded jsonschema-regex v0.58.6
+Step #1: [0m[91m  Downloaded rustix v1.1.5
+Step #1: [0m[91m  Downloaded httpdate v1.0.3
+Step #1: [0m[91m  Downloaded quinn-proto v0.11.19
+Step #1: [0m[91m  Downloaded uuid v1.28.0
+Step #1: [0m[91m  Downloaded[0m[91m bigdecimal v0.4.11
+Step #1: [0m[91m  Downloaded http-body v1.1.0
+Step #1: [0m[91m  Downloaded icu_collections v2.3.0
+Step #1: [0m[91m  Downloaded inout v0.2.2
+Step #1: [0m[91m  Downloaded[0m[91m regex-automata v0.4.18
+Step #1: [0m[91m  Downloaded rustls v0.23.45
+Step #1: [0m[91m  Downloaded tower-http v0.7.1
+Step #1: [0m[91m  Downloaded tracing-subscriber v0.3.23
+Step #1: [0m[91m  Downloaded zlib-rs v0.6.8
+Step #1: [0m[91m  Downloaded aes-gcm v0.11.1
+Step #1: [0m[91m  Downloaded aws-lc-rs v1.18.2
+Step #1: [0m[91m  Downloaded equivalent v1.0.3
+Step #1: [0m[91m  Downloaded futures-task v0.3.34
+Step #1: [0m[91m  Downloaded futures-timer v3.0.4
+Step #1: [0m[91m  Downloaded jobserver v0.1.35
+Step #1: [0m[91m  Downloaded aho-corasick v1.1.5
+Step #1: [0m[91m  Downloaded chromiumoxide_cdp v0.9.1
+Step #1: [0m[91m  Downloaded fancy-regex v0.19.2
+Step #1: [0m[91m  Downloaded gcp_auth v0.12.7
+Step #1: [0m[91m  Downloaded pxfm v0.1.30
+Step #1: [0m[91m  Downloaded futures-executor v0.3.34
+Step #1: [0m[91m  Downloaded futures-util v0.3.34
+Step #1: [0m[91m  Downloaded hyper-rustls v0.27.10
+Step #1: [0m[91m  Downloaded ring v0.17.14
+Step #1: [0m[91m  Downloaded httparse v1.10.1
+Step #1: [0m[91m  Downloaded mio v1.2.4
+Step #1: [0m[91m  Downloaded num-complex v0.4.6
+Step #1: [0m[91m  Downloaded bytes v1.12.1
+Step #1: [0m[91m  Downloaded cpufeatures v0.3.1
+Step #1: [0m[91m  Downloaded serde v1.0.229
+Step #1: [0m[91m  Downloaded ctr v0.10.1
+Step #1: [0m[91m  Downloaded find-msvc-tools v0.1.14
+Step #1: [0m[91m  Downloaded litemap v0.8.3
+Step #1: [0m[91m  Downloaded scopeguard v1.2.0
+Step #1: [0m[91m  Downloaded getrandom v0.3.4
+Step #1: [0m[91m  Downloaded cmake v0.1.58
+Step #1: [0m[91m  Downloaded futures-channel v0.3.34
+Step #1: [0m[91m  Downloaded[0m[91m pkg-config v0.3.34
+Step #1: [0m[91m  Downloaded[0m[91m quinn-udp v0.5.16
+Step #1: [0m[91m  Downloaded[0m[91m rand v0.10.3
+Step #1: [0m[91m  Downloaded[0m[91m cc v1.8.0
+Step #1: [0m[91m  Downloaded icu_locale_core v2.3.0
+Step #1: [0m[91m  Downloaded jsonschema-value v0.58.6
+Step #1: [0m[91m  Downloaded syn v2.0.119
+Step #1: [0m[91m  Downloaded syn v3.0.9
+Step #1: [0m[91m  Downloaded displaydoc v0.2.7
+Step #1: [0m[91m  Downloaded fraction v0.17.0
+Step #1: [0m[91m  Downloaded getrandom v0.2.17
+Step #1: [0m[91m  Downloaded hyper-util v0.1.21
+Step #1: [0m[91m  Downloaded idna v1.1.0
+Step #1: [0m[91m  Downloaded idna_adapter v1.2.2
+Step #1: [0m[91m  Downloaded lazy_static v1.5.1
+Step #1: [0m[91m  Downloaded libm v0.2.16
+Step #1: [0m[91m  Downloaded zerocopy v0.8.63
+Step #1: [0m[91m  Downloaded[0m[91m dunce v1.0.5
+Step #1: [0m[91m  Downloaded http v1.5.0
+Step #1: [0m[91m  Downloaded hybrid-array v0.4.15
+Step #1: [0m[91m  Downloaded tracing v0.1.44
+Step #1: [0m[91m  Downloaded jsonschema v0.58.6
+Step #1: [0m[91m  Downloaded ipnet v2.12.2
+Step #1: [0m[91m  Downloaded image v0.25.10
+Step #1: [0m[91m  Downloaded form_urlencoded v1.2.2
+Step #1: [0m[91m  Downloaded futures-io v0.3.34
+Step #1: [0m[91m  Downloaded icu_normalizer_data v2.3.0
+Step #1: [0m[91m  Downloaded jsonwebtoken v11.1.0
+Step #1: [0m[91m  Downloaded icu_properties v2.3.0
+Step #1: [0m[91m  Downloaded tokio v1.53.3
+Step #1: [0m[91m  Downloaded icu_provider v2.3.1
+Step #1: [0m[91m  Downloaded futures-macro v0.3.34
+Step #1:   Downloaded errno v0.3.14
+Step #1:   Downloaded icu_normalizer v2.3.0
+Step #1: [0m[91m  Downloaded fnv v1.0.7
+Step #1: [0m[91m  Downloaded either v1.19.0
+Step #1: [0m[91m  Downloaded fs_extra v1.3.0
+Step #1: [0m[91m  Downloaded indexmap v2.14.2
+Step #1: [0m[91m  Downloaded foldhash v0.2.0
+Step #1: [0m[91m  Downloaded hyper v1.12.0
+Step #1: [0m[91m  Downloaded icu_properties_data v2.3.0
+Step #1: [0m[91m  Downloaded libc v0.2.190
+Step #1: [0m[91m  Downloaded linux-raw-sys v0.12.1
+Step #1: [0m[91m  Downloaded aws-lc-sys v0.46.0
+Step #1: [0m[91m   Compiling[0m[91m proc-macro2 v1.0.107
+Step #1: [0m[91m   Compiling[0m[91m quote v1.0.47
+Step #1: [0m[91m   Compiling[0m[91m unicode-ident v1.0.27
+Step #1: [0m[91m   Compiling[0m[91m libc v0.2.190
+Step #1: [0m[91m   Compiling[0m[91m syn v3.0.9
+Step #1: [0m[91m   Compiling[0m[91m cfg-if v1.0.5
+Step #1: [0m[91m   Compiling[0m[91m syn v2.0.119
+Step #1: [0m[91m   Compiling[0m[91m once_cell v1.21.4
+Step #1: [0m[91m   Compiling[0m[91m memchr v2.8.3
+Step #1: [0m[91m   Compiling jobserver v0.1.35
+Step #1: [0m[91m   Compiling[0m[91m serde_core v1.0.229
+Step #1: [0m[91m   Compiling[0m[91m shlex v2.0.1
+Step #1: [0m[91m   Compiling[0m[91m find-msvc-tools v0.1.14
+Step #1: [0m[91m   Compiling itoa v1.0.18
+Step #1: [0m[91m   Compiling[0m[91m cc v1.8.0
+Step #1: [0m[91m   Compiling[0m[91m typenum v1.20.1
+Step #1: [0m[91m   Compiling[0m[91m pin-project-lite v0.2.17
+Step #1: [0m[91m   Compiling[0m[91m synstructure v0.14.0
+Step #1: [0m[91m   Compiling[0m[91m futures-core v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m bytes v1.12.1
+Step #1: [0m[91m   Compiling[0m[91m autocfg v1.5.1
+Step #1: [0m[91m   Compiling[0m[91m log v0.4.34
+Step #1: [0m[91m   Compiling zerofrom-derive v0.1.8
+Step #1: [0m[91m   Compiling[0m[91m allocator-api2 v0.2.21
+Step #1: [0m[91m   Compiling[0m[91m foldhash v0.2.0
+Step #1: [0m[91m   Compiling[0m[91m equivalent v1.0.3
+Step #1: [0m[91m   Compiling[0m[91m serde v1.0.229
+Step #1: [0m[91m   Compiling[0m[91m hashbrown v0.17.1
+Step #1: [0m[91m   Compiling zerofrom v0.1.8
+Step #1: [0m[91m   Compiling yoke-derive v0.8.4
+Step #1: [0m[91m   Compiling[0m[91m serde_derive v1.0.229
+Step #1: [0m[91m   Compiling stable_deref_trait v1.2.1
+Step #1: [0m[91m   Compiling getrandom v0.4.3
+Step #1: [0m[91m   Compiling futures-sink v0.3.34
+Step #1: [0m[91m   Compiling smallvec v1.16.3
+Step #1: [0m[91m   Compiling yoke v0.8.3
+Step #1: [0m[91m   Compiling indexmap v2.14.2
+Step #1: [0m[91m   Compiling num-traits v0.2.19
+Step #1: [0m[91m   Compiling hybrid-array v0.4.15
+Step #1: [0m[91m   Compiling tracing-core v0.1.36
+Step #1: [0m[91m   Compiling errno v0.3.14
+Step #1: [0m[91m   Compiling rand_core v0.10.1
+Step #1: [0m[91m   Compiling version_check v0.9.5
+Step #1: [0m[91m   Compiling signal-hook-registry v1.4.8
+Step #1: [0m[91m   Compiling http v1.5.0
+Step #1: [0m[91m   Compiling cmake v0.1.58
+Step #1: [0m[91m   Compiling tracing-attributes v0.1.31
+Step #1: [0m[91m   Compiling[0m[91m tokio-macros v2.7.2
+Step #1: [0m[91m   Compiling[0m[91m zerovec-derive v0.11.6
+Step #1: [0m[91m   Compiling[0m[91m socket2 v0.6.5
+Step #1: [0m[91m   Compiling[0m[91m mio v1.2.4
+Step #1: [0m[91m   Compiling[0m[91m dunce v1.0.5
+Step #1: [0m[91m   Compiling[0m[91m fs_extra v1.3.0
+Step #1: [0m[91m   Compiling[0m[91m pkg-config v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m slab v0.4.12
+Step #1: [0m[91m   Compiling[0m[91m tokio v1.53.3
+Step #1: [0m[91m   Compiling[0m[91m aws-lc-sys v0.46.0
+Step #1: [0m[91m   Compiling[0m[91m zerovec v0.11.8
+Step #1: [0m[91m   Compiling[0m[91m tracing v0.1.44
+Step #1: [0m[91m   Compiling[0m[91m futures-channel v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m displaydoc v0.2.7
+Step #1: [0m[91m   Compiling[0m[91m zmij v1.0.23
+Step #1: [0m[91m   Compiling[0m[91m zeroize_derive v1.5.0
+Step #1: [0m[91m   Compiling[0m[91m futures-macro v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m serde_json v1.0.154
+Step #1: [0m[91m   Compiling[0m[91m futures-task v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m futures-io v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m percent-encoding v2.3.2
+Step #1: [0m[91m   Compiling[0m[91m futures-util v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m zeroize v1.9.1
+Step #1: [0m[91m   Compiling[0m[91m crypto-common v0.2.2
+Step #1: [0m[91m   Compiling[0m[91m zerocopy v0.8.63
+Step #1: [0m[91m   Compiling[0m[91m getrandom v0.3.4
+Step #1: [0m[91m   Compiling[0m[91m aws-lc-rs v1.18.2
+Step #1: [0m[91m   Compiling[0m[91m tinystr v0.8.4
+Step #1: [0m[91m   Compiling[0m[91m http-body v1.1.0
+Step #1: [0m[91m   Compiling[0m[91m ring v0.17.14
+Step #1: [0m[91m   Compiling[0m[91m writeable v0.6.4
+Step #1: [0m[91m   Compiling[0m[91m litemap v0.8.3
+Step #1: [0m[91m   Compiling[0m[91m httparse v1.10.1
+Step #1: [0m[91m   Compiling[0m[91m icu_locale_core v2.3.0
+Step #1: [0m[91m   Compiling zerotrie v0.2.5
+Step #1: [0m[91m   Compiling potential_utf v0.1.6
+Step #1: [0m[91m   Compiling untrusted v0.7.1
+Step #1: [0m[91m   Compiling regex-syntax v0.8.11
+Step #1: [0m[91m   Compiling tower-service v0.3.3
+Step #1: [0m[91m   Compiling icu_properties_data v2.3.0
+Step #1: [0m[91m   Compiling icu_normalizer_data v2.3.0
+Step #1: [0m[91m   Compiling utf8_iter v1.0.4
+Step #1: [0m[91m   Compiling icu_collections v2.3.0
+Step #1: [0m[91m   Compiling icu_provider v2.3.1
+Step #1: [0m[91m   Compiling rustls-pki-types v1.15.1
+Step #1: [0m[91m   Compiling tokio-util v0.7.20
+Step #1: [0m[91m   Compiling aho-corasick v1.1.5
+Step #1: [0m[91m   Compiling[0m[91m getrandom v0.2.17
+Step #1: [0m[91m   Compiling[0m[91m atomic-waker v1.1.2
+Step #1: [0m[91m   Compiling[0m[91m untrusted v0.9.0
+Step #1: [0m[91m   Compiling regex-automata v0.4.18
+Step #1: [0m[91m   Compiling num-integer v0.1.47
+Step #1: [0m[91m   Compiling block-buffer v0.12.1
+Step #1: [0m[91m   Compiling fnv v1.0.7
+Step #1: [0m[91m   Compiling try-lock v0.2.5
+Step #1: [0m[91m   Compiling bitflags v2.13.2
+Step #1: [0m[91m   Compiling[0m[91m rustls v0.23.45
+Step #1: [0m[91m   Compiling[0m[91m httpdate v1.0.3
+Step #1: [0m[91m   Compiling[0m[91m want v0.3.2
+Step #1: [0m[91m   Compiling[0m[91m h2 v0.4.20
+Step #1: [0m[91m   Compiling[0m[91m icu_normalizer v2.3.0
+Step #1: [0m[91m   Compiling[0m[91m icu_properties v2.3.0
+Step #1: [0m[91m   Compiling[0m[91m form_urlencoded v1.2.2
+Step #1: [0m[91m   Compiling[0m[91m block-padding v0.4.2
+Step #1: [0m[91m   Compiling[0m[91m object v0.39.1
+Step #1: [0m[91m   Compiling[0m[91m tower-layer v0.3.3
+Step #1: [0m[91m   Compiling[0m[91m subtle v2.6.1
+Step #1: [0m[91m   Compiling[0m[91m inout v0.2.2
+Step #1: [0m[91m   Compiling[0m[91m idna_adapter v1.2.2
+Step #1: [0m[91m   Compiling[0m[91m hyper v1.12.0
+Step #1: [0m[91m   Compiling[0m[91m num-bigint v0.4.8
+Step #1: [0m[91m   Compiling[0m[91m http-body-util v0.1.5
+Step #1: [0m[91m   Compiling[0m[91m generic-array v0.14.7
+Step #1: [0m[91m   Compiling[0m[91m sync_wrapper v1.0.2
+Step #1: [0m[91m   Compiling[0m[91m thiserror v2.0.21
+Step #1: [0m[91m   Compiling[0m[91m cpufeatures v0.3.1
+Step #1: [0m[91m   Compiling[0m[91m ipnet v2.12.2
+Step #1: [0m[91m   Compiling[0m[91m openssl-probe v0.2.1
+Step #1: [0m[91m   Compiling[0m[91m base64 v0.23.1
+Step #1: [0m[91m   Compiling[0m[91m rustls-webpki v0.103.15
+Step #1: [0m[91m   Compiling[0m[91m hyper-util v0.1.21
+Step #1: [0m[91m   Compiling[0m[91m rustls-native-certs v0.8.5
+Step #1: [0m[91m   Compiling[0m[91m idna v1.1.0
+Step #1: [0m[91m   Compiling[0m[91m ahash v0.8.12
+Step #1: [0m[91m   Compiling[0m[91m thiserror-impl v2.0.21
+Step #1: [0m[91m   Compiling[0m[91m parking_lot_core v0.9.12
+Step #1: [0m[91m   Compiling[0m[91m cmov v0.5.4
+Step #1: [0m[91m   Compiling[0m[91m ref-cast v1.0.27
+Step #1: [0m[91m   Compiling[0m[91m ctutils v0.4.3
+Step #1: [0m[91m   Compiling[0m[91m tokio-rustls v0.26.6
+Step #1: [0m[91m   Compiling[0m[91m url v2.5.8
+Step #1: [0m[91m   Compiling[0m[91m ar_archive_writer v0.5.3
+Step #1: [0m[91m   Compiling[0m[91m tower v0.5.3
+Step #1: [0m[91m   Compiling[0m[91m num-rational v0.4.2
+Step #1: [0m[91m   Compiling[0m[91m cipher v0.5.2
+Step #1: [0m[91m   Compiling[0m[91m num-iter v0.1.46
+Step #1: [0m[91m   Compiling[0m[91m regex v1.13.1
+Step #1: [0m[91m   Compiling[0m[91m num-complex v0.4.6
+Step #1: [0m[91m   Compiling[0m[91m ref-cast-impl v1.0.27
+Step #1: [0m[91m   Compiling[0m[91m ryu v1.0.23
+Step #1: [0m[91m   Compiling[0m[91m cpubits v0.1.1
+Step #1: [0m[91m   Compiling data-encoding v2.11.1
+Step #1: [0m[91m   Compiling[0m[91m scopeguard v1.2.0
+Step #1: [0m[91m   Compiling[0m[91m lock_api v0.4.14
+Step #1: [0m[91m   Compiling[0m[91m serde_urlencoded v0.7.1
+Step #1: [0m[91m   Compiling[0m[91m num v0.4.3
+Step #1: [0m[91m   Compiling[0m[91m psm v0.1.32
+Step #1: [0m[91m   Compiling[0m[91m hyper-rustls v0.27.10
+Step #1: [0m[91m   Compiling universal-hash v0.6.1
+Step #1: [0m[91m   Compiling jsonschema-value v0.58.6
+Step #1: [0m[91m   Compiling libm v0.2.16
+Step #1: [0m[91m   Compiling[0m[91m borrow-or-share v0.2.4
+Step #1: [0m[91m   Compiling[0m[91m heck v0.5.0
+Step #1: [0m[91m   Compiling[0m[91m unicode-general-category v1.1.0
+Step #1: [0m[91m   Compiling[0m[91m bit-vec v0.8.0
+Step #1: [0m[91m   Compiling[0m[91m simd-adler32 v0.3.10
+Step #1: [0m[91m   Compiling[0m[91m const-oid v0.10.2
+Step #1: [0m[91m   Compiling base64 v0.22.1
+Step #1: [0m[91m   Compiling digest v0.11.3
+Step #1: [0m[91m   Compiling bit-set v0.8.0
+Step #1: [0m[91m   Compiling strum_macros v0.28.0
+Step #1: [0m[91m   Compiling fluent-uri v0.4.1
+Step #1: [0m[91m   Compiling parking_lot v0.12.5
+Step #1: [0m[91m   Compiling polyval v0.7.3
+Step #1: [0m[91m   Compiling fraction v0.17.0
+Step #1: [0m[91m   Compiling tower-http v0.6.11
+Step #1: [0m[91m   Compiling block-buffer v0.10.4
+Step #1: [0m[91m   Compiling crypto-common v0.1.7
+Step #1: [0m[91m   Compiling rustls-platform-verifier v0.7.1
+Step #1: [0m[91m   Compiling rand_core v0.9.5
+Step #1: [0m[91m   Compiling[0m[91m ppv-lite86 v0.2.21
+Step #1: [0m[91m   Compiling bigdecimal v0.4.11
+Step #1: [0m[91m   Compiling stacker v0.1.25
+Step #1: [0m[91m   Compiling crc32fast v1.5.2
+Step #1: [0m[91m   Compiling vsimd v0.8.0
+Step #1: [0m[91m   Compiling micromap v0.3.0
+Step #1: [0m[91m   Compiling outref v0.5.2
+Step #1: [0m[91m   Compiling bytecount v0.6.9
+Step #1: [0m[91m   Compiling num-cmp v0.1.0
+Step #1: [0m[91m   Compiling adler2 v2.0.1
+Step #1: [0m[91m   Compiling uuid-simd v0.8.0
+Step #1: [0m[91m   Compiling referencing v0.58.6
+Step #1: [0m[91m   Compiling rand_chacha v0.9.0
+Step #1: [0m[91m   Compiling[0m[91m reqwest v0.13.5
+Step #1: [0m[91m   Compiling[0m[91m digest v0.10.7
+Step #1: [0m[91m   Compiling[0m[91m ghash v0.6.0
+Step #1: [0m[91m   Compiling[0m[91m strum v0.28.0
+Step #1: [0m[91m   Compiling[0m[91m fancy-regex v0.19.2
+Step #1: [0m[91m   Compiling[0m[91m aes v0.9.3
+Step #1: [0m[91m   Compiling[0m[91m ctr v0.10.1
+Step #1: [0m[91m   Compiling[0m[91m aead v0.6.1
+Step #1: [0m[91m   Compiling[0m[91m jsonschema-regex v0.58.6
+Step #1: [0m[91m   Compiling[0m[91m email_address v0.2.9
+Step #1: [0m[91m   Compiling[0m[91m async-trait v0.1.92
+Step #1: [0m[91m   Compiling[0m[91m mime v0.3.17
+Step #1: [0m[91m   Compiling[0m[91m unicase v2.10.0
+Step #1: [0m[91m   Compiling[0m[91m cpufeatures v0.2.17
+Step #1: [0m[91m   Compiling signature v2.2.0
+Step #1: [0m[91m   Compiling[0m[91m sha1 v0.10.7
+Step #1: [0m[91m   Compiling jsonwebtoken v11.1.0
+Step #1: [0m[91m   Compiling[0m[91m mime_guess v2.0.5
+Step #1: [0m[91m   Compiling jsonschema v0.58.6
+Step #1: [0m[91m   Compiling[0m[91m aes-gcm v0.11.1
+Step #1: [0m[91m   Compiling[0m[91m rand v0.9.5
+Step #1: [0m[91m   Compiling[0m[91m miniz_oxide v0.9.1
+Step #1: [0m[91m   Compiling[0m[91m sha2 v0.11.1
+Step #1: [0m[91m   Compiling[0m[91m cbc v0.2.1
+Step #1: [0m[91m   Compiling[0m[91m chromiumoxide_types v0.9.1
+Step #1: [0m[91m   Compiling[0m[91m uuid v1.28.0
+Step #1: [0m[91m   Compiling[0m[91m pin-project-internal v1.1.13
+Step #1: [0m[91m   Compiling[0m[91m utf-8 v0.7.6
+Step #1: [0m[91m   Compiling[0m[91m either v1.19.0
+Step #1: [0m[91m   Compiling[0m[91m hex v0.4.3
+Step #1: [0m[91m   Compiling[0m[91m rustix v1.1.5
+Step #1: [0m[91m   Compiling[0m[91m chromiumoxide_pdl v0.9.1
+Step #1: [0m[91m   Compiling[0m[91m graffiticode-l0000 v0.1.0 (/src/languages/l0000/crates/core)
+Step #1: [0m[91m   Compiling tungstenite v0.28.0
+Step #1: [0m[91m   Compiling[0m[91m pin-project v1.1.13
+Step #1: [0m[91m   Compiling[0m[91m flate2 v1.1.10
+Step #1: [0m[91m   Compiling[0m[91m miniz_oxide v0.8.9
+Step #1: [0m[91m   Compiling[0m[91m fdeflate v0.3.7
+Step #1: [0m[91m   Compiling[0m[91m futures-executor v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m lazy_static v1.5.1
+Step #1: [0m[91m   Compiling[0m[91m pxfm v0.1.30
+Step #1: [0m[91m   Compiling[0m[91m linux-raw-sys v0.12.1
+Step #1: [0m[91m   Compiling[0m[91m iana-time-zone v0.1.65
+Step #1: [0m[91m   Compiling[0m[91m chrono v0.4.45
+Step #1: [0m[91m   Compiling[0m[91m moxcms v0.8.1
+Step #1: [0m[91m   Compiling[0m[91m sharded-slab v0.1.7
+Step #1: [0m[91m   Compiling[0m[91m futures v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m png v0.18.1
+Step #1: [0m[91m   Compiling[0m[91m tracing-futures v0.2.5
+Step #1: [0m[91m   Compiling[0m[91m async-tungstenite v0.32.1
+Step #1: [0m[91m   Compiling[0m[91m chromiumoxide_cdp v0.9.1
+Step #1: [0m[91m   Compiling axum-core v0.5.6
+Step #1: [0m[91m   Compiling matchers v0.2.0
+Step #1: [0m[91m   Compiling tracing-log v0.2.0
+Step #1: [0m[91m   Compiling[0m[91m serde_path_to_error v0.1.20
+Step #1: [0m[91m   Compiling[0m[91m thread_local v1.1.10
+Step #1: [0m[91m   Compiling[0m[91m which v8.0.6
+Step #1: [0m[91m   Compiling[0m[91m fastrand v2.5.0
+Step #1: [0m[91m   Compiling[0m[91m nu-ansi-term v0.50.3
+Step #1: [0m[91m   Compiling[0m[91m matchit v0.8.4
+Step #1: [0m[91m   Compiling[0m[91m byteorder-lite v0.1.0
+Step #1: [0m[91m   Compiling[0m[91m futures-timer v3.0.4
+Step #1: [0m[91m   Compiling[0m[91m http-range-header v0.4.2
+Step #1: [0m[91m   Compiling[0m[91m bytemuck v1.25.2
+Step #1: [0m[91m   Compiling[0m[91m image v0.25.10
+Step #1: [0m[91m   Compiling tower-http v0.7.1
+Step #1: [0m[91m   Compiling[0m[91m axum v0.8.9
+Step #1: [0m[91m   Compiling[0m[91m tracing-subscriber v0.3.23
+Step #1: [0m[91m   Compiling[0m[91m tempfile v3.27.0
+Step #1: [0m[91m   Compiling[0m[91m gcp_auth v0.12.7
+Step #1: [0m[91m   Compiling[0m[91m graffiticode-l0013 v0.1.0 (/src/languages/l0013/crates/core)
+Step #1: [0m[91m   Compiling[0m[91m sha1 v0.11.0
+Step #1: [0m[91m   Compiling[0m[91m l0000r-server v0.1.0 (/src/languages/l0000/crates/server)
+Step #1: [0m[91m   Compiling chromiumoxide v0.9.1
+Step #1: [0m[91m   Compiling l0013-capture v0.1.0 (/src/languages/l0013/crates/capture)
+Step #1: [0m[91m   Compiling l0013r-server v0.1.0 (/src/languages/l0013/crates/server)
+Step #1: [0m[91m    Finished `release` profile [optimized] target(s) in 8m 44s
+Step #1: [0mRemoving intermediate container 30b200e8a9bc
+Step #1:  ---> 7f6c540d3c7c
+Step #1: Step 20/27 : FROM debian:bookworm-slim
+Step #1: bookworm-slim: Pulling from library/debian
+Step #1: dd051e1b8c92: Pulling fs layer
+Step #1: dd051e1b8c92: Verifying Checksum
+Step #1: dd051e1b8c92: Download complete
+Step #1: dd051e1b8c92: Pull complete
+Step #1: Digest: sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
+Step #1: Status: Downloaded newer image for debian:bookworm-slim
+Step #1:  ---> 43f84a0b210f
+Step #1: Step 21/27 : RUN apt-get update     && apt-get install -y --no-install-recommends chromium ca-certificates libnss3-tools fonts-freefont-ttf     && rm -rf /var/lib/apt/lists/*
+Step #1:  ---> Running in b273e64fdb9f
+Step #1: Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+Step #1: Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+Step #1: Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+Step #1: Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+Step #1: Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+Step #1: Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [377 kB]
+Step #1: Fetched 9415 kB in 1s (8645 kB/s)
+Step #1: Reading package lists...
+Step #1: Reading package lists...
+Step #1: Building dependency tree...
+Step #1: Reading state information...
+Step #1: The following additional packages will be installed:
+Step #1:   adwaita-icon-theme at-spi2-common chromium-common dbus dbus-bin dbus-daemon
+Step #1:   dbus-session-bus-common dbus-system-bus-common dbus-user-session
+Step #1:   dconf-gsettings-backend dconf-service dmsetup fontconfig fontconfig-config
+Step #1:   gtk-update-icon-cache hicolor-icon-theme libapparmor1 libargon2-1 libasound2
+Step #1:   libasound2-data libasyncns0 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0
+Step #1:   libavahi-client3 libavahi-common-data libavahi-common3 libbrotli1 libbsd0
+Step #1:   libcairo-gobject2 libcairo2 libcolord2 libcryptsetup12 libcups2 libdatrie1
+Step #1:   libdav1d6 libdbus-1-3 libdconf1 libdeflate0 libdevmapper1.02.1
+Step #1:   libdouble-conversion3 libdrm-amdgpu1 libdrm-common libdrm-intel1
+Step #1:   libdrm-nouveau2 libdrm-radeon1 libdrm2 libedit2 libelf1 libepoxy0 libexpat1
+Step #1:   libfdisk1 libflac12 libfontconfig1 libfontenc1 libfreetype6 libfribidi0
+Step #1:   libgbm1 libgdk-pixbuf-2.0-0 libgdk-pixbuf2.0-common libgl1 libgl1-mesa-dri
+Step #1:   libglapi-mesa libglib2.0-0 libglvnd0 libglx-mesa0 libglx0 libgraphite2-3
+Step #1:   libgssapi-krb5-2 libgtk-3-0 libgtk-3-common libharfbuzz-subset0
+Step #1:   libharfbuzz0b libice6 libicu72 libip4tc2 libjbig0 libjpeg62-turbo libjson-c5
+Step #1:   libk5crypto3 libkeyutils1 libkmod2 libkrb5-3 libkrb5support0 liblcms2-2
+Step #1:   liblerc4 libllvm15 libminizip1 libmp3lame0 libmpg123-0 libncursesw6 libnspr4
+Step #1:   libnss3 libogg0 libopenh264-7 libopenjp2-7 libopus0 libpam-systemd
+Step #1:   libpango-1.0-0 libpangocairo-1.0-0 libpangoft2-1.0-0 libpciaccess0
+Step #1:   libpixman-1-0 libpng16-16 libproc2-0 libpulse0 libsensors-config libsensors5
+Step #1:   libsm6 libsndfile1 libsqlite3-0 libssl3 libsystemd-shared libthai-data
+Step #1:   libthai0 libtiff6 libvorbis0a libvorbisenc2 libwayland-client0
+Step #1:   libwayland-cursor0 libwayland-egl1 libwayland-server0 libwebp7 libx11-6
+Step #1:   libx11-data libx11-xcb1 libxau6 libxaw7 libxcb-dri2-0 libxcb-dri3-0
+Step #1:   libxcb-glx0 libxcb-present0 libxcb-randr0 libxcb-render0 libxcb-shape0
+Step #1:   libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb1 libxcomposite1 libxcursor1
+Step #1:   libxdamage1 libxdmcp6 libxext6 libxfixes3 libxft2 libxi6 libxinerama1
+Step #1:   libxkbcommon0 libxkbfile1 libxml2 libxmu6 libxmuu1 libxnvctrl0 libxpm4
+Step #1:   libxrandr2 libxrender1 libxshmfence1 libxt6 libxtst6 libxv1 libxxf86dga1
+Step #1:   libxxf86vm1 libz3-4 openssl procps shared-mime-info systemd systemd-sysv
+Step #1:   x11-common x11-utils xdg-utils xkb-data
+Step #1: Suggested packages:
+Step #1:   chromium-l10n chromium-shell chromium-driver libasound2-plugins alsa-utils
+Step #1:   colord cups-common low-memory-monitor krb5-doc krb5-user gvfs liblcms2-utils
+Step #1:   opus-tools pciutils pulseaudio lm-sensors systemd-container systemd-homed
+Step #1:   systemd-userdbd systemd-boot systemd-resolved libfido2-1 libqrencode4
+Step #1:   libtss2-esys-3.0.2-0 libtss2-mu0 libtss2-rc0 polkitd | policykit-1
+Step #1:   mesa-utils
+Step #1: Recommended packages:
+Step #1:   librsvg2-common upower udev fonts-liberation notification-daemon
+Step #1:   system-config-printer alsa-ucm-conf alsa-topology-conf at-spi2-core
+Step #1:   libgdk-pixbuf2.0-bin libglib2.0-data xdg-user-dirs libgtk-3-bin krb5-locales
+Step #1:   libgpm2 psmisc systemd-timesyncd | time-daemon libnss-systemd
+Step #1:   libfile-mimeinfo-perl libnet-dbus-perl libx11-protocol-perl
+Step #1:   x11-xserver-utils
+Step #1: The following NEW packages will be installed:
+Step #1:   adwaita-icon-theme at-spi2-common ca-certificates chromium chromium-common
+Step #1:   dbus dbus-bin dbus-daemon dbus-session-bus-common dbus-system-bus-common
+Step #1:   dbus-user-session dconf-gsettings-backend dconf-service dmsetup fontconfig
+Step #1:   fontconfig-config fonts-freefont-ttf gtk-update-icon-cache
+Step #1:   hicolor-icon-theme libapparmor1 libargon2-1 libasound2 libasound2-data
+Step #1:   libasyncns0 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 libavahi-client3
+Step #1:   libavahi-common-data libavahi-common3 libbrotli1 libbsd0 libcairo-gobject2
+Step #1:   libcairo2 libcolord2 libcryptsetup12 libcups2 libdatrie1 libdav1d6
+Step #1:   libdbus-1-3 libdconf1 libdeflate0 libdevmapper1.02.1 libdouble-conversion3
+Step #1:   libdrm-amdgpu1 libdrm-common libdrm-intel1 libdrm-nouveau2 libdrm-radeon1
+Step #1:   libdrm2 libedit2 libelf1 libepoxy0 libexpat1 libfdisk1 libflac12
+Step #1:   libfontconfig1 libfontenc1 libfreetype6 libfribidi0 libgbm1
+Step #1:   libgdk-pixbuf-2.0-0 libgdk-pixbuf2.0-common libgl1 libgl1-mesa-dri
+Step #1:   libglapi-mesa libglib2.0-0 libglvnd0 libglx-mesa0 libglx0 libgraphite2-3
+Step #1:   libgssapi-krb5-2 libgtk-3-0 libgtk-3-common libharfbuzz-subset0
+Step #1:   libharfbuzz0b libice6 libicu72 libip4tc2 libjbig0 libjpeg62-turbo libjson-c5
+Step #1:   libk5crypto3 libkeyutils1 libkmod2 libkrb5-3 libkrb5support0 liblcms2-2
+Step #1:   liblerc4 libllvm15 libminizip1 libmp3lame0 libmpg123-0 libncursesw6 libnspr4
+Step #1:   libnss3 libnss3-tools libogg0 libopenh264-7 libopenjp2-7 libopus0
+Step #1:   libpam-systemd libpango-1.0-0 libpangocairo-1.0-0 libpangoft2-1.0-0
+Step #1:   libpciaccess0 libpixman-1-0 libpng16-16 libproc2-0 libpulse0
+Step #1:   libsensors-config libsensors5 libsm6 libsndfile1 libsqlite3-0 libssl3
+Step #1:   libsystemd-shared libthai-data libthai0 libtiff6 libvorbis0a libvorbisenc2
+Step #1:   libwayland-client0 libwayland-cursor0 libwayland-egl1 libwayland-server0
+Step #1:   libwebp7 libx11-6 libx11-data libx11-xcb1 libxau6 libxaw7 libxcb-dri2-0
+Step #1:   libxcb-dri3-0 libxcb-glx0 libxcb-present0 libxcb-randr0 libxcb-render0
+Step #1:   libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 libxcb1 libxcomposite1
+Step #1:   libxcursor1 libxdamage1 libxdmcp6 libxext6 libxfixes3 libxft2 libxi6
+Step #1:   libxinerama1 libxkbcommon0 libxkbfile1 libxml2 libxmu6 libxmuu1 libxnvctrl0
+Step #1:   libxpm4 libxrandr2 libxrender1 libxshmfence1 libxt6 libxtst6 libxv1
+Step #1:   libxxf86dga1 libxxf86vm1 libz3-4 openssl procps shared-mime-info systemd
+Step #1:   systemd-sysv x11-common x11-utils xdg-utils xkb-data
+Step #1: 0 upgraded, 177 newly installed, 0 to remove and 0 not upgraded.
+Step #1: Need to get 212 MB of archives.
+Step #1: After this operation, 750 MB of additional disk space will be used.
+Step #1: Get:1 http://deb.debian.org/debian-security bookworm-security/main amd64 libssl3 amd64 3.0.22-1~deb12u2 [2040 kB]
+Step #1: Get:2 http://deb.debian.org/debian bookworm/main amd64 libargon2-1 amd64 0~20171227-0.3+deb12u1 [19.4 kB]
+Step #1: Get:3 http://deb.debian.org/debian bookworm/main amd64 dmsetup amd64 2:1.02.185-2 [82.0 kB]
+Step #1: Get:4 http://deb.debian.org/debian bookworm/main amd64 libdevmapper1.02.1 amd64 2:1.02.185-2 [133 kB]
+Step #1: Get:5 http://deb.debian.org/debian bookworm/main amd64 libjson-c5 amd64 0.16-2 [44.1 kB]
+Step #1: Get:6 http://deb.debian.org/debian bookworm/main amd64 libcryptsetup12 amd64 2:2.6.1-4~deb12u2 [223 kB]
+Step #1: Get:7 http://deb.debian.org/debian bookworm/main amd64 libfdisk1 amd64 2.38.1-5+deb12u3 [194 kB]
+Step #1: Get:8 http://deb.debian.org/debian bookworm/main amd64 libkmod2 amd64 30+20221128-1 [57.9 kB]
+Step #1: Get:9 http://deb.debian.org/debian bookworm/main amd64 libapparmor1 amd64 3.0.8-3 [41.2 kB]
+Step #1: Get:10 http://deb.debian.org/debian bookworm/main amd64 libip4tc2 amd64 1.8.9-2 [19.0 kB]
+Step #1: Get:11 http://deb.debian.org/debian bookworm/main amd64 libsystemd-shared amd64 252.39-1~deb12u2 [1696 kB]
+Step #1: Get:12 http://deb.debian.org/debian bookworm/main amd64 systemd amd64 252.39-1~deb12u2 [3044 kB]
+Step #1: Get:13 http://deb.debian.org/debian bookworm/main amd64 systemd-sysv amd64 252.39-1~deb12u2 [42.9 kB]
+Step #1: Get:14 http://deb.debian.org/debian bookworm/main amd64 libdbus-1-3 amd64 1.14.10-1~deb12u1 [201 kB]
+Step #1: Get:15 http://deb.debian.org/debian bookworm/main amd64 dbus-bin amd64 1.14.10-1~deb12u1 [105 kB]
+Step #1: Get:16 http://deb.debian.org/debian bookworm/main amd64 dbus-session-bus-common all 1.14.10-1~deb12u1 [78.2 kB]
+Step #1: Get:17 http://deb.debian.org/debian-security bookworm-security/main amd64 libexpat1 amd64 2.5.0-1+deb12u5 [108 kB]
+Step #1: Get:18 http://deb.debian.org/debian bookworm/main amd64 dbus-daemon amd64 1.14.10-1~deb12u1 [184 kB]
+Step #1: Get:19 http://deb.debian.org/debian bookworm/main amd64 dbus-system-bus-common all 1.14.10-1~deb12u1 [79.3 kB]
+Step #1: Get:20 http://deb.debian.org/debian bookworm/main amd64 dbus amd64 1.14.10-1~deb12u1 [97.4 kB]
+Step #1: Get:21 http://deb.debian.org/debian bookworm/main amd64 libncursesw6 amd64 6.4-4 [134 kB]
+Step #1: Get:22 http://deb.debian.org/debian bookworm/main amd64 libproc2-0 amd64 2:4.0.2-3 [62.8 kB]
+Step #1: Get:23 http://deb.debian.org/debian bookworm/main amd64 procps amd64 2:4.0.2-3 [709 kB]
+Step #1: Get:24 http://deb.debian.org/debian-security bookworm-security/main amd64 openssl amd64 3.0.22-1~deb12u2 [1442 kB]
+Step #1: Get:25 http://deb.debian.org/debian-security bookworm-security/main amd64 ca-certificates all 20250419~deb12u2 [161 kB]
+Step #1: Get:26 http://deb.debian.org/debian bookworm/main amd64 libpam-systemd amd64 252.39-1~deb12u2 [226 kB]
+Step #1: Get:27 http://deb.debian.org/debian bookworm/main amd64 hicolor-icon-theme all 0.17-2 [11.4 kB]
+Step #1: Get:28 http://deb.debian.org/debian bookworm/main amd64 libgdk-pixbuf2.0-common all 2.42.10+dfsg-1+deb12u4 [307 kB]
+Step #1: Get:29 http://deb.debian.org/debian bookworm/main amd64 libglib2.0-0 amd64 2.74.6-2+deb12u9 [1403 kB]
+Step #1: Get:30 http://deb.debian.org/debian bookworm/main amd64 libicu72 amd64 72.1-3+deb12u1 [9376 kB]
+Step #1: Get:31 http://deb.debian.org/debian bookworm/main amd64 libxml2 amd64 2.9.14+dfsg-1.3~deb12u6 [689 kB]
+Step #1: Get:32 http://deb.debian.org/debian bookworm/main amd64 shared-mime-info amd64 2.2-1 [729 kB]
+Step #1: Get:33 http://deb.debian.org/debian bookworm/main amd64 libjpeg62-turbo amd64 1:2.1.5-2 [166 kB]
+Step #1: Get:34 http://deb.debian.org/debian-security bookworm-security/main amd64 libpng16-16 amd64 1.6.39-2+deb12u6 [277 kB]
+Step #1: Get:35 http://deb.debian.org/debian bookworm/main amd64 libdeflate0 amd64 1.14-1 [61.4 kB]
+Step #1: Get:36 http://deb.debian.org/debian bookworm/main amd64 libjbig0 amd64 2.1-6.1 [31.7 kB]
+Step #1: Get:37 http://deb.debian.org/debian bookworm/main amd64 liblerc4 amd64 4.0.0+ds-2 [170 kB]
+Step #1: Get:38 http://deb.debian.org/debian bookworm/main amd64 libwebp7 amd64 1.2.4-0.2+deb12u1 [286 kB]
+Step #1: Get:39 http://deb.debian.org/debian bookworm/main amd64 libtiff6 amd64 4.5.0-6+deb12u4 [316 kB]
+Step #1: Get:40 http://deb.debian.org/debian bookworm/main amd64 libgdk-pixbuf-2.0-0 amd64 2.42.10+dfsg-1+deb12u4 [139 kB]
+Step #1: Get:41 http://deb.debian.org/debian bookworm/main amd64 gtk-update-icon-cache amd64 3.24.38-2~deb12u3 [44.2 kB]
+Step #1: Get:42 http://deb.debian.org/debian bookworm/main amd64 adwaita-icon-theme all 43-1 [5124 kB]
+Step #1: Get:43 http://deb.debian.org/debian bookworm/main amd64 at-spi2-common all 2.46.0-5 [162 kB]
+Step #1: Get:44 http://deb.debian.org/debian bookworm/main amd64 libasound2-data all 1.2.8-1 [20.5 kB]
+Step #1: Get:45 http://deb.debian.org/debian bookworm/main amd64 libasound2 amd64 1.2.8-1+b1 [362 kB]
+Step #1: Get:46 http://deb.debian.org/debian bookworm/main amd64 libatk1.0-0 amd64 2.46.0-5 [49.6 kB]
+Step #1: Get:47 http://deb.debian.org/debian bookworm/main amd64 libxau6 amd64 1:1.0.9-1 [19.7 kB]
+Step #1: Get:48 http://deb.debian.org/debian bookworm/main amd64 libbsd0 amd64 0.11.7-2 [117 kB]
+Step #1: Get:49 http://deb.debian.org/debian bookworm/main amd64 libxdmcp6 amd64 1:1.1.2-3 [26.3 kB]
+Step #1: Get:50 http://deb.debian.org/debian bookworm/main amd64 libxcb1 amd64 1.15-1 [144 kB]
+Step #1: Get:51 http://deb.debian.org/debian bookworm/main amd64 libx11-data all 2:1.8.4-2+deb12u2 [292 kB]
+Step #1: Get:52 http://deb.debian.org/debian bookworm/main amd64 libx11-6 amd64 2:1.8.4-2+deb12u2 [760 kB]
+Step #1: Get:53 http://deb.debian.org/debian bookworm/main amd64 libxext6 amd64 2:1.3.4-1+b1 [52.9 kB]
+Step #1: Get:54 http://deb.debian.org/debian bookworm/main amd64 libxi6 amd64 2:1.8-1+b1 [84.2 kB]
+Step #1: Get:55 http://deb.debian.org/debian bookworm/main amd64 libatspi2.0-0 amd64 2.46.0-5 [75.4 kB]
+Step #1: Get:56 http://deb.debian.org/debian bookworm/main amd64 libatk-bridge2.0-0 amd64 2.46.0-5 [64.6 kB]
+Step #1: Get:57 http://deb.debian.org/debian-security bookworm-security/main amd64 libbrotli1 amd64 1.0.9-2+deb12u1 [275 kB]
+Step #1: Get:58 http://deb.debian.org/debian bookworm/main amd64 libfreetype6 amd64 2.12.1+dfsg-5+deb12u4 [398 kB]
+Step #1: Get:59 http://deb.debian.org/debian bookworm/main amd64 fonts-freefont-ttf all 20120503-10 [2552 kB]
+Step #1: Get:60 http://deb.debian.org/debian bookworm/main amd64 fontconfig-config amd64 2.14.1-4 [315 kB]
+Step #1: Get:61 http://deb.debian.org/debian bookworm/main amd64 libfontconfig1 amd64 2.14.1-4 [386 kB]
+Step #1: Get:62 http://deb.debian.org/debian bookworm/main amd64 libpixman-1-0 amd64 0.42.2-1 [546 kB]
+Step #1: Get:63 http://deb.debian.org/debian bookworm/main amd64 libxcb-render0 amd64 1.15-1 [115 kB]
+Step #1: Get:64 http://deb.debian.org/debian bookworm/main amd64 libxcb-shm0 amd64 1.15-1 [105 kB]
+Step #1: Get:65 http://deb.debian.org/debian bookworm/main amd64 libxrender1 amd64 1:0.9.10-1.1 [33.2 kB]
+Step #1: Get:66 http://deb.debian.org/debian bookworm/main amd64 libcairo2 amd64 1.16.0-7 [575 kB]
+Step #1: Get:67 http://deb.debian.org/debian bookworm/main amd64 libavahi-common-data amd64 0.8-10+deb12u1 [107 kB]
+Step #1: Get:68 http://deb.debian.org/debian bookworm/main amd64 libavahi-common3 amd64 0.8-10+deb12u1 [42.1 kB]
+Step #1: Get:69 http://deb.debian.org/debian bookworm/main amd64 libavahi-client3 amd64 0.8-10+deb12u1 [45.8 kB]
+Step #1: Get:70 http://deb.debian.org/debian bookworm/main amd64 libkrb5support0 amd64 1.20.1-2+deb12u5 [33.2 kB]
+Step #1: Get:71 http://deb.debian.org/debian bookworm/main amd64 libk5crypto3 amd64 1.20.1-2+deb12u5 [79.7 kB]
+Step #1: Get:72 http://deb.debian.org/debian bookworm/main amd64 libkeyutils1 amd64 1.6.3-2 [8808 B]
+Step #1: Get:73 http://deb.debian.org/debian bookworm/main amd64 libkrb5-3 amd64 1.20.1-2+deb12u5 [332 kB]
+Step #1: Get:74 http://deb.debian.org/debian bookworm/main amd64 libgssapi-krb5-2 amd64 1.20.1-2+deb12u5 [135 kB]
+Step #1: Get:75 http://deb.debian.org/debian bookworm/main amd64 libcups2 amd64 2.4.2-3+deb12u9 [245 kB]
+Step #1: Get:76 http://deb.debian.org/debian bookworm/main amd64 libdav1d6 amd64 1.0.0-2+deb12u1 [513 kB]
+Step #1: Get:77 http://deb.debian.org/debian bookworm/main amd64 libdouble-conversion3 amd64 3.2.1-1 [41.5 kB]
+Step #1: Get:78 http://deb.debian.org/debian bookworm/main amd64 libogg0 amd64 1.3.5-3 [23.4 kB]
+Step #1: Get:79 http://deb.debian.org/debian bookworm/main amd64 libflac12 amd64 1.4.2+ds-2 [198 kB]
+Step #1: Get:80 http://deb.debian.org/debian bookworm/main amd64 libdrm-common all 2.4.114-1 [7112 B]
+Step #1: Get:81 http://deb.debian.org/debian bookworm/main amd64 libdrm2 amd64 2.4.114-1+b1 [37.5 kB]
+Step #1: Get:82 http://deb.debian.org/debian bookworm/main amd64 libwayland-server0 amd64 1.21.0-1 [35.9 kB]
+Step #1: Get:83 http://deb.debian.org/debian bookworm/main amd64 libgbm1 amd64 22.3.6-1+deb12u2 [38.1 kB]
+Step #1: Get:84 http://deb.debian.org/debian bookworm/main amd64 libgraphite2-3 amd64 1.3.14-1+deb12u1 [74.6 kB]
+Step #1: Get:85 http://deb.debian.org/debian bookworm/main amd64 libharfbuzz0b amd64 6.0.0+dfsg-3 [1945 kB]
+Step #1: Get:86 http://deb.debian.org/debian bookworm/main amd64 libharfbuzz-subset0 amd64 6.0.0+dfsg-3 [1931 kB]
+Step #1: Get:87 http://deb.debian.org/debian bookworm/main amd64 liblcms2-2 amd64 2.14-2+deb12u1 [154 kB]
+Step #1: Get:88 http://deb.debian.org/debian bookworm/main amd64 libminizip1 amd64 1.1-8+deb12u1 [20.1 kB]
+Step #1: Get:89 http://deb.debian.org/debian bookworm/main amd64 libnspr4 amd64 2:4.35-1 [113 kB]
+Step #1: Get:90 http://deb.debian.org/debian bookworm/main amd64 libsqlite3-0 amd64 3.40.1-2+deb12u2 [839 kB]
+Step #1: Get:91 http://deb.debian.org/debian-security bookworm-security/main amd64 libnss3 amd64 2:3.87.1-1+deb12u4 [1331 kB]
+Step #1: Get:92 http://deb.debian.org/debian bookworm/main amd64 libopenh264-7 amd64 2.3.1+dfsg-3+deb12u2 [393 kB]
+Step #1: Get:93 http://deb.debian.org/debian bookworm/main amd64 libopenjp2-7 amd64 2.5.0-2+deb12u3 [189 kB]
+Step #1: Get:94 http://deb.debian.org/debian bookworm/main amd64 libopus0 amd64 1.3.1-3 [195 kB]
+Step #1: Get:95 http://deb.debian.org/debian bookworm/main amd64 fontconfig amd64 2.14.1-4 [449 kB]
+Step #1: Get:96 http://deb.debian.org/debian bookworm/main amd64 libfribidi0 amd64 1.0.8-2.1 [65.0 kB]
+Step #1: Get:97 http://deb.debian.org/debian bookworm/main amd64 libthai-data all 0.1.29-1 [176 kB]
+Step #1: Get:98 http://deb.debian.org/debian bookworm/main amd64 libdatrie1 amd64 0.2.13-2+b1 [43.3 kB]
+Step #1: Get:99 http://deb.debian.org/debian bookworm/main amd64 libthai0 amd64 0.1.29-1 [57.5 kB]
+Step #1: Get:100 http://deb.debian.org/debian bookworm/main amd64 libpango-1.0-0 amd64 1.50.12+ds-1 [212 kB]
+Step #1: Get:101 http://deb.debian.org/debian bookworm/main amd64 libasyncns0 amd64 0.8-6+b3 [12.9 kB]
+Step #1: Get:102 http://deb.debian.org/debian bookworm/main amd64 libmp3lame0 amd64 3.100-6 [365 kB]
+Step #1: Get:103 http://deb.debian.org/debian bookworm/main amd64 libmpg123-0 amd64 1.31.2-1+deb12u1 [147 kB]
+Step #1: Get:104 http://deb.debian.org/debian bookworm/main amd64 libvorbis0a amd64 1.3.7-1 [93.0 kB]
+Step #1: Get:105 http://deb.debian.org/debian bookworm/main amd64 libvorbisenc2 amd64 1.3.7-1 [80.6 kB]
+Step #1: Get:106 http://deb.debian.org/debian bookworm/main amd64 libsndfile1 amd64 1.2.0-1+deb12u1 [197 kB]
+Step #1: Get:107 http://deb.debian.org/debian bookworm/main amd64 libx11-xcb1 amd64 2:1.8.4-2+deb12u2 [192 kB]
+Step #1: Get:108 http://deb.debian.org/debian bookworm/main amd64 libpulse0 amd64 16.1+dfsg1-2+b1 [274 kB]
+Step #1: Get:109 http://deb.debian.org/debian bookworm/main amd64 libxcomposite1 amd64 1:0.4.5-1 [16.6 kB]
+Step #1: Get:110 http://deb.debian.org/debian bookworm/main amd64 libxdamage1 amd64 1:1.1.6-1 [15.1 kB]
+Step #1: Get:111 http://deb.debian.org/debian bookworm/main amd64 libxfixes3 amd64 1:6.0.0-2 [22.7 kB]
+Step #1: Get:112 http://deb.debian.org/debian bookworm/main amd64 xkb-data all 2.35.1-1 [764 kB]
+Step #1: Get:113 http://deb.debian.org/debian bookworm/main amd64 libxkbcommon0 amd64 1.5.0-1 [106 kB]
+Step #1: Get:114 http://deb.debian.org/debian bookworm/main amd64 libxnvctrl0 amd64 525.85.05-3~deb12u1 [13.5 kB]
+Step #1: Get:115 http://deb.debian.org/debian bookworm/main amd64 libxrandr2 amd64 2:1.5.2-2+b1 [39.2 kB]
+Step #1: Get:116 http://deb.debian.org/debian bookworm/main amd64 libcairo-gobject2 amd64 1.16.0-7 [112 kB]
+Step #1: Get:117 http://deb.debian.org/debian bookworm/main amd64 libcolord2 amd64 1.4.6-2.2 [137 kB]
+Step #1: Get:118 http://deb.debian.org/debian bookworm/main amd64 libepoxy0 amd64 1.5.10-1 [189 kB]
+Step #1: Get:119 http://deb.debian.org/debian bookworm/main amd64 libpangoft2-1.0-0 amd64 1.50.12+ds-1 [47.4 kB]
+Step #1: Get:120 http://deb.debian.org/debian bookworm/main amd64 libpangocairo-1.0-0 amd64 1.50.12+ds-1 [34.2 kB]
+Step #1: Get:121 http://deb.debian.org/debian bookworm/main amd64 libwayland-client0 amd64 1.21.0-1 [28.3 kB]
+Step #1: Get:122 http://deb.debian.org/debian bookworm/main amd64 libwayland-cursor0 amd64 1.21.0-1 [14.4 kB]
+Step #1: Get:123 http://deb.debian.org/debian bookworm/main amd64 libwayland-egl1 amd64 1.21.0-1 [8640 B]
+Step #1: Get:124 http://deb.debian.org/debian bookworm/main amd64 libxcursor1 amd64 1:1.2.1-1 [40.9 kB]
+Step #1: Get:125 http://deb.debian.org/debian bookworm/main amd64 libxinerama1 amd64 2:1.1.4-3 [17.8 kB]
+Step #1: Get:126 http://deb.debian.org/debian bookworm/main amd64 dbus-user-session amd64 1.14.10-1~deb12u1 [78.1 kB]
+Step #1: Get:127 http://deb.debian.org/debian bookworm/main amd64 libdconf1 amd64 0.40.0-4 [40.9 kB]
+Step #1: Get:128 http://deb.debian.org/debian bookworm/main amd64 dconf-service amd64 0.40.0-4 [31.6 kB]
+Step #1: Get:129 http://deb.debian.org/debian bookworm/main amd64 dconf-gsettings-backend amd64 0.40.0-4 [27.8 kB]
+Step #1: Get:130 http://deb.debian.org/debian bookworm/main amd64 libgtk-3-common all 3.24.38-2~deb12u3 [3895 kB]
+Step #1: Get:131 http://deb.debian.org/debian bookworm/main amd64 libgtk-3-0 amd64 3.24.38-2~deb12u3 [2847 kB]
+Step #1: Get:132 http://deb.debian.org/debian bookworm/main amd64 libfontenc1 amd64 1:1.1.4-1 [24.3 kB]
+Step #1: Get:133 http://deb.debian.org/debian bookworm/main amd64 libglvnd0 amd64 1.6.0-1 [51.8 kB]
+Step #1: Get:134 http://deb.debian.org/debian bookworm/main amd64 libglapi-mesa amd64 22.3.6-1+deb12u2 [35.9 kB]
+Step #1: Get:135 http://deb.debian.org/debian bookworm/main amd64 libxcb-dri2-0 amd64 1.15-1 [107 kB]
+Step #1: Get:136 http://deb.debian.org/debian bookworm/main amd64 libxcb-dri3-0 amd64 1.15-1 [107 kB]
+Step #1: Get:137 http://deb.debian.org/debian bookworm/main amd64 libxcb-glx0 amd64 1.15-1 [122 kB]
+Step #1: Get:138 http://deb.debian.org/debian bookworm/main amd64 libxcb-present0 amd64 1.15-1 [105 kB]
+Step #1: Get:139 http://deb.debian.org/debian bookworm/main amd64 libxcb-randr0 amd64 1.15-1 [117 kB]
+Step #1: Get:140 http://deb.debian.org/debian bookworm/main amd64 libxcb-sync1 amd64 1.15-1 [109 kB]
+Step #1: Get:141 http://deb.debian.org/debian bookworm/main amd64 libxcb-xfixes0 amd64 1.15-1 [109 kB]
+Step #1: Get:142 http://deb.debian.org/debian bookworm/main amd64 libxshmfence1 amd64 1.3-1 [8820 B]
+Step #1: Get:143 http://deb.debian.org/debian bookworm/main amd64 libxxf86vm1 amd64 1:1.1.4-1+b2 [20.8 kB]
+Step #1: Get:144 http://deb.debian.org/debian bookworm/main amd64 libdrm-amdgpu1 amd64 2.4.114-1+b1 [20.9 kB]
+Step #1: Get:145 http://deb.debian.org/debian bookworm/main amd64 libpciaccess0 amd64 0.17-2 [51.4 kB]
+Step #1: Get:146 http://deb.debian.org/debian bookworm/main amd64 libdrm-intel1 amd64 2.4.114-1+b1 [64.0 kB]
+Step #1: Get:147 http://deb.debian.org/debian bookworm/main amd64 libdrm-nouveau2 amd64 2.4.114-1+b1 [19.1 kB]
+Step #1: Get:148 http://deb.debian.org/debian bookworm/main amd64 libdrm-radeon1 amd64 2.4.114-1+b1 [21.8 kB]
+Step #1: Get:149 http://deb.debian.org/debian bookworm/main amd64 libelf1 amd64 0.188-2.1 [174 kB]
+Step #1: Get:150 http://deb.debian.org/debian bookworm/main amd64 libedit2 amd64 3.1-20221030-2 [93.0 kB]
+Step #1: Get:151 http://deb.debian.org/debian bookworm/main amd64 libz3-4 amd64 4.8.12-3.1 [7216 kB]
+Step #1: Get:152 http://deb.debian.org/debian bookworm/main amd64 libllvm15 amd64 1:15.0.6-4+b1 [23.1 MB]
+Step #1: Get:153 http://deb.debian.org/debian bookworm/main amd64 libsensors-config all 1:3.6.0-7.1 [14.3 kB]
+Step #1: Get:154 http://deb.debian.org/debian bookworm/main amd64 libsensors5 amd64 1:3.6.0-7.1 [34.2 kB]
+Step #1: Get:155 http://deb.debian.org/debian bookworm/main amd64 libgl1-mesa-dri amd64 22.3.6-1+deb12u2 [7240 kB]
+Step #1: Get:156 http://deb.debian.org/debian bookworm/main amd64 libglx-mesa0 amd64 22.3.6-1+deb12u2 [148 kB]
+Step #1: Get:157 http://deb.debian.org/debian bookworm/main amd64 libglx0 amd64 1.6.0-1 [34.4 kB]
+Step #1: Get:158 http://deb.debian.org/debian bookworm/main amd64 libgl1 amd64 1.6.0-1 [88.4 kB]
+Step #1: Get:159 http://deb.debian.org/debian bookworm/main amd64 x11-common all 1:7.7+23 [252 kB]
+Step #1: Get:160 http://deb.debian.org/debian bookworm/main amd64 libice6 amd64 2:1.0.10-1 [58.5 kB]
+Step #1: Get:161 http://deb.debian.org/debian bookworm/main amd64 libsm6 amd64 2:1.2.3-1 [35.1 kB]
+Step #1: Get:162 http://deb.debian.org/debian bookworm/main amd64 libxt6 amd64 1:1.2.1-1.1 [186 kB]
+Step #1: Get:163 http://deb.debian.org/debian bookworm/main amd64 libxmu6 amd64 2:1.1.3-3 [60.1 kB]
+Step #1: Get:164 http://deb.debian.org/debian bookworm/main amd64 libxpm4 amd64 1:3.5.12-1.1+deb12u1 [48.6 kB]
+Step #1: Get:165 http://deb.debian.org/debian bookworm/main amd64 libxaw7 amd64 2:1.0.14-1 [201 kB]
+Step #1: Get:166 http://deb.debian.org/debian bookworm/main amd64 libxcb-shape0 amd64 1.15-1 [106 kB]
+Step #1: Get:167 http://deb.debian.org/debian bookworm/main amd64 libxft2 amd64 2.3.6-1 [61.8 kB]
+Step #1: Get:168 http://deb.debian.org/debian bookworm/main amd64 libxkbfile1 amd64 1:1.1.0-1 [75.2 kB]
+Step #1: Get:169 http://deb.debian.org/debian bookworm/main amd64 libxmuu1 amd64 2:1.1.3-3 [23.9 kB]
+Step #1: Get:170 http://deb.debian.org/debian bookworm/main amd64 libxtst6 amd64 2:1.2.3-1.1 [28.0 kB]
+Step #1: Get:171 http://deb.debian.org/debian bookworm/main amd64 libxv1 amd64 2:1.0.11-1.1 [24.8 kB]
+Step #1: Get:172 http://deb.debian.org/debian bookworm/main amd64 libxxf86dga1 amd64 2:1.1.5-1 [22.1 kB]
+Step #1: Get:173 http://deb.debian.org/debian bookworm/main amd64 x11-utils amd64 7.7+5 [202 kB]
+Step #1: Get:174 http://deb.debian.org/debian bookworm/main amd64 xdg-utils all 1.1.3-4.1 [75.5 kB]
+Step #1: Get:175 http://deb.debian.org/debian-security bookworm-security/main amd64 chromium-common amd64 156.0.8078.79-1~deb12u1 [31.6 MB]
+Step #1: Get:176 http://deb.debian.org/debian-security bookworm-security/main amd64 chromium amd64 156.0.8078.79-1~deb12u1 [81.2 MB]
+Step #1: Get:177 http://deb.debian.org/debian-security bookworm-security/main amd64 libnss3-tools amd64 2:3.87.1-1+deb12u4 [1052 kB]
+Step #1: [91mdebconf: delaying package configuration, since apt-utils is not installed
+Step #1: [0mFetched 212 MB in 2s (119 MB/s)
+Step #1: Selecting previously unselected package libssl3:amd64.
+Step #1: (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6096 files and directories currently installed.)
+Step #1: Preparing to unpack .../00-libssl3_3.0.22-1~deb12u2_amd64.deb ...
+Step #1: Unpacking libssl3:amd64 (3.0.22-1~deb12u2) ...
+Step #1: Selecting previously unselected package libargon2-1:amd64.
+Step #1: Preparing to unpack .../01-libargon2-1_0~20171227-0.3+deb12u1_amd64.deb ...
+Step #1: Unpacking libargon2-1:amd64 (0~20171227-0.3+deb12u1) ...
+Step #1: Selecting previously unselected package dmsetup.
+Step #1: Preparing to unpack .../02-dmsetup_2%3a1.02.185-2_amd64.deb ...
+Step #1: Unpacking dmsetup (2:1.02.185-2) ...
+Step #1: Selecting previously unselected package libdevmapper1.02.1:amd64.
+Step #1: Preparing to unpack .../03-libdevmapper1.02.1_2%3a1.02.185-2_amd64.deb ...
+Step #1: Unpacking libdevmapper1.02.1:amd64 (2:1.02.185-2) ...
+Step #1: Selecting previously unselected package libjson-c5:amd64.
+Step #1: Preparing to unpack .../04-libjson-c5_0.16-2_amd64.deb ...
+Step #1: Unpacking libjson-c5:amd64 (0.16-2) ...
+Step #1: Selecting previously unselected package libcryptsetup12:amd64.
+Step #1: Preparing to unpack .../05-libcryptsetup12_2%3a2.6.1-4~deb12u2_amd64.deb ...
+Step #1: Unpacking libcryptsetup12:amd64 (2:2.6.1-4~deb12u2) ...
+Step #1: Selecting previously unselected package libfdisk1:amd64.
+Step #1: Preparing to unpack .../06-libfdisk1_2.38.1-5+deb12u3_amd64.deb ...
+Step #1: Unpacking libfdisk1:amd64 (2.38.1-5+deb12u3) ...
+Step #1: Selecting previously unselected package libkmod2:amd64.
+Step #1: Preparing to unpack .../07-libkmod2_30+20221128-1_amd64.deb ...
+Step #1: Unpacking libkmod2:amd64 (30+20221128-1) ...
+Step #1: Selecting previously unselected package libapparmor1:amd64.
+Step #1: Preparing to unpack .../08-libapparmor1_3.0.8-3_amd64.deb ...
+Step #1: Unpacking libapparmor1:amd64 (3.0.8-3) ...
+Step #1: Selecting previously unselected package libip4tc2:amd64.
+Step #1: Preparing to unpack .../09-libip4tc2_1.8.9-2_amd64.deb ...
+Step #1: Unpacking libip4tc2:amd64 (1.8.9-2) ...
+Step #1: Selecting previously unselected package libsystemd-shared:amd64.
+Step #1: Preparing to unpack .../10-libsystemd-shared_252.39-1~deb12u2_amd64.deb ...
+Step #1: Unpacking libsystemd-shared:amd64 (252.39-1~deb12u2) ...
+Step #1: Setting up libssl3:amd64 (3.0.22-1~deb12u2) ...
+Step #1: Selecting previously unselected package systemd.
+Step #1: (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 6182 files and directories currently installed.)
+Step #1: Preparing to unpack .../systemd_252.39-1~deb12u2_amd64.deb ...
+Step #1: Unpacking systemd (252.39-1~deb12u2) ...
+Step #1: Setting up libargon2-1:amd64 (0~20171227-0.3+deb12u1) ...
+Step #1: Setting up libjson-c5:amd64 (0.16-2) ...
+Step #1: Setting up libfdisk1:amd64 (2.38.1-5+deb12u3) ...
+Step #1: Setting up libkmod2:amd64 (30+20221128-1) ...
+Step #1: Setting up libapparmor1:amd64 (3.0.8-3) ...
+Step #1: Setting up libip4tc2:amd64 (1.8.9-2) ...
+Step #1: Setting up libsystemd-shared:amd64 (252.39-1~deb12u2) ...
+Step #1: Setting up libdevmapper1.02.1:amd64 (2:1.02.185-2) ...
+Step #1: Setting up libcryptsetup12:amd64 (2:2.6.1-4~deb12u2) ...
+Step #1: Setting up systemd (252.39-1~deb12u2) ...
+Step #1: Created symlink /etc/systemd/system/getty.target.wants/getty@tty1.service → /lib/systemd/system/getty@.service.
+Step #1: Created symlink /etc/systemd/system/multi-user.target.wants/remote-fs.target → /lib/systemd/system/remote-fs.target.
+Step #1: Created symlink /etc/systemd/system/sysinit.target.wants/systemd-pstore.service → /lib/systemd/system/systemd-pstore.service.
+Step #1: Initializing machine ID from random generator.
+Step #1: Creating group 'systemd-journal' with GID 999.
+Step #1: Creating group 'systemd-network' with GID 998.
+Step #1: Creating user 'systemd-network' (systemd Network Management) with UID 998 and GID 998.
+Step #1: Setting up dmsetup (2:1.02.185-2) ...
+Step #1: Selecting previously unselected package systemd-sysv.
+Step #1: (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 7031 files and directories currently installed.)
+Step #1: Preparing to unpack .../000-systemd-sysv_252.39-1~deb12u2_amd64.deb ...
+Step #1: Unpacking systemd-sysv (252.39-1~deb12u2) ...
+Step #1: Selecting previously unselected package libdbus-1-3:amd64.
+Step #1: Preparing to unpack .../001-libdbus-1-3_1.14.10-1~deb12u1_amd64.deb ...
+Step #1: Unpacking libdbus-1-3:amd64 (1.14.10-1~deb12u1) ...
+Step #1: Selecting previously unselected package dbus-bin.
+Step #1: Preparing to unpack .../002-dbus-bin_1.14.10-1~deb12u1_amd64.deb ...
+Step #1: Unpacking dbus-bin (1.14.10-1~deb12u1) ...
+Step #1: Selecting previously unselected package dbus-session-bus-common.
+Step #1: Preparing to unpack .../003-dbus-session-bus-common_1.14.10-1~deb12u1_all.deb ...
+Step #1: Unpacking dbus-session-bus-common (1.14.10-1~deb12u1) ...
+Step #1: Selecting previously unselected package libexpat1:amd64.
+Step #1: Preparing to unpack .../004-libexpat1_2.5.0-1+deb12u5_amd64.deb ...
+Step #1: Unpacking libexpat1:amd64 (2.5.0-1+deb12u5) ...
+Step #1: Selecting previously unselected package dbus-daemon.
+Step #1: Preparing to unpack .../005-dbus-daemon_1.14.10-1~deb12u1_amd64.deb ...
+Step #1: Unpacking dbus-daemon (1.14.10-1~deb12u1) ...
+Step #1: Selecting previously unselected package dbus-system-bus-common.
+Step #1: Preparing to unpack .../006-dbus-system-bus-common_1.14.10-1~deb12u1_all.deb ...
+Step #1: Unpacking dbus-system-bus-common (1.14.10-1~deb12u1) ...
+Step #1: Selecting previously unselected package dbus.
+Step #1: Preparing to unpack .../007-dbus_1.14.10-1~deb12u1_amd64.deb ...
+Step #1: Unpacking dbus (1.14.10-1~deb12u1) ...
+Step #1: Selecting previously unselected package libncursesw6:amd64.
+Step #1: Preparing to unpack .../008-libncursesw6_6.4-4_amd64.deb ...
+Step #1: Unpacking libncursesw6:amd64 (6.4-4) ...
+Step #1: Selecting previously unselected package libproc2-0:amd64.
+Step #1: Preparing to unpack .../009-libproc2-0_2%3a4.0.2-3_amd64.deb ...
+Step #1: Unpacking libproc2-0:amd64 (2:4.0.2-3) ...
+Step #1: Selecting previously unselected package procps.
+Step #1: Preparing to unpack .../010-procps_2%3a4.0.2-3_amd64.deb ...
+Step #1: Unpacking procps (2:4.0.2-3) ...
+Step #1: Selecting previously unselected package openssl.
+Step #1: Preparing to unpack .../011-openssl_3.0.22-1~deb12u2_amd64.deb ...
+Step #1: Unpacking openssl (3.0.22-1~deb12u2) ...
+Step #1: Selecting previously unselected package ca-certificates.
+Step #1: Preparing to unpack .../012-ca-certificates_20250419~deb12u2_all.deb ...
+Step #1: Unpacking ca-certificates (20250419~deb12u2) ...
+Step #1: Selecting previously unselected package libpam-systemd:amd64.
+Step #1: Preparing to unpack .../013-libpam-systemd_252.39-1~deb12u2_amd64.deb ...
+Step #1: Unpacking libpam-systemd:amd64 (252.39-1~deb12u2) ...
+Step #1: Selecting previously unselected package hicolor-icon-theme.
+Step #1: Preparing to unpack .../014-hicolor-icon-theme_0.17-2_all.deb ...
+Step #1: Unpacking hicolor-icon-theme (0.17-2) ...
+Step #1: Selecting previously unselected package libgdk-pixbuf2.0-common.
+Step #1: Preparing to unpack .../015-libgdk-pixbuf2.0-common_2.42.10+dfsg-1+deb12u4_all.deb ...
+Step #1: Unpacking libgdk-pixbuf2.0-common (2.42.10+dfsg-1+deb12u4) ...
+Step #1: Selecting previously unselected package libglib2.0-0:amd64.
+Step #1: Preparing to unpack .../016-libglib2.0-0_2.74.6-2+deb12u9_amd64.deb ...
+Step #1: Unpacking libglib2.0-0:amd64 (2.74.6-2+deb12u9) ...
+Step #1: Selecting previously unselected package libicu72:amd64.
+Step #1: Preparing to unpack .../017-libicu72_72.1-3+deb12u1_amd64.deb ...
+Step #1: Unpacking libicu72:amd64 (72.1-3+deb12u1) ...
+Step #1: Selecting previously unselected package libxml2:amd64.
+Step #1: Preparing to unpack .../018-libxml2_2.9.14+dfsg-1.3~deb12u6_amd64.deb ...
+Step #1: Unpacking libxml2:amd64 (2.9.14+dfsg-1.3~deb12u6) ...
+Step #1: Selecting previously unselected package shared-mime-info.
+Step #1: Preparing to unpack .../019-shared-mime-info_2.2-1_amd64.deb ...
+Step #1: Unpacking shared-mime-info (2.2-1) ...
+Step #1: Selecting previously unselected package libjpeg62-turbo:amd64.
+Step #1: Preparing to unpack .../020-libjpeg62-turbo_1%3a2.1.5-2_amd64.deb ...
+Step #1: Unpacking libjpeg62-turbo:amd64 (1:2.1.5-2) ...
+Step #1: Selecting previously unselected package libpng16-16:amd64.
+Step #1: Preparing to unpack .../021-libpng16-16_1.6.39-2+deb12u6_amd64.deb ...
+Step #1: Unpacking libpng16-16:amd64 (1.6.39-2+deb12u6) ...
+Step #1: Selecting previously unselected package libdeflate0:amd64.
+Step #1: Preparing to unpack .../022-libdeflate0_1.14-1_amd64.deb ...
+Step #1: Unpacking libdeflate0:amd64 (1.14-1) ...
+Step #1: Selecting previously unselected package libjbig0:amd64.
+Step #1: Preparing to unpack .../023-libjbig0_2.1-6.1_amd64.deb ...
+Step #1: Unpacking libjbig0:amd64 (2.1-6.1) ...
+Step #1: Selecting previously unselected package liblerc4:amd64.
+Step #1: Preparing to unpack .../024-liblerc4_4.0.0+ds-2_amd64.deb ...
+Step #1: Unpacking liblerc4:amd64 (4.0.0+ds-2) ...
+Step #1: Selecting previously unselected package libwebp7:amd64.
+Step #1: Preparing to unpack .../025-libwebp7_1.2.4-0.2+deb12u1_amd64.deb ...
+Step #1: Unpacking libwebp7:amd64 (1.2.4-0.2+deb12u1) ...
+Step #1: Selecting previously unselected package libtiff6:amd64.
+Step #1: Preparing to unpack .../026-libtiff6_4.5.0-6+deb12u4_amd64.deb ...
+Step #1: Unpacking libtiff6:amd64 (4.5.0-6+deb12u4) ...
+Step #1: Selecting previously unselected package libgdk-pixbuf-2.0-0:amd64.
+Step #1: Preparing to unpack .../027-libgdk-pixbuf-2.0-0_2.42.10+dfsg-1+deb12u4_amd64.deb ...
+Step #1: Unpacking libgdk-pixbuf-2.0-0:amd64 (2.42.10+dfsg-1+deb12u4) ...
+Step #1: Selecting previously unselected package gtk-update-icon-cache.
+Step #1: Preparing to unpack .../028-gtk-update-icon-cache_3.24.38-2~deb12u3_amd64.deb ...
+Step #1: Unpacking gtk-update-icon-cache (3.24.38-2~deb12u3) ...
+Step #1: Selecting previously unselected package adwaita-icon-theme.
+Step #1: Preparing to unpack .../029-adwaita-icon-theme_43-1_all.deb ...
+Step #1: Unpacking adwaita-icon-theme (43-1) ...
+Step #1: Selecting previously unselected package at-spi2-common.
+Step #1: Preparing to unpack .../030-at-spi2-common_2.46.0-5_all.deb ...
+Step #1: Unpacking at-spi2-common (2.46.0-5) ...
+Step #1: Selecting previously unselected package libasound2-data.
+Step #1: Preparing to unpack .../031-libasound2-data_1.2.8-1_all.deb ...
+Step #1: Unpacking libasound2-data (1.2.8-1) ...
+Step #1: Selecting previously unselected package libasound2:amd64.
+Step #1: Preparing to unpack .../032-libasound2_1.2.8-1+b1_amd64.deb ...
+Step #1: Unpacking libasound2:amd64 (1.2.8-1+b1) ...
+Step #1: Selecting previously unselected package libatk1.0-0:amd64.
+Step #1: Preparing to unpack .../033-libatk1.0-0_2.46.0-5_amd64.deb ...
+Step #1: Unpacking libatk1.0-0:amd64 (2.46.0-5) ...
+Step #1: Selecting previously unselected package libxau6:amd64.
+Step #1: Preparing to unpack .../034-libxau6_1%3a1.0.9-1_amd64.deb ...
+Step #1: Unpacking libxau6:amd64 (1:1.0.9-1) ...
+Step #1: Selecting previously unselected package libbsd0:amd64.
+Step #1: Preparing to unpack .../035-libbsd0_0.11.7-2_amd64.deb ...
+Step #1: Unpacking libbsd0:amd64 (0.11.7-2) ...
+Step #1: Selecting previously unselected package libxdmcp6:amd64.
+Step #1: Preparing to unpack .../036-libxdmcp6_1%3a1.1.2-3_amd64.deb ...
+Step #1: Unpacking libxdmcp6:amd64 (1:1.1.2-3) ...
+Step #1: Selecting previously unselected package libxcb1:amd64.
+Step #1: Preparing to unpack .../037-libxcb1_1.15-1_amd64.deb ...
+Step #1: Unpacking libxcb1:amd64 (1.15-1) ...
+Step #1: Selecting previously unselected package libx11-data.
+Step #1: Preparing to unpack .../038-libx11-data_2%3a1.8.4-2+deb12u2_all.deb ...
+Step #1: Unpacking libx11-data (2:1.8.4-2+deb12u2) ...
+Step #1: Selecting previously unselected package libx11-6:amd64.
+Step #1: Preparing to unpack .../039-libx11-6_2%3a1.8.4-2+deb12u2_amd64.deb ...
+Step #1: Unpacking libx11-6:amd64 (2:1.8.4-2+deb12u2) ...
+Step #1: Selecting previously unselected package libxext6:amd64.
+Step #1: Preparing to unpack .../040-libxext6_2%3a1.3.4-1+b1_amd64.deb ...
+Step #1: Unpacking libxext6:amd64 (2:1.3.4-1+b1) ...
+Step #1: Selecting previously unselected package libxi6:amd64.
+Step #1: Preparing to unpack .../041-libxi6_2%3a1.8-1+b1_amd64.deb ...
+Step #1: Unpacking libxi6:amd64 (2:1.8-1+b1) ...
+Step #1: Selecting previously unselected package libatspi2.0-0:amd64.
+Step #1: Preparing to unpack .../042-libatspi2.0-0_2.46.0-5_amd64.deb ...
+Step #1: Unpacking libatspi2.0-0:amd64 (2.46.0-5) ...
+Step #1: Selecting previously unselected package libatk-bridge2.0-0:amd64.
+Step #1: Preparing to unpack .../043-libatk-bridge2.0-0_2.46.0-5_amd64.deb ...
+Step #1: Unpacking libatk-bridge2.0-0:amd64 (2.46.0-5) ...
+Step #1: Selecting previously unselected package libbrotli1:amd64.
+Step #1: Preparing to unpack .../044-libbrotli1_1.0.9-2+deb12u1_amd64.deb ...
+Step #1: Unpacking libbrotli1:amd64 (1.0.9-2+deb12u1) ...
+Step #1: Selecting previously unselected package libfreetype6:amd64.
+Step #1: Preparing to unpack .../045-libfreetype6_2.12.1+dfsg-5+deb12u4_amd64.deb ...
+Step #1: Unpacking libfreetype6:amd64 (2.12.1+dfsg-5+deb12u4) ...
+Step #1: Selecting previously unselected package fonts-freefont-ttf.
+Step #1: Preparing to unpack .../046-fonts-freefont-ttf_20120503-10_all.deb ...
+Step #1: Unpacking fonts-freefont-ttf (20120503-10) ...
+Step #1: Selecting previously unselected package fontconfig-config.
+Step #1: Preparing to unpack .../047-fontconfig-config_2.14.1-4_amd64.deb ...
+Step #1: Unpacking fontconfig-config (2.14.1-4) ...
+Step #1: Selecting previously unselected package libfontconfig1:amd64.
+Step #1: Preparing to unpack .../048-libfontconfig1_2.14.1-4_amd64.deb ...
+Step #1: Unpacking libfontconfig1:amd64 (2.14.1-4) ...
+Step #1: Selecting previously unselected package libpixman-1-0:amd64.
+Step #1: Preparing to unpack .../049-libpixman-1-0_0.42.2-1_amd64.deb ...
+Step #1: Unpacking libpixman-1-0:amd64 (0.42.2-1) ...
+Step #1: Selecting previously unselected package libxcb-render0:amd64.
+Step #1: Preparing to unpack .../050-libxcb-render0_1.15-1_amd64.deb ...
+Step #1: Unpacking libxcb-render0:amd64 (1.15-1) ...
+Step #1: Selecting previously unselected package libxcb-shm0:amd64.
+Step #1: Preparing to unpack .../051-libxcb-shm0_1.15-1_amd64.deb ...
+Step #1: Unpacking libxcb-shm0:amd64 (1.15-1) ...
+Step #1: Selecting previously unselected package libxrender1:amd64.
+Step #1: Preparing to unpack .../052-libxrender1_1%3a0.9.10-1.1_amd64.deb ...
+Step #1: Unpacking libxrender1:amd64 (1:0.9.10-1.1) ...
+Step #1: Selecting previously unselected package libcairo2:amd64.
+Step #1: Preparing to unpack .../053-libcairo2_1.16.0-7_amd64.deb ...
+Step #1: Unpacking libcairo2:amd64 (1.16.0-7) ...
+Step #1: Selecting previously unselected package libavahi-common-data:amd64.
+Step #1: Preparing to unpack .../054-libavahi-common-data_0.8-10+deb12u1_amd64.deb ...
+Step #1: Unpacking libavahi-common-data:amd64 (0.8-10+deb12u1) ...
+Step #1: Selecting previously unselected package libavahi-common3:amd64.
+Step #1: Preparing to unpack .../055-libavahi-common3_0.8-10+deb12u1_amd64.deb ...
+Step #1: Unpacking libavahi-common3:amd64 (0.8-10+deb12u1) ...
+Step #1: Selecting previously unselected package libavahi-client3:amd64.
+Step #1: Preparing to unpack .../056-libavahi-client3_0.8-10+deb12u1_amd64.deb ...
+Step #1: Unpacking libavahi-client3:amd64 (0.8-10+deb12u1) ...
+Step #1: Selecting previously unselected package libkrb5support0:amd64.
+Step #1: Preparing to unpack .../057-libkrb5support0_1.20.1-2+deb12u5_amd64.deb ...
+Step #1: Unpacking libkrb5support0:amd64 (1.20.1-2+deb12u5) ...
+Step #1: Selecting previously unselected package libk5crypto3:amd64.
+Step #1: Preparing to unpack .../058-libk5crypto3_1.20.1-2+deb12u5_amd64.deb ...
+Step #1: Unpacking libk5crypto3:amd64 (1.20.1-2+deb12u5) ...
+Step #1: Selecting previously unselected package libkeyutils1:amd64.
+Step #1: Preparing to unpack .../059-libkeyutils1_1.6.3-2_amd64.deb ...
+Step #1: Unpacking libkeyutils1:amd64 (1.6.3-2) ...
+Step #1: Selecting previously unselected package libkrb5-3:amd64.
+Step #1: Preparing to unpack .../060-libkrb5-3_1.20.1-2+deb12u5_amd64.deb ...
+Step #1: Unpacking libkrb5-3:amd64 (1.20.1-2+deb12u5) ...
+Step #1: Selecting previously unselected package libgssapi-krb5-2:amd64.
+Step #1: Preparing to unpack .../061-libgssapi-krb5-2_1.20.1-2+deb12u5_amd64.deb ...
+Step #1: Unpacking libgssapi-krb5-2:amd64 (1.20.1-2+deb12u5) ...
+Step #1: Selecting previously unselected package libcups2:amd64.
+Step #1: Preparing to unpack .../062-libcups2_2.4.2-3+deb12u9_amd64.deb ...
+Step #1: Unpacking libcups2:amd64 (2.4.2-3+deb12u9) ...
+Step #1: Selecting previously unselected package libdav1d6:amd64.
+Step #1: Preparing to unpack .../063-libdav1d6_1.0.0-2+deb12u1_amd64.deb ...
+Step #1: Unpacking libdav1d6:amd64 (1.0.0-2+deb12u1) ...
+Step #1: Selecting previously unselected package libdouble-conversion3:amd64.
+Step #1: Preparing to unpack .../064-libdouble-conversion3_3.2.1-1_amd64.deb ...
+Step #1: Unpacking libdouble-conversion3:amd64 (3.2.1-1) ...
+Step #1: Selecting previously unselected package libogg0:amd64.
+Step #1: Preparing to unpack .../065-libogg0_1.3.5-3_amd64.deb ...
+Step #1: Unpacking libogg0:amd64 (1.3.5-3) ...
+Step #1: Selecting previously unselected package libflac12:amd64.
+Step #1: Preparing to unpack .../066-libflac12_1.4.2+ds-2_amd64.deb ...
+Step #1: Unpacking libflac12:amd64 (1.4.2+ds-2) ...
+Step #1: Selecting previously unselected package libdrm-common.
+Step #1: Preparing to unpack .../067-libdrm-common_2.4.114-1_all.deb ...
+Step #1: Unpacking libdrm-common (2.4.114-1) ...
+Step #1: Selecting previously unselected package libdrm2:amd64.
+Step #1: Preparing to unpack .../068-libdrm2_2.4.114-1+b1_amd64.deb ...
+Step #1: Unpacking libdrm2:amd64 (2.4.114-1+b1) ...
+Step #1: Selecting previously unselected package libwayland-server0:amd64.
+Step #1: Preparing to unpack .../069-libwayland-server0_1.21.0-1_amd64.deb ...
+Step #1: Unpacking libwayland-server0:amd64 (1.21.0-1) ...
+Step #1: Selecting previously unselected package libgbm1:amd64.
+Step #1: Preparing to unpack .../070-libgbm1_22.3.6-1+deb12u2_amd64.deb ...
+Step #1: Unpacking libgbm1:amd64 (22.3.6-1+deb12u2) ...
+Step #1: Selecting previously unselected package libgraphite2-3:amd64.
+Step #1: Preparing to unpack .../071-libgraphite2-3_1.3.14-1+deb12u1_amd64.deb ...
+Step #1: Unpacking libgraphite2-3:amd64 (1.3.14-1+deb12u1) ...
+Step #1: Selecting previously unselected package libharfbuzz0b:amd64.
+Step #1: Preparing to unpack .../072-libharfbuzz0b_6.0.0+dfsg-3_amd64.deb ...
+Step #1: Unpacking libharfbuzz0b:amd64 (6.0.0+dfsg-3) ...
+Step #1: Selecting previously unselected package libharfbuzz-subset0:amd64.
+Step #1: Preparing to unpack .../073-libharfbuzz-subset0_6.0.0+dfsg-3_amd64.deb ...
+Step #1: Unpacking libharfbuzz-subset0:amd64 (6.0.0+dfsg-3) ...
+Step #1: Selecting previously unselected package liblcms2-2:amd64.
+Step #1: Preparing to unpack .../074-liblcms2-2_2.14-2+deb12u1_amd64.deb ...
+Step #1: Unpacking liblcms2-2:amd64 (2.14-2+deb12u1) ...
+Step #1: Selecting previously unselected package libminizip1:amd64.
+Step #1: Preparing to unpack .../075-libminizip1_1.1-8+deb12u1_amd64.deb ...
+Step #1: Unpacking libminizip1:amd64 (1.1-8+deb12u1) ...
+Step #1: Selecting previously unselected package libnspr4:amd64.
+Step #1: Preparing to unpack .../076-libnspr4_2%3a4.35-1_amd64.deb ...
+Step #1: Unpacking libnspr4:amd64 (2:4.35-1) ...
+Step #1: Selecting previously unselected package libsqlite3-0:amd64.
+Step #1: Preparing to unpack .../077-libsqlite3-0_3.40.1-2+deb12u2_amd64.deb ...
+Step #1: Unpacking libsqlite3-0:amd64 (3.40.1-2+deb12u2) ...
+Step #1: Selecting previously unselected package libnss3:amd64.
+Step #1: Preparing to unpack .../078-libnss3_2%3a3.87.1-1+deb12u4_amd64.deb ...
+Step #1: Unpacking libnss3:amd64 (2:3.87.1-1+deb12u4) ...
+Step #1: Selecting previously unselected package libopenh264-7:amd64.
+Step #1: Preparing to unpack .../079-libopenh264-7_2.3.1+dfsg-3+deb12u2_amd64.deb ...
+Step #1: Unpacking libopenh264-7:amd64 (2.3.1+dfsg-3+deb12u2) ...
+Step #1: Selecting previously unselected package libopenjp2-7:amd64.
+Step #1: Preparing to unpack .../080-libopenjp2-7_2.5.0-2+deb12u3_amd64.deb ...
+Step #1: Unpacking libopenjp2-7:amd64 (2.5.0-2+deb12u3) ...
+Step #1: Selecting previously unselected package libopus0:amd64.
+Step #1: Preparing to unpack .../081-libopus0_1.3.1-3_amd64.deb ...
+Step #1: Unpacking libopus0:amd64 (1.3.1-3) ...
+Step #1: Selecting previously unselected package fontconfig.
+Step #1: Preparing to unpack .../082-fontconfig_2.14.1-4_amd64.deb ...
+Step #1: Unpacking fontconfig (2.14.1-4) ...
+Step #1: Selecting previously unselected package libfribidi0:amd64.
+Step #1: Preparing to unpack .../083-libfribidi0_1.0.8-2.1_amd64.deb ...
+Step #1: Unpacking libfribidi0:amd64 (1.0.8-2.1) ...
+Step #1: Selecting previously unselected package libthai-data.
+Step #1: Preparing to unpack .../084-libthai-data_0.1.29-1_all.deb ...
+Step #1: Unpacking libthai-data (0.1.29-1) ...
+Step #1: Selecting previously unselected package libdatrie1:amd64.
+Step #1: Preparing to unpack .../085-libdatrie1_0.2.13-2+b1_amd64.deb ...
+Step #1: Unpacking libdatrie1:amd64 (0.2.13-2+b1) ...
+Step #1: Selecting previously unselected package libthai0:amd64.
+Step #1: Preparing to unpack .../086-libthai0_0.1.29-1_amd64.deb ...
+Step #1: Unpacking libthai0:amd64 (0.1.29-1) ...
+Step #1: Selecting previously unselected package libpango-1.0-0:amd64.
+Step #1: Preparing to unpack .../087-libpango-1.0-0_1.50.12+ds-1_amd64.deb ...
+Step #1: Unpacking libpango-1.0-0:amd64 (1.50.12+ds-1) ...
+Step #1: Selecting previously unselected package libasyncns0:amd64.
+Step #1: Preparing to unpack .../088-libasyncns0_0.8-6+b3_amd64.deb ...
+Step #1: Unpacking libasyncns0:amd64 (0.8-6+b3) ...
+Step #1: Selecting previously unselected package libmp3lame0:amd64.
+Step #1: Preparing to unpack .../089-libmp3lame0_3.100-6_amd64.deb ...
+Step #1: Unpacking libmp3lame0:amd64 (3.100-6) ...
+Step #1: Selecting previously unselected package libmpg123-0:amd64.
+Step #1: Preparing to unpack .../090-libmpg123-0_1.31.2-1+deb12u1_amd64.deb ...
+Step #1: Unpacking libmpg123-0:amd64 (1.31.2-1+deb12u1) ...
+Step #1: Selecting previously unselected package libvorbis0a:amd64.
+Step #1: Preparing to unpack .../091-libvorbis0a_1.3.7-1_amd64.deb ...
+Step #1: Unpacking libvorbis0a:amd64 (1.3.7-1) ...
+Step #1: Selecting previously unselected package libvorbisenc2:amd64.
+Step #1: Preparing to unpack .../092-libvorbisenc2_1.3.7-1_amd64.deb ...
+Step #1: Unpacking libvorbisenc2:amd64 (1.3.7-1) ...
+Step #1: Selecting previously unselected package libsndfile1:amd64.
+Step #1: Preparing to unpack .../093-libsndfile1_1.2.0-1+deb12u1_amd64.deb ...
+Step #1: Unpacking libsndfile1:amd64 (1.2.0-1+deb12u1) ...
+Step #1: Selecting previously unselected package libx11-xcb1:amd64.
+Step #1: Preparing to unpack .../094-libx11-xcb1_2%3a1.8.4-2+deb12u2_amd64.deb ...
+Step #1: Unpacking libx11-xcb1:amd64 (2:1.8.4-2+deb12u2) ...
+Step #1: Selecting previously unselected package libpulse0:amd64.
+Step #1: Preparing to unpack .../095-libpulse0_16.1+dfsg1-2+b1_amd64.deb ...
+Step #1: Unpacking libpulse0:amd64 (16.1+dfsg1-2+b1) ...
+Step #1: Selecting previously unselected package libxcomposite1:amd64.
+Step #1: Preparing to unpack .../096-libxcomposite1_1%3a0.4.5-1_amd64.deb ...
+Step #1: Unpacking libxcomposite1:amd64 (1:0.4.5-1) ...
+Step #1: Selecting previously unselected package libxdamage1:amd64.
+Step #1: Preparing to unpack .../097-libxdamage1_1%3a1.1.6-1_amd64.deb ...
+Step #1: Unpacking libxdamage1:amd64 (1:1.1.6-1) ...
+Step #1: Selecting previously unselected package libxfixes3:amd64.
+Step #1: Preparing to unpack .../098-libxfixes3_1%3a6.0.0-2_amd64.deb ...
+Step #1: Unpacking libxfixes3:amd64 (1:6.0.0-2) ...
+Step #1: Selecting previously unselected package xkb-data.
+Step #1: Preparing to unpack .../099-xkb-data_2.35.1-1_all.deb ...
+Step #1: Unpacking xkb-data (2.35.1-1) ...
+Step #1: Selecting previously unselected package libxkbcommon0:amd64.
+Step #1: Preparing to unpack .../100-libxkbcommon0_1.5.0-1_amd64.deb ...
+Step #1: Unpacking libxkbcommon0:amd64 (1.5.0-1) ...
+Step #1: Selecting previously unselected package libxnvctrl0:amd64.
+Step #1: Preparing to unpack .../101-libxnvctrl0_525.85.05-3~deb12u1_amd64.deb ...
+Step #1: Unpacking libxnvctrl0:amd64 (525.85.05-3~deb12u1) ...
+Step #1: Selecting previously unselected package libxrandr2:amd64.
+Step #1: Preparing to unpack .../102-libxrandr2_2%3a1.5.2-2+b1_amd64.deb ...
+Step #1: Unpacking libxrandr2:amd64 (2:1.5.2-2+b1) ...
+Step #1: Selecting previously unselected package libcairo-gobject2:amd64.
+Step #1: Preparing to unpack .../103-libcairo-gobject2_1.16.0-7_amd64.deb ...
+Step #1: Unpacking libcairo-gobject2:amd64 (1.16.0-7) ...
+Step #1: Selecting previously unselected package libcolord2:amd64.
+Step #1: Preparing to unpack .../104-libcolord2_1.4.6-2.2_amd64.deb ...
+Step #1: Unpacking libcolord2:amd64 (1.4.6-2.2) ...
+Step #1: Selecting previously unselected package libepoxy0:amd64.
+Step #1: Preparing to unpack .../105-libepoxy0_1.5.10-1_amd64.deb ...
+Step #1: Unpacking libepoxy0:amd64 (1.5.10-1) ...
+Step #1: Selecting previously unselected package libpangoft2-1.0-0:amd64.
+Step #1: Preparing to unpack .../106-libpangoft2-1.0-0_1.50.12+ds-1_amd64.deb ...
+Step #1: Unpacking libpangoft2-1.0-0:amd64 (1.50.12+ds-1) ...
+Step #1: Selecting previously unselected package libpangocairo-1.0-0:amd64.
+Step #1: Preparing to unpack .../107-libpangocairo-1.0-0_1.50.12+ds-1_amd64.deb ...
+Step #1: Unpacking libpangocairo-1.0-0:amd64 (1.50.12+ds-1) ...
+Step #1: Selecting previously unselected package libwayland-client0:amd64.
+Step #1: Preparing to unpack .../108-libwayland-client0_1.21.0-1_amd64.deb ...
+Step #1: Unpacking libwayland-client0:amd64 (1.21.0-1) ...
+Step #1: Selecting previously unselected package libwayland-cursor0:amd64.
+Step #1: Preparing to unpack .../109-libwayland-cursor0_1.21.0-1_amd64.deb ...
+Step #1: Unpacking libwayland-cursor0:amd64 (1.21.0-1) ...
+Step #1: Selecting previously unselected package libwayland-egl1:amd64.
+Step #1: Preparing to unpack .../110-libwayland-egl1_1.21.0-1_amd64.deb ...
+Step #1: Unpacking libwayland-egl1:amd64 (1.21.0-1) ...
+Step #1: Selecting previously unselected package libxcursor1:amd64.
+Step #1: Preparing to unpack .../111-libxcursor1_1%3a1.2.1-1_amd64.deb ...
+Step #1: Unpacking libxcursor1:amd64 (1:1.2.1-1) ...
+Step #1: Selecting previously unselected package libxinerama1:amd64.
+Step #1: Preparing to unpack .../112-libxinerama1_2%3a1.1.4-3_amd64.deb ...
+Step #1: Unpacking libxinerama1:amd64 (2:1.1.4-3) ...
+Step #1: Selecting previously unselected package dbus-user-session.
+Step #1: Preparing to unpack .../113-dbus-user-session_1.14.10-1~deb12u1_amd64.deb ...
+Step #1: Unpacking dbus-user-session (1.14.10-1~deb12u1) ...
+Step #1: Selecting previously unselected package libdconf1:amd64.
+Step #1: Preparing to unpack .../114-libdconf1_0.40.0-4_amd64.deb ...
+Step #1: Unpacking libdconf1:amd64 (0.40.0-4) ...
+Step #1: Selecting previously unselected package dconf-service.
+Step #1: Preparing to unpack .../115-dconf-service_0.40.0-4_amd64.deb ...
+Step #1: Unpacking dconf-service (0.40.0-4) ...
+Step #1: Selecting previously unselected package dconf-gsettings-backend:amd64.
+Step #1: Preparing to unpack .../116-dconf-gsettings-backend_0.40.0-4_amd64.deb ...
+Step #1: Unpacking dconf-gsettings-backend:amd64 (0.40.0-4) ...
+Step #1: Selecting previously unselected package libgtk-3-common.
+Step #1: Preparing to unpack .../117-libgtk-3-common_3.24.38-2~deb12u3_all.deb ...
+Step #1: Unpacking libgtk-3-common (3.24.38-2~deb12u3) ...
+Step #1: Selecting previously unselected package libgtk-3-0:amd64.
+Step #1: Preparing to unpack .../118-libgtk-3-0_3.24.38-2~deb12u3_amd64.deb ...
+Step #1: Unpacking libgtk-3-0:amd64 (3.24.38-2~deb12u3) ...
+Step #1: Selecting previously unselected package libfontenc1:amd64.
+Step #1: Preparing to unpack .../119-libfontenc1_1%3a1.1.4-1_amd64.deb ...
+Step #1: Unpacking libfontenc1:amd64 (1:1.1.4-1) ...
+Step #1: Selecting previously unselected package libglvnd0:amd64.
+Step #1: Preparing to unpack .../120-libglvnd0_1.6.0-1_amd64.deb ...
+Step #1: Unpacking libglvnd0:amd64 (1.6.0-1) ...
+Step #1: Selecting previously unselected package libglapi-mesa:amd64.
+Step #1: Preparing to unpack .../121-libglapi-mesa_22.3.6-1+deb12u2_amd64.deb ...
+Step #1: Unpacking libglapi-mesa:amd64 (22.3.6-1+deb12u2) ...
+Step #1: Selecting previously unselected package libxcb-dri2-0:amd64.
+Step #1: Preparing to unpack .../122-libxcb-dri2-0_1.15-1_amd64.deb ...
+Step #1: Unpacking libxcb-dri2-0:amd64 (1.15-1) ...
+Step #1: Selecting previously unselected package libxcb-dri3-0:amd64.
+Step #1: Preparing to unpack .../123-libxcb-dri3-0_1.15-1_amd64.deb ...
+Step #1: Unpacking libxcb-dri3-0:amd64 (1.15-1) ...
+Step #1: Selecting previously unselected package libxcb-glx0:amd64.
+Step #1: Preparing to unpack .../124-libxcb-glx0_1.15-1_amd64.deb ...
+Step #1: Unpacking libxcb-glx0:amd64 (1.15-1) ...
+Step #1: Selecting previously unselected package libxcb-present0:amd64.
+Step #1: Preparing to unpack .../125-libxcb-present0_1.15-1_amd64.deb ...
+Step #1: Unpacking libxcb-present0:amd64 (1.15-1) ...
+Step #1: Selecting previously unselected package libxcb-randr0:amd64.
+Step #1: Preparing to unpack .../126-libxcb-randr0_1.15-1_amd64.deb ...
+Step #1: Unpacking libxcb-randr0:amd64 (1.15-1) ...
+Step #1: Selecting previously unselected package libxcb-sync1:amd64.
+Step #1: Preparing to unpack .../127-libxcb-sync1_1.15-1_amd64.deb ...
+Step #1: Unpacking libxcb-sync1:amd64 (1.15-1) ...
+Step #1: Selecting previously unselected package libxcb-xfixes0:amd64.
+Step #1: Preparing to unpack .../128-libxcb-xfixes0_1.15-1_amd64.deb ...
+Step #1: Unpacking libxcb-xfixes0:amd64 (1.15-1) ...
+Step #1: Selecting previously unselected package libxshmfence1:amd64.
+Step #1: Preparing to unpack .../129-libxshmfence1_1.3-1_amd64.deb ...
+Step #1: Unpacking libxshmfence1:amd64 (1.3-1) ...
+Step #1: Selecting previously unselected package libxxf86vm1:amd64.
+Step #1: Preparing to unpack .../130-libxxf86vm1_1%3a1.1.4-1+b2_amd64.deb ...
+Step #1: Unpacking libxxf86vm1:amd64 (1:1.1.4-1+b2) ...
+Step #1: Selecting previously unselected package libdrm-amdgpu1:amd64.
+Step #1: Preparing to unpack .../131-libdrm-amdgpu1_2.4.114-1+b1_amd64.deb ...
+Step #1: Unpacking libdrm-amdgpu1:amd64 (2.4.114-1+b1) ...
+Step #1: Selecting previously unselected package libpciaccess0:amd64.
+Step #1: Preparing to unpack .../132-libpciaccess0_0.17-2_amd64.deb ...
+Step #1: Unpacking libpciaccess0:amd64 (0.17-2) ...
+Step #1: Selecting previously unselected package libdrm-intel1:amd64.
+Step #1: Preparing to unpack .../133-libdrm-intel1_2.4.114-1+b1_amd64.deb ...
+Step #1: Unpacking libdrm-intel1:amd64 (2.4.114-1+b1) ...
+Step #1: Selecting previously unselected package libdrm-nouveau2:amd64.
+Step #1: Preparing to unpack .../134-libdrm-nouveau2_2.4.114-1+b1_amd64.deb ...
+Step #1: Unpacking libdrm-nouveau2:amd64 (2.4.114-1+b1) ...
+Step #1: Selecting previously unselected package libdrm-radeon1:amd64.
+Step #1: Preparing to unpack .../135-libdrm-radeon1_2.4.114-1+b1_amd64.deb ...
+Step #1: Unpacking libdrm-radeon1:amd64 (2.4.114-1+b1) ...
+Step #1: Selecting previously unselected package libelf1:amd64.
+Step #1: Preparing to unpack .../136-libelf1_0.188-2.1_amd64.deb ...
+Step #1: Unpacking libelf1:amd64 (0.188-2.1) ...
+Step #1: Selecting previously unselected package libedit2:amd64.
+Step #1: Preparing to unpack .../137-libedit2_3.1-20221030-2_amd64.deb ...
+Step #1: Unpacking libedit2:amd64 (3.1-20221030-2) ...
+Step #1: Selecting previously unselected package libz3-4:amd64.
+Step #1: Preparing to unpack .../138-libz3-4_4.8.12-3.1_amd64.deb ...
+Step #1: Unpacking libz3-4:amd64 (4.8.12-3.1) ...
+Step #1: Selecting previously unselected package libllvm15:amd64.
+Step #1: Preparing to unpack .../139-libllvm15_1%3a15.0.6-4+b1_amd64.deb ...
+Step #1: Unpacking libllvm15:amd64 (1:15.0.6-4+b1) ...
+Step #1: Selecting previously unselected package libsensors-config.
+Step #1: Preparing to unpack .../140-libsensors-config_1%3a3.6.0-7.1_all.deb ...
+Step #1: Unpacking libsensors-config (1:3.6.0-7.1) ...
+Step #1: Selecting previously unselected package libsensors5:amd64.
+Step #1: Preparing to unpack .../141-libsensors5_1%3a3.6.0-7.1_amd64.deb ...
+Step #1: Unpacking libsensors5:amd64 (1:3.6.0-7.1) ...
+Step #1: Selecting previously unselected package libgl1-mesa-dri:amd64.
+Step #1: Preparing to unpack .../142-libgl1-mesa-dri_22.3.6-1+deb12u2_amd64.deb ...
+Step #1: Unpacking libgl1-mesa-dri:amd64 (22.3.6-1+deb12u2) ...
+Step #1: Selecting previously unselected package libglx-mesa0:amd64.
+Step #1: Preparing to unpack .../143-libglx-mesa0_22.3.6-1+deb12u2_amd64.deb ...
+Step #1: Unpacking libglx-mesa0:amd64 (22.3.6-1+deb12u2) ...
+Step #1: Selecting previously unselected package libglx0:amd64.
+Step #1: Preparing to unpack .../144-libglx0_1.6.0-1_amd64.deb ...
+Step #1: Unpacking libglx0:amd64 (1.6.0-1) ...
+Step #1: Selecting previously unselected package libgl1:amd64.
+Step #1: Preparing to unpack .../145-libgl1_1.6.0-1_amd64.deb ...
+Step #1: Unpacking libgl1:amd64 (1.6.0-1) ...
+Step #1: Selecting previously unselected package x11-common.
+Step #1: Preparing to unpack .../146-x11-common_1%3a7.7+23_all.deb ...
+Step #1: Unpacking x11-common (1:7.7+23) ...
+Step #1: Selecting previously unselected package libice6:amd64.
+Step #1: Preparing to unpack .../147-libice6_2%3a1.0.10-1_amd64.deb ...
+Step #1: Unpacking libice6:amd64 (2:1.0.10-1) ...
+Step #1: Selecting previously unselected package libsm6:amd64.
+Step #1: Preparing to unpack .../148-libsm6_2%3a1.2.3-1_amd64.deb ...
+Step #1: Unpacking libsm6:amd64 (2:1.2.3-1) ...
+Step #1: Selecting previously unselected package libxt6:amd64.
+Step #1: Preparing to unpack .../149-libxt6_1%3a1.2.1-1.1_amd64.deb ...
+Step #1: Unpacking libxt6:amd64 (1:1.2.1-1.1) ...
+Step #1: Selecting previously unselected package libxmu6:amd64.
+Step #1: Preparing to unpack .../150-libxmu6_2%3a1.1.3-3_amd64.deb ...
+Step #1: Unpacking libxmu6:amd64 (2:1.1.3-3) ...
+Step #1: Selecting previously unselected package libxpm4:amd64.
+Step #1: Preparing to unpack .../151-libxpm4_1%3a3.5.12-1.1+deb12u1_amd64.deb ...
+Step #1: Unpacking libxpm4:amd64 (1:3.5.12-1.1+deb12u1) ...
+Step #1: Selecting previously unselected package libxaw7:amd64.
+Step #1: Preparing to unpack .../152-libxaw7_2%3a1.0.14-1_amd64.deb ...
+Step #1: Unpacking libxaw7:amd64 (2:1.0.14-1) ...
+Step #1: Selecting previously unselected package libxcb-shape0:amd64.
+Step #1: Preparing to unpack .../153-libxcb-shape0_1.15-1_amd64.deb ...
+Step #1: Unpacking libxcb-shape0:amd64 (1.15-1) ...
+Step #1: Selecting previously unselected package libxft2:amd64.
+Step #1: Preparing to unpack .../154-libxft2_2.3.6-1_amd64.deb ...
+Step #1: Unpacking libxft2:amd64 (2.3.6-1) ...
+Step #1: Selecting previously unselected package libxkbfile1:amd64.
+Step #1: Preparing to unpack .../155-libxkbfile1_1%3a1.1.0-1_amd64.deb ...
+Step #1: Unpacking libxkbfile1:amd64 (1:1.1.0-1) ...
+Step #1: Selecting previously unselected package libxmuu1:amd64.
+Step #1: Preparing to unpack .../156-libxmuu1_2%3a1.1.3-3_amd64.deb ...
+Step #1: Unpacking libxmuu1:amd64 (2:1.1.3-3) ...
+Step #1: Selecting previously unselected package libxtst6:amd64.
+Step #1: Preparing to unpack .../157-libxtst6_2%3a1.2.3-1.1_amd64.deb ...
+Step #1: Unpacking libxtst6:amd64 (2:1.2.3-1.1) ...
+Step #1: Selecting previously unselected package libxv1:amd64.
+Step #1: Preparing to unpack .../158-libxv1_2%3a1.0.11-1.1_amd64.deb ...
+Step #1: Unpacking libxv1:amd64 (2:1.0.11-1.1) ...
+Step #1: Selecting previously unselected package libxxf86dga1:amd64.
+Step #1: Preparing to unpack .../159-libxxf86dga1_2%3a1.1.5-1_amd64.deb ...
+Step #1: Unpacking libxxf86dga1:amd64 (2:1.1.5-1) ...
+Step #1: Selecting previously unselected package x11-utils.
+Step #1: Preparing to unpack .../160-x11-utils_7.7+5_amd64.deb ...
+Step #1: Unpacking x11-utils (7.7+5) ...
+Step #1: Selecting previously unselected package xdg-utils.
+Step #1: Preparing to unpack .../161-xdg-utils_1.1.3-4.1_all.deb ...
+Step #1: Unpacking xdg-utils (1.1.3-4.1) ...
+Step #1: Selecting previously unselected package chromium-common.
+Step #1: Preparing to unpack .../162-chromium-common_156.0.8078.79-1~deb12u1_amd64.deb ...
+Step #1: Unpacking chromium-common (156.0.8078.79-1~deb12u1) ...
+Step #1: Selecting previously unselected package chromium.
+Step #1: Preparing to unpack .../163-chromium_156.0.8078.79-1~deb12u1_amd64.deb ...
+Step #1: Unpacking chromium (156.0.8078.79-1~deb12u1) ...
+Step #1: Selecting previously unselected package libnss3-tools.
+Step #1: Preparing to unpack .../164-libnss3-tools_2%3a3.87.1-1+deb12u4_amd64.deb ...
+Step #1: Unpacking libnss3-tools (2:3.87.1-1+deb12u4) ...
+Step #1: Setting up libexpat1:amd64 (2.5.0-1+deb12u5) ...
+Step #1: Setting up libgraphite2-3:amd64 (1.3.14-1+deb12u1) ...
+Step #1: Setting up liblcms2-2:amd64 (2.14-2+deb12u1) ...
+Step #1: Setting up libpixman-1-0:amd64 (0.42.2-1) ...
+Step #1: Setting up libwayland-server0:amd64 (1.21.0-1) ...
+Step #1: Setting up libpciaccess0:amd64 (0.17-2) ...
+Step #1: Setting up systemd-sysv (252.39-1~deb12u2) ...
+Step #1: Setting up libxau6:amd64 (1:1.0.9-1) ...
+Step #1: Setting up libdouble-conversion3:amd64 (3.2.1-1) ...
+Step #1: Setting up libkeyutils1:amd64 (1.6.3-2) ...
+Step #1: Setting up libicu72:amd64 (72.1-3+deb12u1) ...
+Step #1: Setting up libmpg123-0:amd64 (1.31.2-1+deb12u1) ...
+Step #1: Setting up libogg0:amd64 (1.3.5-3) ...
+Step #1: Setting up liblerc4:amd64 (4.0.0+ds-2) ...
+Step #1: Setting up hicolor-icon-theme (0.17-2) ...
+Step #1: Setting up libdatrie1:amd64 (0.2.13-2+b1) ...
+Step #1: Setting up libminizip1:amd64 (1.1-8+deb12u1) ...
+Step #1: Setting up libglib2.0-0:amd64 (2.74.6-2+deb12u9) ...
+Step #1: Setting up libglvnd0:amd64 (1.6.0-1) ...
+Step #1: Setting up libbrotli1:amd64 (1.0.9-2+deb12u1) ...
+Step #1: Setting up libsqlite3-0:amd64 (3.40.1-2+deb12u2) ...
+Step #1: Setting up libgdk-pixbuf2.0-common (2.42.10+dfsg-1+deb12u4) ...
+Step #1: Setting up x11-common (1:7.7+23) ...
+Step #1: debconf: unable to initialize frontend: Dialog
+Step #1: debconf: (TERM is not set, so the dialog frontend is not usable.)
+Step #1: debconf: falling back to frontend: Readline
+Step #1: debconf: unable to initialize frontend: Readline
+Step #1: debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.36.0 /usr/local/share/perl/5.36.0 /usr/lib/x86_64-linux-gnu/perl5/5.36 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.36 /usr/share/perl/5.36 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+Step #1: debconf: falling back to frontend: Teletype
+Step #1: invoke-rc.d: could not determine current runlevel
+Step #1: invoke-rc.d: policy-rc.d denied execution of restart.
+Step #1: Setting up libsensors-config (1:3.6.0-7.1) ...
+Step #1: Setting up libdeflate0:amd64 (1.14-1) ...
+Step #1: Setting up fonts-freefont-ttf (20120503-10) ...
+Step #1: Setting up xkb-data (2.35.1-1) ...
+Step #1: Setting up libjbig0:amd64 (2.1-6.1) ...
+Step #1: Setting up libcolord2:amd64 (1.4.6-2.2) ...
+Step #1: Setting up libkrb5support0:amd64 (1.20.1-2+deb12u5) ...
+Step #1: Setting up libdconf1:amd64 (0.40.0-4) ...
+Step #1: Setting up libasound2-data (1.2.8-1) ...
+Step #1: Setting up libfontenc1:amd64 (1:1.1.4-1) ...
+Step #1: Setting up libz3-4:amd64 (4.8.12-3.1) ...
+Step #1: Setting up libflac12:amd64 (1.4.2+ds-2) ...
+Step #1: Setting up libjpeg62-turbo:amd64 (1:2.1.5-2) ...
+Step #1: Setting up libx11-data (2:1.8.4-2+deb12u2) ...
+Step #1: Setting up libepoxy0:amd64 (1.5.10-1) ...
+Step #1: Setting up libnspr4:amd64 (2:4.35-1) ...
+Step #1: Setting up libavahi-common-data:amd64 (0.8-10+deb12u1) ...
+Step #1: Setting up libdbus-1-3:amd64 (1.14.10-1~deb12u1) ...
+Step #1: Setting up libfribidi0:amd64 (1.0.8-2.1) ...
+Step #1: Setting up libopus0:amd64 (1.3.1-3) ...
+Step #1: Setting up libproc2-0:amd64 (2:4.0.2-3) ...
+Step #1: Setting up libpng16-16:amd64 (1.6.39-2+deb12u6) ...
+Step #1: Setting up libvorbis0a:amd64 (1.3.7-1) ...
+Step #1: Setting up libsensors5:amd64 (1:3.6.0-7.1) ...
+Step #1: Setting up libncursesw6:amd64 (6.4-4) ...
+Step #1: Setting up libk5crypto3:amd64 (1.20.1-2+deb12u5) ...
+Step #1: Setting up libdav1d6:amd64 (1.0.0-2+deb12u1) ...
+Step #1: Setting up libglapi-mesa:amd64 (22.3.6-1+deb12u2) ...
+Step #1: Setting up libopenh264-7:amd64 (2.3.1+dfsg-3+deb12u2) ...
+Step #1: Setting up libwebp7:amd64 (1.2.4-0.2+deb12u1) ...
+Step #1: Setting up libasyncns0:amd64 (0.8-6+b3) ...
+Step #1: Setting up libxshmfence1:amd64 (1.3-1) ...
+Step #1: Setting up at-spi2-common (2.46.0-5) ...
+Step #1: Setting up libtiff6:amd64 (4.5.0-6+deb12u4) ...
+Step #1: Setting up dbus-session-bus-common (1.14.10-1~deb12u1) ...
+Step #1: Setting up procps (2:4.0.2-3) ...
+Step #1: Setting up libasound2:amd64 (1.2.8-1+b1) ...
+Step #1: Setting up libopenjp2-7:amd64 (2.5.0-2+deb12u3) ...
+Step #1: Setting up libthai-data (0.1.29-1) ...
+Step #1: Setting up libatk1.0-0:amd64 (2.46.0-5) ...
+Step #1: Setting up libkrb5-3:amd64 (1.20.1-2+deb12u5) ...
+Step #1: Setting up libwayland-egl1:amd64 (1.21.0-1) ...
+Step #1: Setting up dbus-system-bus-common (1.14.10-1~deb12u1) ...
+Step #1: Setting up openssl (3.0.22-1~deb12u2) ...
+Step #1: Setting up libbsd0:amd64 (0.11.7-2) ...
+Step #1: Setting up libdrm-common (2.4.114-1) ...
+Step #1: Setting up libelf1:amd64 (0.188-2.1) ...
+Step #1: Setting up libxml2:amd64 (2.9.14+dfsg-1.3~deb12u6) ...
+Step #1: Setting up xdg-utils (1.1.3-4.1) ...
+Step #1: update-alternatives: using /usr/bin/xdg-open to provide /usr/bin/open (open) in auto mode
+Step #1: update-alternatives: warning: skip creation of /usr/share/man/man1/open.1.gz because associated file /usr/share/man/man1/xdg-open.1.gz (of link group open) doesn't exist
+Step #1: Setting up dbus-bin (1.14.10-1~deb12u1) ...
+Step #1: Setting up libmp3lame0:amd64 (3.100-6) ...
+Step #1: Setting up libvorbisenc2:amd64 (1.3.7-1) ...
+Step #1: Setting up libxkbcommon0:amd64 (1.5.0-1) ...
+Step #1: Setting up libwayland-client0:amd64 (1.21.0-1) ...
+Step #1: Setting up libice6:amd64 (2:1.0.10-1) ...
+Step #1: Setting up libxdmcp6:amd64 (1:1.1.2-3) ...
+Step #1: Setting up libxcb1:amd64 (1.15-1) ...
+Step #1: Setting up libxcb-xfixes0:amd64 (1.15-1) ...
+Step #1: Setting up libxcb-render0:amd64 (1.15-1) ...
+Step #1: Setting up fontconfig-config (2.14.1-4) ...
+Step #1: debconf: unable to initialize frontend: Dialog
+Step #1: debconf: (TERM is not set, so the dialog frontend is not usable.)
+Step #1: debconf: falling back to frontend: Readline
+Step #1: debconf: unable to initialize frontend: Readline
+Step #1: debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.36.0 /usr/local/share/perl/5.36.0 /usr/lib/x86_64-linux-gnu/perl5/5.36 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.36 /usr/share/perl/5.36 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+Step #1: debconf: falling back to frontend: Teletype
+Step #1: Setting up libxcb-glx0:amd64 (1.15-1) ...
+Step #1: Setting up libedit2:amd64 (3.1-20221030-2) ...
+Step #1: Setting up libxcb-shape0:amd64 (1.15-1) ...
+Step #1: Setting up libavahi-common3:amd64 (0.8-10+deb12u1) ...
+Step #1: Setting up libnss3:amd64 (2:3.87.1-1+deb12u4) ...
+Step #1: Setting up libxcb-shm0:amd64 (1.15-1) ...
+Step #1: Setting up dbus-daemon (1.14.10-1~deb12u1) ...
+Step #1: Setting up libxcb-present0:amd64 (1.15-1) ...
+Step #1: Setting up libthai0:amd64 (0.1.29-1) ...
+Step #1: Setting up ca-certificates (20250419~deb12u2) ...
+Step #1: debconf: unable to initialize frontend: Dialog
+Step #1: debconf: (TERM is not set, so the dialog frontend is not usable.)
+Step #1: debconf: falling back to frontend: Readline
+Step #1: debconf: unable to initialize frontend: Readline
+Step #1: debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.36.0 /usr/local/share/perl/5.36.0 /usr/lib/x86_64-linux-gnu/perl5/5.36 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.36 /usr/share/perl/5.36 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+Step #1: debconf: falling back to frontend: Teletype
+Step #1: Updating certificates in /etc/ssl/certs...
+Step #1: 148 added, 0 removed; done.
+Step #1: Setting up libfreetype6:amd64 (2.12.1+dfsg-5+deb12u4) ...
+Step #1: Setting up libxcb-sync1:amd64 (1.15-1) ...
+Step #1: Setting up dbus (1.14.10-1~deb12u1) ...
+Step #1: invoke-rc.d: could not determine current runlevel
+Step #1: invoke-rc.d: policy-rc.d denied execution of start.
+Step #1: Setting up shared-mime-info (2.2-1) ...
+Step #1: Setting up libgssapi-krb5-2:amd64 (1.20.1-2+deb12u5) ...
+Step #1: Setting up libxcb-dri2-0:amd64 (1.15-1) ...
+Step #1: Setting up libdrm2:amd64 (2.4.114-1+b1) ...
+Step #1: Setting up libwayland-cursor0:amd64 (1.21.0-1) ...
+Step #1: Setting up libxcb-randr0:amd64 (1.15-1) ...
+Step #1: Setting up libllvm15:amd64 (1:15.0.6-4+b1) ...
+Step #1: Setting up libpam-systemd:amd64 (252.39-1~deb12u2) ...
+Step #1: debconf: unable to initialize frontend: Dialog
+Step #1: debconf: (TERM is not set, so the dialog frontend is not usable.)
+Step #1: debconf: falling back to frontend: Readline
+Step #1: debconf: unable to initialize frontend: Readline
+Step #1: debconf: (Can't locate Term/ReadLine.pm in @INC (you may need to install the Term::ReadLine module) (@INC contains: /etc/perl /usr/local/lib/x86_64-linux-gnu/perl/5.36.0 /usr/local/share/perl/5.36.0 /usr/lib/x86_64-linux-gnu/perl5/5.36 /usr/share/perl5 /usr/lib/x86_64-linux-gnu/perl-base /usr/lib/x86_64-linux-gnu/perl/5.36 /usr/share/perl/5.36 /usr/local/lib/site_perl) at /usr/share/perl5/Debconf/FrontEnd/Readline.pm line 7.)
+Step #1: debconf: falling back to frontend: Teletype
+Step #1: Setting up libx11-6:amd64 (2:1.8.4-2+deb12u2) ...
+Step #1: Setting up libharfbuzz0b:amd64 (6.0.0+dfsg-3) ...
+Step #1: Setting up libgdk-pixbuf-2.0-0:amd64 (2.42.10+dfsg-1+deb12u4) ...
+Step #1: Setting up libfontconfig1:amd64 (2.14.1-4) ...
+Step #1: Setting up libsndfile1:amd64 (1.2.0-1+deb12u1) ...
+Step #1: Setting up libxkbfile1:amd64 (1:1.1.0-1) ...
+Step #1: Setting up libxcomposite1:amd64 (1:0.4.5-1) ...
+Step #1: Setting up libsm6:amd64 (2:1.2.3-1) ...
+Step #1: Setting up libavahi-client3:amd64 (0.8-10+deb12u1) ...
+Step #1: Setting up libxmuu1:amd64 (2:1.1.3-3) ...
+Step #1: Setting up libnss3-tools (2:3.87.1-1+deb12u4) ...
+Step #1: Setting up libdrm-amdgpu1:amd64 (2.4.114-1+b1) ...
+Step #1: Setting up libxcb-dri3-0:amd64 (1.15-1) ...
+Step #1: Setting up gtk-update-icon-cache (3.24.38-2~deb12u3) ...
+Step #1: Setting up libx11-xcb1:amd64 (2:1.8.4-2+deb12u2) ...
+Step #1: Setting up fontconfig (2.14.1-4) ...
+Step #1: Regenerating fonts cache... done.
+Step #1: Setting up libdrm-nouveau2:amd64 (2.4.114-1+b1) ...
+Step #1: Setting up libxdamage1:amd64 (1:1.1.6-1) ...
+Step #1: Setting up libxpm4:amd64 (1:3.5.12-1.1+deb12u1) ...
+Step #1: Setting up libxrender1:amd64 (1:0.9.10-1.1) ...
+Step #1: Setting up libgbm1:amd64 (22.3.6-1+deb12u2) ...
+Step #1: Setting up libpulse0:amd64 (16.1+dfsg1-2+b1) ...
+Step #1: Setting up libdrm-radeon1:amd64 (2.4.114-1+b1) ...
+Step #1: Setting up libpango-1.0-0:amd64 (1.50.12+ds-1) ...
+Step #1: Setting up libdrm-intel1:amd64 (2.4.114-1+b1) ...
+Step #1: Setting up libgl1-mesa-dri:amd64 (22.3.6-1+deb12u2) ...
+Step #1: Setting up libxext6:amd64 (2:1.3.4-1+b1) ...
+Step #1: Setting up libcairo2:amd64 (1.16.0-7) ...
+Step #1: Setting up libxxf86vm1:amd64 (1:1.1.4-1+b2) ...
+Step #1: Setting up libxnvctrl0:amd64 (525.85.05-3~deb12u1) ...
+Step #1: Setting up dbus-user-session (1.14.10-1~deb12u1) ...
+Step #1: Setting up adwaita-icon-theme (43-1) ...
+Step #1: update-alternatives: using /usr/share/icons/Adwaita/cursor.theme to provide /usr/share/icons/default/index.theme (x-cursor-theme) in auto mode
+Step #1: Setting up libxfixes3:amd64 (1:6.0.0-2) ...
+Step #1: Setting up libxinerama1:amd64 (2:1.1.4-3) ...
+Step #1: Setting up libxv1:amd64 (2:1.0.11-1.1) ...
+Step #1: Setting up libxrandr2:amd64 (2:1.5.2-2+b1) ...
+Step #1: Setting up libxt6:amd64 (1:1.2.1-1.1) ...
+Step #1: Setting up libcups2:amd64 (2.4.2-3+deb12u9) ...
+Step #1: Setting up libharfbuzz-subset0:amd64 (6.0.0+dfsg-3) ...
+Step #1: Setting up libcairo-gobject2:amd64 (1.16.0-7) ...
+Step #1: Setting up libpangoft2-1.0-0:amd64 (1.50.12+ds-1) ...
+Step #1: Setting up libpangocairo-1.0-0:amd64 (1.50.12+ds-1) ...
+Step #1: Setting up libxft2:amd64 (2.3.6-1) ...
+Step #1: Setting up libxmu6:amd64 (2:1.1.3-3) ...
+Step #1: Setting up libglx-mesa0:amd64 (22.3.6-1+deb12u2) ...
+Step #1: Setting up libxi6:amd64 (2:1.8-1+b1) ...
+Step #1: Setting up libglx0:amd64 (1.6.0-1) ...
+Step #1: Setting up libxtst6:amd64 (2:1.2.3-1.1) ...
+Step #1: Setting up libxcursor1:amd64 (1:1.2.1-1) ...
+Step #1: Setting up libxxf86dga1:amd64 (2:1.1.5-1) ...
+Step #1: Setting up dconf-service (0.40.0-4) ...
+Step #1: Setting up libxaw7:amd64 (2:1.0.14-1) ...
+Step #1: Setting up libatspi2.0-0:amd64 (2.46.0-5) ...
+Step #1: Setting up libatk-bridge2.0-0:amd64 (2.46.0-5) ...
+Step #1: Setting up libgl1:amd64 (1.6.0-1) ...
+Step #1: Setting up x11-utils (7.7+5) ...
+Step #1: Setting up chromium-common (156.0.8078.79-1~deb12u1) ...
+Step #1: Setting up dconf-gsettings-backend:amd64 (0.40.0-4) ...
+Step #1: Setting up libgtk-3-common (3.24.38-2~deb12u3) ...
+Step #1: Setting up libgtk-3-0:amd64 (3.24.38-2~deb12u3) ...
+Step #1: Setting up chromium (156.0.8078.79-1~deb12u1) ...
+Step #1: update-alternatives: using /usr/bin/chromium to provide /usr/bin/x-www-browser (x-www-browser) in auto mode
+Step #1: update-alternatives: using /usr/bin/chromium to provide /usr/bin/gnome-www-browser (gnome-www-browser) in auto mode
+Step #1: Processing triggers for libc-bin (2.36-9+deb12u14) ...
+Step #1: Processing triggers for ca-certificates (20250419~deb12u2) ...
+Step #1: Updating certificates in /etc/ssl/certs...
+Step #1: 0 added, 0 removed; done.
+Step #1: Running hooks in /etc/ca-certificates/update.d...
+Step #1: done.
+Step #1: Removing intermediate container b273e64fdb9f
+Step #1:  ---> 31f3e3a1695e
+Step #1: Step 22/27 : WORKDIR /app
+Step #1:  ---> Running in 8dbcbd364f33
+Step #1: Removing intermediate container 8dbcbd364f33
+Step #1:  ---> b722291c754f
+Step #1: Step 23/27 : COPY --from=server /src/languages/l0013/target/release/l0013r ./l0013r
+Step #1:  ---> a32cdcfba61a
+Step #1: Step 24/27 : COPY --from=static /src/static ./static
+Step #1:  ---> afb463ea4fbe
+Step #1: Step 25/27 : ENV STATIC_DIR=/app/static     CHROME_PATH=/usr/bin/chromium
+Step #1:  ---> Running in 714929cdcce2
+Step #1: Removing intermediate container 714929cdcce2
+Step #1:  ---> f5668f973a34
+Step #1: Step 26/27 : EXPOSE 8080
+Step #1:  ---> Running in 37b9e429df80
+Step #1: Removing intermediate container 37b9e429df80
+Step #1:  ---> 19bd25f8ac4b
+Step #1: Step 27/27 : CMD ["/app/l0013r"]
+Step #1:  ---> Running in 9ebf05d886af
+Step #1: Removing intermediate container 9ebf05d886af
+Step #1:  ---> c6d5cb87d306
+Step #1: Successfully built c6d5cb87d306
+Step #1: Successfully tagged us-central1-docker.pkg.dev/graffiticode/services/l0013r-c5d-drive:rmwo9rmhz-e7abb8
+Finished Step #1
+PUSH
+Pushing us-central1-docker.pkg.dev/graffiticode/services/l0013r-c5d-drive:rmwo9rmhz-e7abb8
+The push refers to repository [us-central1-docker.pkg.dev/graffiticode/services/l0013r-c5d-drive]
+a92d0b82970f: Preparing
+f344ef7617ad: Preparing
+18d04dc20344: Preparing
+e506f4a4c15b: Preparing
+1d7b9dd8778e: Preparing
+a92d0b82970f: Pushed
+18d04dc20344: Pushed
+f344ef7617ad: Pushed
+1d7b9dd8778e: Pushed
+e506f4a4c15b: Pushed
+rmwo9rmhz-e7abb8: digest: sha256:baa510aaf56392f55997f2ad65fe8f87ff8cd6cca684aafcd927681a9e8767b8 size: 1369
+DONE
+--------------------------------------------------------------------------------
+Added tag [us-central1-docker.pkg.dev/graffiticode/services/l0013r-c5d-drive:serving-l0013r-c5d-drive-rmwo9rmhz-e7abb8] to image [us-central1-docker.pkg.dev/graffiticode/services/l0013r-c5d-drive@sha256:baa510aaf56392f55997f2ad65fe8f87ff8cd6cca684aafcd927681a9e8767b8].
+Deploying us-central1-docker.pkg.dev/graffiticode/services/l0013r-c5d-drive@sha256:baa510aaf56392f55997f2ad65fe8f87ff8cd6cca684aafcd927681a9e8767b8 with no traffic…
+Deploying container to Cloud Run service [[1ml0013r-c5d-drive[m] in project [[1mgraffiticode[m] region [[1mus-central1[m]
+Deploying...
+Creating Revision...........................................................................................................................................................................................................................................................................................done
+Done.
+Service [[1ml0013r-c5d-drive[m] revision [[1ml0013r-c5d-drive-rmwo9rmhz-e7abb8[m] has been deployed and is serving [1m0[m percent of traffic.
+The revision can be reached directly at https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app
+Checking the candidate revision…
+Promoting l0013r-c5d-drive-rmwo9rmhz-e7abb8…
+Updating traffic...
+Routing traffic........................done
+Done.
+No stale tags.
+Released l0013r-c5d-drive-rmwo9rmhz-e7abb8: https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app
+Receipt: /Users/jeffdyer/work/graffiticode/graffiticode-c6r/.gc-deploy/releases/rmwo9rmhz-e7abb8.json
+Rollback: npm run rollback -- l0013r-c5d-drive --env production --release rmwo9rmhz-e7abb8
+exit 0

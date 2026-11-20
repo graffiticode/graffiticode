@@ -1,0 +1,147 @@
+{
+  "runId": "ad49c0ac",
+  "phase": "exit-after-reserve",
+  "at": "2026-11-20T17:56:25.014Z",
+  "answered": {
+    "status": 200,
+    "commandId": "c:243cb8d642acdcb31c3c2debe433e03d89ca70209366f621df10bbbc0bf02633",
+    "outcome": "pending",
+    "reason": null
+  },
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "counterBefore": {
+      "publicCaptures": [],
+      "item": "7vwaCAIyMNCJEzgIfyYY",
+      "updatedAt": "2026-11-20T17:41:43.971Z",
+      "nextCaptureSequence": 8
+    },
+    "capture": {
+      "commandId": "c:243cb8d642acdcb31c3c2debe433e03d89ca70209366f621df10bbbc0bf02633",
+      "status": "completed",
+      "ownerGeneration": 2,
+      "invocationId": "inv-f0392fc6-91f6-46aa-91a7-2a2c1cafe48f",
+      "admission": {
+        "planDigest": "8195f45100dea57b3e8445b61e930b88863574c5ebd4ced465824d1f23222231",
+        "contractVersion": 3,
+        "recording": 1,
+        "items": {
+          "7vwaCAIyMNCJEzgIfyYY": {
+            "publicCapture": false
+          }
+        },
+        "stages": {
+          "s0": {
+            "tagUrl": "https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+            "modelDigest": "35ef5f2a647b5751b4916b2c54a2b8e48ac5e71682cfbe94d27de584d67cb4be",
+            "replay": 0,
+            "revision": "l0013r-c5d-drive-rmwo9rmhz-e7abb8",
+            "lang": "0013",
+            "intents": [
+              {
+                "id": "snap:0",
+                "fn": "snap",
+                "op": "gcs.put-thumbnail",
+                "runtime": true,
+                "bounds": {
+                  "maxOccurrences": 16
+                },
+                "scope": {
+                  "kind": "item",
+                  "id": "7vwaCAIyMNCJEzgIfyYY"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "result": {
+        "url": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5",
+        "item": "7vwaCAIyMNCJEzgIfyYY"
+      },
+      "reservations": [
+        {
+          "renderGrants": [
+            {
+              "jti": "031d0d9e-34a6-4a64-b34d-235f8598e9fc",
+              "exp": 1795197589,
+              "generation": 1,
+              "at": "2026-11-20T17:54:49.296Z"
+            },
+            {
+              "jti": "09db4bb8-7ea6-4f8e-a975-dc964711e442",
+              "exp": 1795197669,
+              "generation": 2,
+              "at": "2026-11-20T17:56:09.285Z"
+            }
+          ],
+          "generation": 1,
+          "object": "c:243cb8d642acdcb31c3c2debe433e03d89ca70209366f621df10bbbc0bf02633/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+          "intentId": "snap:0",
+          "publicCapture": false,
+          "size": 18516,
+          "renderTask": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+          "stage": "s0",
+          "state": "staged",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "stagedAt": "2026-11-20T17:56:18.420Z",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "expansionKey": "0#0",
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "captureSequence": 8,
+          "reservedAt": "2026-11-20T17:54:49.080Z",
+          "stagedGeneration": 2
+        }
+      ],
+      "claim": {
+        "binding": {
+          "registryVersion": 9,
+          "op": "gcs.put-thumbnail",
+          "fn": "snap",
+          "principal": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "lang": "0013",
+          "scope": {
+            "kind": "item",
+            "id": "7vwaCAIyMNCJEzgIfyYY"
+          },
+          "argsDigest": "b224d4878bf472631bdf753694f3ba456d59573ff4d3842149d369daf1787cd5"
+        },
+        "operationId": "inv-f0392fc6-91f6-46aa-91a7-2a2c1cafe48f/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "pld": "8195f45100dea57b3e8445b61e930b88863574c5ebd4ced465824d1f23222231",
+        "claimedAt": "2026-11-20T17:56:19.859Z",
+        "evidence": {
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "captureSequence": 8,
+          "format": "gcs-thumbnail-1",
+          "object": "7vwaCAIyMNCJEzgIfyYY.png",
+          "bucket": "graffiticode-c5d-drive",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "staged": "c:243cb8d642acdcb31c3c2debe433e03d89ca70209366f621df10bbbc0bf02633/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+          "commandId": "c:243cb8d642acdcb31c3c2debe433e03d89ca70209366f621df10bbbc0bf02633"
+        }
+      },
+      "object": {
+        "generation": "1795197380453873",
+        "metadata": {
+          "captureSequence": "8",
+          "commandId": "c:243cb8d642acdcb31c3c2debe433e03d89ca70209366f621df10bbbc0bf02633",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+        }
+      }
+    },
+    "counterAfter": {
+      "item": "7vwaCAIyMNCJEzgIfyYY",
+      "updatedAt": "2026-11-20T17:54:49.080Z",
+      "publicCaptures": [],
+      "nextCaptureSequence": 9
+    },
+    "faultLines": [
+      {
+        "at": "2026-11-20T17:54:49.335228Z",
+        "text": "\u001b[2m2026-11-20T17:54:49.336005Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2ml0013r\u001b[0m\u001b[2m:\u001b[0m capture fault exit-after-reserve command c:243cb8d642acdcb31c3c2debe433e03d89ca70209366f621df10bbbc0bf02633"
+      }
+    ]
+  }
+}

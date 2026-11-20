@@ -1,0 +1,450 @@
+{
+  "runId": "ad49c0ac",
+  "at": "2026-11-20T19:35:29.985Z",
+  "manifests": {
+    "baseline": "baseline.json",
+    "access-probes": "access-probes-2026-11-20T17-41-23-214Z.json",
+    "checks": "checks-2026-11-20T01-16-30-310Z.json",
+    "direct-refused": "direct-refused-2026-11-20T17-54-36-396Z.json",
+    "drop-outcome": "drop-outcome-2026-11-20T19-33-38-221Z.json",
+    "drop-outcome-retry": "drop-outcome-retry-2026-11-20T19-35-15-466Z.json",
+    "exit-after-reserve": "exit-after-reserve-2026-11-20T17-56-25-014Z.json",
+    "exit-after-stage": "exit-after-stage-2026-11-20T19-28-32-143Z.json",
+    "first-capture": "first-capture-2026-11-20T17-42-21-951Z.json"
+  },
+  "passed": false,
+  "phases": [
+    {
+      "phase": "checks",
+      "passed": true,
+      "checks": [
+        {
+          "id": "observations-read",
+          "title": "every observation of the phase was read: no read failed",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "broker-env",
+          "title": "broker-c5d-drive publishes to the drive bucket, stages from Policy's, and has no fault set",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0013r-env",
+          "title": "l0013r-c5d-drive has no THUMBNAIL_BUCKET (null at /egress), names the drive Broker, and its fault map is exactly the run's targets",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0176r-env",
+          "title": "l0176r-c5d-drive names the drive Broker",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "api-env",
+          "title": "api-c5d-drive: L0013 and L0176 commands, scopes and interpretation on, routed to the drive compilers, its sweeper on, its stop-renewal targets exactly the run's",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "bucket",
+          "title": "gs://graffiticode-c5d-drive is uniform and private, broker-run its only object user, with no condition and no public member",
+          "ok": true,
+          "detail": "ok"
+        }
+      ]
+    },
+    {
+      "phase": "access-probes",
+      "passed": true,
+      "checks": [
+        {
+          "id": "observations-read",
+          "title": "every observation of the phase was read: no read failed",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0013r-gateway-control",
+          "title": "l0013r-c5d-drive: gateway-control",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0013r-no-identity",
+          "title": "l0013r-c5d-drive: no-identity",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0013r-malformed-identity",
+          "title": "l0013r-c5d-drive: malformed-identity",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0013r-non-gateway",
+          "title": "l0013r-c5d-drive: non-gateway",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0013r-model",
+          "title": "l0013r-c5d-drive: model",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0013r-start-malformed-session",
+          "title": "l0013r-c5d-drive: start-malformed-session",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0013r-start-forged-session",
+          "title": "l0013r-c5d-drive: start-forged-session",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0176r-gateway-control",
+          "title": "l0176r-c5d-drive: gateway-control",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0176r-no-identity",
+          "title": "l0176r-c5d-drive: no-identity",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0176r-malformed-identity",
+          "title": "l0176r-c5d-drive: malformed-identity",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0176r-non-gateway",
+          "title": "l0176r-c5d-drive: non-gateway",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0176r-model",
+          "title": "l0176r-c5d-drive: model",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0176r-start-malformed-session",
+          "title": "l0176r-c5d-drive: start-malformed-session",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "l0176r-start-forged-session",
+          "title": "l0176r-c5d-drive: start-forged-session",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "drive-bucket-unchanged",
+          "title": "the drive bucket's listing is the same after the probes",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "policy-unchanged",
+          "title": "Policy holds no new command, and no fixture's capture counter moved",
+          "ok": true,
+          "detail": "ok"
+        }
+      ]
+    },
+    {
+      "phase": "baseline",
+      "passed": true,
+      "checks": [
+        {
+          "id": "observations-read",
+          "title": "every observation of the phase was read: no read failed",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "thumbnails-listed",
+          "title": "graffiticode-thumbnails' listing is recorded: names and generations, readable",
+          "ok": true,
+          "detail": "ok"
+        }
+      ]
+    },
+    {
+      "phase": "first-capture",
+      "passed": true,
+      "checks": [
+        {
+          "id": "observations-read",
+          "title": "every observation of the phase was read: no read failed",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "private",
+          "title": "the owner's capture of the private fixture publishes with its reserved sequence",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "public-anonymous",
+          "title": "an anonymous capture of the public fixture publishes under the public-capture exception (test 1)",
+          "ok": true,
+          "detail": "ok"
+        }
+      ]
+    },
+    {
+      "phase": "direct-refused",
+      "passed": true,
+      "checks": [
+        {
+          "id": "observations-read",
+          "title": "every observation of the phase was read: no read failed",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "refused",
+          "title": "a compile straight to l0013r-c5d-drive outside a command is refused with A1b's message",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "nothing-uploaded",
+          "title": "the item's object in the drive bucket is unchanged by it",
+          "ok": true,
+          "detail": "ok"
+        }
+      ]
+    },
+    {
+      "phase": "exit-after-reserve",
+      "passed": true,
+      "checks": [
+        {
+          "id": "observations-read",
+          "title": "every observation of the phase was read: no read failed",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "fault-fired",
+          "title": "the targeted capture exited after reserve, at generation 1",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "taken-over",
+          "title": "the sweeper took it over (generation 2 or later) and it completed",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "same-reservation",
+          "title": "reserve answered the generation-1 reservation; nothing counted twice; the original sequence published",
+          "ok": true,
+          "detail": "ok"
+        }
+      ]
+    },
+    {
+      "phase": "exit-after-stage",
+      "passed": true,
+      "checks": [
+        {
+          "id": "observations-read",
+          "title": "every observation of the phase was read: no read failed",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "fault-fired",
+          "title": "the targeted capture exited after staging, before publish, at generation 1",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "staged-reused",
+          "title": "the takeover reused the staged bytes: one render, the staged record unchanged, and those bytes published",
+          "ok": true,
+          "detail": "ok"
+        }
+      ]
+    },
+    {
+      "phase": "drop-outcome",
+      "passed": true,
+      "checks": [
+        {
+          "id": "observations-read",
+          "title": "every observation of the phase was read: no read failed",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "fault-scoped",
+          "title": "BROKER_FAULTS=drop-outcome on broker-c5d-drive for this phase, for the canary only",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "dropped",
+          "title": "the capture published and its outcome was dropped: a claim with evidence in the drive bucket, no outcome",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "staging-deleted",
+          "title": "the operator deleted the staged object after the dropped request finished, before the retry",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "replayed",
+          "title": "the retry is the same command, nothing re-read or published twice",
+          "ok": true,
+          "detail": "ok"
+        },
+        {
+          "id": "reconciled",
+          "title": "reconciliation resolves applied, with exactly the dropped operation's own result: its reserved item and sequence, staged digest and claim evidence",
+          "ok": true,
+          "detail": "ok"
+        }
+      ]
+    },
+    {
+      "phase": "stale-worker",
+      "passed": false,
+      "checks": [
+        {
+          "id": "run",
+          "title": "the phase ran",
+          "ok": false,
+          "detail": "not run"
+        }
+      ]
+    },
+    {
+      "phase": "staging-gone",
+      "passed": false,
+      "checks": [
+        {
+          "id": "run",
+          "title": "the phase ran",
+          "ok": false,
+          "detail": "not run"
+        }
+      ]
+    },
+    {
+      "phase": "older-after-newer",
+      "passed": false,
+      "checks": [
+        {
+          "id": "run",
+          "title": "the phase ran",
+          "ok": false,
+          "detail": "not run"
+        }
+      ]
+    },
+    {
+      "phase": "two-stage",
+      "passed": false,
+      "checks": [
+        {
+          "id": "run",
+          "title": "the phase ran",
+          "ok": false,
+          "detail": "not run"
+        }
+      ]
+    },
+    {
+      "phase": "mixed",
+      "passed": false,
+      "checks": [
+        {
+          "id": "run",
+          "title": "the phase ran",
+          "ok": false,
+          "detail": "not run"
+        }
+      ]
+    },
+    {
+      "phase": "non-owner",
+      "passed": false,
+      "checks": [
+        {
+          "id": "run",
+          "title": "the phase ran",
+          "ok": false,
+          "detail": "not run"
+        }
+      ]
+    },
+    {
+      "phase": "rate-limit",
+      "passed": false,
+      "checks": [
+        {
+          "id": "run",
+          "title": "the phase ran",
+          "ok": false,
+          "detail": "not run"
+        }
+      ]
+    },
+    {
+      "phase": "canary-snap",
+      "passed": false,
+      "checks": [
+        {
+          "id": "run",
+          "title": "the phase ran",
+          "ok": false,
+          "detail": "not run"
+        }
+      ]
+    },
+    {
+      "phase": "boundary",
+      "passed": false,
+      "checks": [
+        {
+          "id": "run",
+          "title": "the phase ran",
+          "ok": false,
+          "detail": "not run"
+        }
+      ]
+    },
+    {
+      "phase": "cleanup",
+      "passed": false,
+      "checks": [
+        {
+          "id": "run",
+          "title": "the phase ran",
+          "ok": false,
+          "detail": "not run"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+first-public: no allocation (preflight-unavailable, answered 2026-11-19T23:26:15.905Z)
+file:///Users/jeffdyer/work/graffiticode/graffiticode-c6r/scripts/lib/c5d-drive-checks.js:813
+  if (!PHASES[phase] && !STEP_PHASES.includes(phase)) throw new Error(`no such phase ${phase}`);
+                                                            ^
+
+Error: no such phase resolve-intent
+    at phaseFile (file:///Users/jeffdyer/work/graffiticode/graffiticode-c6r/scripts/lib/c5d-drive-checks.js:813:61)
+    at finish (file:///Users/jeffdyer/work/graffiticode/graffiticode-c6r/scripts/c5d-drive.js:259:26)
+    at file:///Users/jeffdyer/work/graffiticode/graffiticode-c6r/scripts/c5d-drive.js:615:3
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+Node.js v22.22.3

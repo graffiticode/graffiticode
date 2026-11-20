@@ -1,0 +1,23 @@
+ERROR: (gcloud.run.services.describe) There was a problem refreshing your current auth tokens: Reauthentication failed. cannot prompt during non-interactive execution.
+Please run:
+
+  $ gcloud auth login
+
+to obtain new credentials.
+
+If you have already logged in with a different account, run:
+
+  $ gcloud config set account ACCOUNT
+
+to select an already authenticated account to use.
+file:///Users/jeffdyer/work/graffiticode/graffiticode-c6r/packages/deploy/src/process.js:11
+    child.on("close", code => code === 0 ? resolve(raw ? output : output.trim()) : reject(new Error(`${command} ${args.slice(0, 3).join(" ")} failed (${code})`)));
+                                                                                          ^
+
+Error: gcloud run services describe failed (1)
+    at ChildProcess.<anonymous> (file:///Users/jeffdyer/work/graffiticode/graffiticode-c6r/packages/deploy/src/process.js:11:91)
+    at ChildProcess.emit (node:events:519:28)
+    at maybeClose (node:internal/child_process:1101:16)
+    at ChildProcess._handle.onexit (node:internal/child_process:304:5)
+
+Node.js v22.22.3

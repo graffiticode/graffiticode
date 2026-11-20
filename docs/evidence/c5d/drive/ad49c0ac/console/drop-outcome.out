@@ -1,0 +1,7 @@
+
+The operator's reviewed deletion (Step 32, deletion 2: drop-outcome), now:
+  gcloud storage rm 'gs://graffiticode-command-staging/c:db80a736f58318fe6f9cb1141bd60fc7c575d922cefe6374fe35496eeeff009b/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png' --if-generation-match=1795203211162428 --project=graffiticode
+then: node scripts/c5d-drive.js --phase drop-outcome-retry --run ad49c0ac --private-task <the same task>
+
+drop-outcome: /private/tmp/claude-501/-Users-jeffdyer-work-graffiticode-graffiticode/3b9960ea-9e37-4af7-b859-610265f8269c/scratchpad/c5d-step32/drive/ad49c0ac/drop-outcome-2026-11-20T19-33-38-221Z.json
+exit 0

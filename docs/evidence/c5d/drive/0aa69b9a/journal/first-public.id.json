@@ -1,0 +1,11 @@
+{
+  "at": "2026-11-20T00:25:16.709Z",
+  "commandId": null,
+  "noAllocation": {
+    "kind": "pre-allocation-answer",
+    "code": "preflight-unavailable",
+    "answeredAt": "2026-11-19T23:26:15.905Z",
+    "evidence": "first-public.ambiguous.json",
+    "source": "packages/api/src/commands/bridge.js"
+  }
+}

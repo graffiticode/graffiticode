@@ -1,0 +1,8 @@
+FAILED to observe l0013rStatus: minting an ID token for api-run@graffiticode.iam.gserviceaccount.com failed: 403 Permission 'iam.serviceAccounts.getOpenIdToken' denied on resource (or it may not exist). Remediate access with this Troubleshooter URL or share it with your administrator - https://console.cloud.google.com/iam-admin/tr
+FAILED observations-read: reads failed: l0013rStatus (minting an ID token for api-run@graffiticode.iam.gserviceaccount.com failed: 403 Permission 'iam.serviceAccounts.getOpenIdToken' denied on resource (or it may not exist). Remediate access with this Troubleshooter URL or share it with your administrator - https://console.cloud.google.com/iam-admin/tr)
+ok     broker-env: ok
+FAILED l0013r-env: /egress thumbnailBucket not observed, expected null
+ok     l0176r-env: ok
+ok     api-env: ok
+ok     bucket: ok
+checks: /private/tmp/claude-501/-Users-jeffdyer-work-graffiticode-graffiticode/3b9960ea-9e37-4af7-b859-610265f8269c/scratchpad/c5d-step32/drive/0aa69b9a/checks-2026-11-19T23-14-57-482Z.json

@@ -1,0 +1,94 @@
+{
+  "runId": "0aa69b9a",
+  "phase": "cleanup",
+  "at": "2026-11-20T00:56:27.412Z",
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "unresolvedIntents": [],
+    "aborted": true,
+    "commands": [
+      {
+        "commandId": "c:086e1c8d4a017acd27ddc54dd768853fddbd3764a2d73f51684ae57c926c7510",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:26f7ac69c76b2321e440acd2fbf28c867b09091f6ba882e69a598195de37c243",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:37d75ae9ccd045da56fd7260c3d860257f6f01f4bf3d142929782a60cac5e54a",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:56cbb87593e580756231efc854858e17793fa796fe03f187aab7ca17846cd539",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:5fe4076072f334f32f896297f05261d40d877104f5f7686a49f066dbbd9b3e0b",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:7360342794caccd2b3947aec9fcf0d1ecefee4d726bf4c69859c8d6eef77c7ee",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:9a3329a3c32cf62d99bb32d6dd2cda2da8c70c601eae4f598b255bed4759a706",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:9dfc16fc4665a59546c45256624bcbe39ad1f19150215766c878218d5891f24f",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:a8dba7c94d502ecd83a27844ae795fcaf36bffd0080d89cee8112d985ac5e014",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:acb40cc1132fb1399152315e261075300c1a5ec6510a98840bd6a20e0ab2fe4b",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:d3d3c645e44b81c2061243a40a4aebe9073242fe287f7418aaa987850bcbfe9b",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:d7122090627432f0c10eaa4b582c98662ef66057f0bf05d05fd94fd08fff62f2",
+        "status": "absent"
+      },
+      {
+        "commandId": "c:fccdc5c64381eb8cf822a5178be94d888d6004cc97ee62e243b71655e0e92cb7",
+        "status": "absent"
+      }
+    ],
+    "due": [],
+    "policyEnumeration": {
+      "since": "2026-11-19T22:44:49.986Z",
+      "tasks": [
+        "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+        "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19"
+      ],
+      "queries": [
+        {
+          "query": "policy commands where taskId == eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "pages": 1,
+          "count": 6,
+          "complete": true
+        },
+        {
+          "query": "policy commands where taskId == eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "pages": 1,
+          "count": 26,
+          "complete": true
+        },
+        {
+          "query": "policy commands where uid == 995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "pages": 2,
+          "count": 548,
+          "complete": true
+        }
+      ],
+      "commands": []
+    }
+  }
+}

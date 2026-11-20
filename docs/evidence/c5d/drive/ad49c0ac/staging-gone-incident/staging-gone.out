@@ -1,0 +1,15 @@
+
+The operator's reviewed deletion (Step 32, deletion 1: staging-gone), now, before the takeover (lease 60 s):
+  gcloud storage rm 'gs://graffiticode-command-staging/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png' --if-generation-match=1795203474250242 --project=graffiticode
+
+file:///Users/jeffdyer/work/graffiticode/graffiticode-c6r/scripts/c5d-drive.js:493
+  if (timedOut) throw new Error(`${commandId} still ${value?.status ?? "absent"} after ${waitMs} ms`);
+                      ^
+
+Error: c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f still pending after 600000 ms
+    at terminal (file:///Users/jeffdyer/work/graffiticode/graffiticode-c6r/scripts/c5d-drive.js:493:23)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async file:///Users/jeffdyer/work/graffiticode/graffiticode-c6r/scripts/c5d-drive.js:780:5
+
+Node.js v22.22.3
+exit 1

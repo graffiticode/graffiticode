@@ -1,0 +1,25 @@
+[
+  {
+    "insertId": "6b0089d2000628b180587dba",
+    "labels": {
+      "commit-sha": "b6036456265016ffb60e0f2b160bfc5ea736b4f2",
+      "gc-dirty": "false",
+      "gc-release": "rmwo9rmhz-e7abb8",
+      "instanceId": "00e8a408bd8a5b7f09c2cfd36433ef8814480d8295fb6f40727f96f4e29c5c1683173e58a85b78ed37b4f9bfba767d67ccfd6a619a39d62bd5a446c3dd2066124be0c2754fce86a7522e05bf29b4f4109cf5779dbb484d579fddde"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-20T17:56:34.638764986Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwo9rmhz-e7abb8",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-20T17:56:34.404289Z\u001b[0m \u001b[32m INFO\u001b[0m \u001b[2ml0013_capture\u001b[0m\u001b[2m:\u001b[0m render \u001b[3mitem\u001b[0m\u001b[2m=\u001b[0m7vwaCAIyMNCJEzgIfyYY \u001b[3mcapture_ms\u001b[0m\u001b[2m=\u001b[0m4142 \u001b[3mbytes\u001b[0m\u001b[2m=\u001b[0m18516",
+    "timestamp": "2026-11-20T17:56:34.403633Z"
+  }
+]

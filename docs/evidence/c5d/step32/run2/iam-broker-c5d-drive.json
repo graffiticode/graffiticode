@@ -1,0 +1,14 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "serviceAccount:deploy-smoke@graffiticode.iam.gserviceaccount.com",
+        "serviceAccount:l0013r-run@graffiticode.iam.gserviceaccount.com",
+        "serviceAccount:l0176r-run@graffiticode.iam.gserviceaccount.com"
+      ],
+      "role": "roles/run.invoker"
+    }
+  ],
+  "etag": "BwZgqOkRa7c=",
+  "version": 1
+}

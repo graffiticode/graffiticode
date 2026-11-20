@@ -1,0 +1,6 @@
+FAILED to observe private: no command id
+FAILED to observe public: null still absent after 600000 ms
+FAILED observations-read: reads failed: private (no command id); public (null still absent after 600000 ms)
+FAILED private: private: not observed
+FAILED public-anonymous: public: not observed
+first-capture: /private/tmp/claude-501/-Users-jeffdyer-work-graffiticode-graffiticode/3b9960ea-9e37-4af7-b859-610265f8269c/scratchpad/c5d-step32/drive/0aa69b9a/first-capture-2026-11-19T23-36-12-739Z.json

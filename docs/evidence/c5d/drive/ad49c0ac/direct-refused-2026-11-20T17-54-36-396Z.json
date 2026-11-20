@@ -1,0 +1,31 @@
+{
+  "runId": "ad49c0ac",
+  "phase": "direct-refused",
+  "at": "2026-11-20T17:54:36.396Z",
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "before": {
+      "generation": "1795196522406770",
+      "metadata": {
+        "captureSequence": "7",
+        "commandId": "c:0e6188fd07f7562e57bb5425fc790d5bdf150d5844f443e802c0a699e9952da0",
+        "item": "7vwaCAIyMNCJEzgIfyYY",
+        "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+      }
+    },
+    "status": 200,
+    "messages": [
+      "snap failed: THUMBNAIL_BUCKET is not set: this server stores no captures. Set it to the bucket captures belong in (an isolated bucket for any test run)."
+    ],
+    "after": {
+      "generation": "1795196522406770",
+      "metadata": {
+        "captureSequence": "7",
+        "commandId": "c:0e6188fd07f7562e57bb5425fc790d5bdf150d5844f443e802c0a699e9952da0",
+        "item": "7vwaCAIyMNCJEzgIfyYY",
+        "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+      }
+    }
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "runId": "ad49c0ac",
+  "phase": "drop-outcome-retry",
+  "at": "2026-11-20T19:35:15.466Z",
+  "dropped": "drop-outcome-2026-11-20T19-33-38-221Z.json",
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "stagedAfterDelete": {
+      "absent": true
+    },
+    "stagedDeletedAt": "2026-11-20T19:34:04.981Z",
+    "retry": {
+      "status": 200,
+      "commandId": "c:db80a736f58318fe6f9cb1141bd60fc7c575d922cefe6374fe35496eeeff009b",
+      "outcome": "uncertain"
+    },
+    "reconcile": {
+      "status": 200,
+      "operations": [
+        {
+          "operationId": "inv-b8878442-06cb-4517-9a10-fbee816c5f42/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "verdict": "applied",
+          "final": true,
+          "observation": {
+            "found": true,
+            "captureSequence": 10
+          },
+          "result": {
+            "item": "7vwaCAIyMNCJEzgIfyYY",
+            "captureSequence": 10,
+            "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+            "url": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5"
+          },
+          "resultSource": "evidence"
+        }
+      ],
+      "attempts": [
+        {
+          "at": "2026-11-20T19:34:08.755Z",
+          "status": 200,
+          "verdict": "too-early"
+        },
+        {
+          "at": "2026-11-20T19:34:19.588Z",
+          "status": 200,
+          "verdict": "too-early"
+        },
+        {
+          "at": "2026-11-20T19:34:30.340Z",
+          "status": 200,
+          "verdict": "too-early"
+        },
+        {
+          "at": "2026-11-20T19:34:41.108Z",
+          "status": 200,
+          "verdict": "too-early"
+        },
+        {
+          "at": "2026-11-20T19:34:51.920Z",
+          "status": 200,
+          "verdict": "too-early"
+        },
+        {
+          "at": "2026-11-20T19:35:02.595Z",
+          "status": 200,
+          "verdict": "too-early"
+        },
+        {
+          "at": "2026-11-20T19:35:14.027Z",
+          "status": 200,
+          "verdict": "applied"
+        }
+      ],
+      "timedOut": false
+    },
+    "objectAfterRetry": {
+      "generation": "1795203213936726",
+      "metadata": {
+        "captureSequence": "10",
+        "commandId": "c:db80a736f58318fe6f9cb1141bd60fc7c575d922cefe6374fe35496eeeff009b",
+        "item": "7vwaCAIyMNCJEzgIfyYY",
+        "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+      }
+    },
+    "executeSteps": [
+      {
+        "at": "2026-11-20T19:33:33.858Z",
+        "service": "broker-c5d-drive",
+        "attempt": 1,
+        "callerRole": "compiler",
+        "decisionId": "d48c5d5a-248e-432f-bdca-e7c217f11607",
+        "event": "execute-step",
+        "fn": "snap",
+        "invocationId": "inv-b8878442-06cb-4517-9a10-fbee816c5f42",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "jti": "2d8381e1-618a-4e20-90f6-80879f6bdb98",
+        "lang": "0013",
+        "logName": "security_audit",
+        "op": "gcs.put-thumbnail",
+        "opid": "inv-b8878442-06cb-4517-9a10-fbee816c5f42/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "outcome": "allowed",
+        "planDigest": "b7d4fa03a3b362680b0d3c74337095b31bad6561c56e658aba7a288b2b91cd96",
+        "provenance": "user",
+        "purpose": "dispatch",
+        "registryVersion": 9,
+        "requestId": "f651db71-b434-45d5-8e1c-194021ffc3e6",
+        "stage": "s0",
+        "step": "publish",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-20T19:33:34.150Z",
+        "service": "broker-c5d-drive",
+        "callerRole": "compiler",
+        "category": "invalid",
+        "event": "execute",
+        "fn": "snap",
+        "invocationId": "inv-b8878442-06cb-4517-9a10-fbee816c5f42",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "jti": "2d8381e1-618a-4e20-90f6-80879f6bdb98",
+        "lang": "0013",
+        "logName": "security_audit",
+        "op": "gcs.put-thumbnail",
+        "opid": "inv-b8878442-06cb-4517-9a10-fbee816c5f42/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "outcome": "uncertain",
+        "planDigest": "b7d4fa03a3b362680b0d3c74337095b31bad6561c56e658aba7a288b2b91cd96",
+        "provenance": "user",
+        "reason": "outcome-not-recorded",
+        "registryVersion": 9,
+        "requestId": "f651db71-b434-45d5-8e1c-194021ffc3e6",
+        "stage": "s0",
+        "steps": [
+          "publish"
+        ],
+        "user": "f70edb9f82429f72ac89b1ca"
+      }
+    ]
+  }
+}
