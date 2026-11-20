@@ -866,6 +866,28 @@ const ANSI_RE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
 export const stripAnsi = text => String(text ?? "").replace(ANSI_RE, "");
 export const isRenderLine = (text, item) => new RegExp(`\\brender item=${item.replace(/[^A-Za-z0-9_-]/g, "")}(\\s|$)`).test(stripAnsi(text));
 
+// recount-renders (live, run ad49c0ac, 2026-11-20): exit-after-stage's
+// staged-reused counted 0 renders through the ANSI-blind query. Its capture
+// is terminal and its journal entry write-once, so the phase can't be rerun;
+// the renders are recounted, in that phase's own window (its journal entry,
+// written just before its request, to its manifest's end), into a new
+// manifest of that phase. Everything else is the earlier manifest's,
+// unchanged; the earlier manifest is kept.
+export const RECOUNTABLE = Object.freeze(["exit-after-stage"]);
+export const recountManifest = ({ prior, priorFile, journalAt, renders, at }) => {
+  if (!RECOUNTABLE.includes(prior?.phase)) throw new Error(`renders are recounted only for ${RECOUNTABLE.join(", ")}`);
+  if (!Number.isSafeInteger(renders) || renders < 0) throw new Error("the recount isn't a count");
+  if (!(Date.parse(journalAt) < Date.parse(prior.at))) throw new Error("the phase's window isn't readable");
+  return {
+    runId: prior.runId,
+    phase: prior.phase,
+    at,
+    ...(prior.answered !== undefined ? { answered: prior.answered } : {}),
+    recount: { of: priorFile, field: "renders", from: journalAt, to: prior.at, before: prior.observations?.renders ?? null },
+    observations: { ...prior.observations, renders },
+  };
+};
+
 export const confirmResolution = ({ recorded, recomputed }) => {
   if (!recorded?.noAllocation) return { problem: "the recorded resolution has no noAllocation" };
   if (!recomputed?.noAllocation) return { problem: "no resolution could be recomputed" };

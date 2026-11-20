@@ -128,7 +128,7 @@ import {
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
   latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
   priorPublicCaptures, policyFixtureClient, answerResolution, correlateIntents, paginateAll, drivePolicyCommands, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
-  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing, directCompileRequest, isRenderLine,
+  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing, directCompileRequest, isRenderLine, RECOUNTABLE, recountManifest,
 } from "./lib/c5d-drive-checks.js";
 
 const args = process.argv.slice(2);
@@ -137,7 +137,7 @@ const flag = (name, fallback = null) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 const PHASE_NAMES = ["plan", "checks", "access-probes", "baseline", "first-capture", "direct-refused", "exit-after-reserve", "exit-after-stage", "drop-outcome", "drop-outcome-retry",
-  "stale-worker", "staging-gone", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap", "resolve-journal", "resolve-intent", "boundary", "cleanup", "judge"];
+  "stale-worker", "staging-gone", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap", "resolve-journal", "resolve-intent", "recount-renders", "boundary", "cleanup", "judge"];
 const phase = flag("--phase");
 if (!PHASE_NAMES.includes(phase)) {
   console.error(`usage: c5d-drive.js --phase <${PHASE_NAMES.join("|")}> --run <id> [flags]`);
@@ -793,6 +793,24 @@ if (phase === "staging-gone") {
   const fresh = await command({ name: "staging-gone-fresh", task: need("--private-task"), user: await canary() });
   await collect("fresh", () => captureOf(fresh.commandId));
   finish({ answered });
+}
+
+if (phase === "recount-renders") {
+  // A recount of exit-after-stage's renders in its own window (recountManifest).
+  const of = need("--of");
+  if (!RECOUNTABLE.includes(of)) throw new Error(`--of must be one of ${RECOUNTABLE.join(", ")}`);
+  const earlier = readdirSync(dir).filter(f => f.startsWith(`${of}-`) && f.endsWith(".json")).sort();
+  if (!earlier.length) throw new Error(`no ${of} manifest in this run`);
+  const priorFile = earlier.at(-1);
+  const prior = JSON.parse(readFileSync(path.join(dir, priorFile), "utf8"));
+  const journalAt = JSON.parse(readFileSync(path.join(journalDir, journalName(of)), "utf8")).at;
+  const renders = await rendersOf(FIXTURES.private, journalAt, prior.at);
+  const manifest = recountManifest({ prior, priorFile, journalAt, renders, at: new Date().toISOString() });
+  const file = writeOnce(phaseFile(of, stampOf(new Date())), manifest);
+  const judged = judgePhase(of, manifest.observations);
+  for (const c of judged.checks) console.log(`${c.ok ? "ok    " : "FAILED"} ${c.id}: ${c.detail}`);
+  console.log(`${of} (recount of ${priorFile}: renders ${manifest.recount.before} -> ${renders}): ${file}`);
+  process.exitCode = phaseExitCode({ phase: of, observations: manifest.observations });
 }
 
 if (phase === "older-after-newer") {

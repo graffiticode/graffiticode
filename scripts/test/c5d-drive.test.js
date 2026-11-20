@@ -1309,3 +1309,16 @@ test("render lines are matched without their ANSI colour codes", () => {
   assert.equal(C.isRenderLine("\u001b[33m WARN\u001b[0m capture fault exit-after-stage command c:ab", item), false);
   assert.equal(C.stripAnsi("\u001b[3mitem\u001b[0m\u001b[2m=\u001b[0mx"), "item=x");
 });
+
+test("recount-renders: a new manifest of the phase, only its renders recounted in its own window", () => {
+  const prior = { runId: "ad49c0ac", phase: "exit-after-stage", at: "2026-11-20T17:58:16.261Z", answered: { status: 200, commandId: "c:x" }, observations: { uid: "u", errors: {}, faultLines: [{ at: "t" }], stagedAtExit: { staged: true }, capture: { status: "completed" }, renders: 0 } };
+  const m = C.recountManifest({ prior, priorFile: "exit-after-stage-2026-11-20T17-58-16-261Z.json", journalAt: "2026-11-20T17:56:25.100Z", renders: 1, at: "2026-11-20T19:00:00.000Z" });
+  assert.equal(m.phase, "exit-after-stage");
+  assert.deepEqual(m.observations, { ...prior.observations, renders: 1 });
+  assert.deepEqual(m.recount, { of: "exit-after-stage-2026-11-20T17-58-16-261Z.json", field: "renders", from: "2026-11-20T17:56:25.100Z", to: "2026-11-20T17:58:16.261Z", before: 0 });
+  assert.deepEqual(m.answered, prior.answered);
+  assert.equal(prior.observations.renders, 0, "the earlier manifest is untouched");
+  assert.throws(() => C.recountManifest({ prior: { ...prior, phase: "staging-gone" }, priorFile: "f", journalAt: "2026-11-20T17:56:25Z", renders: 1, at: "x" }), /only for/);
+  assert.throws(() => C.recountManifest({ prior, priorFile: "f", journalAt: "2026-11-20T17:56:25Z", renders: -1, at: "x" }), /count/);
+  assert.throws(() => C.recountManifest({ prior, priorFile: "f", journalAt: "2026-11-20T18:59:00Z", renders: 1, at: "x" }), /window/);
+});
