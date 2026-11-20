@@ -845,6 +845,18 @@ export const parseListing = (bucket, stdout) => {
   });
 };
 
+// direct-refused's request: a snap compiled straight at the drive compiler,
+// outside any command, as a signed-in user would send it. The compilers are
+// public (Step 32 correction), so Authorization reaches the compiler itself,
+// which verifies it as a Graffiticode user token (l0000r server
+// request_identity): a Google ID token there is rejected 401 before the snap
+// is reached (live, run ad49c0ac, 2026-11-20). The canary's token is passed
+// as the api passes a user's, unprefixed.
+export const directCompileRequest = ({ url, code, userToken }) => {
+  if (typeof userToken !== "string" || !userToken) throw new Error("direct-refused needs the canary's access token");
+  return { method: "POST", url: `${url}/compile`, headers: { Authorization: userToken }, body: { code, data: {} } };
+};
+
 export const confirmResolution = ({ recorded, recomputed }) => {
   if (!recorded?.noAllocation) return { problem: "the recorded resolution has no noAllocation" };
   if (!recomputed?.noAllocation) return { problem: "no resolution could be recomputed" };

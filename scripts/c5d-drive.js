@@ -128,7 +128,7 @@ import {
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
   latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
   priorPublicCaptures, policyFixtureClient, answerResolution, correlateIntents, paginateAll, drivePolicyCommands, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
-  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing,
+  bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing, directCompileRequest,
 } from "./lib/c5d-drive-checks.js";
 
 const args = process.argv.slice(2);
@@ -647,9 +647,10 @@ if (phase === "direct-refused") {
   const item = FIXTURES.private;
   await collect("before", () => objectOf(config.bucket, `${item}.png`));
   await collect("messages", async () => {
-    // Straight to the drive compiler, outside any command, as api-run (an invoker).
+    // Straight to the (public) drive compiler, outside any command, as the
+    // canary user: directCompileRequest.
     const url = await driveUrl("l0013r");
-    const res = await http({ method: "POST", url: `${url}/compile`, headers: { Authorization: `Bearer ${await idToken(gatewayAccount, url)}` }, body: { code: JSON.parse(need("--direct-code")), data: {} } });
+    const res = await http(directCompileRequest({ url, code: JSON.parse(need("--direct-code")), userToken: await canary() }));
     observations.status = res.status;
     return (res.json?.error ? [res.json.error] : res.json?.data?.errors ?? res.json?.errors ?? []).map(e => (typeof e === "string" ? e : e?.message ?? JSON.stringify(e)));
   });

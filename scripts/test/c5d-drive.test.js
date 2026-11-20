@@ -1282,3 +1282,16 @@ test("a bucket listing: empty output is an empty bucket, anything unparsed fails
   assert.throws(() => C.parseListing("graffiticode-c5d-drive", "{}"), /isn't a list/);
   assert.throws(() => C.parseListing("graffiticode-c5d-drive", JSON.stringify([{ url: "gs://graffiticode-thumbnails/abc.png" }])), /isn't this bucket's/);
 });
+
+// Live, run ad49c0ac (2026-11-20): direct-refused sent api-run's Google ID
+// token in Authorization; the now-public compiler verified it as a user token
+// and answered 401 before the snap. The request carries the canary's token.
+test("direct-refused compiles as the canary user, never with a Google ID token", () => {
+  const r = C.directCompileRequest({ url: "https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app", code: { root: 1 }, userToken: "canary-access-token" });
+  assert.deepEqual(r, { method: "POST", url: "https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app/compile", headers: { Authorization: "canary-access-token" }, body: { code: { root: 1 }, data: {} } });
+  assert.throws(() => C.directCompileRequest({ url: "u", code: {}, userToken: "" }), /access token/);
+  const src = readFileSync(new URL("../c5d-drive.js", import.meta.url), "utf8");
+  const block = src.slice(src.indexOf("if (phase === \"direct-refused\")"), src.indexOf("if (phase === \"exit-after-reserve\")"));
+  assert.match(block, /directCompileRequest\(/);
+  assert.doesNotMatch(block, /idToken\(/, "no ID token on the direct compile");
+});
