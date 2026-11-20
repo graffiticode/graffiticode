@@ -2504,7 +2504,7 @@ done
 
 #### 8. Teardown, in this order (the plan's slice 3, "Teardown")
 
-1. **The `cleanup` phase passes.** Every inventoried command (plan, journal, manifests) is terminal, none is due, and no journal intent is unresolved. Policy's own records agree, whatever the journal says:
+1. **The `cleanup` phase passes** (for the run with the `staging-gone` finding, it cannot: §10 records it failed and says how teardown proceeds around that command). Every inventoried command (plan, journal, manifests) is terminal, none is due, and no journal intent is unresolved. Policy's own records agree, whatever the journal says:
    - **Queries:** every command on each of the run's drive tasks, and every command of the canary and of the non-owner. Each is one equality filter, paged by document name to a short last page; a truncated query fails.
    - **Selection:** commands created since the run began, with no upper bound.
    - **Requirement:** each must be in the inventory, terminal and not due. A command Policy holds that the inventory lacks fails `cleanup`, named.
@@ -2600,6 +2600,204 @@ Run `0aa69b9a` stopped at `first-capture` (the correction above). It is closed, 
 5. **Then the new run's phases, in order:** `checks`, `access-probes` and `baseline`, then the capture phases. Each phase's failure exits nonzero, and the drive stops there.
 
 The existing window's expiry is unchanged, and no extension is allowed: if the new run can't finish within it, it stops, and the owner decides.
+
+#### 10. The staging-gone command's disposal [HELD: drafted, not reviewed, not applied]
+
+The `staging-gone` phase produced a product finding, not the outcome the plan expected ("the command fails"). Generation 1 staged the capture and exited (`exit-after-stage`). The operator deleted the staged object (deletion 1, §6). From then on, every takeover went the same way:
+- it resumed at `s0` and called `start` on `l0013r-c5d-drive`. Policy's reservation was already `staged`, so the compiler didn't render (`languages/l0013/crates/core/src/lib.rs` 314–323, and Policy's `commandStage` returns the staged record, `packages/policy/src/policy.ts:1069`);
+- the occurrence was bound and an execution token minted;
+- Broker read staging, found nothing, and refused `staging-unavailable` (409) **before any claim** (`packages/broker/src/broker.ts:632–657`);
+- the worker settled from receipts and found none, then asked Policy to finish. Policy refused `occurrences-unsettled` (`packages/policy/src/command-records.ts:672–676`): the bound occurrence has no outcome, and nothing in the code can record one honestly.
+
+The design for the fix is in [`docs/c5d-staging-gone-finding.md`](c5d-staging-gone-finding.md). This section disposes of the one command as the code stands.
+
+- **`commandId`:** `c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f`
+- **`operationId`:** `inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515` (stage `s0`, occurrence `x:9eb9…e515`)
+- **Times** (from the run): admitted 19:37:47Z, last attempt 19:54:14Z, `command-sweep-c5d-drive` paused 19:55:14Z.
+
+##### 10.1 The disposition (the owner's decision)
+
+**The command stays recorded as it is.** It is `pending`, `admitted`, with one bound occurrence and no outcome, and Broker holds no claim for its operation. It is not settled, finished or forced, and the run's `cleanup` stays **failed**. This procedure records that state and quarantines it.
+
+The ways of closing it that the code offers are all excluded:
+- **`finish`** refuses while the occurrence has no outcome (`command-records.ts:676`). The C5a gate's fenced takeover and empty finish (`scripts/lib/c5a-gate-fixtures.js:41–58`) therefore works only for a command with nothing bound. The owner reproduced the refusal.
+- **`recordLost`** (`command-records.ts:630–641`, route `POST /commands/:id/lost`, `packages/policy/src/app.ts:257`) records every unsettled bound occurrence of a stage as `uncertain`, `source: "lost-response"`, `reason: "compile-response-lost"`. That would say the write's fate is unknown because a compile answer was lost. Neither is true: the answer arrived, and Broker refused the write before any claim, so nothing was written. Recording it would be fabrication, and it would leave the command `uncertain` forever, with no receipt for reconciliation to resolve.
+- **Settlement from receipts** (`settleCommand`, `policy.ts:534–556`; `recordFromReceipts`, `command-records.ts:606–626`) records only from Broker's receipts, and there are none.
+- **`recordRefusal`** (`command-records.ts:645–653`) has no route of its own. Policy calls it only from its own definite refusals at mint or reserve (`settleRefusal`, `policy.ts:876–894`, called at 1565 and 1578; reserve, at 978, 1006 and 1015). A Broker refusal never reaches it.
+- **Reconciliation** (`POST /v1/receipts/reconcile`, `app.ts:384`; `policy.ts:2059–2101`) works from Broker's claims (`packages/broker/src/reconcile.ts`, `listClaims`). It can only turn an `uncertain` outcome into `completed` (`command-records.ts:795–823`, `applies` at 807). This command has neither a claim nor an outcome, and there is no `not-applied` verdict.
+- **A repair** is refused while the original is pending (`repairGate`, `command-records.ts:132`).
+- **There is no deadline-based settlement** and no operator route to finish or abandon a command. `COMMAND_WRITES` (`policy.ts:507`) is the complete set of writes.
+
+##### 10.2 What can still act on it, and what stops each
+
+Nothing in the code quarantines this command durably today. The following hold it, each with its limits:
+
+| Actor | Can it lease or act today? | What stops it | Durable? |
+|---|---|---|---|
+| The drive's sweeper (`command-sweep-c5d-drive` → `api-c5d-drive`, `COMMAND_SCOPES=on`, `deploy.json:2485`) | Yes, once resumed | the job is paused; §8 step 1 deletes it, and step 5 deletes `api-c5d-drive` | Yes, once both are deleted |
+| The production sweeper (`api`, Cloud Scheduler `command-sweep`) | **No.** `api` releases with `removeEnv: ["COMMAND_SCOPES"]` (`deploy.json:196–198`). Its due query sends no `scopes` (`packages/api/src/commands/policy-commands.js:57`). Policy's `listDue` keeps only commands `ownableBy` the caller (`packages/policy/src/firestore.ts:180–198`, `commands.ts:241–247`), and `ownableBy` excludes `scopes: 1` for a worker without it (`commands.ts:150–151`). A takeover is refused `worker-unsupported` too (`commands.ts:175`) | configuration only | **No:** Step 34's step 1 sets `COMMAND_SCOPES=on` |
+| Production `api` after Step 34's step 1, or any future scopes-enabled worker on the same Policy database | Yes. It is listed due (it is `pending` with an expired lease, `firestore.ts:195`), taken over at the next generation (`commands.ts:168–176`), and run (`packages/api/src/commands/sweep.js:13–36`) | After §10.4's retirement, the run stops before any compiler, token or Broker call: `commandSession` refuses `pinned-revision-unavailable` (`policy.ts:755`; `revisionAvailable`, `policy.ts:1285–1289`, needs `approved`). The worker then settles from receipts (none), finishes, and is refused `occurrences-unsettled` (`packages/api/src/commands/worker.js:342–353`, then 107) | **Effects, yes:** nothing can be compiled, minted or claimed. **Bookkeeping, no:** a new takeover every sweep (generation +1, a lease write, a `takeover` audit record), a read of Broker's receipts, and a `WARN … recovery stopped` line, forever |
+| A client re-sending the command's idempotency key (the bridge or `POST /command` on a scopes-enabled api) | Yes. An expired pending command is taken over and run (`packages/api/src/commands/bridge.js:121–124`, `packages/api/src/routes/command.js:210–213`) | Only the canary holds the key, in the run's `plan.json`. No drive phase that sends it is run again. After retirement, it stops as in the row above | As above |
+| A repair (`POST /command/:id/repairs`) | No | `repairGate` → `command-pending` (`command-records.ts:132`) | Yes, while it's pending |
+| Reconciliation | No | it needs a claim (above) | Yes |
+| A stale token (session, execution, render grant) | No | every one has expired (§10.3). Each Policy write is also fenced to a live lease at the current generation (`ownerRefusal`, `commands.ts:102–107`), and Broker's per-step authorization re-checks it through `commandOperation` (`policy.ts:828–838`) | Yes |
+
+**What would quarantine it durably** is a product change, which belongs with the fix (see the design note, "Quarantine"). The change: an owner-set, audited `hold` on the command record that `ownableBy` refuses. That way `listDue`, `takeOver`, `renewLease` and the allocation-path takeover all skip it. The hold changes no status, outcome or count. Until that change ships, **Step 34's step 1 must not be released.** The owner already requires the fix before activation; the hold ships with it or before it.
+
+**Staging could come back.** `graffiticode-command-staging` keeps deleted objects for 7 days (soft delete, Step 28 and the bucket's read-back). Until its `hardDeleteTime`, an operator with `storage.admin` could restore the object. With the revision still approved and a scopes-enabled worker running, the next takeover would then claim and publish. Policy never stages it again: `markStaged` and `commandStage` return the existing staged record (`command-records.ts:537`, `policy.ts:1069`), and L0013 skips rendering when `staged` is set. **No one restores it.** After §10.4's retirement, a restored object would publish nothing anyway: no execution token can be minted (`policy.ts:1621`), and Broker authorizes each step through Policy.
+
+##### 10.3 Read-backs before anything else (read-only)
+
+Set:
+
+```bash
+CMD='c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f'
+OPID='inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515'
+OCC='s0:x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515'
+H=$(printf '%s' "$OPID" | shasum -a 256 | cut -d' ' -f1)   # Broker's doc id: sha256 hex of the operation id (broker/src/firestore.ts:13)
+T=$(gcloud auth print-access-token)
+FS=https://firestore.googleapis.com/v1/projects/graffiticode/databases
+enc() { node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$1"; }
+```
+
+1. **Policy (database `policy`, `packages/policy/src/main.ts:74`; paths per `firestore.ts:206–209`):**
+
+   ```bash
+   curl -s -H "Authorization: Bearer $T" "$FS/policy/documents/commands/$(enc "$CMD")"
+   for c in occurrences reservations outcomes refusals ledger; do
+     curl -s -H "Authorization: Bearer $T" "$FS/policy/documents/commands/$(enc "$CMD")/$c?pageSize=50"; echo
+   done
+   ```
+
+   **Expect:**
+   - **The command:** `status` `pending`, `phase` `admitted`, `scopes` `1`, `admission.recording` `1`, no `publication` and no `result`. Record `owner.generation`, `owner.worker`, `owner.leaseExpiresAt` (expected near 19:55:14Z), `admission.planDigest`, the pinned `l0013r-c5d-drive` revision, and `invocationId`.
+   - **`occurrences`:** exactly `$OCC`. Record its `minted[]` (`jti`, `exp`) and `argd`.
+   - **`reservations`:** exactly `$OCC`, `state` `staged`, `stagedGeneration` `1`, `object` `$CMD/s0/x:9eb9….png`, and the `sha256`. Record `renderGrants[]`.
+   - **`outcomes`, `refusals` and `ledger`:** empty.
+2. **Broker (database `broker`, `packages/broker/src/main.ts:90`).** The claim **is** the document `receipts/{H}`; there is no `claim/current`. The outcome is `receipts/{H}/outcome/final`, a run's state is `receipts/{H}/run/state`, and an execution in progress is `active-executions/{H}` (`packages/broker/src/firestore.ts:49–52`, 169):
+
+   ```bash
+   for p in "receipts/$H" "receipts/$H/outcome/final" "receipts/$H/run/state" "active-executions/$H"; do
+     curl -s -o /dev/null -w "%{http_code} $p\n" -H "Authorization: Bearer $T" "$FS/broker/documents/$p"
+   done
+   curl -s -H "Authorization: Bearer $T" "$FS/broker/documents/receipts/$H/steps?pageSize=5"; echo
+   # Independent of the hash: every claim of the invocation (listClaims, firestore.ts:141–145).
+   curl -s -X POST -H "Authorization: Bearer $T" -H 'Content-Type: application/json' "$FS/broker/documents:runQuery" -d '{
+     "structuredQuery": { "from": [{ "collectionId": "receipts" }], "where": { "compositeFilter": { "op": "AND", "filters": [
+       { "fieldFilter": { "field": { "fieldPath": "operationId" }, "op": "GREATER_THAN_OR_EQUAL", "value": { "stringValue": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/" } } },
+       { "fieldFilter": { "field": { "fieldPath": "operationId" }, "op": "LESS_THAN", "value": { "stringValue": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/" } } } ] } } } }'
+   ```
+
+   - **Expect:** `404` for all four paths, no `steps` documents, and a `runQuery` answer with no `document`.
+   - **Positive control (required):** the same GET of `receipts/<sha256 of the exit-after-stage phase's operation id>` answers `200`, with `operationId` equal to that id. Without the control, a 404 proves nothing. The earlier check's `receipts/<h>/claim/current` is not a path Broker writes.
+3. **Staging (live and soft-deleted):**
+
+   ```bash
+   gcloud storage objects list "gs://graffiticode-command-staging/$CMD/s0/" --project=graffiticode --format=json
+   gcloud storage objects list "gs://graffiticode-command-staging/$CMD/s0/" --soft-deleted --project=graffiticode \
+     --format='json(name,generation,softDeleteTime,hardDeleteTime,md5Hash)'
+   ```
+
+   **Expect:** no live object. One soft-deleted generation: the deleted one, matching the generation the runner printed. Record its `hardDeleteTime`. After that time, rerun the read: it must list nothing.
+4. **Tokens.** Every token issued for this command has expired, and none can be used:
+
+   | Token | Lifetime | Latest possible issue | Expired by |
+   |---|---|---|---|
+   | command session (`gc-session+jwt`) | 15 min (`packages/policy/src/tokens.ts:111`) | last attempt, 19:54:14Z | 20:09:14Z |
+   | execution (`gc-exec+jwt`) | 60 s (`tokens.ts:126`) | 19:54:14Z (+120 s settle grace, `policy.ts:128`) | 19:57:14Z |
+   | render grant (`gc-render+jwt`) | 5 min (`tokens.ts:165`) | none after staging (`command-records.ts:557`): generation 1 only | before 19:55Z |
+   | admission proof | 15 min (`revisions.ts:35`) | admission, 19:37:47Z | 19:52:47Z |
+
+   - **Confirm from the records:** the largest `exp` in the occurrence's `minted[]` and in the reservation's `renderGrants[]` is before the time of this read.
+   - **Independently of expiry,** every use is fenced to a live lease at the current generation (`commands.ts:102–107`). The lease expired at `owner.leaseExpiresAt`.
+5. **In flight.** Nothing has run since the last attempt:
+
+   ```bash
+   for s in api-c5d-drive l0013r-c5d-drive broker-c5d-drive; do
+     gcloud logging read "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"$s\" AND timestamp>=\"<the day>T19:54:00Z\"" \
+       --project=graffiticode --format='value(timestamp,httpRequest.requestMethod,httpRequest.requestUrl,httpRequest.status,textPayload)' --limit=200
+   done
+   gcloud scheduler jobs describe command-sweep-c5d-drive --project=graffiticode --location=us-central1 --format='value(state)'
+   ```
+
+   **Expect:**
+   - `PAUSED`;
+   - no request to any of the three after the last attempt's own requests, which finish by 19:54:14Z plus `l0013r-c5d-drive`'s 300 s timeout (the latest possible end is 19:59:14Z);
+   - `active-executions/{H}` absent (read 2);
+   - Policy's `owner.generation` unchanged between read 1 and a second read taken at the end of this step.
+
+   Production `api`'s logs for the same window name no `$CMD`.
+6. **Production `api` is not a scopes worker:**
+
+   ```bash
+   gcloud run services describe api --project=graffiticode --region=us-central1 --format=json | jq '[.spec.template.spec.containers[0].env[] | select(.name=="COMMAND_SCOPES")]'
+   ```
+
+   **Expect:** `[]`.
+
+Any difference from these expectations stops the procedure, and the owner decides.
+
+##### 10.4 Where the steps go in §8's teardown
+
+Retiring revisions (§8 step 4) and deleting infrastructure (§8 step 5) **stay held until this section is reviewed.**
+
+1. **§10.3, in full,** before §8 step 1. Its output goes to `docs/evidence/c5d/drive/<run>/staging-gone-disposal/`, one file per read.
+2. **§8 step 1, `cleanup`: run it, and record it failed.**
+   - `node scripts/c5d-drive.js --phase cleanup --run <run>` is expected to **exit nonzero**, naming this command and only this one: `status` `pending`, listed by the due query with `scopes` (`scripts/c5d-drive.js:1021–1025`; with `scopes`, line 1023). Any other command named is a separate finding.
+   - Never run it with `--aborted`: that close is for a run that allocated nothing.
+   - The manifest is kept as written, failed. **Cleanup is never marked passed for this run.**
+   - Then, by the owner's named decision to proceed with teardown around this command, delete the drive's sweeper job (§8 step 1's command). Pausing it isn't enough.
+3. **§8 steps 2 and 3,** unchanged. Closing the invokers also stops production `api-run` from reaching either drive compiler.
+4. **§8 step 4, `l0013r-c5d-drive`** (HELD):
+   1. Retire without confirmation first:
+
+      ```bash
+      node scripts/revisions.js retire l0013r-c5d-drive --release <its release id>
+      ```
+
+      It is expected to **cancel itself** (`packages/policy/src/revisions.ts:233–240`). `recoveryReport` (`revisions.ts:160–179`) lists this command's `admission.planDigest`, with `uncertainReceipts: 0`, `unfinishedReceipts: 0` and `artifactStored: false`: no receipt, and no artifact.
+   2. Account for every other plan in the report, by its `invocationId` against Policy's commands. Each must be terminal, with no uncertain or unfinished receipt; a failed capture also stores no artifact. **Any plan not accounted for stops the procedure.**
+   3. Then, **only by the owner's named decision** for this plan:
+
+      ```bash
+      node scripts/revisions.js retire l0013r-c5d-drive --release <its release id> --confirm-unrecoverable
+      ```
+
+   4. **Verify:**
+      - `node scripts/revisions.js status l0013r-c5d-drive` shows the release `retired`, with `unrecoverable` exactly the plans step 2 accounted for (`revisions.ts:242–243`);
+      - the tag URL no longer answers;
+      - Policy's command is unchanged from §10.3 read 1: same `owner.generation`, still `pending`.
+
+   `l0176r-c5d-drive` is retired as §8 step 4 says, and is not touched by this section.
+5. **§8 step 5** (HELD). Deleting `api-c5d-drive` removes the only scopes-enabled worker that exists today. Read §10.3's reads 1 and 2 again afterwards: unchanged.
+6. **§8 steps 6 and 7,** unchanged.
+7. **Before Step 34's step 1:** the `hold` (§10.2) or the fix is released, and this command is held. Until then, Step 34 stays held.
+
+##### 10.5 What the records say afterwards
+
+- **Policy** (`policy` database):
+  - `commands/$CMD` is `pending` and `admitted`, at its last generation, with an expired lease, no `publication` and no `result`;
+  - `occurrences/$OCC` is bound, with its `minted[]`, all expired;
+  - `reservations/$OCC` is `staged`, `stagedGeneration` 1, naming an object that no longer exists;
+  - there are no `outcomes`, `refusals` or `ledger` entries;
+  - the plan (`plans/<planDigest>`) pins a retired revision;
+  - the audit holds each takeover and refusal.
+
+  The command's status says what is true: Policy hasn't settled it. It doesn't say `failed`, `uncertain` or `completed`.
+- **Revisions** (`revisions` database): the `l0013r-c5d-drive` release is `retired`, with this plan in `unrecoverable`.
+- **Broker** (`broker` database): no `receipts/{H}`, and so no claim, outcome, run or step. Its audit holds the `staging-unavailable` refusals, one per takeover.
+- **Staging:** no live object. After `hardDeleteTime`, no soft-deleted generation either.
+- **The api's own records:** no artifact for `inv-078ca8f4-…`.
+- **`publication`** is never `due`: only `finish` sets it (`command-records.ts:736`), and finish refuses. So the publication half of the due query (`firestore.ts:195`) never lists it.
+
+##### 10.6 How the run is recorded
+
+- **The run is failed, not passed.** `judge` exits 1: `staging-gone` didn't show "the command fails", and `cleanup` failed.
+- **The evidence stays as written:** the phase manifests, the failed cleanup manifest, and §10.3's reads with §10.4's read-backs. A `FINDING.md` beside them names this command, links the design note, and records the owner's decisions:
+  - the disposition;
+  - proceeding with teardown;
+  - `--confirm-unrecoverable` for this plan.
+- **C5d's completion gate, item 1,** needs a **new run** after the fix. That run's `staging-gone` shows the command finishing `failed` with nothing published, and its `cleanup` passes. This run's failed cleanup is never rewritten or rerun as a pass.
 
 ### Step 33: the api's rollback floor, `C5d-v9` [HELD: draft #443]
 
