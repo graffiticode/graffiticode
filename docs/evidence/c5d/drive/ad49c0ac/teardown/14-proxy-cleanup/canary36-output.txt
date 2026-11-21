@@ -1,0 +1,41 @@
+2026-11-21T20:14:21.989842Z	canary 995cc0bc98105563168b7fbee7b1e59a4256331c on conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd via https://api-sja7fatcta-uc.a.run.app (api api-rmwkxlbvy-b5fa92; L0176 on l0176r)
+2026-11-21T20:14:26.574426Z	  PASS gateway preview: signed preview returned
+2026-11-21T20:14:26.943342Z	  PASS gateway write: bridge retired: 200 ["bridge-retired"], 0 effects
+2026-11-21T20:14:32.784506Z	  PASS gateway write: command c:1ea12b18e1de84df5f636fcf4f891afe9ce631eaae3f0281afc207c3df71c4f5 completed
+2026-11-21T20:14:34.591290Z	  PASS gateway write effects: 1 outcome(s): completed steps=["questions","items"]
+2026-11-21T20:14:34.816122Z	  PASS gateway write retry: command c:1ea12b18e1de84df5f636fcf4f891afe9ce631eaae3f0281afc207c3df71c4f5 completed for the same idempotency key
+2026-11-21T20:14:35.062150Z	  PASS gateway write retry effects: 1 outcome(s) after the retry, 1 before: nothing written again
+2026-11-21T20:14:36.308224Z	  PASS chain admission: pinned: contract 2, plan 7038458ec1d2 s0=l0176r-rmwk08k8n-c74227, L0176 serving l0176r-rmwk08k8n-c74227
+2026-11-21T20:14:41.556768Z	  PASS command write: command c:3bbc5ca8bc2b78c095634607e0a81b8adf5d6ad9df1c594899e7bfd13ec8b2d6 completed
+2026-11-21T20:14:42.321978Z	  PASS command write: saved: the view shows ["gc-857ea20452a030f2-graffiticode-canary-command-0"]
+2026-11-21T20:14:43.163995Z	  PASS command write retry: the same command and outcome for the same key; the view's references are unchanged
+2026-11-21T20:14:43.222094Z	  PASS command status: /command/c%3A3bbc5ca8bc2b78c095634607e0a81b8adf5d6ad9df1c594899e7bfd13ec8b2d6: completed
+2026-11-21T20:14:48.993892Z	  PASS command over L0185: command c:c169cf6b4f883b109f030a3b3c0f60ab8473e1be93c93540dd51c8aa569562ab completed over https://l0185.graffiticode.org/data/orders.json
+2026-11-21T20:14:49.691358Z	  PASS command over L0185: saved: the view shows ["gc-d18733ac7c727ab3-graffiticode-canary-c3-0"]
+2026-11-21T20:14:50.460058Z	  PASS command over L0185 retry: the same command and outcome for the same key; the view's references are unchanged
+2026-11-21T20:14:50.723884Z	  PASS command preview refused: 409 {"code":409,"message":"command refused","reason":"no-effects"}
+2026-11-21T20:14:57.049013Z	  PASS saved read: signed: each view freshly signed
+2026-11-21T20:14:57.049347Z	  PASS saved read: references: both views keep ["gc-5c9a387fa4781de8-graffiticode-canary-0"]
+2026-11-21T20:14:57.049353Z	  PASS saved read: no save effects: no save effect in either view
+2026-11-21T20:17:01.089971Z	  PASS saved read: audit: bounded evidence: no write was logged for this connection between 2026-11-21T20:14:53.724Z and 2026-11-21T20:14:59.046Z within a 120 s observation; read signings observed: 2
+2026-11-21T20:17:04.791169Z	  PASS chain admission: L0000 stage: compiled: signed preview returned
+2026-11-21T20:17:08.001791Z	  PASS chain admission: L0000 stage: plan e3cc4e1aa9a4 s0=l0176r-rmwk08k8n-c74227 s1=l0000r-rmw8gtkc2-830693, serving L0176 l0176r-rmwk08k8n-c74227, L0000 l0000r-rmw8gtkc2-830693
+2026-11-21T20:17:10.091596Z	  PASS denied final stage: command failed (not-granted), never admitted
+2026-11-21T20:17:10.218003Z	  PASS denied final stage: permissions restored: owner permissions null, expected null
+2026-11-21T20:17:10.843422Z	  PASS v1 refused: invocation marked: contract 2, Policy's minimum 2
+2026-11-21T20:17:10.877588Z	  PASS v1 refused: a snapshot without a plan answered 403 plan-required
+2026-11-21T20:17:11.845239Z	  PASS direct path: admitted: s0 pinned to l0176r-rmwk08k8n-c74227
+2026-11-21T20:17:12.114472Z	  PASS author removed: policy: snapshot allowed ["init","save-to-itembank"]
+2026-11-21T20:17:12.404452Z	  PASS author removed: broker answered 403 operation-mismatch
+2026-11-21T20:17:12.807470Z	  PASS token replay: first use: 200 succeeded
+2026-11-21T20:17:12.875039Z	  PASS token replay: reuse answered 409 token-replayed
+2026-11-21T20:17:15.524265Z	  PASS receipt replay: first write: 200 succeeded
+2026-11-21T20:17:15.972295Z	  PASS receipt replay: fresh token for the same operation answered 200 succeeded replayed=true
+2026-11-21T20:17:18.373887Z	  PASS revocation probe: first write: 200 succeeded
+2026-11-21T20:17:18.805745Z	  PASS revocation probe: replay after narrowing: answered 403 authorization-denied:not-granted
+2026-11-21T20:17:19.454789Z	  PASS revocation probe: minted, then narrowed: answered 200 failed steps=[] authorization-denied:not-granted
+2026-11-21T20:17:19.555004Z	  PASS revocation probe: permissions restored: owner permissions null, expected null
+2026-11-21T20:17:19.555011Z	  drafts saved this run: 5; archived 0, not archived 0 (skipped: no Data API credential (LRN_SANDBOX_KEY, LRN_SANDBOX_SECRET)): gc-5c9a387fa4781de8-graffiticode-canary-0 gc-857ea20452a030f2-graffiticode-canary-command-0 gc-d18733ac7c727ab3-graffiticode-canary-c3-0 gc-9576e3929245a18c-graffiticode-canary gc-062a2552a754b06c-graffiticode-canary
+2026-11-21T20:17:19.555024Z	canary passed (36 checks)
+2026-11-21T20:17:19.619708Z	Container called exit(0).
+2026-11-21T20:17:26.438610Z	

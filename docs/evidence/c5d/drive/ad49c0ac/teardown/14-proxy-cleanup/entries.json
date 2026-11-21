@@ -1,0 +1,380 @@
+[
+  {
+    "insertId": "1jsl5a4f36ytp3",
+    "jsonPayload": {
+      "config_sha256": "8b637609894234b408fe960590380b518927a79fb82491813741569bd81fb47e",
+      "cos.googleapis.com/container_id": "febcf2b2def2963fa7fc3f62a39c876267b42822350c59ac99cb55e9c628d8ab",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "8b637609894234b408fe960590380b518927a79fb82491813741569bd81fb47e",
+      "expected_resources_sha256": "bf2b8495e775f4d9dcfa614e5b08fb38b7bfc6c6d6e047b805d00a50d9cc7e82",
+      "instance": "egress-proxy-jzxg",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "bf2b8495e775f4d9dcfa614e5b08fb38b7bfc6c6d6e047b805d00a50d9cc7e82",
+      "time": "2026-11-21T20:05:45.010660339Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T20:05:58.129967116Z",
+    "resource": {
+      "labels": {
+        "instance_id": "4998614608650192424",
+        "project_id": "graffiticode",
+        "zone": "us-central1-a"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T20:05:45.010660339Z"
+  },
+  {
+    "insertId": "nwty2kf50sqnp",
+    "jsonPayload": {
+      "config_sha256": "8b637609894234b408fe960590380b518927a79fb82491813741569bd81fb47e",
+      "cos.googleapis.com/container_id": "d1f18b16d2ccc8b143ffc1ad5f4401f398f9a4670f1caeb14e12a062c829d520",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "8b637609894234b408fe960590380b518927a79fb82491813741569bd81fb47e",
+      "expected_resources_sha256": "bf2b8495e775f4d9dcfa614e5b08fb38b7bfc6c6d6e047b805d00a50d9cc7e82",
+      "instance": "egress-proxy-4nrq",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "bf2b8495e775f4d9dcfa614e5b08fb38b7bfc6c6d6e047b805d00a50d9cc7e82",
+      "time": "2026-11-21T20:05:44.617263731Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T20:05:59.757887146Z",
+    "resource": {
+      "labels": {
+        "instance_id": "7498703548254537255",
+        "project_id": "graffiticode",
+        "zone": "us-central1-b"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T20:05:44.617263731Z"
+  },
+  {
+    "insertId": "1fxicm8fhvcer6",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "5a644e744cdb77be061051d9e332d51677b857d84e6216ba104e8b30c0f073aa",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-rqzv",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T20:02:22.268309318Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T20:02:37.868883262Z",
+    "resource": {
+      "labels": {
+        "instance_id": "4902959296034292734",
+        "project_id": "graffiticode",
+        "zone": "us-central1-a"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T20:02:22.268309318Z"
+  },
+  {
+    "insertId": "1e9o7ayfryef3n",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "6f95b645bce5ca5929b150b3983d9006a8884826e1d38047718b0f96815490c4",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-gx5g",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T20:02:08.150508859Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T20:02:41.200932727Z",
+    "resource": {
+      "labels": {
+        "instance_id": "2417965598812324861",
+        "project_id": "graffiticode",
+        "zone": "us-central1-b"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T20:02:08.150508859Z"
+  },
+  {
+    "insertId": "ve1fldf31e4jx",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "b7923665ce1ce2661bcd5dabe4ec15777e861b24c16f57d062c9c414b0cab8f2",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-gx5g",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T19:51:54.234546329Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T19:52:41.203003352Z",
+    "resource": {
+      "labels": {
+        "instance_id": "2417965598812324861",
+        "project_id": "graffiticode",
+        "zone": "us-central1-b"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T19:51:54.234546329Z"
+  },
+  {
+    "insertId": "120ua0qfwkgheb",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "1ba3c5a043d3ff1afd62992750b90f0b949a8d788ed9111be8387238ff534849",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-rqzv",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T19:51:34.154368427Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T19:51:37.866182019Z",
+    "resource": {
+      "labels": {
+        "instance_id": "4902959296034292734",
+        "project_id": "graffiticode",
+        "zone": "us-central1-a"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T19:51:34.154368427Z"
+  },
+  {
+    "insertId": "im8rv6f3dsd5h",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "1e6f69fa5c2f6f0bb87a9535f110160fd96c51df039565234ba7f8b3c0df2fe1",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-rqzv",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T19:41:21.511947687Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T19:41:37.865819453Z",
+    "resource": {
+      "labels": {
+        "instance_id": "4902959296034292734",
+        "project_id": "graffiticode",
+        "zone": "us-central1-a"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T19:41:21.511947687Z"
+  },
+  {
+    "insertId": "xb9r5nf30vaj3",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "883dc13620ccf50d4b0f9b23f72dc16aea0e272137a4dd995c2a88dbe7b683c8",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-gx5g",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T19:41:08.422541623Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T19:41:41.195816618Z",
+    "resource": {
+      "labels": {
+        "instance_id": "2417965598812324861",
+        "project_id": "graffiticode",
+        "zone": "us-central1-b"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T19:41:08.422541623Z"
+  },
+  {
+    "insertId": "g3n7ztf3lspnp",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "1df902768988e21c96184459ca2a28b1b60c89d98ec5ac9d11d6c39548b6685e",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-gx5g",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T19:30:53.585440807Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T19:31:41.195984530Z",
+    "resource": {
+      "labels": {
+        "instance_id": "2417965598812324861",
+        "project_id": "graffiticode",
+        "zone": "us-central1-b"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T19:30:53.585440807Z"
+  },
+  {
+    "insertId": "wgrl9wf3f1qg7",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "668dc8f1707a886d485cabd5bd823a22cd2d34f3786858f8a5a3622afc25bae5",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-rqzv",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T19:30:34.662907026Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T19:30:37.866783283Z",
+    "resource": {
+      "labels": {
+        "instance_id": "4902959296034292734",
+        "project_id": "graffiticode",
+        "zone": "us-central1-a"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T19:30:34.662907026Z"
+  },
+  {
+    "insertId": "n1zoghf3m5dg7",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "d873aa1e73978450dfa63cafe7ac7a4be16431cd3b845b1b2da4b8b1d37b9852",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-rqzv",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T19:20:22.444672721Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T19:20:37.864818177Z",
+    "resource": {
+      "labels": {
+        "instance_id": "4902959296034292734",
+        "project_id": "graffiticode",
+        "zone": "us-central1-a"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T19:20:22.444672721Z"
+  },
+  {
+    "insertId": "1mjnrq3f3k8g5s",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "14f2c89d2efce3cfc6f8a7e1dca3fa06c4c9f52d0c6ebf2d0337495d1d088402",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-gx5g",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T19:20:08.170071723Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T19:20:41.202449761Z",
+    "resource": {
+      "labels": {
+        "instance_id": "2417965598812324861",
+        "project_id": "graffiticode",
+        "zone": "us-central1-b"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T19:20:08.170071723Z"
+  },
+  {
+    "insertId": "14kh1sjf3e3yiw",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "cb990114660be8b9794aad65e2fd95b9cbccb0f694f32d9470b53d50bd4d15e2",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-gx5g",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T19:09:52.352912684Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T19:10:41.202396280Z",
+    "resource": {
+      "labels": {
+        "instance_id": "2417965598812324861",
+        "project_id": "graffiticode",
+        "zone": "us-central1-b"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T19:09:52.352912684Z"
+  },
+  {
+    "insertId": "1fxag9ef359qly",
+    "jsonPayload": {
+      "config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "cos.googleapis.com/container_id": "a6792fbe3a1255367e99bb3283c316fb5dd9da475e7b4d9c4ff35e61333f494e",
+      "cos.googleapis.com/container_name": "envoy-config-report",
+      "cos.googleapis.com/stream": "stdout",
+      "expected_config_sha256": "94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697",
+      "expected_resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "instance": "egress-proxy-rqzv",
+      "isolate01": "config",
+      "match": true,
+      "resources_sha256": "d2be89ec1d1ed0c66e10541b1a424792163d08ade8b6250116effdc78c44dd16",
+      "time": "2026-11-21T19:09:34.113996657Z"
+    },
+    "logName": "projects/graffiticode/logs/cos_containers",
+    "receiveTimestamp": "2026-11-21T19:09:37.870145511Z",
+    "resource": {
+      "labels": {
+        "instance_id": "4902959296034292734",
+        "project_id": "graffiticode",
+        "zone": "us-central1-a"
+      },
+      "type": "gce_instance"
+    },
+    "timestamp": "2026-11-21T19:09:34.113996657Z"
+  }
+]

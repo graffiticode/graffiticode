@@ -42,3 +42,7 @@ drive/ad49c0ac/teardown/4-revision-record-after.json
 drive/ad49c0ac/teardown/8-revision-record-after-resume.json
 drive/ad49c0ac/teardown/8-service-after-resume.json
 drive/ad49c0ac/teardown/gc-c5-retirement-readback-1795280089709.json
+
+Proxy cleanup (2026-11-21): the operator's address replaced by <operator> in:
+drive/ad49c0ac/teardown/14-proxy-cleanup/cert-secret-after.err
+teardown/14-proxy-cleanup/instances.json: each VM's user-data (the proxy cloud-init of egress-proxy-ce42b3628a5a, config digest 8b637609...) replaced by its length and sha256.

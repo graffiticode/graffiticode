@@ -1,0 +1,2 @@
+egress-proxy-jzxg	RUNNING	NONE	egress-proxy-ce42b3628a5a	HEALTHY
+egress-proxy-4nrq	RUNNING	NONE	egress-proxy-ce42b3628a5a	HEALTHY

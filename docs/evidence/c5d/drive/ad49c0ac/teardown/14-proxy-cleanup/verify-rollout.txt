@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "problems": [],
+  "instances": [
+    {
+      "name": "egress-proxy-jzxg",
+      "template": "8b637609894234b408fe960590380b518927a79fb82491813741569bd81fb47e",
+      "reported": "8b637609894234b408fe960590380b518927a79fb82491813741569bd81fb47e",
+      "match": true,
+      "at": "2026-11-21T20:05:45.010660339Z"
+    },
+    {
+      "name": "egress-proxy-4nrq",
+      "template": "8b637609894234b408fe960590380b518927a79fb82491813741569bd81fb47e",
+      "reported": "8b637609894234b408fe960590380b518927a79fb82491813741569bd81fb47e",
+      "match": true,
+      "at": "2026-11-21T20:05:44.617263731Z"
+    }
+  ]
+}

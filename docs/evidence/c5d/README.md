@@ -100,4 +100,16 @@ In [`drive/ad49c0ac/staging-gone-disposal/`](drive/ad49c0ac/staging-gone-disposa
 - **The drive bucket archived** (listing, generations, both objects with matching md5), then **the four services and the bucket deleted**; all five read back absent. B6's `l0176r-drive` is unchanged (generation 7).
 - **Both plans' records** (13 Policy and Broker responses) are **canonically unchanged** throughout, and the stuck operation's Broker paths still answer 404 (`teardown/13-retained-records/`).
 
-**Remaining, held:** the proxy and configuration cleanup PR, then the proxy rollout to its configuration's digest and the host certificate secret's deletion. The drive and its `cleanup` remain **failed**. Before activation: the product fix, the durable `hold`, and a successful fresh drive.
+**The configuration cleanup** ([`teardown/14-proxy-cleanup/`](drive/ad49c0ac/teardown/14-proxy-cleanup/)):
+
+- **The diff:** #463 removed the drive's `deploy.json` entries and its two network-inventory entries. Its configuration's digest is `8b637609…`.
+- **The rollout** (2026-11-21T20:02:08Z): the proxy rolled, by the owner's approval, to the kept template of that configuration, `egress-proxy-ce42b3628a5a`, whose user-data was verified byte-identical to the generated plan (sha256 `2e502b56…`).
+  - Surge 2, unavailable 0.
+  - Both new VMs HEALTHY before either old one was deleted, and each old VM UNHEALTHY only after its own delete call.
+  - `verify-rollout --size 2` passed, both `match: true`. No NAT drops.
+- **The production canary:**
+  - `canary-f5gsb` **36/36**: the job's arguments plus `--l0185-tail`, the form of C5b's `canary-bpd85`.
+  - A first run with the job's own arguments, `canary-m5pf2`, passed its usual 33. The scheduled runs pass 33, and the operator runs with `--l0185-tail` pass 36.
+- **The certificate secret:** `egress-proxy-cert-broker-c5d-drive-sja7fatcta-uc-a-run-app` deleted, after confirming the running configuration doesn't reference it. 48 host-certificate secrets remain, and none names `c5d`.
+
+**Teardown is complete.** The drive and its `cleanup` remain **failed**. Before activation: the product fix, the durable `hold`, and a successful fresh drive.
