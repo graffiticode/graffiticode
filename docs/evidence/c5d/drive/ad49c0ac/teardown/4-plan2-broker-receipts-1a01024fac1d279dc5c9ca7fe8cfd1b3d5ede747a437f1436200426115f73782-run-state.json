@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": 404,
+    "message": "Document \"projects/graffiticode/databases/broker/documents/receipts/1a01024fac1d279dc5c9ca7fe8cfd1b3d5ede747a437f1436200426115f73782/run/state\" not found.",
+    "status": "NOT_FOUND"
+  }
+}

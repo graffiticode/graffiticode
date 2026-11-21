@@ -25,3 +25,24 @@ step32/window/console-run.json
 step32/proxy/instances.json: each VM's user-data (the proxy cloud-init, already pinned by config digest 94ecf108...) replaced by its length and sha256.
 
 step32/run2/release-api.log, step32/releases-run1/release-api.log: one local-test JWT each (the api build's auth spec fixture: ES256, iss urn:graffiticode:auth, sub abc123, expired, signed by the build's own test key) replaced by a marker. Correction after #458's review: the earlier "no token" scan matched only eyJhbGci headers.
+
+Disposal and teardown (2026-11-21): the operator's address replaced by <operator> in:
+drive/ad49c0ac/teardown/1-sweeper-after.err
+drive/ad49c0ac/teardown/12-deletion/final-describe-api-c5d-drive.json
+drive/ad49c0ac/teardown/12-deletion/final-describe-broker-c5d-drive.json
+drive/ad49c0ac/teardown/12-deletion/final-describe-l0013r-c5d-drive.json
+drive/ad49c0ac/teardown/12-deletion/final-describe-l0176r-c5d-drive.json
+drive/ad49c0ac/teardown/13-retained-records/revision-l0013r-c5d-drive-rmwo5eh0t-66f668.json
+drive/ad49c0ac/teardown/13-retained-records/revision-l0013r-c5d-drive-rmwo9rmhz-e7abb8.json
+drive/ad49c0ac/teardown/13-retained-records/revision-l0176r-c5d-drive-rmwo5egv6-a16b77.json
+drive/ad49c0ac/teardown/13-retained-records/revision-l0176r-c5d-drive-rmwo9rmds-b7a578.json
+drive/ad49c0ac/teardown/3-parked-l0013r-c5d-drive.json
+drive/ad49c0ac/teardown/3-parked-l0176r-c5d-drive.json
+drive/ad49c0ac/teardown/4-revision-record-after.json
+drive/ad49c0ac/teardown/8-revision-record-after-resume.json
+drive/ad49c0ac/teardown/8-service-after-resume.json
+drive/ad49c0ac/teardown/gc-c5-retirement-readback-1795280089709.json
+
+Proxy cleanup (2026-11-21): the operator's address replaced by <operator> in:
+drive/ad49c0ac/teardown/14-proxy-cleanup/cert-secret-after.err
+teardown/14-proxy-cleanup/instances.json: each VM's user-data (the proxy cloud-init of egress-proxy-ce42b3628a5a, config digest 8b637609...) replaced by its length and sha256.

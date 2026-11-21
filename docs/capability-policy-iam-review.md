@@ -2234,9 +2234,11 @@ C5b slice 4: Broker's `THUMBNAIL_BUCKET` goes from `graffiticode-c5a-gate`, dele
 5. **Production canary:** `canary-bpd85` passed 36/36.
 6. **Production unchanged:** no `COMMANDS_L0013`, `COMMAND_SCOPES` or `INTERPRETER_L0013`. The bucket holds the 33 migrated thumbnails. The service description is committed only in redacted form (`REDACTIONS.txt`).
 
-### Step 32: the C5d drive's services, bucket, proxy hosts and window [APPLIED IN PART: drive stopped; teardown held]
+### Step 32: the C5d drive's services, bucket, proxy hosts and window [APPLIED: drive failed at staging-gone; teardown complete]
 
 > **Status (2026-11-20).** Approved 2026-11-19 and corrected by #452–#457 (public drive compilers, the runner's fixes). Infrastructure, releases, the proxy (`egress-proxy-9a1404b049a2`, `94ecf108…`) and the window (expiring 2026-11-20T23:14:39Z) were applied as recorded in [`docs/evidence/c5d/`](evidence/c5d/README.md). Run `0aa69b9a` aborted at `first-capture` (private compilers) and was closed `cleanup --aborted`. Run `ad49c0ac` passed `checks`, `access-probes`, `baseline`, `first-capture`, `direct-refused`, `exit-after-reserve`, `exit-after-stage` (by recount), `drop-outcome` and `stale-worker`, then **stopped at `staging-gone`: a blocking product finding** (a definitive pre-claim refusal is never settled; see the evidence README). The drive has **not passed**. Its sweeper is paused; Broker's fault is off. The stuck command stays recorded pending, with an unsettled occurrence and no Broker claim, and `cleanup` stays failed. Compiler retirement and infrastructure deletion are held pending review of the command's disposal procedure.
+
+> **Teardown (2026-11-21).** By the owner's decisions, in §10.4's order: §10.3's read-backs (with the two amendments below) and `cleanup`, run inside the window and recorded **failed** on the stuck command alone; the drive sweeper deleted; access to both compilers closed (no invoker binding, Cloud Run's own 403) and both parked on unapproved revisions; `l0013r-c5d-drive-rmwo9rmhz-e7abb8` retired with `--confirm-unrecoverable`, by the owner's named decision on a fresh report of **exactly two isolated drive plans**: `5db5e929…` (staging-gone, the stuck command) and `b7d4fa03…` (drop-outcome, reconciled `applied` at 19:35:13Z, its original receipt outcome still unfinished), its tag removed by `--resume`; the other three drive revisions retired without override (empty reports); the drive bucket archived; the four services and the bucket deleted. Both plans' Policy and Broker records are canonically unchanged throughout. Then the configuration cleanup (#463): the proxy rolled to the resulting configuration, `egress-proxy-ce42b3628a5a` (`8b637609…`, its user-data verified byte-identical to the generated plan), both VMs healthy and `verify-rollout` passing; the production canary 36/36 (`canary-f5gsb`); and `egress-proxy-cert-broker-c5d-drive-sja7fatcta-uc-a-run-app` deleted. Teardown is complete. The drive and its `cleanup` remain failed. Evidence: [`docs/evidence/c5d/drive/ad49c0ac/teardown/`](evidence/c5d/drive/ad49c0ac/teardown/).
 
 C5d slices 2 and 3 ([`docs/c5d-snapshot-commands-plan.md`](c5d-snapshot-commands-plan.md), decision 3): an isolated drive of snapshot commands through production Policy, publishing only to its own bucket. **Every action below needs the owner's approval, and none has been taken.** The runner is [`scripts/c5d-drive.js`](../scripts/c5d-drive.js), judged by `scripts/lib/c5d-drive-checks.js`. Its evidence goes to `docs/evidence/c5d/drive/<run>/`:
 - `plan.json` and `baseline.json`, each written once per run. The baseline is refused once any capture has begun, and `boundary` and `judge` read only it.
@@ -2703,18 +2705,22 @@ enc() { node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$1"
    curl -s -X POST -H "Authorization: Bearer $T" -H 'Content-Type: application/json' "$FS/broker/documents:runQuery" -d '{
      "structuredQuery": { "from": [{ "collectionId": "receipts" }], "where": { "compositeFilter": { "op": "AND", "filters": [
        { "fieldFilter": { "field": { "fieldPath": "operationId" }, "op": "GREATER_THAN_OR_EQUAL", "value": { "stringValue": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/" } } },
-       { "fieldFilter": { "field": { "fieldPath": "operationId" }, "op": "LESS_THAN", "value": { "stringValue": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3/" } } } ] } } } }'
+       { "fieldFilter": { "field": { "fieldPath": "operationId" }, "op": "LESS_THAN", "value": { "stringValue": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa30" } } } ] } } } }'
    ```
 
    - **Expect:** `404` for all four paths, no `steps` documents, and a `runQuery` answer with no `document`.
+   - **The query's upper bound (amended 2026-11-21).** It was first written as the prefix followed by U+F8FF, Firestore's usual end-of-prefix sentinel. That is correct, but the character is invisible, and when this read was run it was lost in transcription, which turned the query into one matching nothing. The bound is now the visible equivalent: the prefix with its final `/` replaced by `0`, the next character, so the range is exactly the invocation's operation ids. The query is also run on a control invocation, the `exit-after-stage` phase's, which must return its receipt. Evidence: `docs/evidence/c5d/drive/ad49c0ac/staging-gone-disposal/` (`2-broker-runquery*.json`; the file named `…as-written-control` is the transcription that had lost the character, not the query as written).
    - **Positive control (required):** the same GET of `receipts/<sha256 of the exit-after-stage phase's operation id>` answers `200`, with `operationId` equal to that id. Without the control, a 404 proves nothing. The earlier check's `receipts/<h>/claim/current` is not a path Broker writes.
 3. **Staging (live and soft-deleted):**
 
    ```bash
    gcloud storage objects list "gs://graffiticode-command-staging/$CMD/s0/" --project=graffiticode --format=json
-   gcloud storage objects list "gs://graffiticode-command-staging/$CMD/s0/" --soft-deleted --project=graffiticode \
-     --format='json(name,generation,softDeleteTime,hardDeleteTime,md5Hash)'
+   # Soft-deleted objects, through the JSON API (amended 2026-11-21: `gcloud storage objects list --soft-deleted`
+   # listed nothing for these prefixes, the drop-outcome control included, though both were soft-deleted):
+   curl -s -H "Authorization: Bearer $T" "https://storage.googleapis.com/storage/v1/b/graffiticode-command-staging/o?softDeleted=true&prefix=$(enc "$CMD/s0/")&fields=items(name,generation,softDeleteTime,hardDeleteTime)"
    ```
+
+   The same JSON API read of the `drop-outcome` command's prefix is the control: it must list that deletion's own generation.
 
    **Expect:** no live object. One soft-deleted generation: the deleted one, matching the generation the runner printed. Record its `hardDeleteTime`. After that time, rerun the read: it must list nothing.
 4. **Tokens.** Every token issued for this command has expired, and none can be used:

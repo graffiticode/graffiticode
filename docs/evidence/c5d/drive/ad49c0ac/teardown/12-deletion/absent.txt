@@ -1,0 +1,5 @@
+absent  api-c5d-drive
+absent  l0013r-c5d-drive
+absent  l0176r-c5d-drive
+absent  broker-c5d-drive
+bucket: HTTP 404

@@ -1,0 +1,67 @@
+{
+  "name": "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwo5eh0t-66f668",
+  "fields": {
+    "retiredBy": {
+      "stringValue": "<operator>"
+    },
+    "retiredAt": {
+      "stringValue": "2026-11-21T17:05:20.627Z"
+    },
+    "status": {
+      "stringValue": "retired"
+    },
+    "tagUrl": {
+      "stringValue": "https://rmwo5eh0t-66f668---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+    },
+    "revision": {
+      "stringValue": "l0013r-c5d-drive-rmwo5eh0t-66f668"
+    },
+    "tag": {
+      "stringValue": "rmwo5eh0t-66f668"
+    },
+    "imageDigest": {
+      "stringValue": "sha256:9336626e8464f79d9a381e3e15994d46d343036f97475d163d76e2661d866c96"
+    },
+    "contractVersions": {
+      "arrayValue": {
+        "values": [
+          {
+            "integerValue": "3"
+          }
+        ]
+      }
+    },
+    "retirementId": {
+      "stringValue": "b30bc5c5-7c24-443b-9913-dcb38f15906c"
+    },
+    "approvedAt": {
+      "timestampValue": "2026-11-19T23:12:51.643Z"
+    },
+    "retiringBy": {
+      "stringValue": "<operator>"
+    },
+    "releaseId": {
+      "stringValue": "rmwo5eh0t-66f668"
+    },
+    "tagRemovedAt": {
+      "stringValue": "2026-11-21T17:20:24.311Z"
+    },
+    "commit": {
+      "stringValue": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9"
+    },
+    "retiringSince": {
+      "stringValue": "2026-11-21T17:05:19.324Z"
+    },
+    "service": {
+      "stringValue": "l0013r-c5d-drive"
+    },
+    "lang": {
+      "stringValue": "0013"
+    },
+    "unrecoverable": {
+      "arrayValue": {}
+    }
+  },
+  "createTime": "2026-11-19T23:12:52.185818Z",
+  "updateTime": "2026-11-21T17:20:24.783143Z"
+}

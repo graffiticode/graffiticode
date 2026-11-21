@@ -1229,7 +1229,7 @@ test("Step 32's correction: public compilers with allUsers, the access probes, c
   // Both deletions stay. Step 32 was applied in part (2026-11-19/20): the drive stopped at
   // staging-gone, and its teardown is held.
   assert.equal((step32.match(/gcloud storage rm 'gs:\/\/graffiticode-command-staging\//g) ?? []).length, 2);
-  assert.match(step32, /\[APPLIED IN PART: drive stopped; teardown held\]/);
+  assert.match(step32, /\[APPLIED: drive failed at staging-gone; teardown complete\]/);
 });
 
 // Step 32 live run, 2026-11-20: resolve-intent wrote its resolution, then

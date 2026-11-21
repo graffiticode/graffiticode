@@ -1,0 +1,7 @@
+20:02:23 False	False
+20:02:44 False	False
+20:03:06 False	False
+20:03:27 False	False
+20:03:48 False	False
+20:04:09 False	False
+20:04:31 True	True

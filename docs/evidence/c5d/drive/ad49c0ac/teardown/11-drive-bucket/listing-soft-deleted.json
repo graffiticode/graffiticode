@@ -1,0 +1,13 @@
+{
+  "error": {
+    "code": 400,
+    "message": "Soft delete policy is required to list soft-deleted versions",
+    "errors": [
+      {
+        "message": "Soft delete policy is required to list soft-deleted versions",
+        "domain": "global",
+        "reason": "invalid"
+      }
+    ]
+  }
+}

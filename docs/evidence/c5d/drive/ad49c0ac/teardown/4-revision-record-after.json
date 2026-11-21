@@ -1,0 +1,70 @@
+{
+  "name": "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwo9rmhz-e7abb8",
+  "fields": {
+    "tagUrl": {
+      "stringValue": "https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+    },
+    "service": {
+      "stringValue": "l0013r-c5d-drive"
+    },
+    "retiringBy": {
+      "stringValue": "<operator>"
+    },
+    "retiringSince": {
+      "stringValue": "2026-11-20T22:55:09.704Z"
+    },
+    "approvedAt": {
+      "timestampValue": "2026-11-20T01:15:43.961Z"
+    },
+    "status": {
+      "stringValue": "approved"
+    },
+    "tag": {
+      "stringValue": "rmwo9rmhz-e7abb8"
+    },
+    "selfCancelledAt": {
+      "stringValue": "2026-11-20T22:55:14.591Z"
+    },
+    "lang": {
+      "stringValue": "0013"
+    },
+    "revision": {
+      "stringValue": "l0013r-c5d-drive-rmwo9rmhz-e7abb8"
+    },
+    "lastReport": {
+      "arrayValue": {
+        "values": [
+          {
+            "stringValue": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6"
+          },
+          {
+            "stringValue": "b7d4fa03a3b362680b0d3c74337095b31bad6561c56e658aba7a288b2b91cd96"
+          }
+        ]
+      }
+    },
+    "releaseId": {
+      "stringValue": "rmwo9rmhz-e7abb8"
+    },
+    "contractVersions": {
+      "arrayValue": {
+        "values": [
+          {
+            "integerValue": "3"
+          }
+        ]
+      }
+    },
+    "selfCancelledBy": {
+      "stringValue": "<operator>"
+    },
+    "imageDigest": {
+      "stringValue": "sha256:baa510aaf56392f55997f2ad65fe8f87ff8cd6cca684aafcd927681a9e8767b8"
+    },
+    "commit": {
+      "stringValue": "b6036456265016ffb60e0f2b160bfc5ea736b4f2"
+    }
+  },
+  "createTime": "2026-11-20T01:15:44.502398Z",
+  "updateTime": "2026-11-20T22:55:15.006766Z"
+}

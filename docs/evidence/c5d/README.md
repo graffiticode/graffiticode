@@ -82,3 +82,34 @@ Manifests are the runner's, each written once; failed manifests are kept beside 
 **Disposition:** the command stays recorded pending, with an unsettled occurrence and no Broker claim. `cleanup` stays failed. No outcome is fabricated, and `recordLost` isn't used.
 
 **Required before C5d activation:** a product fix that durably settles the definitive pre-claim refusal, while preserving temporary-outage recovery and claim-race safety, with its regression test. The command's disposal procedure, which must also account for future scopes-enabled workers, issued tokens, in-flight requests and a fresh receipt check using the store's actual paths, is being prepared for review.
+
+## Disposal and teardown (2026-11-20/21)
+
+In [`drive/ad49c0ac/staging-gone-disposal/`](drive/ad49c0ac/staging-gone-disposal/) and [`drive/ad49c0ac/teardown/`](drive/ad49c0ac/teardown/), by the owner's decisions, following Step 32 §10:
+
+- **§10.3's read-backs** (20:47–20:49Z) matched, using two amended requests the owner accepted, both kept beside the originals:
+  - **Soft-deleted staging** read through the JSON API (`softDeleted=true`): exactly the deleted generation `1795203474250242`, with `hardDeleteTime` 2026-11-27T19:38:10Z. The drop-outcome deletion is the control. `gcloud storage objects list --soft-deleted` listed neither.
+  - **Broker's receipt prefix query** with a visible upper bound (`/` → `0`): nothing for the stuck invocation, and the control invocation's receipt found. The original bound (the prefix plus U+F8FF) was correct; it was lost in transcription when first run (`2-broker-runquery-as-written-control.json` is that transcription, not the original).
+- **`cleanup`** (22:44:43–22:44:49Z, inside the window) was **failed**, on the stuck command alone: 7 run commands, none missing from the inventory, no unresolved intent, no failed read. Its manifest, [`drive/ad49c0ac/cleanup-2026-11-20T22-44-49-651Z.json`](drive/ad49c0ac/cleanup-2026-11-20T22-44-49-651Z.json), and its console output, [`drive/ad49c0ac/console/cleanup.out`](drive/ad49c0ac/console/cleanup.out) (started [`cleanup.started`](drive/ad49c0ac/console/cleanup.started)), are the originals, unchanged and not rerun.
+- **The drive sweeper deleted.** Access to both compilers closed (no invoker binding; Cloud Run's 403 from 22:53:37Z). Both parked on unapproved revisions.
+- **`l0013r-c5d-drive-rmwo9rmhz-e7abb8` retired with `--confirm-unrecoverable`** by the owner's named decision, on a fresh report of **exactly two isolated drive plans:**
+  - `5db5e929…`, staging-gone: the stuck command, pending, unsettled, no Broker claim;
+  - `b7d4fa03…`, drop-outcome: reconciled `applied` (Broker's `resolution/final` at 19:35:13Z; Policy's ledger `completed` at 19:35:14Z), while its original receipt outcome stays unfinished, which is what the report checks.
+
+  Its first run reached `retired` but failed at tag removal (`Invalid transaction`, after this machine slept); `--resume` removed the tag. The other three drive revisions were retired without override, each report empty.
+- **The drive bucket archived** (listing, generations, both objects with matching md5), then **the four services and the bucket deleted**; all five read back absent. B6's `l0176r-drive` is unchanged (generation 7).
+- **Both plans' records** (13 Policy and Broker responses) are **canonically unchanged** throughout, and the stuck operation's Broker paths still answer 404 (`teardown/13-retained-records/`).
+
+**The configuration cleanup** ([`teardown/14-proxy-cleanup/`](drive/ad49c0ac/teardown/14-proxy-cleanup/)):
+
+- **The diff:** #463 removed the drive's `deploy.json` entries and its two network-inventory entries. Its configuration's digest is `8b637609…`.
+- **The rollout** (2026-11-21T20:02:08Z): the proxy rolled, by the owner's approval, to the kept template of that configuration, `egress-proxy-ce42b3628a5a`, whose user-data was verified byte-identical to the generated plan (sha256 `2e502b56…`).
+  - Surge 2, unavailable 0.
+  - Both new VMs HEALTHY before either old one was deleted, and each old VM UNHEALTHY only after its own delete call.
+  - `verify-rollout --size 2` passed, both `match: true`. No NAT drops.
+- **The production canary:**
+  - `canary-f5gsb` **36/36**: the job's arguments plus `--l0185-tail`, the form of C5b's `canary-bpd85`.
+  - A first run with the job's own arguments, `canary-m5pf2`, passed its usual 33. The scheduled runs pass 33, and the operator runs with `--l0185-tail` pass 36.
+- **The certificate secret:** `egress-proxy-cert-broker-c5d-drive-sja7fatcta-uc-a-run-app` deleted, after confirming the running configuration doesn't reference it. 48 host-certificate secrets remain, and none names `c5d`.
+
+**Teardown is complete.** The drive and its `cleanup` remain **failed**. Before activation: the product fix, the durable `hold`, and a successful fresh drive.

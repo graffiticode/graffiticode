@@ -1,0 +1,70 @@
+{
+  "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-c5d-drive-rmwo5egv6-a16b77",
+  "fields": {
+    "approvedAt": {
+      "timestampValue": "2026-11-19T23:07:58.976Z"
+    },
+    "lang": {
+      "stringValue": "0176"
+    },
+    "retiringBy": {
+      "stringValue": "<operator>"
+    },
+    "unrecoverable": {
+      "arrayValue": {}
+    },
+    "retiredBy": {
+      "stringValue": "<operator>"
+    },
+    "contractVersions": {
+      "arrayValue": {
+        "values": [
+          {
+            "integerValue": "1"
+          },
+          {
+            "integerValue": "2"
+          }
+        ]
+      }
+    },
+    "revision": {
+      "stringValue": "l0176r-c5d-drive-rmwo5egv6-a16b77"
+    },
+    "retiringSince": {
+      "stringValue": "2026-11-21T17:20:26.773Z"
+    },
+    "retirementId": {
+      "stringValue": "238beb21-8a58-4ad3-bd4a-b2adb86a0a2f"
+    },
+    "releaseId": {
+      "stringValue": "rmwo5egv6-a16b77"
+    },
+    "tag": {
+      "stringValue": "rmwo5egv6-a16b77"
+    },
+    "commit": {
+      "stringValue": "f41f2aed7bf75a1d732c4bdaeddddb1bbd082ef9"
+    },
+    "service": {
+      "stringValue": "l0176r-c5d-drive"
+    },
+    "retiredAt": {
+      "stringValue": "2026-11-21T17:20:28.020Z"
+    },
+    "imageDigest": {
+      "stringValue": "sha256:d58099e81fa08e69ce0d7e099d41c693999126bf4692addc78ef874d3cc3869d"
+    },
+    "tagRemovedAt": {
+      "stringValue": "2026-11-21T17:35:30.799Z"
+    },
+    "tagUrl": {
+      "stringValue": "https://rmwo5egv6-a16b77---l0176r-c5d-drive-sja7fatcta-uc.a.run.app"
+    },
+    "status": {
+      "stringValue": "retired"
+    }
+  },
+  "createTime": "2026-11-19T23:07:59.531432Z",
+  "updateTime": "2026-11-21T17:35:31.306055Z"
+}

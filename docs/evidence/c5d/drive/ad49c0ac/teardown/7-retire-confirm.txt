@@ -1,0 +1,6 @@
+Marked l0013r-c5d-drive-rmwo9rmhz-e7abb8 retiring: no new plan can pin it, and its snapshots are refused.
+Fenced 0 admission(s) in flight.
+Retired l0013r-c5d-drive-rmwo9rmhz-e7abb8; removing its tag in 15 min, once proofs issued before retirement have expired.
+3 INVALID_ARGUMENT: Invalid transaction.
+exit 1
+2026-11-21T16:25:40Z

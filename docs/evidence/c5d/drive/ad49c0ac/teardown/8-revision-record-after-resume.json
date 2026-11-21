@@ -1,0 +1,94 @@
+{
+  "name": "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwo9rmhz-e7abb8",
+  "fields": {
+    "status": {
+      "stringValue": "retired"
+    },
+    "approvedAt": {
+      "timestampValue": "2026-11-20T01:15:43.961Z"
+    },
+    "lang": {
+      "stringValue": "0013"
+    },
+    "releaseId": {
+      "stringValue": "rmwo9rmhz-e7abb8"
+    },
+    "contractVersions": {
+      "arrayValue": {
+        "values": [
+          {
+            "integerValue": "3"
+          }
+        ]
+      }
+    },
+    "retiredAt": {
+      "stringValue": "2026-11-21T02:41:41.073Z"
+    },
+    "tagUrl": {
+      "stringValue": "https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+    },
+    "selfCancelledAt": {
+      "stringValue": "2026-11-21T02:41:22.120Z"
+    },
+    "retirementId": {
+      "stringValue": "f27dd1aa-74e7-4e2e-bf34-a5a9df3e4722"
+    },
+    "tagRemovedAt": {
+      "stringValue": "2026-11-21T17:03:33.665Z"
+    },
+    "unrecoverable": {
+      "arrayValue": {
+        "values": [
+          {
+            "stringValue": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6"
+          },
+          {
+            "stringValue": "b7d4fa03a3b362680b0d3c74337095b31bad6561c56e658aba7a288b2b91cd96"
+          }
+        ]
+      }
+    },
+    "retiringSince": {
+      "stringValue": "2026-11-21T02:41:35.986Z"
+    },
+    "commit": {
+      "stringValue": "b6036456265016ffb60e0f2b160bfc5ea736b4f2"
+    },
+    "selfCancelledBy": {
+      "stringValue": "<operator>"
+    },
+    "revision": {
+      "stringValue": "l0013r-c5d-drive-rmwo9rmhz-e7abb8"
+    },
+    "imageDigest": {
+      "stringValue": "sha256:baa510aaf56392f55997f2ad65fe8f87ff8cd6cca684aafcd927681a9e8767b8"
+    },
+    "service": {
+      "stringValue": "l0013r-c5d-drive"
+    },
+    "retiringBy": {
+      "stringValue": "<operator>"
+    },
+    "tag": {
+      "stringValue": "rmwo9rmhz-e7abb8"
+    },
+    "retiredBy": {
+      "stringValue": "<operator>"
+    },
+    "lastReport": {
+      "arrayValue": {
+        "values": [
+          {
+            "stringValue": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6"
+          },
+          {
+            "stringValue": "b7d4fa03a3b362680b0d3c74337095b31bad6561c56e658aba7a288b2b91cd96"
+          }
+        ]
+      }
+    }
+  },
+  "createTime": "2026-11-20T01:15:44.502398Z",
+  "updateTime": "2026-11-21T17:03:34.084107Z"
+}

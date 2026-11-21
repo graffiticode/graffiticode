@@ -1,0 +1,30 @@
+{
+  "kind": "storage#bucket",
+  "selfLink": "https://www.googleapis.com/storage/v1/b/graffiticode-c5d-drive",
+  "id": "graffiticode-c5d-drive",
+  "name": "graffiticode-c5d-drive",
+  "projectNumber": "656973052505",
+  "generation": "1795128305078019344",
+  "metageneration": "2",
+  "location": "US-CENTRAL1",
+  "storageClass": "STANDARD",
+  "etag": "CAI=",
+  "timeCreated": "2026-11-19T22:45:05.254Z",
+  "updated": "2026-11-19T22:45:25.380Z",
+  "softDeletePolicy": {
+    "retentionDurationSeconds": "0"
+  },
+  "iamConfiguration": {
+    "bucketPolicyOnly": {
+      "enabled": true,
+      "lockedTime": "2027-02-17T22:45:05.254Z"
+    },
+    "uniformBucketLevelAccess": {
+      "enabled": true,
+      "lockedTime": "2027-02-17T22:45:05.254Z"
+    },
+    "publicAccessPrevention": "enforced"
+  },
+  "locationType": "region",
+  "satisfiesPZI": true
+}

@@ -1,0 +1,14 @@
+2026-11-21T17:05:17Z
+Marked l0013r-c5d-drive-rmwo5eh0t-66f668 retiring: no new plan can pin it, and its snapshots are refused.
+Fenced 0 admission(s) in flight.
+Retired l0013r-c5d-drive-rmwo5eh0t-66f668; removing its tag in 15 min, once proofs issued before retirement have expired.
+Updating traffic...
+Routing traffic....................done
+Done.
+URL: https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app
+Traffic:
+  100% [1ml0013r-c5d-drive-00006-fod[m
+         parked: https://parked---l0013r-c5d-drive-sja7fatcta-uc.a.run.app
+Removed the tag rmwo5eh0t-66f668 from l0013r-c5d-drive-rmwo5eh0t-66f668.
+exit 0
+2026-11-21T17:20:24Z
