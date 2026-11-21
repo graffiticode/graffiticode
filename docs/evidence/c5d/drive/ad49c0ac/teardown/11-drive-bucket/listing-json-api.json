@@ -1,0 +1,59 @@
+{
+  "kind": "storage#objects",
+  "items": [
+    {
+      "kind": "storage#object",
+      "id": "graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png/1795203437516619",
+      "selfLink": "https://www.googleapis.com/storage/v1/b/graffiticode-c5d-drive/o/7vwaCAIyMNCJEzgIfyYY.png",
+      "mediaLink": "https://storage.googleapis.com/download/storage/v1/b/graffiticode-c5d-drive/o/7vwaCAIyMNCJEzgIfyYY.png?generation=1795203437516619&alt=media",
+      "name": "7vwaCAIyMNCJEzgIfyYY.png",
+      "bucket": "graffiticode-c5d-drive",
+      "generation": "1795203437516619",
+      "metageneration": "1",
+      "contentType": "image/png",
+      "storageClass": "STANDARD",
+      "size": "18516",
+      "md5Hash": "QKcEspRW9qUrbtv3p/SpUQ==",
+      "cacheControl": "no-cache",
+      "crc32c": "wiJMDg==",
+      "etag": "CMuuxfmll5gDEAE=",
+      "timeCreated": "2026-11-20T19:37:17.538Z",
+      "updated": "2026-11-20T19:37:17.538Z",
+      "timeStorageClassUpdated": "2026-11-20T19:37:17.538Z",
+      "timeFinalized": "2026-11-20T19:37:17.538Z",
+      "metadata": {
+        "captureSequence": "11",
+        "commandId": "c:9bb069e676f3df8283986db09267ad730f6a1a3ea9fc7c2a9b72bd8e115469be",
+        "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+        "item": "7vwaCAIyMNCJEzgIfyYY"
+      }
+    },
+    {
+      "kind": "storage#object",
+      "id": "graffiticode-c5d-drive/wbyfys3akpc4yEGFrnuu.png/1795196537561117",
+      "selfLink": "https://www.googleapis.com/storage/v1/b/graffiticode-c5d-drive/o/wbyfys3akpc4yEGFrnuu.png",
+      "mediaLink": "https://storage.googleapis.com/download/storage/v1/b/graffiticode-c5d-drive/o/wbyfys3akpc4yEGFrnuu.png?generation=1795196537561117&alt=media",
+      "name": "wbyfys3akpc4yEGFrnuu.png",
+      "bucket": "graffiticode-c5d-drive",
+      "generation": "1795196537561117",
+      "metageneration": "1",
+      "contentType": "image/png",
+      "storageClass": "STANDARD",
+      "size": "18010",
+      "md5Hash": "Rusrd3/Xy1SmL0ofA0KyRA==",
+      "cacheControl": "no-cache",
+      "crc32c": "iFcZ+Q==",
+      "etag": "CJ3AsZ+Ml5gDEAE=",
+      "timeCreated": "2026-11-20T17:42:17.567Z",
+      "updated": "2026-11-20T17:42:17.567Z",
+      "timeStorageClassUpdated": "2026-11-20T17:42:17.567Z",
+      "timeFinalized": "2026-11-20T17:42:17.567Z",
+      "metadata": {
+        "captureSequence": "25",
+        "commandId": "c:ad8fe53d2dfde0e8ca189540861a4a832208bfead0fdf2245a7a7dc031a8bce0",
+        "sha256": "db1481a6a0fbc97760f6bb029c00cd40b66558f0d7498c59f30bbda890ff13d1",
+        "item": "wbyfys3akpc4yEGFrnuu"
+      }
+    }
+  ]
+}

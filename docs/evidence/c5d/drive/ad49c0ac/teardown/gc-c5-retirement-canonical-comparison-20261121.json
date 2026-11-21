@@ -1,0 +1,125 @@
+{
+  "source": "/private/tmp/gc-c5-retirement-readback-1795280089709.json",
+  "comparisons": [
+    {
+      "label": "c:f54ea9f1fc ",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/staging-gone-disposal/1-policy-command.json",
+      "equal": true,
+      "beforeDigest": "3e48430bfbdd4b28e13aab1f82fd4b5ad2daa09f86da05fed3fed7714c5d6fd7",
+      "afterDigest": "3e48430bfbdd4b28e13aab1f82fd4b5ad2daa09f86da05fed3fed7714c5d6fd7",
+      "updateTimes": [
+        "2026-11-20T19:54:17.491746Z"
+      ]
+    },
+    {
+      "label": "c:f54ea9f1fc /outcomes",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/staging-gone-disposal/1-policy-outcomes.json",
+      "equal": true,
+      "beforeDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "afterDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "updateTimes": [
+        null
+      ]
+    },
+    {
+      "label": "c:f54ea9f1fc /ledger",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/staging-gone-disposal/1-policy-ledger.json",
+      "equal": true,
+      "beforeDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "afterDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "updateTimes": [
+        null
+      ]
+    },
+    {
+      "label": "c:f54ea9f1fc /reservations",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/staging-gone-disposal/1-policy-reservations.json",
+      "equal": true,
+      "beforeDigest": "fa00fc81eaa2033defc0910981a98753396abab5fff4b299161ff28b1957b23b",
+      "afterDigest": "fa00fc81eaa2033defc0910981a98753396abab5fff4b299161ff28b1957b23b",
+      "updateTimes": [
+        "2026-11-20T19:37:54.336210Z"
+      ]
+    },
+    {
+      "label": "c:f54ea9f1fc /occurrences",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/staging-gone-disposal/1-policy-occurrences.json",
+      "equal": true,
+      "beforeDigest": "07d7c95f6e3225286ba8c90d3bdf4f4387dda8ef4280659d4e1c5daf7a74f1fb",
+      "afterDigest": "07d7c95f6e3225286ba8c90d3bdf4f4387dda8ef4280659d4e1c5daf7a74f1fb",
+      "updateTimes": [
+        "2026-11-20T19:54:16.672234Z"
+      ]
+    },
+    {
+      "label": "c:db80a736f5 ",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/teardown/4-plan2-command.json",
+      "equal": true,
+      "beforeDigest": "d25c5b3e491d3e00a095707ad7cbe9af26add22b5f1dab39add99476bdc429f8",
+      "afterDigest": "d25c5b3e491d3e00a095707ad7cbe9af26add22b5f1dab39add99476bdc429f8",
+      "updateTimes": [
+        "2026-11-20T19:33:35.647085Z"
+      ]
+    },
+    {
+      "label": "c:db80a736f5 /outcomes",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/teardown/4-plan2-outcomes.json",
+      "equal": true,
+      "beforeDigest": "92b80729d8f7b6d1340223c0c618db2d1dc65e178d92e64a42ec58db92823c26",
+      "afterDigest": "92b80729d8f7b6d1340223c0c618db2d1dc65e178d92e64a42ec58db92823c26",
+      "updateTimes": [
+        "2026-11-20T19:33:35.437321Z"
+      ]
+    },
+    {
+      "label": "c:db80a736f5 /ledger",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/teardown/5-plan2-policy-ledger.json",
+      "equal": true,
+      "beforeDigest": "42f80e067d5b6a4f98fb5968a85f728daa69c66813792a176d1c2a26b8fd2021",
+      "afterDigest": "42f80e067d5b6a4f98fb5968a85f728daa69c66813792a176d1c2a26b8fd2021",
+      "updateTimes": [
+        "2026-11-20T19:35:14.137377Z"
+      ]
+    },
+    {
+      "label": "c:db80a736f5 /reservations",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/teardown/4-plan2-reservations.json",
+      "equal": true,
+      "beforeDigest": "c0a17c64b0462aaaadd4ddc5e0ee3d1b5d899f15e5c15d4ea095867947b368a3",
+      "afterDigest": "c0a17c64b0462aaaadd4ddc5e0ee3d1b5d899f15e5c15d4ea095867947b368a3",
+      "updateTimes": [
+        "2026-11-20T19:33:31.302339Z"
+      ]
+    },
+    {
+      "label": "c:db80a736f5 /occurrences",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/teardown/4-plan2-occurrences.json",
+      "equal": true,
+      "beforeDigest": "2a5c462f203394f4217f7d9bf6077f89cda6f19e6a4403349736e41a813a1fae",
+      "afterDigest": "2a5c462f203394f4217f7d9bf6077f89cda6f19e6a4403349736e41a813a1fae",
+      "updateTimes": [
+        "2026-11-20T19:33:32.209521Z"
+      ]
+    },
+    {
+      "label": "broker inv-b8878442 ",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/teardown/4-plan2-broker-receipts-1a01024fac1d279dc5c9ca7fe8cfd1b3d5ede747a437f1436200426115f73782.json",
+      "equal": true,
+      "beforeDigest": "5f5987a8ce0f0ce10c2ab073671ec5a73f349db823d273d13dd8c6de091e0b1f",
+      "afterDigest": "5f5987a8ce0f0ce10c2ab073671ec5a73f349db823d273d13dd8c6de091e0b1f",
+      "updateTimes": [
+        "2026-11-20T19:33:33.332339Z"
+      ]
+    },
+    {
+      "label": "broker inv-b8878442 /resolution/final",
+      "beforeFile": "/Users/jeffdyer/work/graffiticode/graffiticode-c6r/docs/evidence/c5d/drive/ad49c0ac/teardown/5-plan2-broker-resolution-final.json",
+      "equal": true,
+      "beforeDigest": "a65619d05a365accb22173d4559483285f10d81920113d44670928e05238c7d4",
+      "afterDigest": "a65619d05a365accb22173d4559483285f10d81920113d44670928e05238c7d4",
+      "updateTimes": [
+        "2026-11-20T19:35:13.822790Z"
+      ]
+    }
+  ]
+}

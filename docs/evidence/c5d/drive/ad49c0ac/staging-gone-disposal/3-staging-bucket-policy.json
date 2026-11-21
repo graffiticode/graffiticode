@@ -1,0 +1,18 @@
+{
+  "lifecycle_config": {
+    "rule": [
+      {
+        "action": {
+          "type": "Delete"
+        },
+        "condition": {
+          "age": 30
+        }
+      }
+    ]
+  },
+  "soft_delete_policy": {
+    "effectiveTime": "2026-11-17T22:36:14.866000+00:00",
+    "retentionDurationSeconds": "604800"
+  }
+}

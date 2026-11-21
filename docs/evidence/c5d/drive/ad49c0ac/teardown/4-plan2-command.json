@@ -1,0 +1,271 @@
+{
+  "name": "projects/graffiticode/databases/policy/documents/commands/c:db80a736f58318fe6f9cb1141bd60fc7c575d922cefe6374fe35496eeeff009b",
+  "fields": {
+    "stages": {
+      "mapValue": {
+        "fields": {
+          "s0": {
+            "mapValue": {
+              "fields": {
+                "expansion": {
+                  "stringValue": "closed"
+                },
+                "state": {
+                  "stringValue": "ran"
+                },
+                "pinnedInput": {
+                  "stringValue": "8212689cc2ce47a994fb37118d94e1cce57457efbff82a88ff262cfc59c9a2a3"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "uid": {
+      "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+    },
+    "publication": {
+      "mapValue": {
+        "fields": {
+          "resultDigest": {
+            "nullValue": null
+          },
+          "state": {
+            "stringValue": "none"
+          }
+        }
+      }
+    },
+    "schema": {
+      "integerValue": "1"
+    },
+    "binding": {
+      "mapValue": {
+        "fields": {
+          "connectionId": {
+            "nullValue": null
+          },
+          "inputDigest": {
+            "stringValue": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          },
+          "taskId": {
+            "stringValue": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19"
+          }
+        }
+      }
+    },
+    "result": {
+      "mapValue": {
+        "fields": {
+          "state": {
+            "stringValue": "unavailable"
+          },
+          "digest": {
+            "nullValue": null
+          }
+        }
+      }
+    },
+    "updatedAt": {
+      "stringValue": "2026-11-20T19:33:35.608Z"
+    },
+    "idempotencyKey": {
+      "stringValue": "c5d-drive:ad49c0ac:drop-outcome"
+    },
+    "seq": {
+      "integerValue": "8"
+    },
+    "status": {
+      "stringValue": "uncertain"
+    },
+    "revisions": {
+      "nullValue": null
+    },
+    "phase": {
+      "stringValue": "admitted"
+    },
+    "commandId": {
+      "stringValue": "c:db80a736f58318fe6f9cb1141bd60fc7c575d922cefe6374fe35496eeeff009b"
+    },
+    "kind": {
+      "stringValue": "command"
+    },
+    "admission": {
+      "mapValue": {
+        "fields": {
+          "stages": {
+            "mapValue": {
+              "fields": {
+                "s0": {
+                  "mapValue": {
+                    "fields": {
+                      "revision": {
+                        "stringValue": "l0013r-c5d-drive-rmwo9rmhz-e7abb8"
+                      },
+                      "replay": {
+                        "integerValue": "0"
+                      },
+                      "intents": {
+                        "arrayValue": {
+                          "values": [
+                            {
+                              "mapValue": {
+                                "fields": {
+                                  "id": {
+                                    "stringValue": "snap:0"
+                                  },
+                                  "fn": {
+                                    "stringValue": "snap"
+                                  },
+                                  "op": {
+                                    "stringValue": "gcs.put-thumbnail"
+                                  },
+                                  "runtime": {
+                                    "booleanValue": true
+                                  },
+                                  "bounds": {
+                                    "mapValue": {
+                                      "fields": {
+                                        "maxOccurrences": {
+                                          "integerValue": "16"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "scope": {
+                                    "mapValue": {
+                                      "fields": {
+                                        "kind": {
+                                          "stringValue": "item"
+                                        },
+                                        "id": {
+                                          "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "modelDigest": {
+                        "stringValue": "35ef5f2a647b5751b4916b2c54a2b8e48ac5e71682cfbe94d27de584d67cb4be"
+                      },
+                      "tagUrl": {
+                        "stringValue": "https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+                      },
+                      "lang": {
+                        "stringValue": "0013"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "contractVersion": {
+            "integerValue": "3"
+          },
+          "recording": {
+            "integerValue": "1"
+          },
+          "items": {
+            "mapValue": {
+              "fields": {
+                "7vwaCAIyMNCJEzgIfyYY": {
+                  "mapValue": {
+                    "fields": {
+                      "publicCapture": {
+                        "booleanValue": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "planDigest": {
+            "stringValue": "b7d4fa03a3b362680b0d3c74337095b31bad6561c56e658aba7a288b2b91cd96"
+          }
+        }
+      }
+    },
+    "owner": {
+      "mapValue": {
+        "fields": {
+          "scopes": {
+            "integerValue": "1"
+          },
+          "generation": {
+            "integerValue": "1"
+          },
+          "worker": {
+            "stringValue": "api-c5d-drive-rmwo9rmds-75d10c:f358de67-0666-4f46-a7fc-b2e919aa5e61"
+          },
+          "leaseExpiresAt": {
+            "integerValue": "1795203258233"
+          }
+        }
+      }
+    },
+    "invocationId": {
+      "stringValue": "inv-b8878442-06cb-4517-9a10-fbee816c5f42"
+    },
+    "protocol": {
+      "stringValue": "command"
+    },
+    "taskId": {
+      "stringValue": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19"
+    },
+    "runRef": {
+      "nullValue": null
+    },
+    "scopes": {
+      "integerValue": "1"
+    },
+    "counts": {
+      "mapValue": {
+        "fields": {
+          "byIntent": {
+            "mapValue": {
+              "fields": {
+                "s0/snap:0": {
+                  "integerValue": "1"
+                }
+              }
+            }
+          },
+          "partial": {
+            "integerValue": "0"
+          },
+          "uncertain": {
+            "integerValue": "1"
+          },
+          "completed": {
+            "integerValue": "0"
+          },
+          "failed": {
+            "integerValue": "0"
+          },
+          "bound": {
+            "integerValue": "1"
+          }
+        }
+      }
+    },
+    "connectionId": {
+      "nullValue": null
+    },
+    "createdAt": {
+      "stringValue": "2026-11-20T19:33:18.233Z"
+    },
+    "lang": {
+      "stringValue": "0013"
+    }
+  },
+  "createTime": "2026-11-20T19:33:18.492321Z",
+  "updateTime": "2026-11-20T19:33:35.647085Z"
+}
