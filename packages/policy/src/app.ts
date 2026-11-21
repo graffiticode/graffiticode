@@ -14,7 +14,7 @@
 //   PUT  /v1/commands/:id/models/:stage   { text, revision?, tagUrl? }   installed once
 //   PUT  /v1/commands/:id/inputs/:stage   { text }                       installed once
 //   POST /v1/commands/:id/observations    { stage, key, text? }          find, or install once
-//   PUT  /v1/commands/:id/occurrences/:stage/:occ { intentId, expansionKey?, args, observations? }
+//   PUT  /v1/commands/:id/occurrences/:stage/:occ { intentId, expansionKey?, args, argd?, observations? }
 //   POST /v1/commands/:id/stages/:stage/close { occurrences: { intentId: [occurrenceId] } }
 //   POST /v1/commands/:id/not-reached     { stages }
 //   POST /v1/commands/:id/settle          outcomes from Broker's receipts
@@ -250,7 +250,7 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   router.put("/commands/:id/outputs/:stage", write("installOutput", req => ({ stage: req.params.stage, text: body(req).text })));
   router.post("/commands/:id/observations", write("observation", req => ({ stage: body(req).stage, key: body(req).key, text: body(req).text })));
   router.put("/commands/:id/occurrences/:stage/:occ", write("bindOccurrence", req => ({
-    stage: req.params.stage, occurrenceId: req.params.occ, intentId: body(req).intentId, expansionKey: body(req).expansionKey ?? null, args: body(req).args, observations: body(req).observations ?? [],
+    stage: req.params.stage, occurrenceId: req.params.occ, intentId: body(req).intentId, expansionKey: body(req).expansionKey ?? null, args: body(req).args, argd: body(req).argd ?? null, observations: body(req).observations ?? [],
   })));
   router.post("/commands/:id/stages/:stage/close", write("closeStage", req => ({ stage: req.params.stage, occurrences: body(req).occurrences })));
   router.post("/commands/:id/not-reached", write("markNotReached", req => ({ stages: Array.isArray(body(req).stages) ? body(req).stages : [] })));
