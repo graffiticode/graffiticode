@@ -77,3 +77,20 @@ describe("createReceiptReader", () => {
     expect(await receipts.getOutcome(`${INV}/s0/a.1`)).toBeNull();
   });
 });
+
+// C5d (docs/c5d-refusal-and-hold-plan.md decisions 1 and 2): a definite
+// staging refusal reads as a recorded failure in both shapes, never as
+// uncertain and never as an aborted run.
+describe("a staging refusal's receipt (C5d)", () => {
+  const REFUSAL = { status: "failed", steps: [], result: null, reason: "staging-unavailable", category: "conflict" };
+
+  it("reads claimRefused's and refuseRun's shapes as recorded failures", async () => {
+    const own = createMemoryReceiptStore();
+    await own.claimRefused("inv-0003/s0/o1", BINDING, { evidence: { refused: "staging-unavailable" } }, REFUSAL);
+    await own.claim("inv-0003/s0/o2", BINDING, { evidence: { format: "gcs-thumbnail-1" } });
+    await own.abortRun("inv-0003/s0/o2", 0, { reason: "authorization-unavailable" });
+    await own.refuseRun("inv-0003/s0/o2", 1, REFUSAL);
+    const { operations } = await createReceiptReader({ receipts: own })({ invocationId: "inv-0003" });
+    expect(operations).toEqual(["o1", "o2"].map(o => ({ operationId: `inv-0003/s0/${o}`, binding: BINDING, claimedAt: expect.any(String), recorded: true, status: "failed", steps: [], result: null, reason: "staging-unavailable", category: "conflict" })));
+  });
+});

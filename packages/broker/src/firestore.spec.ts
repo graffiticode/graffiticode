@@ -1,12 +1,14 @@
 /* eslint-disable camelcase -- Learnosity wire fields are snake_case */
 // Runs against the Firestore emulator only (FIRESTORE_EMULATOR_HOST set), e.g.
 //   firebase emulators:exec --only firestore "npx jest src/firestore.spec.js"
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import admin from "firebase-admin";
 import { generateKeyPair, exportJWK, decodeJwt } from "jose";
+import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 import {
   createPolicy,
   createLocalSigner,
+  issueToken,
   createMemoryConnectionStore,
   createMemoryInvocationStore,
   createProtectedSwitch,
@@ -30,7 +32,11 @@ import {
   SLOT_RETENTION_MARGIN_S,
   createSecretBox,
   StepConflict,
-  RunFenced
+  RunFenced,
+  buildThumbnailOperations,
+  createMemorySecretStore,
+  createReceiptReader,
+  stagingRefusalOutcome
 } from "./index.js";
 
 const run = process.env.FIRESTORE_EMULATOR_HOST ? describe : describe.skip;
@@ -329,4 +335,177 @@ run("firestore broker stores", () => {
     expect(await secrets.get(conn)).toBeNull();
     await expect(secrets.create(conn, cred)).rejects.toThrow(/already used/);
   });
+});
+
+// C5d (docs/c5d-refusal-and-hold-plan.md decision 1 and §4): a definite
+// staging refusal's claim and outcome, or its reopened run and outcome, are
+// one Firestore transaction. A crash inside it leaves neither record, and the
+// claim's create-once decides every race.
+run("the staging refusal's transaction in Firestore (C5d)", () => {
+  let db;
+  beforeAll(() => {
+    const app = admin.apps.length ? admin.app() : admin.initializeApp({ projectId: "demo-graffiticode" });
+    db = app.firestore();
+  });
+  const BINDING = { principal: "u", scope: { kind: "item", id: "item-1" }, op: "gcs.put-thumbnail", registryVersion: 10, argsDigest: "d" };
+  const newOp = () => `inv-${randomUUID()}/s0/o1`;
+  const receiptDoc = op => db.collection("receipts").doc(createHash("sha256").update(op).digest("hex"));
+
+  // The database, with each transaction made to throw right after its
+  // `after`-th write (create or set) is staged, before it commits: a process
+  // dying inside the transaction. Not a seam in the store: only the db.
+  const crashingDb = after => ({
+    collection: (...args) => db.collection(...args),
+    runTransaction: (fn, options) => db.runTransaction(tx => {
+      let writes = 0;
+      const wrote = () => { if (++writes === after) throw new Error("process died inside the transaction"); };
+      const wrapped = {
+        get: (...args) => tx.get(...args),
+        create: (ref, data) => { tx.create(ref, data); wrote(); return wrapped; },
+        set: (ref, data, opts) => { tx.set(ref, data, opts); wrote(); return wrapped; },
+        update: (...args) => { tx.update(...args); wrote(); return wrapped; },
+      };
+      return fn(wrapped);
+    }, options),
+  });
+
+  it("claimRefused creates the claim and the outcome together, once", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    const op = newOp();
+    expect(await receipts.claimRefused(op, BINDING, { pld: "p".repeat(64), evidence: { refused: "staging-unavailable" } }, stagingRefusalOutcome())).toEqual({ created: true });
+    expect(await receipts.getClaim(op)).toMatchObject({ operationId: op, binding: BINDING, pld: "p".repeat(64), evidence: { refused: "staging-unavailable" } });
+    expect(await receipts.getOutcome(op)).toMatchObject(stagingRefusalOutcome());
+    const again = await receipts.claimRefused(op, { ...BINDING, principal: "other" }, {}, { status: "succeeded", steps: [] });
+    expect(again).toMatchObject({ created: false, claim: { binding: BINDING } });
+    expect(await receipts.getOutcome(op)).toMatchObject({ status: "failed" });
+    // A claim that exists first: returned, nothing written.
+    const claimed = newOp();
+    await receipts.claim(claimed, BINDING);
+    expect(await receipts.claimRefused(claimed, BINDING, {}, stagingRefusalOutcome())).toMatchObject({ created: false });
+    expect(await receipts.getOutcome(claimed)).toBeNull();
+  });
+
+  it.each([[1, "after the claim's create, before the outcome's"], [2, "after both creates, before the commit"]])(
+    "leaves neither record when claimRefused crashes %s (%s), and the retry records once",
+    async after => {
+      const op = newOp();
+      await expect(createFirestoreReceiptStore(crashingDb(after)).claimRefused(op, BINDING, { evidence: { refused: "staging-unavailable" } }, stagingRefusalOutcome())).rejects.toThrow(/inside the transaction/);
+      const receipts = createFirestoreReceiptStore(db);
+      expect((await receiptDoc(op).get()).exists).toBe(false);
+      expect(await receipts.getClaim(op)).toBeNull();
+      expect(await receipts.getOutcome(op)).toBeNull();
+      expect(await createReceiptReader({ receipts })({ invocationId: op.split("/")[0] })).toEqual({ invocationId: op.split("/")[0], operations: [] });
+      expect(await receipts.claimRefused(op, BINDING, { evidence: { refused: "staging-unavailable" } }, stagingRefusalOutcome())).toEqual({ created: true });
+      expect(await receipts.claimRefused(op, BINDING, { evidence: { refused: "staging-unavailable" } }, stagingRefusalOutcome())).toMatchObject({ created: false });
+      expect(await receipts.getOutcome(op)).toMatchObject({ status: "failed", reason: "staging-unavailable" });
+    },
+  );
+
+  it.each([[1, "after the run's set, before the outcome's create"], [2, "after both, before the commit"]])(
+    "leaves the aborted run and no outcome when refuseRun crashes %s (%s), and the retry records once",
+    async after => {
+      const receipts = createFirestoreReceiptStore(db);
+      const op = newOp();
+      await receipts.claim(op, BINDING, { evidence: { format: "gcs-thumbnail-1" } });
+      await receipts.abortRun(op, 0, { reason: "authorization-unavailable" });
+      await expect(createFirestoreReceiptStore(crashingDb(after)).refuseRun(op, 1, stagingRefusalOutcome())).rejects.toThrow(/inside the transaction/);
+      expect(await receipts.getRunState(op)).toEqual({ run: 0, aborted: true });
+      expect(await receipts.getOutcome(op)).toBeNull();
+      expect(await receipts.refuseRun(op, 1, stagingRefusalOutcome())).toBe(true);
+      expect(await receipts.refuseRun(op, 1, stagingRefusalOutcome())).toBe(false);
+      expect(await receipts.getRunState(op)).toEqual({ run: 1, aborted: false });
+      expect(await receipts.getOutcome(op)).toMatchObject({ status: "failed", reason: "staging-unavailable" });
+    },
+  );
+
+  it("refuseRun only where startRun would succeed", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    const op = newOp();
+    await receipts.claim(op, BINDING);
+    expect(await receipts.refuseRun(op, 1, stagingRefusalOutcome())).toBe(false);
+    await receipts.abortRun(op, 0, { reason: "authorization-unavailable" });
+    expect(await receipts.refuseRun(op, 2, stagingRefusalOutcome())).toBe(false);
+    expect(await receipts.getOutcome(op)).toBeNull();
+    expect(await receipts.refuseRun(op, 1, stagingRefusalOutcome())).toBe(true);
+    await expect(receipts.abortRun(op, 1, { reason: "late" })).rejects.toBeInstanceOf(RunFenced);
+    expect(await receipts.startRun(op, 2)).toBe(false);
+  });
+
+  it("a claim racing claimRefused: exactly one wins, and the loser writes nothing", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    for (let i = 0; i < 5; i++) {
+      const op = newOp();
+      const [claimed, refused] = await Promise.all([receipts.claim(op, { ...BINDING, principal: "claimer" }), receipts.claimRefused(op, { ...BINDING, principal: "refuser" }, {}, stagingRefusalOutcome())]);
+      expect([claimed.created, refused.created].filter(Boolean)).toHaveLength(1);
+      const outcome = await receipts.getOutcome(op);
+      if (claimed.created) {
+        expect(refused.claim.binding.principal).toBe("claimer");
+        expect(outcome).toBeNull();
+      } else {
+        expect(claimed.claim.binding.principal).toBe("refuser");
+        expect(outcome).toMatchObject({ status: "failed" });
+      }
+    }
+  }, 30_000);
+
+  it("concurrent claimRefused calls record one outcome", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    const op = newOp();
+    const results = await Promise.all(Array.from({ length: 4 }, (_, i) => receipts.claimRefused(op, { ...BINDING, principal: `r${i}` }, {}, stagingRefusalOutcome())));
+    expect(results.filter(r => r.created)).toHaveLength(1);
+    const winner = (await receipts.getClaim(op)).binding.principal;
+    expect(results.filter(r => !r.created).every(r => r.claim.binding.principal === winner)).toBe(true);
+  }, 30_000);
+
+  it("startRun racing refuseRun, and two refuseRuns: exactly one succeeds", async () => {
+    const receipts = createFirestoreReceiptStore(db);
+    const reopened = async () => {
+      const op = newOp();
+      await receipts.claim(op, BINDING);
+      await receipts.abortRun(op, 0, { reason: "authorization-unavailable" });
+      return op;
+    };
+    for (let i = 0; i < 3; i++) {
+      const op = await reopened();
+      const [started, refused] = await Promise.all([receipts.startRun(op, 1), receipts.refuseRun(op, 1, stagingRefusalOutcome())]);
+      expect([started, refused].filter(Boolean)).toHaveLength(1);
+      expect(Boolean(await receipts.getOutcome(op))).toBe(refused);
+      const again = await reopened();
+      const both = await Promise.all([receipts.refuseRun(again, 1, stagingRefusalOutcome()), receipts.refuseRun(again, 1, stagingRefusalOutcome())]);
+      expect(both.filter(Boolean)).toHaveLength(1);
+    }
+  }, 30_000);
+
+  // The whole Broker over Firestore: two requests that both find staging
+  // missing record one refusal, and both answer.
+  it("two Broker instances refusing the same operation together record one outcome", async () => {
+    const pair = await generateKeyPair("ES256", { extractable: true });
+    const signer = await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "k1" });
+    const jwks = { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "k1", alg: "ES256", use: "sig" }] };
+    const payload = { item: "itemFs0000000000001", sha256: "c".repeat(64), captureSequence: 1 };
+    const instance = () => createBroker({
+      protectedSwitch: createProtectedSwitch({ readFlag: async () => ({ enabled: true }) }),
+      jwks,
+      operations: buildThumbnailOperations({ storage: { read: async () => null, getMetadata: async () => null, prepareUpload: async () => { throw new Error("never"); } }, buckets: { thumbnails: "graffiticode-c5a-gate", staging: "graffiticode-command-staging" }, attempts: 4 }),
+      secrets: createMemorySecretStore({}),
+      once: createFirestoreOnceStore(db),
+      receipts: createFirestoreReceiptStore(db),
+      activity: createFirestoreActivityStore(db),
+      authorize: async () => ({ decisionId: `decision-${randomUUID()}` }),
+      audit: async () => {},
+    });
+    const opid = `inv-${randomUUID()}/s0/o1`;
+    const token = () => issueToken(signer, "execution", { sub: "0xowner", lang: "0013", fn: "snap", op: "gcs.put-thumbnail", sid: "session-1", opid, argd: argsDigest(payload), rv: REGISTRY_VERSION, prv: "user", cv: 3, scp: { kind: "item", id: payload.item }, pld: "b".repeat(64), stg: "s0", cmd: `c:${"a".repeat(64)}`, fg: 1 });
+    const L0013 = { role: "compiler", lang: "0013" };
+    const [a, b] = [instance(), instance()];
+    const answers = await Promise.all([a, b].map(async broker => broker.execute({ caller: L0013, token: await token(), op: "gcs.put-thumbnail", payload }).then(v => v, e => e)));
+    for (const answer of answers) {
+      if (answer instanceof BrokerRefused) expect(answer).toMatchObject({ reason: "staging-unavailable", status: 409 });
+      else expect(answer).toMatchObject({ status: "failed", reason: "staging-unavailable", replayed: true });
+    }
+    expect(answers.filter(x => x instanceof BrokerRefused).length).toBeGreaterThanOrEqual(1);
+    const receipts = createFirestoreReceiptStore(db);
+    expect(await receipts.getOutcome(opid)).toMatchObject({ status: "failed", steps: [], reason: "staging-unavailable" });
+    expect((await receipts.getClaim(opid)).evidence).toEqual({ refused: "staging-unavailable" });
+  }, 30_000);
 });

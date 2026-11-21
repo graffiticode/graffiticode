@@ -57,6 +57,28 @@ export const createFirestoreReceiptStore = db => {
       const snap = await claimRef(operationId).get();
       return { created: false, claim: snap.data() };
     },
+    // C5d (stores.js): a definite staging refusal, its claim and its outcome
+    // created in one transaction. A claim created concurrently outside it
+    // either is read here (and returned, writing nothing) or makes the
+    // commit's create precondition fail, nothing written; it is then read.
+    async claimRefused(operationId, binding, { pld = undefined, evidence = undefined } = {}, outcome) {
+      try {
+        return await db.runTransaction(async tx => {
+          const [claimed, existing] = await Promise.all([tx.get(claimRef(operationId)), tx.get(outcomeRef(operationId))]);
+          if (claimed.exists) return { created: false, claim: claimed.data() };
+          if (existing.exists) throw new Error("outcome already recorded");
+          const at = new Date().toISOString();
+          tx.create(claimRef(operationId), { operationId, binding, ...(pld ? { pld } : {}), ...(evidence ? { evidence } : {}), claimedAt: at });
+          tx.create(outcomeRef(operationId), { ...outcome, at });
+          return { created: true };
+        });
+      } catch (err) {
+        if (!isAlreadyExists(err)) throw err;
+        const snap = await claimRef(operationId).get();
+        if (!snap.exists) throw err;
+        return { created: false, claim: snap.data() };
+      }
+    },
     // The claim alone, never creating one: a replay-only token (P1b) reads it.
     async getClaim(operationId) {
       const snap = await claimRef(operationId).get();
@@ -94,6 +116,19 @@ export const createFirestoreReceiptStore = db => {
         const current = currentRun(state.exists ? state.data() : null);
         if (outcome.exists || current.state !== "aborted" || current.run !== run - 1) return false;
         tx.set(runRef(operationId), { run, state: "open", at: new Date().toISOString() });
+        return true;
+      });
+    },
+    // C5d: startRun's condition, and the run and its outcome together.
+    async refuseRun(operationId, run, outcome) {
+      checkRun(run);
+      return db.runTransaction(async tx => {
+        const [state, existing] = await Promise.all([tx.get(runRef(operationId)), tx.get(outcomeRef(operationId))]);
+        const current = currentRun(state.exists ? state.data() : null);
+        if (existing.exists || current.state !== "aborted" || current.run !== run - 1) return false;
+        const at = new Date().toISOString();
+        tx.set(runRef(operationId), { run, state: "open", at });
+        tx.create(outcomeRef(operationId), { ...outcome, at });
         return true;
       });
     },
