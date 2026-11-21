@@ -365,9 +365,11 @@ export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, p
   // Broker only. A decision is for one step, now: never cacheable.
   router.post("/authorize-execution", buildHttpHandler(async (req, res) => {
     const caller = await authorize("authorize-execution")(req);
-    const { executionToken, op, argsDigest, step, purpose, after } = req.body ?? {};
+    // `attempt` only for a conditional step's later attempts (C5 decision 5);
+    // policy.authorizeExecution validates it against the registry.
+    const { executionToken, op, argsDigest, step, purpose, after, attempt } = req.body ?? {};
     res.set("Cache-Control", "no-store");
-    await decide(res, () => policy.authorizeExecution({ caller, executionToken, op, argsDigest, step, purpose, after }));
+    await decide(res, () => policy.authorizeExecution({ caller, executionToken, op, argsDigest, step, purpose, after, attempt }));
   }));
   router.post("/mint", buildHttpHandler(async (req, res) => {
     const caller = await authorize("mint")(req);
