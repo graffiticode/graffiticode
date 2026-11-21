@@ -26,7 +26,7 @@ use crate::plain::Object;
 /// refuses a stage that reports another.
 /// The operation a save performs (the protected registry's `learnosity.write-items`).
 pub const SAVE_OP: &str = "learnosity.write-items";
-pub const REGISTRY_VERSION: u32 = 9;
+pub const REGISTRY_VERSION: u32 = 10;
 
 pub const SIGN: &str = "init";
 pub const SAVE: &str = "save-to-itembank";

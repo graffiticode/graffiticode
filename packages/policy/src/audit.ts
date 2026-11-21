@@ -53,6 +53,8 @@ const ANNOTATIONS = [
   "unclassified-reason", "succeeded", "failed", "partial", "uncertain",
   // Reconciliation's verdicts and findings (WRITE-02, W5).
   "applied", "unresolved", "no-evidence", "evidence-format-unknown", "read-failed", "resolution-conflict",
+  // C5d: a receipt that records a definite staging refusal (final, never read).
+  "refused",
   // Commands (B5): a key the legacy path holds, and a lease taken over.
   "legacy-key", "takeover",
 ];
@@ -72,7 +74,8 @@ const VALIDATORS = {
   category: oneOf([...FAILURE_CATEGORIES]),
   lang: match(/^\d{4}$/),
   op,
-  purpose: oneOf(["dispatch", "sign", "replay"]),
+  // `record` from registry v10: a step that records an outcome and sends nothing.
+  purpose: oneOf(["dispatch", "sign", "replay", "record"]),
   connectionId: v => notAnAddress(match(/^conn-[A-Za-z0-9_-]{1,120}$/)(v)),
   registryVersion: v => (Number.isInteger(v) ? v : INVALID),
   decisionId: match(UUIDISH),

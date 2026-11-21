@@ -22,7 +22,7 @@ use faults::{Armed, CaptureFault, CaptureFaults, STALE_GENERATION};
 /// it by `scripts/check-registry-version.js`. L0013 registers `snap` from version 9 (C5,
 /// `docs/c5-l0013-commands-plan.md`), and reports this version in its preflight manifests
 /// (C5a slice 6).
-pub const REGISTRY_VERSION: u32 = 9;
+pub const REGISTRY_VERSION: u32 = 10;
 
 /// `snap`'s registered names (the registry's `PROTECTED_FUNCTIONS["0013"].snap`).
 pub const SNAP: &str = "snap";

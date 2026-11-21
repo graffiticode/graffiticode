@@ -33,6 +33,15 @@ describe("audit values (spec AUDIT-01)", () => {
     expect(validateAuditRecord(valid)).toEqual(valid);
   });
 
+  // Registry v10 (C5d refusal plan decision 3): the refusal's step and its
+  // purpose, and reconciliation's `refused` verdict (decision 5).
+  it("keeps a refusal's record step and reconciliation's refused verdict", () => {
+    const step = { event: "execute-step", outcome: "allowed", lang: "0013", fn: "snap", op: "gcs.put-thumbnail", step: "refusal", purpose: "record" };
+    expect(validateAuditRecord(step)).toEqual(step);
+    expect(validateAuditRecord({ op: "learnosity.write-items", step: "refusal" }).step).toBe("invalid");
+    expect(validateAuditRecord({ event: "reconcile", outcome: "allowed", reason: "refused" })).toEqual({ event: "reconcile", outcome: "allowed", reason: "refused" });
+  });
+
   // A refused request can put anything in a field a record copies.
   it.each([
     ["op", { op: "alice@example.com" }],

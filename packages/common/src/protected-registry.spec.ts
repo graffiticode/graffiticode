@@ -244,16 +244,54 @@ describe("registered execution steps", () => {
 
 // v9 (C5a, docs/c5-l0013-commands-plan.md): a service-credential, item-scoped
 // function, conditional steps, and v8 kept for artifacts and execution.
-describe("registry v9", () => {
-  it("is version 9, with v8 in the window and its artifacts compatible (decision 2)", () => {
-    expect(REGISTRY_VERSION).toBe(9);
-    expect(REGISTRY_WINDOW).toEqual([8]);
-    expect(ARTIFACT_COMPATIBLE_VERSIONS).toEqual([8]);
-    expect(isAcceptedRegistryVersion(8)).toBe(true);
-    expect(isArtifactCompatible(8)).toBe(true);
+// v10 (C5d, docs/c5d-refusal-and-hold-plan.md decision 3): the `refusal`
+// step, purpose `record`, and v9 and v8 kept for artifacts and execution.
+describe("registry v10", () => {
+  it("is version 10, with v9 and v8 in the window and their artifacts compatible", () => {
+    expect(REGISTRY_VERSION).toBe(10);
+    expect(REGISTRY_WINDOW).toEqual([9, 8]);
+    expect(ARTIFACT_COMPATIBLE_VERSIONS).toEqual([9, 8]);
+    for (const v of [10, 9, 8]) {
+      expect(isAcceptedRegistryVersion(v)).toBe(true);
+      expect(isArtifactCompatible(v)).toBe(true);
+    }
     expect(isAcceptedRegistryVersion(7)).toBe(false);
     expect(isArtifactCompatible(7)).toBe(false);
+    // A registry-9 Broker (window [8]) refuses a v10 token: why Broker goes first.
+    expect(isAcceptedRegistryVersion(10, { current: 9, window: [8] })).toBe(false);
   });
+
+  it("registers gcs.put-thumbnail's `refusal` step, purpose `record`, needing no predecessor", () => {
+    const op = "gcs.put-thumbnail";
+    expect(operationSteps(op)?.at(-1)).toEqual({ id: "refusal", purpose: "record" });
+    expect(isStepRegistered({ op, step: "refusal", purpose: "record" })).toBe(true);
+    expect(isStepRegistered({ op, step: "refusal", purpose: "record", after: null })).toBe(true);
+    // Only with its own purpose, once, and on no other operation.
+    expect(isStepRegistered({ op, step: "refusal", purpose: "dispatch" })).toBe(false);
+    expect(isStepRegistered({ op, step: "refusal", purpose: "replay" })).toBe(false);
+    expect(isStepRegistered({ op, step: "refusal", purpose: "record", attempt: 2 })).toBe(false);
+    expect(isStepRegistered({ op, step: "receipt", purpose: "record" })).toBe(false);
+    expect(isStepRegistered({ op, step: "publish", purpose: "record" })).toBe(false);
+    for (const other of ["learnosity.write-items", "learnosity.sign-items-preview", "learnosity.sign-questions-preview"]) {
+      expect(isStepRegistered({ op: other, step: "refusal", purpose: "record" })).toBe(false);
+      expect((operationSteps(other) ?? []).some(s => s.purpose === "record")).toBe(false);
+    }
+  });
+
+  it("changes no function's meaning, so artifacts bind exactly as under v9", () => {
+    for (const fns of Object.values(PROTECTED_FUNCTIONS)) {
+      for (const spec of Object.values(fns)) expect(spec.meaningSince).toBeLessThanOrEqual(9);
+    }
+    const l0176 = [{ lang: "0176", code: { 1: { tag: "NUM", elts: ["1"] }, root: 1 } }];
+    const l0013 = [{ lang: "0013", code: { 1: { tag: "SNAP", elts: [] }, root: 1 } }];
+    expect(artifactRegistryVersion(l0176)).toBe(8);
+    expect(artifactRegistryVersion(l0013)).toBe(9);
+    expect(artifactRegistryVersion(l0176)).toBe(artifactRegistryVersion(l0176, { current: 9, compatible: [8] }));
+    expect(artifactRegistryVersion(l0013)).toBe(artifactRegistryVersion(l0013, { current: 9, compatible: [8] }));
+  });
+});
+
+describe("registry v9", () => {
 
   it("registers L0013's snap: write, service credential, item scope, never delegable", () => {
     expect(Object.keys(PROTECTED_FUNCTIONS["0013"])).toEqual(["snap"]);
@@ -371,7 +409,7 @@ describe("conditional steps", () => {
         expect(s.attempts).toBeLessThanOrEqual(MAX_CONDITIONAL_ATTEMPTS);
       }
     }
-    expect(operationSteps(op)?.map(s => `${s.id}:${s.purpose}`)).toEqual(["publish:dispatch", "receipt:replay"]);
+    expect(operationSteps(op)?.map(s => `${s.id}:${s.purpose}`)).toEqual(["publish:dispatch", "receipt:replay", "refusal:record"]);
     expect(operationSteps(op)?.[0]).toMatchObject({ conditional: true, attempts: 4 });
   });
 
