@@ -30,9 +30,10 @@ test("production stays print-only: --apply refuses it", async () => {
 test("each first-wave compiler has its own class, holding only its inventoried hosts", async () => {
   const model = await production();
   // broker-faults (the C6 drive's fault Broker) was retired on 2026-11-11 and is no longer listed.
-  // broker-c5d-drive is C5d's drive Broker (IAM review Step 32), listed by l0176r-c5d-drive and
-  // l0013r-c5d-drive; it leaves both classes at the drive's teardown.
-  assert.deepEqual(model.classes["compilers-l0176"].hosts, ["api.graffiticode.org", "auth.graffiticode.org", "broker-c5d-drive-sja7fatcta-uc.a.run.app", "broker-sja7fatcta-uc.a.run.app", "policy-sja7fatcta-uc.a.run.app", "www.googleapis.com"]);
+  // broker-c5d-drive (C5d's drive Broker, IAM review Step 32) left both classes at the drive's
+  // teardown (2026-11-21).
+  assert.deepEqual(model.classes["compilers-l0176"].hosts, ["api.graffiticode.org", "auth.graffiticode.org", "broker-sja7fatcta-uc.a.run.app", "policy-sja7fatcta-uc.a.run.app", "www.googleapis.com"]);
+  for (const cls of Object.values(model.classes)) assert.ok(!cls.hosts.some(h => h.includes("c5d-drive")), cls.name);
   assert.deepEqual(model.classes["compilers-l0000"].hosts, ["api.graffiticode.org", "auth.graffiticode.org", "policy-sja7fatcta-uc.a.run.app", "www.googleapis.com"]);
   // C5a: L0013's snap reserves and stages through Policy and publishes
   // through Broker, and its /preflight verifies the api's Google ID token
