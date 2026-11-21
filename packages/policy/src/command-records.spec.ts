@@ -461,3 +461,50 @@ describe("recorded outputs", () => {
     expect("output" in outcomes.find(o => o.stage === "s0")).toBe(false);
   });
 });
+
+// C5d (docs/c5d-refusal-and-hold-plan.md §3 and §4): Broker records a
+// definite staging refusal as the operation's outcome, so settlement needs
+// nothing new: the receipt settles the occurrence failed and final, finish
+// aggregates the command failed with nothing to publish, and the command
+// leaves due selection at every capability.
+describe("settling a staging refusal's receipt (C5d)", () => {
+  // What Broker's receipt reader returns for a refusal, in either shape.
+  const refusalReceipt = (stage, occ) => receipts.push({
+    operationId: `${invocationId}/${stage}/${occ}`,
+    binding: { principal: OWNER, op: "gcs.put-thumbnail" },
+    claimedAt: new Date(T0).toISOString(),
+    recorded: true,
+    status: "failed",
+    steps: [],
+    result: null,
+    reason: "staging-unavailable",
+    category: "conflict",
+  });
+
+  it("records failed and final from the receipt, then finish is failed with publication none, and the command is never due", async () => {
+    const c = commandStore.commands.get(commandId);
+    commandStore.commands.set(commandId, { ...c, phase: "admitted", admission: { planDigest: ADMISSION.planDigest, stages: { s0: ADMISSION.stages.s1 } } });
+    await write("bindOccurrence", { stage: "s0", occurrenceId: "SAVE:1.0", intentId: "save", args: "{}" });
+    // Before the receipt, finish is refused, as the drive found it.
+    await denied(write("finish", {}), "occurrences-unsettled");
+    refusalReceipt("s0", "SAVE:1.0");
+    await write("closeStage", { stage: "s0", occurrences: { save: ["SAVE:1.0"] } });
+    expect(await settle()).toEqual({ recorded: 1, operations: [{ stage: "s0", occurrenceId: "SAVE:1.0", outcome: "failed", final: true }] });
+    expect((await policy.commandRead({ caller: GATEWAY, commandId, what: "outcomes" })).outcomes).toEqual([
+      expect.objectContaining({ stage: "s0", occurrenceId: "SAVE:1.0", outcome: "failed", final: true, source: "receipt", reason: "staging-unavailable", steps: [] }),
+    ]);
+    const done = await write("finish", {});
+    expect(done).toMatchObject({ status: "failed", publication: { state: "none" } });
+    expect(commandStore.commands.get(commandId).counts).toMatchObject({ failed: 1, completed: 0, partial: 0, uncertain: 0 });
+    // Long past its lease, it is due to no worker, whatever it runs.
+    for (const recording of [0, 1]) {
+      for (const repairs of [0, 1]) {
+        for (const scopes of [0, 1]) {
+          expect((await commandStore.listDue({ now: clock + 10 * COMMAND_LEASE_MS, limit: 50, recording, repairs, scopes })).map(d => d.commandId)).not.toContain(commandId);
+        }
+      }
+    }
+    // A later settle changes nothing: the outcome is final.
+    expect((await settle()).recorded).toBe(0);
+  });
+});
