@@ -1,0 +1,6 @@
+ok     observations-read: ok
+FAILED terminal: not terminal: c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f pending
+FAILED policy-enumeration: not terminal in Policy: c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f pending
+cleanup: /private/tmp/claude-501/-Users-jeffdyer-work-graffiticode-graffiticode/3b9960ea-9e37-4af7-b859-610265f8269c/scratchpad/c5d-step32/drive/ad49c0ac/cleanup-2026-11-20T22-44-49-651Z.json (FAILED)
+exit 1
+2026-11-20T22:44:49Z
