@@ -39,9 +39,17 @@
 // is read, and each operation's own `observe` decides from what is published
 // (gcs.put-thumbnail: a published sequence at or above the capture's is
 // `applied`, anything else `unresolved`).
+//
+// C5d (docs/c5d-refusal-and-hold-plan.md decision 5): a receipt whose recorded
+// outcome is a definite staging refusal (failed, `staging-unavailable`, no
+// step taken; stores.js isStagingRefusal) is final: nothing was sent, and
+// none ever will be under that claim. It answers `refused`, final, whatever
+// its evidence is (claimRefused's `{ refused }`, or a reopened run's original
+// evidence under refuseRun), with no read and no attempt appended.
 
 import { randomUUID } from "node:crypto";
 import { observeRecord, EVIDENCE_FORMAT } from "./operations.js";
+import { isStagingRefusal, STAGING_REFUSAL } from "./stores.js";
 
 export const RECONCILE_GRACE_MS = 60_000;
 
@@ -112,6 +120,12 @@ export const createReconciler = ({ receipts, secrets, operations, limits, audit,
       const final = await receipts.getResolution(operationId);
       if (final) {
         results.push({ operationId, verdict: final.verdict, final: true, ...resultOf(final) });
+        continue;
+      }
+      // Keyed on the recorded outcome, never the evidence (see the header).
+      if (isStagingRefusal(await receipts.getOutcome(operationId))) {
+        await audit({ ...opRecord, outcome: "allowed", reason: "refused" });
+        results.push({ operationId, verdict: "refused", final: true, reason: STAGING_REFUSAL });
         continue;
       }
       const evidence = claim.evidence;

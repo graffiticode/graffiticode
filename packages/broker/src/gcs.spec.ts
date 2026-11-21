@@ -97,9 +97,10 @@ beforeAll(async () => {
 });
 
 // One Broker over its own stores and storage. `faults` as in broker.js.
-const makeEnv = ({ faults = null }: { faults?: any } = {}) => {
+// `receipts` replaces the memory receipt store (a crash hook); `beforeDecision`
+// runs inside each authorization, before its decision (an interleaving hook).
+const makeEnv = ({ faults = null, receipts = createMemoryReceiptStore(), beforeDecision = null, now = undefined }: { faults?: any, receipts?: any, beforeDecision?: null | ((ask) => Promise<void>), now?: () => number } = {}) => {
   const storage = makeStorage();
-  const receipts = createMemoryReceiptStore();
   const records = [];
   const asks = [];
   let deny = null as null | ((ask) => boolean);
@@ -127,6 +128,7 @@ const makeEnv = ({ faults = null }: { faults?: any } = {}) => {
     activity: createMemoryActivityStore(),
     authorize: async ({ signal: _signal, ...ask }) => {
       asks.push(ask);
+      if (beforeDecision) await beforeDecision(ask);
       if (deny?.(ask)) {
         const { AuthorizationDenied } = await import("./authorizer.js");
         throw new AuthorizationDenied("step-not-registered");
@@ -139,11 +141,13 @@ const makeEnv = ({ faults = null }: { faults?: any } = {}) => {
     },
     audit,
     faults,
+    ...(now ? { now } : {}),
   };
   const broker = createBroker(deps);
   // Reconciliation, once the write's deadline and grace have passed.
   const reconcile = createReconciler({ receipts, secrets: deps.secrets, operations, limits: DEFAULT_LIMITS, audit, now: () => Date.now() + DEFAULT_LIMITS.executionMs + RECONCILE_GRACE_MS + 1000 });
-  return { storage, receipts, records, asks, broker, reconcile, operations, dataApiCalls, denyWhen: fn => { deny = fn; }, unavailableWhen: fn => { unavailable = fn; } };
+  const reader = createReceiptReader({ receipts });
+  return { storage, receipts, records, asks, broker, reconcile, reader, operations, dataApiCalls, denyWhen: fn => { deny = fn; }, unavailableWhen: fn => { unavailable = fn; } };
 };
 
 const thumbnail = (bytes: Uint8Array, captureSequence: number, item = ITEM) => ({ item, sha256: sha256Hex(bytes), captureSequence });
@@ -441,32 +445,120 @@ describe("publishing (decision 8)", () => {
 });
 
 describe("staging (decision 9)", () => {
-  it("refuses missing staged bytes with no claim, definitely, before claiming", async () => {
-    const env = makeEnv();
-    const bytes = png("never staged");
-    const e = await refused(snap(env, thumbnail(bytes, 1)), "staging-unavailable");
-    expect(e.status).toBe(409);
-    expect(await env.receipts.getClaim(opid())).toBeNull();
-    expect(env.asks).toEqual([]);
+  // C5d (docs/c5d-refusal-and-hold-plan.md decisions 1–4): a definite
+  // refusal is recorded as the operation's outcome, claim and outcome in one
+  // transaction, after Policy authorizes the `refusal` step.
+  const refusalRecorded = async (env, payload) => {
+    const claim = await env.receipts.getClaim(opid());
+    expect(claim).toMatchObject({ binding: { principal: OWNER, scope: { kind: "item", id: ITEM }, lang: "0013", fn: "snap", op: "gcs.put-thumbnail", registryVersion: REGISTRY_VERSION, argsDigest: argsDigest(payload) }, pld: PLD, evidence: { refused: "staging-unavailable" } });
+    expect(await env.receipts.getOutcome(opid())).toMatchObject({ status: "failed", steps: [], result: null, reason: "staging-unavailable", category: "conflict" });
+    // No run opened, nothing dispatched or sent.
+    expect(await env.receipts.getRunState(opid())).toEqual({ run: 0, aborted: false });
+    expect(await env.receipts.getStepAttempts(opid())).toEqual([]);
     expect(env.storage.uploads).toEqual([]);
+    expect(env.storage.prepared).toBe(0);
+    expect(env.asks).toEqual([{ executionToken: expect.any(String), op: "gcs.put-thumbnail", argsDigest: argsDigest(payload), step: "refusal", purpose: "record", after: null }]);
+    expect(env.records.filter(r => r.event === "execute-step")).toEqual([expect.objectContaining({ step: "refusal", purpose: "record", decisionId: "decision-0001" })]);
+    expect(env.records.filter(r => r.event === "execute").at(-1)).toMatchObject({ outcome: "failed", reason: "staging-unavailable", steps: [], category: "conflict" });
+    // Settlement reads it as a recorded failure, never uncertain.
+    expect((await env.reader({ invocationId: INV })).operations).toEqual([expect.objectContaining({ operationId: opid(), recorded: true, status: "failed", steps: [], result: null, reason: "staging-unavailable", category: "conflict" })]);
+  };
+
+  it("records missing staged bytes with no claim as the operation's failed outcome, and still answers 409", async () => {
+    const env = makeEnv();
+    const payload = thumbnail(png("never staged"), 1);
+    const e = await refused(snap(env, payload), "staging-unavailable");
+    expect(e.status).toBe(409);
+    expect(e.detail).toBeUndefined();
+    await refusalRecorded(env, payload);
   });
 
-  it("refuses staged bytes that don't match the bound digest, before claiming", async () => {
+  it("records staged bytes that don't match the bound digest the same way", async () => {
     const env = makeEnv();
     stage(env, png("what was staged"));
-    await refused(snap(env, thumbnail(png("what was bound"), 1)), "staging-unavailable");
-    expect(await env.receipts.getClaim(opid())).toBeNull();
-    expect(env.storage.uploads).toEqual([]);
+    const payload = thumbnail(png("what was bound"), 1);
+    expect((await refused(snap(env, payload), "staging-unavailable")).status).toBe(409);
+    await refusalRecorded(env, payload);
   });
 
-  it("refuses, as unavailable, when staging can't be read now", async () => {
+  it("answers a retry after a recorded refusal by replaying failed, with the bytes restored: no staging read, no publish", async () => {
+    const env = makeEnv();
+    const bytes = png("deleted, then restored");
+    const payload = thumbnail(bytes, 1);
+    await refused(snap(env, payload), "staging-unavailable");
+    stage(env, bytes);
+    const reads = env.storage.reads.length;
+    expect(await snap(env, payload)).toEqual({ status: "failed", result: null, steps: [], reason: "staging-unavailable", category: "conflict", replayed: true });
+    expect(env.storage.reads).toHaveLength(reads);
+    expect(env.storage.uploads).toEqual([]);
+    expect(env.storage.published()).toBeNull();
+  });
+
+  it("refuses the same operation id with other arguments after a refusal, changing nothing", async () => {
+    const env = makeEnv();
+    await refused(snap(env, thumbnail(png("a"), 1)), "staging-unavailable");
+    const before = [await env.receipts.getClaim(opid()), await env.receipts.getOutcome(opid())];
+    await refused(snap(env, thumbnail(png("b"), 1)), "operation-id-reused");
+    expect([await env.receipts.getClaim(opid()), await env.receipts.getOutcome(opid())]).toEqual(before);
+  });
+
+  it.each([
+    ["denied", env => env.denyWhen(ask => ask.purpose === "record")],
+    ["unavailable", env => env.unavailableWhen(ask => ask.purpose === "record")],
+  ])("records nothing when the refusal's authorization is %s, answers as before, and records once on a later authorized retry", async (_label, block) => {
+    const env = makeEnv();
+    const payload = thumbnail(png("never staged"), 1);
+    block(env);
+    expect((await refused(snap(env, payload), "staging-unavailable")).status).toBe(409);
+    expect(await env.receipts.getClaim(opid())).toBeNull();
+    expect(await env.receipts.getOutcome(opid())).toBeNull();
+    expect((await env.reader({ invocationId: INV })).operations).toEqual([]);
+    env.denyWhen(null);
+    env.unavailableWhen(null);
+    await refused(snap(env, payload), "staging-unavailable");
+    expect(await env.receipts.getOutcome(opid())).toMatchObject({ status: "failed", reason: "staging-unavailable" });
+    expect(await snap(env, payload)).toMatchObject({ status: "failed", replayed: true });
+  });
+
+  it("records nothing when the refusal's decision comes after the deadline", async () => {
+    let clock = Date.now();
+    let late = true;
+    const env = makeEnv({ now: () => clock, beforeDecision: async ask => { if (ask.purpose === "record" && late) clock += DEFAULT_LIMITS.executionMs + 1; } });
+    const payload = thumbnail(png("never staged"), 1);
+    expect((await refused(snap(env, payload), "staging-unavailable")).status).toBe(409);
+    expect(await env.receipts.getClaim(opid())).toBeNull();
+    expect(await env.receipts.getOutcome(opid())).toBeNull();
+    late = false;
+    clock = Date.now();
+    await refused(snap(env, payload), "staging-unavailable");
+    expect(await env.receipts.getOutcome(opid())).toMatchObject({ status: "failed", reason: "staging-unavailable" });
+  });
+
+  it("refuses, as unavailable, when staging can't be read now: a throw, a 5xx or a timeout records nothing, and the retry publishes", async () => {
     const env = makeEnv();
     const bytes = png("a");
     stage(env, bytes);
-    env.storage.read = async () => { throw new Error("503"); };
-    const e = await refused(snap(env, thumbnail(bytes, 1)), "unavailable");
-    expect(e.status).toBe(503);
-    expect(await env.receipts.getClaim(opid())).toBeNull();
+    const read = env.storage.read;
+    // The real client over a server error, and over a request that timed out.
+    const client = fetchImpl => buildGcsStorage({ accessToken: async () => "t", fetch: fetchImpl as any });
+    const serverError = client(async () => new Response("", { status: 503 }));
+    const timedOut = client(async () => { throw new DOMException("The operation was aborted due to timeout", "TimeoutError"); });
+    const failures = [
+      async () => { throw new Error("socket hang up"); },
+      (bucket, name, o) => serverError.read(bucket, name, o),
+      (bucket, name, o) => timedOut.read(bucket, name, o),
+    ];
+    for (const failing of failures) {
+      env.storage.read = failing as any;
+      const e = await refused(snap(env, thumbnail(bytes, 1)), "unavailable");
+      expect(e.status).toBe(503);
+      expect(await env.receipts.getClaim(opid())).toBeNull();
+      expect(await env.receipts.getOutcome(opid())).toBeNull();
+    }
+    expect(env.asks).toEqual([]);
+    env.storage.read = read;
+    expect(await snap(env, thumbnail(bytes, 1))).toEqual({ status: "succeeded", steps: ["publish"], result: resultFor(bytes, 1) });
+    expect(env.storage.uploads).toHaveLength(1);
   });
 
   it("reads each stage's own staged object when two stages share an occurrence id", async () => {
@@ -878,16 +970,27 @@ describe("reopening a run that stopped before dispatch (7e)", () => {
     expect(await snap(env, thumbnail(bytes, 1))).toMatchObject({ status: "succeeded" });
   });
 
-  it("refuses a reopened run whose staging has gone, definitely, starting no run", async () => {
+  // C5d (the refusal plan, §1 and decision 1): the reopened run records the
+  // refusal as its outcome, the run and the outcome in one transaction.
+  it("records a reopened run whose staging has gone as failed at run 1, keeping the claim's evidence", async () => {
     const env = makeEnv();
     const bytes = png("gone");
     stage(env, bytes);
     env.unavailableWhen(() => true);
     await refused(snap(env, thumbnail(bytes, 1)), "authorization-unavailable");
     env.unavailableWhen(null);
+    const evidence = (await env.receipts.getClaim(opid())).evidence;
     env.storage.objects.delete(`${STAGING}/${stagedObjectName({ commandId: CMD, operationId: opid() })}`);
-    await refused(snap(env, thumbnail(bytes, 1)), "staging-unavailable");
-    expect(await env.receipts.getRunState(opid())).toEqual({ run: 0, aborted: true });
+    expect((await refused(snap(env, thumbnail(bytes, 1)), "staging-unavailable")).status).toBe(409);
+    expect(await env.receipts.getRunState(opid())).toEqual({ run: 1, aborted: false });
+    expect(await env.receipts.getOutcome(opid())).toMatchObject({ status: "failed", steps: [], result: null, reason: "staging-unavailable", category: "conflict" });
+    expect((await env.receipts.getClaim(opid())).evidence).toEqual(evidence);
+    expect(env.asks.filter(a => a.purpose === "record")).toHaveLength(1);
+    expect((await env.reader({ invocationId: INV })).operations).toEqual([expect.objectContaining({ recorded: true, status: "failed", reason: "staging-unavailable" })]);
+    // And then replays it, even with the bytes back.
+    stage(env, bytes);
+    expect(await snap(env, thumbnail(bytes, 1))).toMatchObject({ status: "failed", reason: "staging-unavailable", replayed: true });
+    expect(env.storage.uploads).toEqual([]);
   });
 
   it("records a failure, as always, once any request was authorized for dispatch", async () => {
@@ -1018,5 +1121,216 @@ describe("an abort whose acknowledgment was lost (7e)", () => {
     // A superseded run is fenced even once the outcome exists.
     await expect(receipts.putOutcome(op, { status: "failed" }, { run: 0 })).rejects.toBeInstanceOf(RunFenced);
     expect(await receipts.getOutcome(op)).toMatchObject({ status: "succeeded" });
+  });
+});
+
+// C5d (docs/c5d-refusal-and-hold-plan.md §4): a refusal's record is one
+// transaction, so a crash inside it leaves neither record; and the claim's
+// create-once decides every race between a refusal and a claim or a run.
+describe("the staging refusal's transaction (C5d)", () => {
+  const stagedName = () => `${STAGING}/${stagedObjectName({ commandId: CMD, operationId: opid() })}`;
+  const crashing = (operation: string) => {
+    const hook = { armed: true };
+    const receipts = createMemoryReceiptStore({ beforeCommit: name => { if (hook.armed && name === operation) throw new Error("process died inside the transaction"); } });
+    return { receipts, hook };
+  };
+
+  it("leaves neither the claim nor the outcome after a crash inside claimRefused, and the next execute records once", async () => {
+    const { receipts, hook } = crashing("claimRefused");
+    const env = makeEnv({ receipts });
+    const payload = thumbnail(png("never staged"), 1);
+    await expect(snap(env, payload)).rejects.toThrow(/inside the transaction/);
+    expect(await receipts.getClaim(opid())).toBeNull();
+    expect(await receipts.getOutcome(opid())).toBeNull();
+    // Absent, never uncertain.
+    expect((await env.reader({ invocationId: INV })).operations).toEqual([]);
+    await expect(env.reconcile({ itemId: ITEM, invocationId: INV, decisionId: "decision-recon-1" })).rejects.toMatchObject({ reason: "receipt-not-found" });
+    hook.armed = false;
+    await refused(snap(env, payload), "staging-unavailable");
+    expect(await receipts.getOutcome(opid())).toMatchObject({ status: "failed", reason: "staging-unavailable" });
+    expect((await env.reader({ invocationId: INV })).operations).toEqual([expect.objectContaining({ recorded: true, status: "failed" })]);
+    expect(env.records.filter(r => r.event === "execute" && r.outcome === "failed")).toHaveLength(1);
+  });
+
+  it("leaves the aborted run and no outcome after a crash inside refuseRun, and the next execute records once", async () => {
+    const { receipts, hook } = crashing("refuseRun");
+    const env = makeEnv({ receipts });
+    const bytes = png("gone");
+    stage(env, bytes);
+    env.unavailableWhen(() => true);
+    await refused(snap(env, thumbnail(bytes, 1)), "authorization-unavailable");
+    env.unavailableWhen(null);
+    env.storage.objects.delete(stagedName());
+    await expect(snap(env, thumbnail(bytes, 1))).rejects.toThrow(/inside the transaction/);
+    expect(await receipts.getRunState(opid())).toEqual({ run: 0, aborted: true });
+    expect(await receipts.getOutcome(opid())).toBeNull();
+    expect((await env.reader({ invocationId: INV })).operations).toEqual([]);
+    hook.armed = false;
+    await refused(snap(env, thumbnail(bytes, 1)), "staging-unavailable");
+    expect(await receipts.getRunState(opid())).toEqual({ run: 1, aborted: false });
+    expect(await receipts.getOutcome(opid())).toMatchObject({ status: "failed", reason: "staging-unavailable" });
+  });
+
+  it("makes claimRefused and refuseRun each one atomic step in the store", async () => {
+    const { createMemoryReceiptStore: fresh, stagingRefusalOutcome } = await import("./index.js");
+    const receipts = fresh();
+    const op = opid();
+    const binding = { principal: OWNER, op: "gcs.put-thumbnail" };
+    expect(await receipts.claimRefused(op, binding, { pld: PLD, evidence: { refused: "staging-unavailable" } }, stagingRefusalOutcome())).toEqual({ created: true });
+    expect(await receipts.getClaim(op)).toMatchObject({ binding, pld: PLD, evidence: { refused: "staging-unavailable" } });
+    expect(await receipts.getOutcome(op)).toMatchObject(stagingRefusalOutcome());
+    // A second writes nothing and returns the claim.
+    expect(await receipts.claimRefused(op, { principal: "other" }, {}, { status: "succeeded", steps: [] })).toEqual({ created: false, claim: expect.objectContaining({ binding }) });
+    expect(await receipts.getOutcome(op)).toMatchObject({ status: "failed" });
+    // refuseRun only where startRun would succeed.
+    const other = opid("s0", "o2");
+    await receipts.claim(other, binding);
+    expect(await receipts.refuseRun(other, 1, stagingRefusalOutcome())).toBe(false);
+    await receipts.abortRun(other, 0, { reason: "authorization-unavailable" });
+    expect(await receipts.refuseRun(other, 2, stagingRefusalOutcome())).toBe(false);
+    expect(await receipts.refuseRun(other, 1, stagingRefusalOutcome())).toBe(true);
+    expect(await receipts.refuseRun(other, 1, stagingRefusalOutcome())).toBe(false);
+    expect(await receipts.startRun(other, 1)).toBe(false);
+    expect(await receipts.getRunState(other)).toEqual({ run: 1, aborted: false });
+    // The run has ended: it can't be aborted or record again.
+    await expect(receipts.abortRun(other, 1, { reason: "late" })).rejects.toThrow();
+    await expect(receipts.putOutcome(other, { status: "succeeded" }, { run: 1 })).rejects.toThrow(/already recorded/);
+  });
+});
+
+describe("races between a refusal and a claim (C5d)", () => {
+  const stagedName = () => `${STAGING}/${stagedObjectName({ commandId: CMD, operationId: opid() })}`;
+  const gate = () => {
+    let open;
+    const opened = new Promise<void>(resolve => { open = resolve; });
+    return { open: () => open(), opened };
+  };
+  const settled = promise => promise.then(value => ({ value, error: null }), error => ({ value: null, error }));
+
+  it("A claims first: B, which read staging as missing, loses its record and replays A's outcome", async () => {
+    let runA = null;
+    const env = makeEnv({ beforeDecision: async ask => { if (ask.purpose === "record" && runA) { const a = runA; runA = null; await a(); } } });
+    const bytes = png("A has it");
+    const payload = thumbnail(bytes, 1);
+    let aOut;
+    // B finds nothing staged; while B asks to record its refusal, A, which
+    // has the bytes, runs to completion.
+    runA = async () => { stage(env, bytes); aOut = await snap(env, payload); };
+    const bOut = await snap(env, payload);
+    expect(aOut).toEqual({ status: "succeeded", steps: ["publish"], result: resultFor(bytes, 1) });
+    expect(bOut).toEqual({ status: "succeeded", steps: ["publish"], result: resultFor(bytes, 1), replayed: true });
+    expect(env.storage.uploads).toHaveLength(1);
+    expect(await env.receipts.getOutcome(opid())).toMatchObject({ status: "succeeded" });
+    expect((await env.receipts.getClaim(opid())).evidence.refused).toBeUndefined();
+  });
+
+  it("B records first: A, which read the bytes, finds the claim and replays failed, with no upload", async () => {
+    const env = makeEnv();
+    const bytes = png("A read it, then it went");
+    stage(env, bytes);
+    const payload = thumbnail(bytes, 1);
+    const read = env.storage.read.bind(env.storage);
+    const held = gate();
+    const entered = gate();
+    let first = true;
+    env.storage.read = async (...args) => {
+      if (first) {
+        first = false;
+        const bytesRead = await read(...args);
+        entered.open();
+        await held.opened;
+        return bytesRead;
+      }
+      return read(...args);
+    };
+    const a = settled(snap(env, payload));
+    await entered.opened;
+    env.storage.objects.delete(stagedName());
+    await refused(snap(env, payload), "staging-unavailable");
+    held.open();
+    const out = await a;
+    expect(out.error).toBeNull();
+    expect(out.value).toMatchObject({ status: "failed", reason: "staging-unavailable", steps: [], replayed: true });
+    expect(env.storage.uploads).toEqual([]);
+    expect(env.storage.prepared).toBe(0);
+  });
+
+  it("two concurrent refusals record one outcome, and both answer", async () => {
+    let arrived = 0;
+    const both = gate();
+    const env = makeEnv({ beforeDecision: async ask => { if (ask.purpose === "record") { arrived += 1; if (arrived === 2) both.open(); await both.opened; } } });
+    const payload = thumbnail(png("never staged"), 1);
+    const [x, y] = await Promise.all([settled(snap(env, payload)), settled(snap(env, payload))]);
+    const answers = [x, y].map(r => (r.error ? `refused:${r.error.reason}:${r.error.status}` : `${r.value.status}:${r.value.reason}:${r.value.replayed}`)).sort();
+    expect(answers).toEqual(["failed:staging-unavailable:true", "refused:staging-unavailable:409"]);
+    expect(env.records.filter(r => r.event === "execute" && r.outcome === "failed")).toHaveLength(1);
+    expect(await env.receipts.getOutcome(opid())).toMatchObject({ status: "failed", reason: "staging-unavailable" });
+  });
+
+  // An aborted run 0, reopened by A (bytes back) and B (bytes gone).
+  const aborted = async (env, bytes) => {
+    stage(env, bytes);
+    env.unavailableWhen(() => true);
+    await refused(snap(env, thumbnail(bytes, 1)), "authorization-unavailable");
+    env.unavailableWhen(null);
+  };
+
+  it("a reopen racing refuseRun: B's refusal starts the run first, and A's startRun loses and replays failed", async () => {
+    const env = makeEnv();
+    const bytes = png("reopen race B first");
+    await aborted(env, bytes);
+    const payload = thumbnail(bytes, 1);
+    const read = env.storage.read.bind(env.storage);
+    const held = gate();
+    const entered = gate();
+    let calls = 0;
+    env.storage.read = async (...args) => {
+      calls += 1;
+      if (calls === 1) {
+        const bytesRead = await read(...args);
+        entered.open();
+        await held.opened;
+        return bytesRead;
+      }
+      return null;
+    };
+    const a = settled(snap(env, payload));
+    await entered.opened;
+    await refused(snap(env, payload), "staging-unavailable");
+    held.open();
+    expect((await a).value).toMatchObject({ status: "failed", reason: "staging-unavailable", replayed: true });
+    expect(env.storage.uploads).toEqual([]);
+    expect(await env.receipts.getRunState(opid())).toEqual({ run: 1, aborted: false });
+  });
+
+  it("a reopen racing refuseRun: A starts the run and publishes first, and B's refuseRun loses and replays it", async () => {
+    let runA = null;
+    const env = makeEnv({ beforeDecision: async ask => { if (ask.purpose === "record" && runA) { const a = runA; runA = null; await a(); } } });
+    const bytes = png("reopen race A first");
+    await aborted(env, bytes);
+    const payload = thumbnail(bytes, 1);
+    env.storage.objects.delete(stagedName());
+    let aOut;
+    runA = async () => { stage(env, bytes); aOut = await snap(env, payload); };
+    const bOut = await snap(env, payload);
+    expect(aOut).toMatchObject({ status: "succeeded" });
+    expect(bOut).toMatchObject({ status: "succeeded", replayed: true });
+    expect(env.storage.uploads).toHaveLength(1);
+    expect(await env.receipts.getOutcome(opid())).toMatchObject({ status: "succeeded" });
+  });
+
+  it("two concurrent refuseRuns on the reopened run record one outcome", async () => {
+    let arrived = 0;
+    const both = gate();
+    const env = makeEnv({ beforeDecision: async ask => { if (ask.purpose === "record") { arrived += 1; if (arrived === 2) both.open(); await both.opened; } } });
+    const bytes = png("two reopens");
+    await aborted(env, bytes);
+    env.storage.objects.delete(stagedName());
+    const payload = thumbnail(bytes, 1);
+    const [x, y] = await Promise.all([settled(snap(env, payload)), settled(snap(env, payload))]);
+    expect([x, y].filter(r => r.error?.reason === "staging-unavailable")).toHaveLength(1);
+    expect([x, y].filter(r => r.value?.replayed === true && r.value.status === "failed")).toHaveLength(1);
+    expect(await env.receipts.getRunState(opid())).toEqual({ run: 1, aborted: false });
+    expect(env.records.filter(r => r.event === "execute" && r.outcome === "failed")).toHaveLength(1);
   });
 });

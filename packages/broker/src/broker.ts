@@ -49,9 +49,18 @@
 //      place of the connection; a v2 binding is unchanged.
 //   7c. An operation that publishes staged bytes (`loadStaged`) reads and
 //      checks them before its receipt claim: missing or not matching the
-//      bound digest, with no claim, is refused `staging-unavailable`, and
-//      nothing was written. Once a claim exists, staging is never read again:
-//      the receipt answers (decision 9).
+//      bound digest, with no claim, is refused `staging-unavailable` (409).
+//      That refusal is definite, and from registry v10 it is recorded as the
+//      operation's outcome (C5d, docs/c5d-refusal-and-hold-plan.md decisions
+//      1–4): after Policy authorizes the `refusal` step (purpose `record`),
+//      the claim and a `failed` outcome with no step are created in one
+//      transaction (claimRefused), or, for a reopened run (7e), the run and
+//      its outcome are (refuseRun). So a retry replays `failed` and never
+//      reads staging or publishes, even if the bytes come back. Denied,
+//      unavailable or late, nothing is recorded, and the answer is the same
+//      409. Staging that can't be read now is temporary: 503, nothing
+//      written. Once a claim exists, staging is never read again: the
+//      receipt answers (decision 9).
 //   7d. A conditional step (registry `conditional`, `attempts`) may be
 //      authorized again after a failed precondition, as attempt 2..n, each
 //      with its own decision and audit record, and each recorded on the
@@ -102,7 +111,7 @@ import { DeadlineExceeded, PayloadRejected, ProviderRejected } from "./operation
 import { DEFAULT_LIMITS, headroomMs, maxExecutionMs } from "./limits.js";
 import { AuthorizationDenied, AuthorizationUnavailable } from "./authorizer.js";
 import { classify } from "@graffiticode/common/failures";
-import { createMemorySessionSlotStore, RunFenced, type SessionSlotStore } from "./stores.js";
+import { createMemorySessionSlotStore, RunFenced, STAGING_REFUSAL, stagingRefusalOutcome, type SessionSlotStore } from "./stores.js";
 import { DEFAULT_SYSTEM_SESSION_MAX_SIGNINGS, slotExpiresAt, systemSessionClaimsValid } from "./session-slots.js";
 
 // Only defined fields: Firestore refuses undefined values in a receipt.
@@ -603,6 +612,33 @@ export const createBroker = ({
     return replayClaim({ claims, binding: writeBinding(claims, op, digest), recorded: claim.binding, record, refuse, authorizeStep, inTime });
   };
 
+  // 7c, C5d: a definite staging refusal recorded as the operation's outcome,
+  // in one store transaction, once Policy authorizes recording it. `run` is
+  // the reopened run (7e), or null with no claim. Always answers 409
+  // `staging-unavailable`, unless a concurrent request's claim or run won,
+  // whose receipt then answers.
+  const refuseStaging = async ({ claims, binding, run, record, refuse, authorizeStep, inTime }) => {
+    try {
+      await authorizeStep("refusal", "record");
+    } catch (e) {
+      // Denied (a fenced or stale owner), unavailable or late: nothing is
+      // recorded, and the answer is as before. A later owner retries.
+      if (!authorizationReason(e)) throw e;
+      return refuse(STAGING_REFUSAL, 409);
+    }
+    const outcome = stagingRefusalOutcome();
+    if (run === null) {
+      const refused = await receipts.claimRefused(claims.opid, binding, { ...(claims.pld ? { pld: claims.pld } : {}), evidence: { refused: STAGING_REFUSAL } }, outcome);
+      if (!refused.created) return replayClaim({ claims, binding, recorded: refused.claim.binding, record, refuse, authorizeStep, inTime });
+    } else if (!(await receipts.refuseRun(claims.opid, run, outcome))) {
+      // Another request started or refused this run first.
+      const current = await receipts.getClaim(claims.opid);
+      return replayClaim({ claims, binding, recorded: current.binding, record, refuse, authorizeStep, inTime });
+    }
+    await audit({ ...record, outcome: "failed", steps: [], reason: STAGING_REFUSAL, category: outcome.category });
+    throw new BrokerRefused(STAGING_REFUSAL, 409);
+  };
+
   const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep, dispatched }) => {
     // A failure here (before any provider request) propagates: no claim, no
     // effects.
@@ -650,10 +686,13 @@ export const createBroker = ({
         // refusal definite.
         const raced = await receipts.getClaim(claims.opid);
         // An aborted claim wrote nothing: its staging is still needed.
-        if (raced && (await reopenable(raced)) === null) return replayClaim({ claims, binding, recorded: raced.binding, record, refuse, authorizeStep, inTime });
-        // Staging couldn't be read now (503), or isn't there or doesn't
-        // match (409); nothing was claimed or written either way.
-        return unreadable ? refuse("unavailable", 503) : refuse("staging-unavailable", 409);
+        const next = raced ? await reopenable(raced) : null;
+        if (raced && next === null) return replayClaim({ claims, binding, recorded: raced.binding, record, refuse, authorizeStep, inTime });
+        // Staging couldn't be read now: temporary, nothing written.
+        if (unreadable) return refuse("unavailable", 503);
+        // It isn't there or doesn't match: definite (7c). Recorded as the
+        // operation's outcome, with no claim yet or on the reopened run.
+        return refuseStaging({ claims, binding, run: next, record, refuse, authorizeStep, inTime });
       }
     }
     const written = operation.references ? operation.references(payload, claims.opid) : payload;

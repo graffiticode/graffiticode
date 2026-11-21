@@ -12,6 +12,7 @@ import {
   writeResultFromEvidence,
   EVIDENCE_FORMAT,
   REFERENCE_PREFIX,
+  stagingRefusalOutcome,
 } from "./index.js";
 import { REGISTRY_VERSION } from "@graffiticode/common/protected-registry";
 
@@ -339,5 +340,92 @@ describe("reconciliation end to end (WRITE-02)", () => {
     later();
     const out = (await policy.reconcile({ caller: { role: "console" }, user: { uid: OWNER }, connectionId: CONN, idempotencyKey: "save:1" })).operations[0];
     expect(out).toMatchObject({ verdict: "applied", resultSource: "outcome", result: saved.result });
+  });
+});
+
+// C5d (docs/c5d-refusal-and-hold-plan.md decision 5): a receipt that records a
+// definite staging refusal is final and never read, in either shape, keyed on
+// its recorded outcome rather than its evidence.
+describe("a staging refusal's receipt (C5d)", () => {
+  const ITEM = "wI9f3f1XtOWIe7TTJoKE";
+  const SOP = `${INV}/s0/o1`;
+  const BINDING = { principal: OWNER, scope: { kind: "item", id: ITEM }, lang: "0013", fn: "snap", op: "gcs.put-thumbnail", registryVersion: REGISTRY_VERSION, argsDigest: "a" };
+  const EVIDENCE = { format: "gcs-thumbnail-1", bucket: "graffiticode-c5a-gate", object: `${ITEM}.png`, item: ITEM, captureSequence: 1, sha256: "b".repeat(64), commandId: `c:${"a".repeat(64)}`, staged: "x" };
+  let observed;
+  let readBacks;
+  let item;
+
+  beforeEach(() => {
+    observed = 0;
+    readBacks = 0;
+    const operations = {
+      "gcs.put-thumbnail": {
+        kind: "write",
+        credential: "service",
+        readsEvidence: evidence => evidence?.format === "gcs-thumbnail-1",
+        observe: async () => { observed++; return { applied: false, observation: { found: false, captureSequence: 0 } }; },
+        readBack: async () => { readBacks++; return {}; },
+      },
+    };
+    item = createReconciler({ receipts, secrets, operations, limits: LIMITS, audit: async r => { records.push(r); }, now: () => clock });
+  });
+  const askItem = () => item({ itemId: ITEM, invocationId: INV, decisionId: "decision-0001" });
+  const final = { operationId: SOP, verdict: "refused", final: true, reason: "staging-unavailable" };
+  const neverRead = async () => {
+    expect(await askItem()).toEqual({ invocationId: INV, operations: [final] });
+    expect(await askItem()).toEqual({ invocationId: INV, operations: [final] });
+    expect(observed).toBe(0);
+    expect(readBacks).toBe(0);
+    expect(await receipts.getAttempts(SOP)).toEqual([]);
+    expect(await receipts.getResolution(SOP)).toBeNull();
+    expect(records.filter(r => r.event === "reconcile").map(r => r.reason)).toEqual(["refused", "refused"]);
+  };
+
+  it("answers claimRefused's shape refused and final, with no read and no attempt", async () => {
+    await receipts.claimRefused(SOP, BINDING, { evidence: { refused: "staging-unavailable" } }, stagingRefusalOutcome());
+    await neverRead();
+  });
+
+  it("answers refuseRun's shape the same, whatever its thumbnail evidence", async () => {
+    await receipts.claim(SOP, BINDING, { evidence: EVIDENCE });
+    await receipts.abortRun(SOP, 0, { reason: "authorization-unavailable" });
+    expect(await receipts.refuseRun(SOP, 1, stagingRefusalOutcome())).toBe(true);
+    await neverRead();
+  });
+
+  it("answers the owner's reproducer's shape the same: claim, abort, run 1, then its failed outcome", async () => {
+    await receipts.claim(SOP, BINDING, { evidence: EVIDENCE });
+    await receipts.abortRun(SOP, 0, { reason: "review-temporary-outage" });
+    await receipts.startRun(SOP, 1);
+    await receipts.putOutcome(SOP, { status: "failed", reason: "staging-unavailable", steps: [], result: null }, { run: 1 });
+    await neverRead();
+  });
+
+  it.each([
+    ["a failure for another reason", { status: "failed", reason: "precondition-contention", steps: [], result: null }],
+    ["a staging-unavailable failure with a step taken", { status: "failed", reason: "staging-unavailable", steps: ["publish"], result: null }],
+    ["a succeeded outcome", { status: "succeeded", steps: ["publish"], result: null }],
+    ["no outcome", null],
+  ])("still reconciles %s as before, reading once", async (_label, outcome) => {
+    await receipts.claim(SOP, BINDING, { evidence: EVIDENCE });
+    if (outcome) await receipts.putOutcome(SOP, outcome);
+    const out = await askItem();
+    expect(out.operations).toEqual([expect.objectContaining({ operationId: SOP, verdict: "unresolved", final: false })]);
+    expect(observed).toBe(1);
+    expect(await receipts.getAttempts(SOP)).toHaveLength(1);
+  });
+
+  it("still answers a claimRefused-shaped claim with no outcome as unreadable evidence, not a refusal", async () => {
+    await receipts.claim(SOP, BINDING, { evidence: { refused: "staging-unavailable" } });
+    expect((await askItem()).operations).toEqual([{ operationId: SOP, verdict: "unresolved", reason: "evidence-format-unknown" }]);
+    expect(observed).toBe(0);
+  });
+
+  it("returns the drop-outcome shape's resolution without a read, unchanged", async () => {
+    await receipts.claim(SOP, BINDING, { evidence: EVIDENCE });
+    await receipts.createResolution(SOP, { verdict: "applied", attemptId: "attempt-1", decisionId: "decision-0000", result: null, resultSource: "evidence" });
+    expect((await askItem()).operations).toEqual([{ operationId: SOP, verdict: "applied", final: true, result: null, resultSource: "evidence" }]);
+    expect(observed).toBe(0);
+    expect(await receipts.getAttempts(SOP)).toEqual([]);
   });
 });
