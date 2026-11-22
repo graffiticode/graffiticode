@@ -434,6 +434,11 @@
           "milestone": "C5a-scopes",
           "commit": "3ecebcb0d7c70ba73fd0e7d968fec14b9d60fc4a",
           "floor": true
+        },
+        {
+          "milestone": "C5d-refusal",
+          "commit": "769d8e9e27fdeb2adcb2f6c4db4ea17319c80c3d",
+          "floor": true
         }
       ],
       "requires": [
