@@ -605,9 +605,9 @@ const history = {
 test("Policy's floor is B6 slice 4's merge: a rollback to slice 3's or slice 2's Policy is refused", async t => {
   const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
   const floors = raw.services.policy.baselines.filter(b => b.floor === true);
-  assert.deepEqual(floors.map(b => [b.milestone, b.commit]), [["B6-recording", RECORDING], ["B6-repairs", SLICE4], ["C5a-scopes", C5A]]);
-  // B6's floors alone here: C5a's is tested below.
-  const policyFloors = withBaselines(floors.filter(b => b.milestone !== "C5a-scopes"));
+  assert.deepEqual(floors.map(b => [b.milestone, b.commit]), [["B6-recording", RECORDING], ["B6-repairs", SLICE4], ["C5a-scopes", C5A], ["C5d-hold", C5D_HOLD]]);
+  // B6's floors alone here: C5a's and C5d's are tested below.
+  const policyFloors = withBaselines(floors.filter(b => b.milestone.startsWith("B6-")));
   for (const older of [SLICE3, SLICE2]) {
     const h = await harness(t);
     await release(context, { ...source, commit: older }, h.deps);
@@ -644,7 +644,8 @@ test("Policy's and Broker's floor is C5a slice 3's merge: rolling back, or relea
   for (const service of ["policy", "broker"]) {
     const floor = raw.services[service].baselines.find(b => b.milestone === "C5a-scopes");
     assert.deepEqual(floor, { milestone: "C5a-scopes", commit: C5A, floor: true }, service);
-    const floored = withBaselines(raw.services[service].baselines.filter(b => b.floor === true));
+    // The floors up to C5a's: C5d's are tested below.
+    const floored = withBaselines(raw.services[service].baselines.filter(b => b.floor === true && !b.milestone.startsWith("C5d-")));
     for (const older of [SLICE3B, SLICE3A]) {
       // A rollback to Policy or Broker from before slice 3's merge.
       const h = await harness(t);
@@ -664,6 +665,65 @@ test("Policy's and Broker's floor is C5a slice 3's merge: rolling back, or relea
     const latest = await release(floored, { ...source, commit: C5A }, { ...h.deps, ...c5History });
     assert.equal((await rollback(floored, latest, { ...h.deps, ...c5History })).status, "rolled-back");
   }
+});
+
+// C5d (docs/c5d-refusal-and-hold-plan.md decision 12, rollout steps 1–2):
+// Broker's floor is the atomic refusal's merge (#466), Policy's the hold's
+// (#467), which descends from it; and Policy requires Broker's milestone, so
+// Policy can't be released while a reachable Broker is below it, nor Broker
+// rolled back below it. The commits are the real ones, in their real order.
+const C5D_REFUSAL = "769d8e9e27fdeb2adcb2f6c4db4ea17319c80c3d";
+const C5D_HOLD = "33d662d03b1a052ac6d4700914d5b0579537725b";
+const C5D_PLAN = "01ef7368e68d4a61da4ac132865d53471d435970";
+const C5D_REFUSAL_TIP = "cd9227618d6358706f060de1dd79c4530702234c";
+const C5D_DEPS = "824bc161500622b60dd079c1ee49d9b28724f1ab";
+const c5dHistory = {
+  git: {
+    isAncestor: async (base, commit) => {
+      const parents = { [C5D_HOLD]: [C5D_REFUSAL, C5D_DEPS], [C5D_REFUSAL]: [C5D_PLAN, C5D_REFUSAL_TIP], [C5D_REFUSAL_TIP]: [C5D_PLAN], [C5D_DEPS]: [C5D_PLAN], [C5D_PLAN]: [C5A], [C5A]: [SLICE3B], [SLICE3B]: [SLICE3A], [SLICE3A]: [SLICE4], [SLICE4]: [SLICE3], [SLICE3]: [SLICE2], [SLICE2]: [RECORDING] };
+      const seen = new Set();
+      const walk = at => at === base || (!seen.has(at) && (seen.add(at), (parents[at] ?? []).some(walk)));
+      return walk(commit);
+    }
+  }
+};
+test("C5d's floors: Broker's at the refusal's merge, Policy's at the hold's; releasing or rolling back below either is refused", async t => {
+  const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
+  const cases = [
+    ["broker", { milestone: "C5d-refusal", commit: C5D_REFUSAL, floor: true }, [C5D_PLAN, C5D_REFUSAL_TIP]],
+    // A Policy with the refusal but not the hold is below Policy's floor.
+    ["policy", { milestone: "C5d-hold", commit: C5D_HOLD, floor: true }, [C5D_REFUSAL, C5D_DEPS, C5D_PLAN]],
+  ];
+  for (const [service, expected, olders] of cases) {
+    const baselines = raw.services[service].baselines;
+    assert.deepEqual(baselines.at(-1), expected, service);
+    const floored = withBaselines(baselines.filter(b => b.floor === true));
+    for (const older of olders) {
+      const h = await harness(t);
+      await release(context, { ...source, commit: older }, h.deps);
+      const latest = await release(context, { ...source, commit: expected.commit }, h.deps);
+      for (const allowBelowBaseline of [false, true]) {
+        await assert.rejects(rollback(floored, latest, { ...h.deps, ...c5dHistory, allowBelowBaseline, switchState: switchOff }), new RegExp(`below the ${expected.milestone} floor; refusing, with no override`));
+      }
+      const fresh = await harness(t);
+      await assert.rejects(release(floored, { ...source, commit: older }, { ...fresh.deps, ...c5dHistory }), new RegExp(`below the ${expected.milestone} floor; refusing to release it, with no override.*Nothing built`));
+      assert.deepEqual(fresh.calls, []);
+    }
+    const h = await harness(t);
+    await release(floored, { ...source, commit: expected.commit }, { ...h.deps, ...c5dHistory });
+    const latest = await release(floored, { ...source, commit: expected.commit }, { ...h.deps, ...c5dHistory });
+    assert.equal((await rollback(floored, latest, { ...h.deps, ...c5dHistory })).status, "rolled-back");
+  }
+});
+
+test("Policy requires Broker's C5d-refusal, resolved both ways from the repository's deploy.json", async () => {
+  const root = new URL("../../../", import.meta.url).pathname;
+  const policy = await loadConfig({ ...parseArgs(["--plan"]), service: "policy" }, root, {});
+  assert.deepEqual(policy.requires.map(r => [r.service, r.milestone, r.commit]), [["broker", "C5d-refusal", C5D_REFUSAL]]);
+  const broker = await loadConfig({ ...parseArgs(["--plan"]), service: "broker" }, root, {});
+  assert.ok(broker.requiredBy.some(r => r.service === "policy" && r.milestone === "C5d-refusal" && r.commit === C5D_REFUSAL), JSON.stringify(broker.requiredBy));
+  // Broker's own requirement on Policy is unchanged.
+  assert.deepEqual(broker.requires.map(r => [r.service, r.milestone]), [["policy", "sexp"]]);
 });
 
 // The owner's review of #405: a floor governs promotion of a candidate staged
