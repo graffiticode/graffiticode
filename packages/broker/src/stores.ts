@@ -39,6 +39,20 @@
 //                        getRunState(id) -> { run, aborted }. An aborted
 //                        latest run wrote nothing. putOutcome without `run`
 //                        (every other operation) is unchanged.
+//               A definite staging refusal (C5d, docs/c5d-refusal-and-hold-plan.md
+//               decision 1) is recorded as the operation's outcome in ONE
+//               transaction, never as two writes (a claim committed without
+//               its outcome would read uncertain for good):
+//                 claimRefused(id, binding, { pld?, evidence? }, outcome)
+//                          -> { created: true } | { created: false, claim }
+//                          with no claim, creates the claim and the outcome
+//                          together; with one, returns it and writes nothing
+//                 refuseRun(id, k, outcome) -> boolean
+//                          exactly when startRun(id, k) would succeed (run
+//                          k-1 aborted, no outcome): run k, open, and the
+//                          outcome, together. A run with an outcome has
+//                          ended. False, writing nothing, otherwise
+//               Either both records exist afterwards, or neither does.
 //             A claim with no outcome is "uncertain": the broker may have
 //             crashed mid-call, so it is reported with its persisted steps,
 //             never blindly re-run.
@@ -70,6 +84,7 @@
 //               delete(id)  leaves a tombstone, so the id is never reused
 
 import { ConflictError, NotFoundError } from "@graffiticode/common/errors";
+import { classify } from "@graffiticode/common/failures";
 
 export const createMemoryOnceStore = () => {
   const seen = new Map();
@@ -135,7 +150,21 @@ export const checkAttempt = (k, attempt) => {
   if (!Number.isInteger(k) || k < 1 || attempt?.attempt !== k) throw new Error(`attempt index must be the attempt's own positive integer, not ${k}`);
 };
 
-export const createMemoryReceiptStore = () => {
+// The outcome a definite staging refusal records (C5d refusal plan decision
+// 2): failed, no step taken, nothing returned. `category` is classify's of the
+// reason (common/failures: conflict).
+export const STAGING_REFUSAL = "staging-unavailable";
+export const stagingRefusalOutcome = () => ({ status: "failed", steps: [], result: null, reason: STAGING_REFUSAL, category: classify(STAGING_REFUSAL).category });
+// Whether a recorded outcome is a final staging refusal, from either store
+// operation: failed, for that reason, with no step taken (decision 5). Before
+// C5d nothing recorded that reason, so nothing older matches.
+export const isStagingRefusal = outcome =>
+  Boolean(outcome) && outcome.status === "failed" && outcome.reason === STAGING_REFUSAL && Array.isArray(outcome.steps) && outcome.steps.length === 0;
+
+// `beforeCommit` (tests only): called with the operation's name once a
+// claimRefused or refuseRun has built its records and before it stores
+// either, so a test can fail the transaction there. A throw stores nothing.
+export const createMemoryReceiptStore = ({ beforeCommit = undefined }: { beforeCommit?: (operation: string, operationId: string) => void } = {}) => {
   const claims = new Map();
   const stepAttempts = new Map();
   const runStates = new Map();
@@ -151,6 +180,21 @@ export const createMemoryReceiptStore = () => {
       }
       const claim = { binding, ...(pld ? { pld } : {}), ...(evidence ? { evidence } : {}), claimedAt: new Date().toISOString() };
       claims.set(operationId, claim);
+      return { created: true };
+    },
+    // The claim and the outcome together, checked and set with no await in
+    // between: atomic here.
+    async claimRefused(operationId, binding, { pld = undefined, evidence = undefined } = {}, outcome) {
+      if (claims.has(operationId)) {
+        return { created: false, claim: claims.get(operationId) };
+      }
+      if (outcomes.has(operationId)) throw new Error(`outcome already recorded for ${operationId}`);
+      const at = new Date().toISOString();
+      const claim = { binding, ...(pld ? { pld } : {}), ...(evidence ? { evidence } : {}), claimedAt: at };
+      const recorded = { ...outcome, at };
+      beforeCommit?.("claimRefused", operationId);
+      claims.set(operationId, claim);
+      outcomes.set(operationId, recorded);
       return { created: true };
     },
     // The claim alone, never creating one: a replay-only token (P1b) reads it.
@@ -185,6 +229,18 @@ export const createMemoryReceiptStore = () => {
       const current = currentRun(runStates.get(operationId));
       if (outcomes.has(operationId) || current.state !== "aborted" || current.run !== run - 1) return false;
       runStates.set(operationId, { run, state: "open", at: new Date().toISOString() });
+      return true;
+    },
+    async refuseRun(operationId, run, outcome) {
+      checkRun(run);
+      const current = currentRun(runStates.get(operationId));
+      if (outcomes.has(operationId) || current.state !== "aborted" || current.run !== run - 1) return false;
+      const at = new Date().toISOString();
+      const state = { run, state: "open", at };
+      const recorded = { ...outcome, at };
+      beforeCommit?.("refuseRun", operationId);
+      runStates.set(operationId, state);
+      outcomes.set(operationId, recorded);
       return true;
     },
     async abortRun(operationId, run, { reason }) {

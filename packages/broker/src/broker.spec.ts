@@ -1309,3 +1309,93 @@ describe("the fail-write fault", () => {
     expect(() => parseFaults({ BROKER_FAULTS: "fail-write", BROKER_FAULT_PRINCIPALS: "a", K_SERVICE: "broker" })).toThrow("refused on the production broker");
   });
 });
+
+// C5d (docs/c5d-refusal-and-hold-plan.md decisions 3 and 12), from the owner's
+// reproducer: a registry-10 Policy mints preview tokens under its own current
+// registry at once, so Broker must be at 10, with 9 and 8 in its window,
+// before Policy is.
+describe("registry 10's rollout: Broker before Policy (C5d)", () => {
+  const SIGN = "learnosity.sign-items-preview";
+  const ITEMS_PREVIEW = { id: "review", items: ["review-question"] };
+  let keys;
+
+  beforeAll(async () => {
+    const pair = await generateKeyPair("ES256", { extractable: true });
+    keys = {
+      signer: await createLocalSigner({ privateJwk: await exportJWK(pair.privateKey), kid: "rollout" }),
+      jwks: { keys: [{ ...(await exportJWK(pair.publicKey)), kid: "rollout", alg: "ES256", use: "sig" }] },
+    };
+  });
+
+  const on = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
+  const policyAt = async (registryVersion?: number, registryWindow?: number[]) => {
+    const { createMemoryPublicationStore } = await import("@graffiticode/policy");
+    return createPolicy({
+      protectedSwitch: on,
+      signer: keys.signer,
+      jwks: keys.jwks,
+      connections: createMemoryConnectionStore([{ connectionId: "conn-sys", ownerUid: "0xsystem", backend: "learnosity", status: "active" }]),
+      invocations: createMemoryInvocationStore(),
+      publications: createMemoryPublicationStore(),
+      systemConnections: { learnosity: "conn-sys" },
+      audit: async () => {},
+      ...(registryVersion !== undefined ? { registryVersion, registryWindow } : {}),
+    } as any);
+  };
+  // A system preview's execution token, minted by `policy`.
+  const previewMinted = async policy => {
+    const { sessionToken } = await policy.previewSession({ caller: L0176, lang: "0176" });
+    const { executionToken } = await policy.mint({ caller: L0176, sessionToken, fn: "init", op: SIGN, occurrenceId: "prog.0", argsDigest: argsDigest(ITEMS_PREVIEW) });
+    return { sessionToken, executionToken };
+  };
+  const brokerAt = (authorizer, registryVersion?: number, registryWindow?: number[]) => createBroker({
+    protectedSwitch: on,
+    jwks: keys.jwks,
+    operations: { [SIGN]: { kind: "sign", signsWith: "preview-consumer", validate: () => {}, run: async () => ({ signed: true }) } },
+    previewConnections: { learnosity: "conn-sys" },
+    secrets: createMemorySecretStore({ "conn-sys": { ownerUid: "0xsystem", backend: "learnosity", key: "k", secret: "s" } }),
+    once: createMemoryOnceStore(),
+    receipts: createMemoryReceiptStore(),
+    activity: createMemoryActivityStore(),
+    audit: async () => {},
+    authorize: authorizer,
+    ...(registryVersion !== undefined ? { registryVersion, registryWindow } : {}),
+  });
+  const sign = (broker, token) => broker.execute({ caller: L0176, token, op: SIGN, payload: ITEMS_PREVIEW });
+
+  it("a registry-10 Policy's preview session and its mint carry rv 10", async () => {
+    expect(REGISTRY_VERSION).toBe(10);
+    const { sessionToken, executionToken } = await previewMinted(await policyAt());
+    expect(decodeJwt(sessionToken).rv).toBe(10);
+    expect(decodeJwt(executionToken).rv).toBe(10);
+  });
+
+  it("a registry-9 Broker (window [8]) refuses that token registry-version-mismatch: why Broker goes first", async () => {
+    const policy = await policyAt();
+    const { executionToken } = await previewMinted(policy);
+    await refused(sign(brokerAt(localAuthorizer(policy), 9, [8]), executionToken), "registry-version-mismatch");
+  });
+
+  it("a registry-10 Broker (window [9, 8]) executes tokens with rv 10, 9 and 8, and refuses 7", async () => {
+    const current = await policyAt();
+    const broker = brokerAt(localAuthorizer(current));
+    for (const [registryVersion, registryWindow] of [[10, [9, 8]], [9, [8]], [8, []]] as [number, number[]][]) {
+      const { executionToken } = await previewMinted(await policyAt(registryVersion, registryWindow));
+      expect(decodeJwt(executionToken).rv).toBe(registryVersion);
+      await expect(sign(broker, executionToken)).resolves.toMatchObject({ status: "succeeded" });
+    }
+    const { executionToken } = await previewMinted(await policyAt(7, []));
+    await refused(sign(broker, executionToken), "registry-version-mismatch");
+  });
+
+  it("authorizeExecution at 10 accepts rv 10, 9 and 8, and denies 7", async () => {
+    const current = await policyAt();
+    const ask = token => current.authorizeExecution({ caller: { role: "broker" }, executionToken: token, op: SIGN, argsDigest: argsDigest(ITEMS_PREVIEW), step: "sign", purpose: "sign", after: null });
+    for (const [registryVersion, registryWindow] of [[10, [9, 8]], [9, [8]], [8, []]] as [number, number[]][]) {
+      const { executionToken } = await previewMinted(await policyAt(registryVersion, registryWindow));
+      await expect(ask(executionToken)).resolves.toEqual({ decisionId: expect.any(String) });
+    }
+    const { executionToken } = await previewMinted(await policyAt(7, []));
+    await expect(ask(executionToken)).rejects.toMatchObject({ reason: "registry-version-changed" });
+  });
+});

@@ -66,7 +66,14 @@
 // never the one a program sent, and an item may link only to questions the
 // same save writes. A save never changes a record already in the bank;
 // re-saving a program makes new records.
-export const REGISTRY_VERSION = 9;
+// v10 (C5d, docs/c5d-refusal-and-hold-plan.md decision 3): `gcs.put-thumbnail`
+// gains the step `refusal`, with the new purpose `record`: Broker asks Policy
+// for it before recording a definite staging refusal as the operation's
+// outcome (`failed`, `staging-unavailable`, no step taken). It authorizes a
+// receipt write and no provider request. No function or operation changes
+// meaning, so v9 and v8 stay in the window and their artifacts stay
+// compatible.
+export const REGISTRY_VERSION = 10;
 
 // Earlier registry versions whose stored artifacts this version still serves
 // (docs/graffiticode-interpreter-plan.md, P1). An artifact records the version
@@ -77,7 +84,9 @@ export const REGISTRY_VERSION = 9;
 // security review. The default is none: a version not listed is incompatible.
 // v8: v9 adds functions and changes none of v8's (C5 plan decision 2). There
 // is no retirement step for this listing.
-export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([8]);
+// v9: v10 adds one step and changes no function's meaning (C5d refusal plan
+// decision 3), so every `meaningSince` stands and artifacts bind as before.
+export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([9, 8]);
 
 // A registry bump is rolled out across services, not swapped at once
 // (docs/graffiticode-interpreter-plan.md, P1b). Policy and Broker deploy
@@ -93,7 +102,11 @@ export const ARTIFACT_COMPATIBLE_VERSIONS: readonly number[] = Object.freeze([8]
 // command terminal or given up, and no repair or materialize pending on one.
 // Removing it earlier would leave v8 plans' unreached stages and B6 repairs
 // with replay-only sessions.
-export const REGISTRY_WINDOW: readonly number[] = Object.freeze([8]);
+// v9 (C5d refusal plan decisions 3 and 12): Broker deploys at v10 first, so it
+// accepts the v9 tokens of every v9 plan and every registry-9 Policy; and,
+// once Policy is at v10, both keep 9 until the compilers report 10 and every
+// v9 command is terminal.
+export const REGISTRY_WINDOW: readonly number[] = Object.freeze([9, 8]);
 
 // Whether `version` may still execute: the current version, or one in the
 // window.
@@ -115,7 +128,9 @@ export const isArtifactCompatible = (
 //   dispatch  one provider request
 //   sign      one local signature issuance (no provider request)
 //   replay    returning an operation's recorded receipt instead of executing
-export type StepPurpose = "dispatch" | "sign" | "replay";
+//   record    recording an operation's definite outcome with no provider
+//             request (v10: a staging refusal, C5d refusal plan decision 3)
+export type StepPurpose = "dispatch" | "sign" | "replay" | "record";
 // A `conditional` dispatch step is a precondition-guarded write: a failed
 // precondition means nothing was written, and the step may be authorized again,
 // as attempts 2..`attempts` of the same step, each with its own decision
@@ -172,11 +187,14 @@ export const OPERATIONS = Object.freeze({
   // the staged PNG and replaces the item's object only if this capture's
   // sequence is newer, by one generation-precondition write. A failed
   // precondition wrote nothing and is retried as the next attempt.
+  // v10: `refusal` records a definite staging refusal (the staged bytes read
+  // as missing or not the bound ones) as the operation's `failed` outcome,
+  // in place of any publish. It needs no predecessor and sends nothing.
   "gcs.put-thumbnail": Object.freeze({
     backend: "gcs",
     kind: "write",
     credential: "service" as const,
-    steps: Object.freeze([conditionalStep("publish", MAX_CONDITIONAL_ATTEMPTS), step("receipt", "replay")]),
+    steps: Object.freeze([conditionalStep("publish", MAX_CONDITIONAL_ATTEMPTS), step("receipt", "replay"), step("refusal", "record")]),
   }),
 });
 

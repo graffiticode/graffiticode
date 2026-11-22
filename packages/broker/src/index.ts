@@ -2,7 +2,7 @@ export { createBroker, BrokerRefused, contractRefusal } from "./broker.js";
 export { buildOperations, DEFAULT_PREVIEW_EXPIRES_MINUTES, learnosityTime, PayloadRejected, ProviderRejected, DeadlineExceeded, MARK_KEY, EVIDENCE_FORMAT, EVIDENCE_PROJECTION, writeEvidence, writeResultFromEvidence, observeRecord, providerReferences, referenceTag, parsePreviewConnections, PREVIEW_TYPE, REFERENCE_PREFIX, MAX_SENT_REFERENCE_LENGTH } from "./operations.js";
 export { DEFAULT_LIMITS, parseLimits, maxExecutionMs, headroomMs, SKEW_MS, MINT_TO_EXECUTE_MS } from "./limits.js";
 export { AuthorizationDenied, AuthorizationUnavailable, buildPolicyAuthorizer, localAuthorizer } from "./authorizer.js";
-export { RunFenced } from "./stores.js";
+export { RunFenced, STAGING_REFUSAL, stagingRefusalOutcome, isStagingRefusal } from "./stores.js";
 export { createMemoryOnceStore, createMemoryReceiptStore, createMemorySecretStore, createMemoryActivityStore, createMemorySessionSlotStore, StepConflict } from "./stores.js";
 export { canonicalJSON, argsDigest } from "./canonical.js";
 export { createBrokerApp } from "./app.js";
