@@ -87,6 +87,8 @@
     ]
   },
   "dependencies": {
-    "@graffiticode/parser": "^1.11.1"
+    "@google-cloud/firestore": "6.8.0",
+    "@graffiticode/parser": "^1.11.1",
+    "google-gax": "3.6.1"
   }
 }
