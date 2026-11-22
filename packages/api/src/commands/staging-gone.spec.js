@@ -84,7 +84,6 @@ beforeEach(async () => {
   staging = createMemoryStagingStore();
   receipts = createMemoryReceiptStore();
   const protectedSwitch = createProtectedSwitch({ readFlag: async () => ({ enabled: true }) });
-  // @ts-expect-error TS-MIGRATE: test double or fixture does not match the type checkJs infers for the real dependency
   policy = createPolicy({
     signer,
     jwks,

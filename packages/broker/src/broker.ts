@@ -624,7 +624,7 @@ export const createBroker = ({
       // Denied (a fenced or stale owner), unavailable or late: nothing is
       // recorded, and the answer is as before. A later owner retries.
       if (!authorizationReason(e)) throw e;
-      return refuse(STAGING_REFUSAL, 409);
+      return refuse("staging-unavailable", 409);
     }
     const outcome = stagingRefusalOutcome();
     if (run === null) {
@@ -636,7 +636,7 @@ export const createBroker = ({
       return replayClaim({ claims, binding, recorded: current.binding, record, refuse, authorizeStep, inTime });
     }
     await audit({ ...record, outcome: "failed", steps: [], reason: STAGING_REFUSAL, category: outcome.category });
-    throw new BrokerRefused(STAGING_REFUSAL, 409);
+    throw new BrokerRefused("staging-unavailable", 409);
   };
 
   const executeWrite = async ({ claims, binding, operation, payload, credential, record, refuse, providerCall, attemptCall, readTimeout, timeLeft, authorizeStep, inTime, failedStep, dispatched }) => {

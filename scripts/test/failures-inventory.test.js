@@ -47,6 +47,8 @@ const RETURNED = {
 const NOT_REFUSALS = new Set(["canary-during-maintenance", "system-preview", "publication", "outcome-not-recorded", "unclassified-reason", "new", "reused",
   // Reconciliation's findings, on allowed outcomes (WRITE-02, W5).
   "applied", "unresolved", "no-evidence", "evidence-format-unknown", "read-failed", "resolution-conflict",
+  // C5d: a staging refusal's receipt, final and never read (decision 5).
+  "refused",
   // Commands (B5): a key the legacy path holds, and a lease taken over.
   "legacy-key", "takeover",
   // Repairs (B6): a repair admitted, and a verdict recorded in the ledger.

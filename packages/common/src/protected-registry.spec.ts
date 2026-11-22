@@ -292,7 +292,6 @@ describe("registry v10", () => {
 });
 
 describe("registry v9", () => {
-
   it("registers L0013's snap: write, service credential, item scope, never delegable", () => {
     expect(Object.keys(PROTECTED_FUNCTIONS["0013"])).toEqual(["snap"]);
     expect(PROTECTED_FUNCTIONS["0013"].snap).toEqual({
