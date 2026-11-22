@@ -605,8 +605,8 @@ const history = {
 test("Policy's floor is B6 slice 4's merge: a rollback to slice 3's or slice 2's Policy is refused", async t => {
   const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
   const floors = raw.services.policy.baselines.filter(b => b.floor === true);
-  assert.deepEqual(floors.map(b => [b.milestone, b.commit]), [["B6-recording", RECORDING], ["B6-repairs", SLICE4], ["C5a-scopes", C5A], ["C5d-hold", C5D_HOLD]]);
-  // B6's floors alone here: C5a's and C5d's are tested below.
+  assert.deepEqual(floors.map(b => [b.milestone, b.commit]), [["B6-recording", RECORDING], ["B6-repairs", SLICE4], ["C5a-scopes", C5A]]);
+  // B6's floors alone here: C5a's is tested below.
   const policyFloors = withBaselines(floors.filter(b => b.milestone.startsWith("B6-")));
   for (const older of [SLICE3, SLICE2]) {
     const h = await harness(t);
@@ -667,11 +667,10 @@ test("Policy's and Broker's floor is C5a slice 3's merge: rolling back, or relea
   }
 });
 
-// C5d (docs/c5d-refusal-and-hold-plan.md decision 12, rollout steps 1–2):
-// Broker's floor is the atomic refusal's merge (#466), Policy's the hold's
-// (#467), which descends from it; and Policy requires Broker's milestone, so
-// Policy can't be released while a reachable Broker is below it, nor Broker
-// rolled back below it. The commits are the real ones, in their real order.
+// C5d (docs/c5d-refusal-and-hold-plan.md decision 12, rollout step 1):
+// Broker's floor is the atomic refusal's merge (#466). Policy's floor and its
+// requires on Broker are a separate draft, merged before Policy's own
+// release. The commits are the real ones, in their real order.
 const C5D_REFUSAL = "769d8e9e27fdeb2adcb2f6c4db4ea17319c80c3d";
 const C5D_HOLD = "33d662d03b1a052ac6d4700914d5b0579537725b";
 const C5D_PLAN = "01ef7368e68d4a61da4ac132865d53471d435970";
@@ -687,12 +686,10 @@ const c5dHistory = {
     }
   }
 };
-test("C5d's floors: Broker's at the refusal's merge, Policy's at the hold's; releasing or rolling back below either is refused", async t => {
+test("C5d's Broker floor is the refusal's merge: releasing or rolling back below it is refused", async t => {
   const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
   const cases = [
     ["broker", { milestone: "C5d-refusal", commit: C5D_REFUSAL, floor: true }, [C5D_PLAN, C5D_REFUSAL_TIP]],
-    // A Policy with the refusal but not the hold is below Policy's floor.
-    ["policy", { milestone: "C5d-hold", commit: C5D_HOLD, floor: true }, [C5D_REFUSAL, C5D_DEPS, C5D_PLAN]],
   ];
   for (const [service, expected, olders] of cases) {
     const baselines = raw.services[service].baselines;
@@ -716,14 +713,16 @@ test("C5d's floors: Broker's at the refusal's merge, Policy's at the hold's; rel
   }
 });
 
-test("Policy requires Broker's C5d-refusal, resolved both ways from the repository's deploy.json", async () => {
+test("the Broker floor draft leaves Policy's baselines and Broker's requires as they were", async () => {
   const root = new URL("../../../", import.meta.url).pathname;
-  const policy = await loadConfig({ ...parseArgs(["--plan"]), service: "policy" }, root, {});
-  assert.deepEqual(policy.requires.map(r => [r.service, r.milestone, r.commit]), [["broker", "C5d-refusal", C5D_REFUSAL]]);
   const broker = await loadConfig({ ...parseArgs(["--plan"]), service: "broker" }, root, {});
-  assert.ok(broker.requiredBy.some(r => r.service === "policy" && r.milestone === "C5d-refusal" && r.commit === C5D_REFUSAL), JSON.stringify(broker.requiredBy));
-  // Broker's own requirement on Policy is unchanged.
   assert.deepEqual(broker.requires.map(r => [r.service, r.milestone]), [["policy", "sexp"]]);
+  assert.deepEqual(broker.requiredBy, []);
+  const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
+  // Policy keeps its rollback options during the Broker phase: no C5d floor
+  // and no requires on Broker until its own draft.
+  assert.equal(raw.services.policy.baselines.at(-1).milestone, "C5a-scopes");
+  assert.equal(raw.services.policy.requires, undefined);
 });
 
 // The owner's review of #405: a floor governs promotion of a candidate staged
