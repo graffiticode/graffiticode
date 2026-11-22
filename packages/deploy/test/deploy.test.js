@@ -689,9 +689,9 @@ const c5dHistory = {
 test("C5d's Broker floor is the refusal's merge: releasing or rolling back below it is refused", async t => {
   const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
   const cases = [
-    ["broker", { milestone: "C5d-refusal", commit: C5D_REFUSAL, floor: true }, [C5D_PLAN, C5D_REFUSAL_TIP]],
+    { service: "broker", expected: { milestone: "C5d-refusal", commit: C5D_REFUSAL, floor: true }, olders: [C5D_PLAN, C5D_REFUSAL_TIP] },
   ];
-  for (const [service, expected, olders] of cases) {
+  for (const { service, expected, olders } of cases) {
     const baselines = raw.services[service].baselines;
     assert.deepEqual(baselines.at(-1), expected, service);
     const floored = withBaselines(baselines.filter(b => b.floor === true));
