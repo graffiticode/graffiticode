@@ -67,6 +67,12 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // (D2a), an owner request that isn't the current owner's, a takeover of a
   // live lease, and a command that is over or unknown.
   ...cat("conflict", ["command-protocol", "stale-generation", "lease-expired", "lease-live", "command-finished"]),
+  // The durable command hold (C5d, docs/c5d-refusal-and-hold-plan.md
+  // decisions 6–11): a held command, refused to every owner, takeover and
+  // renewal; and an operator's hold act refused: the command isn't pending,
+  // is already held, isn't held, is held by another act than the lift names,
+  // or the act id was used for a different act.
+  ...cat("conflict", ["command-held", "not-pending", "already-held", "not-held", "hold-mismatch", "act-id-reused"]),
   // Commands' records (B5 slice 2): writes out of order, a bind outside its
   // admitted intent or bounds, a close that doesn't match what was bound, a
   // finish while an occurrence is unsettled, and a Track E intent in B5.

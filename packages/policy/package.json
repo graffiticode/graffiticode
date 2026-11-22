@@ -9,6 +9,7 @@
     ".": "./dist/index.js",
     "./audit": "./dist/audit.js",
     "./client": "./dist/client.js",
+    "./holds": "./dist/holds.js",
     "./records": "./dist/command-records.js",
     "./revisions": "./dist/revisions.js",
     "./tokens": "./dist/tokens.js"

@@ -26,6 +26,8 @@ import {
   modelIntents,
   COMMAND_LEASE_MS,
   COMMAND_SETTLE_GRACE_MS,
+  createMemoryHolds,
+  HOLD_MARGIN_MS,
 } from "./index.js";
 
 const OWNER = "0xowner";
@@ -61,6 +63,7 @@ let commandStore;
 let records;
 let clock;
 let receipts;
+let receiptReads;
 let commandId;
 let invocationId;
 
@@ -71,6 +74,7 @@ beforeEach(async () => {
   // Tokens are signed and verified on real time; the clock starts there.
   clock = Date.now();
   receipts = [];
+  receiptReads = 0;
   const leases = new Map();
   invocationStore = createMemoryInvocationStore({ leases });
   commandStore = createMemoryCommandStore({ invocationStore });
@@ -83,7 +87,10 @@ beforeEach(async () => {
     invocations: invocationStore,
     commands: commandStore,
     commandRecords: records,
-    brokerReceipts: async ({ invocationId: inv, operationIds }) => ({ invocationId: inv, operations: receipts.filter(r => (operationIds ?? []).includes(r.operationId)) }),
+    brokerReceipts: async ({ invocationId: inv, operationIds }) => {
+      receiptReads++;
+      return { invocationId: inv, operations: receipts.filter(r => (operationIds ?? []).includes(r.operationId)) };
+    },
     publications: createMemoryPublicationStore(),
     audit: async () => {},
     protectedSwitch: createProtectedSwitch({ readFlag: async () => ({ enabled: true }) }),
@@ -337,6 +344,60 @@ describe("definite refusals", () => {
 });
 
 // The stage's compiler binds and observes under the command's session (B5 §4, §5).
+// C5d (docs/c5d-refusal-and-hold-plan.md decision 7's table): a held command
+// is refused at every owner path, and never settled behind its hold.
+describe("a held command", () => {
+  const HOLD_ACT = { reason: "definite-refusal-unsettled", note: "held", decision: "docs/c5d-refusal-and-hold-plan.md", decidedBy: "owner", appliedBy: { email: "owner@example.com", verifiedVia: "tokeninfo", azp: "azp-1" } };
+  // Defense in depth: a hold over a live lease, which applyHold never writes.
+  const holdLive = () => {
+    const c = commandStore.commands.get(commandId);
+    commandStore.commands.set(commandId, { ...c, hold: { n: 1, actId: "00000000-0000-4000-8000-000000000001", ...HOLD_ACT } });
+  };
+
+  it("refuses session, bind, admission, mint and authorize-execution command-held, recording no refusal", async () => {
+    const token = await ready();
+    const { executionToken } = await mint(token);
+    holdLive();
+    await denied(session(), "command-held");
+    await denied(admit(), "command-held");
+    await denied(policy.transitionCommand({ caller: GATEWAY, commandId, generation: 1 }), "command-held");
+    await denied(bind("n1.0"), "command-held");
+    // A revoked connection, or other arguments, would be a definite refusal
+    // settled as failed; held, it is neither checked nor settled.
+    await revoke();
+    await denied(mint(token), "command-held");
+    await denied(mint(token, { argsDigest: hex("b") }), "command-held");
+    await denied(authorize(executionToken), "command-held");
+    expect(receiptReads).toBe(0);
+    expect(await outcomes()).toEqual([]);
+  });
+
+  it("refuses settle, finish, a lost response and every owner write", async () => {
+    await ready();
+    holdLive();
+    await denied(policy.settleCommand({ caller: GATEWAY, commandId, generation: 1 }), "command-held");
+    await denied(write("finish", {}), "command-held");
+    await denied(write("recordLost", { stage: "s1" }), "command-held");
+    await denied(write("installModel", { stage: "s2", text: MODEL_S0 }), "command-held");
+    expect(commandStore.commands.get(commandId)).toMatchObject({ status: "pending" });
+    expect(await outcomes()).toEqual([]);
+  });
+
+  it("applied after its lease: the old owner is refused lease-expired, every takeover command-held", async () => {
+    const token = await ready();
+    const { executionToken } = await mint(token);
+    clock = commandStore.commands.get(commandId).owner.leaseExpiresAt + HOLD_MARGIN_MS;
+    const holds = createMemoryHolds({ commandStore, now: () => clock });
+    await holds.applyHold({ commandId, actId: "00000000-0000-4000-8000-000000000002", ...HOLD_ACT });
+    await denied(mint(token), "lease-expired");
+    await denied(authorize(executionToken), "lease-expired");
+    await denied(policy.commandSession({ caller: GATEWAY, commandId, generation: 1, stage: "s1" }), "lease-expired");
+    await denied(policy.leaseCommand({ caller: GATEWAY, commandId, worker: "api-2", generation: 1, takeOver: true, recording: 1, repairs: 1, scopes: 1 }), "command-held");
+    expect(receiptReads).toBe(0);
+    expect(await outcomes()).toEqual([]);
+  });
+});
+
 describe("binds and observations from the stage's compiler", () => {
   const prepared = async () => {
     await install();
