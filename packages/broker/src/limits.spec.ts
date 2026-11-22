@@ -1,4 +1,25 @@
-import { DEFAULT_LIMITS, headroomMs, maxExecutionMs, parseLimits } from "./limits.js";
+import { HOLD_MARGIN_MS } from "@graffiticode/policy";
+import { DEFAULT_LIMITS, SKEW_MS, headroomMs, maxExecutionMs, parseLimits } from "./limits.js";
+
+// C5d (docs/c5d-refusal-and-hold-plan.md decision 8): Policy refuses a hold
+// until HOLD_MARGIN_MS of server time past the lease, which must cover the
+// longest any supported configuration lets an execution authorized at the
+// lease's last instant run and record, plus Policy's clock skew. A change
+// here that widens the envelope fails this until the margin moves with it.
+describe("the command hold's margin", () => {
+  it("covers the largest configuration parseLimits accepts, with skew", () => {
+    const largest = parseLimits({ BROKER_PROVIDER_CALL_TIMEOUT_MS: "40000", BROKER_EXECUTION_DEADLINE_MS: "40000", BROKER_AUTHORIZE_TIMEOUT_MS: "5000" });
+    expect(maxExecutionMs(largest) + SKEW_MS).toBe(100_000);
+    expect(maxExecutionMs(largest) + SKEW_MS).toBeLessThanOrEqual(HOLD_MARGIN_MS);
+    expect(maxExecutionMs(DEFAULT_LIMITS) + SKEW_MS).toBeLessThanOrEqual(HOLD_MARGIN_MS);
+  });
+
+  it("is the envelope's maximum: a longer deadline, or a provider call past the deadline, is refused", () => {
+    expect(() => parseLimits({ BROKER_PROVIDER_CALL_TIMEOUT_MS: "40000", BROKER_EXECUTION_DEADLINE_MS: "40001" })).toThrow();
+    expect(() => parseLimits({ BROKER_EXECUTION_DEADLINE_MS: "40001" })).toThrow();
+    expect(() => parseLimits({ BROKER_PROVIDER_CALL_TIMEOUT_MS: "40001", BROKER_EXECUTION_DEADLINE_MS: "40000" })).toThrow();
+  });
+});
 
 describe("broker time limits", () => {
   it("defaults to a 10 s provider timeout, a 30 s deadline and a 5 s authorization wait", () => {
