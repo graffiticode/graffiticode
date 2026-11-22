@@ -9,7 +9,8 @@
 //
 // The run stops early, leaving the command pending, when this worker loses the
 // command: a lease renewal is refused, or any Policy write answers
-// stale-generation or lease-expired. Whoever holds it now continues.
+// stale-generation, lease-expired or command-held. Whoever holds it now
+// continues (a held command, no one, until the hold is lifted).
 //
 // A repair (B6, docs/b6-command-repair-plan.md decisions 3, 7, 8) runs the same
 // way, under its own lease and invocation: Policy admits it by claiming what
@@ -30,7 +31,8 @@ import { readOriginal, recordedFor, materializeFromRecords } from "./records.js"
 import { ARTIFACT_RESULT_FORM } from "../read.js";
 
 export const LEASE_RENEW_MS = 20_000;
-const LOST_OWNERSHIP = new Set(["stale-generation", "lease-expired", "command-finished"]);
+// C5d (decision 7): a command an operator holds is lost to its worker too.
+const LOST_OWNERSHIP = new Set(["stale-generation", "lease-expired", "command-finished", "command-held"]);
 const sha256 = text => createHash("sha256").update(text, "utf8").digest("hex");
 
 // A stage's answer was lost and the stage can be asked again (it has no
