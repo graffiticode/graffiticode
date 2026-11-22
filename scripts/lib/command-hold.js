@@ -3,18 +3,29 @@
 // system and the hold store injected, so every refusal is tested offline
 // (scripts/test/command-hold.test.js). See the entry point for usage.
 //
+// One Google auth client (GoogleAuth) is the identity: its access token is
+// the one verified, and the Firestore client for Policy's database is built
+// with that same client as its `auth`, never from ambient credentials
+// (policyFirestore), so the identity verified is the identity that writes.
+// (firebase-admin 11 would hand its Firestore no credential for ADC: that
+// client would find ADC itself and mint its own token.)
+//
 // An act runs in this order, and stops at the first refusal:
 //   1. its request: a new act's from the options, or a retry's from its
 //      intent file (`--intent`), which fixes the act exactly;
-//   2. the operator's identity, before any Firestore call: the access token
-//      of the one application-default credential the Firestore client uses,
-//      asked of Google's token-info endpoint (the token goes only there and is
-//      never logged or written). Every field the email scope gives must be
-//      there: `email`, `email_verified` true, and `azp`, with `expires_in` of
-//      at least 60 s. The email must be a user's, not a service account's,
-//      and equal `--operator`, the intent's operator and the gcloud account;
-//   3. a new act's intent file, written once, before the first send;
-//   4. the act, in one Policy transaction (@graffiticode/policy/holds), whose
+//   2. the operator's identity, before any Firestore call: the auth client's
+//      access token, asked of Google's token-info endpoint (the token goes
+//      only there and is never logged or written). Every field the email
+//      scope gives must be there: `email`, `email_verified` true, and `azp`,
+//      with `expires_in` of at least 60 s. The email must be a user's, not a
+//      service account's, and equal `--operator`, the intent's operator and
+//      the gcloud account;
+//   3. the Firestore client, built with that auth client;
+//   4. the identity again, on the auth client's current token (a refresh by
+//      the same client keeps the principal): the same email, or nothing is
+//      written;
+//   5. a new act's intent file, written once, before the first send;
+//   6. the act, in one Policy transaction (@graffiticode/policy/holds), whose
 //      `appliedBy` is the verified identity. A retry of a committed act
 //      answers `replayed: true` and writes nothing.
 
@@ -185,17 +196,50 @@ export const verifyIdentity = ({ tokenInfo, operator, intentOperator, gcloudAcco
   return { email, verifiedVia: "tokeninfo", azp };
 };
 
+// The one auth client's scopes: Firestore's, and the email scope the
+// identity check needs.
+export const AUTH_SCOPES = Object.freeze(["https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/userinfo.email"]);
+export const POLICY_DATABASE = "policy";
+
+// The auth client: GoogleAuth from google-gax, the google-auth-library the
+// Firestore client's own transport uses.
+export const createAuthClient = ({ GoogleAuth, projectId }) => new GoogleAuth({ scopes: [...AUTH_SCOPES], projectId });
+
+// Policy's database, only ever through the given auth client: @google-cloud/firestore
+// passes `auth` to its GAPIC client, whose gRPC transport takes it as its
+// GoogleAuth (google-gax GrpcClient: `options.auth || new GoogleAuth(...)`).
+// With no client it refuses, so nothing is built from ambient credentials.
+export const policyFirestore = ({ Firestore, projectId, auth }) => {
+  if (!auth || typeof auth.getAccessToken !== "function") throw new HoldRefused("no-auth-client", "Policy's database is opened only with the verified auth client");
+  return new Firestore({ projectId, databaseId: POLICY_DATABASE, auth });
+};
+
+// The auth client's current access token (GoogleAuth answers a string).
+const tokenOf = async auth => {
+  let answer;
+  try {
+    answer = await auth.getAccessToken();
+  } catch (e) {
+    throw new HoldRefused("credential-failed", `the auth client gave no token (${e?.name ?? "error"})`);
+  }
+  const token = typeof answer === "string" ? answer : answer?.token ?? answer?.access_token;
+  if (typeof token !== "string" || !token) throw new HoldRefused("credential-failed", "the auth client gave no token");
+  return token;
+};
+
 // One act. `deps`:
 //   root                      the repository, for intent paths
 //   fs                        node:fs/promises (mkdir, writeFile, readFile)
-//   getAccessToken()          -> { access_token }, from the credential the Firestore client uses
+//   auth                      the one auth client (createAuthClient)
+//   Firestore, projectId      to open Policy's database with `auth` (policyFirestore)
+//   createHolds(db)           -> { applyHold, liftHold } over that database
 //   fetch                     for token-info
 //   gcloudAccount()           -> `gcloud config get-value account`
-//   openHolds()               -> { applyHold, liftHold }, opened only after the identity is verified
-//   randomUUID, now, log
+//   randomUUID, now
 // -> { intentPath, intent, appliedBy, result }
 export const runAct = async (opts, deps) => {
-  const { root, fs, getAccessToken, fetch, gcloudAccount, openHolds, randomUUID = uuid, now = () => Date.now() } = deps;
+  const { root, fs, auth, Firestore, projectId, createHolds, fetch, gcloudAccount, randomUUID = uuid, now = () => Date.now() } = deps;
+  if (!auth) throw new HoldRefused("no-auth-client", "an act needs the auth client");
   // 1. The act.
   const retry = opts.intent !== null;
   const intent = retry ? await readIntent({ fs, path: opts.intent }) : newIntent(opts, { randomUUID, now });
@@ -205,25 +249,23 @@ export const runAct = async (opts, deps) => {
   }
   const intentPath = retry ? opts.intent : intentPathFor(root, opts.intentDir, intent.actId);
   // 2. Who is acting, before anything reaches Firestore.
-  let accessToken;
-  try {
-    accessToken = (await getAccessToken())?.access_token;
-  } catch (e) {
-    throw new HoldRefused("credential-failed", `the application-default credential gave no token (${e?.name ?? "error"})`);
-  }
-  if (typeof accessToken !== "string" || !accessToken) throw new HoldRefused("credential-failed", "the application-default credential gave no token");
-  const tokenInfo = await fetchTokenInfo({ fetch, accessToken });
   let account = null;
   try {
     account = await gcloudAccount();
   } catch {
     account = null;
   }
-  const appliedBy = verifyIdentity({ tokenInfo, operator: opts.operator, intentOperator: intent.operator, gcloudAccount: account });
-  // 3. A new act is written down before it is first sent.
+  const expected = { operator: opts.operator, intentOperator: intent.operator, gcloudAccount: account };
+  const appliedBy = verifyIdentity({ tokenInfo: await fetchTokenInfo({ fetch, accessToken: await tokenOf(auth) }), ...expected });
+  // 3. Policy's database, through that same client.
+  const holds = await createHolds(policyFirestore({ Firestore, projectId, auth }));
+  // 4. The client's token now is still that identity.
+  const again = await fetchTokenInfo({ fetch, accessToken: await tokenOf(auth) });
+  if (!same(again?.email, appliedBy.email)) throw new HoldRefused("identity-changed", `the auth client is now ${again?.email ?? "no one"}, not the verified ${appliedBy.email}`);
+  verifyIdentity({ tokenInfo: again, ...expected });
+  // 5. A new act is written down before it is first sent.
   if (!retry) await writeIntentOnce({ fs, path: intentPath, intent });
-  // 4. The act, in Policy's database.
-  const holds = await openHolds();
+  // 6. The act, in Policy's database.
   const request = { commandId: intent.commandId, actId: intent.actId, reason: intent.reason, note: intent.note, decision: intent.decision, decidedBy: intent.decidedBy, appliedBy };
   const result = intent.act === "apply" ? await holds.applyHold(request) : await holds.liftHold({ ...request, lifts: intent.lifts });
   return { intentPath, intent, appliedBy, result };

@@ -9,35 +9,47 @@ import * as fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createMemoryInvocationStore, createMemoryCommandStore, createMemoryHolds, commandIdFor, HOLD_MARGIN_MS } from "@graffiticode/policy";
-import { C5D_INTENT_DIR, DEFAULT_INTENT_DIR, TOKENINFO_URL, HoldRefused, parse, runAct, verifyIdentity } from "../lib/command-hold.js";
+import gax from "google-gax";
+import firestore from "@google-cloud/firestore";
+import { AUTH_SCOPES, C5D_INTENT_DIR, DEFAULT_INTENT_DIR, TOKENINFO_URL, HoldRefused, createAuthClient, parse, policyFirestore, runAct, verifyIdentity } from "../lib/command-hold.js";
+
+const { GoogleAuth } = gax;
+const { Firestore: RealFirestore, v1: FirestoreGapic } = firestore;
 
 const OPERATOR = "owner@example.com";
 const TOKEN = "ya29.secret-access-token-value";
 const T0 = Date.parse("2026-11-20T19:55:14Z");
 const GOOD_INFO = { azp: "764086051850-abc.apps.googleusercontent.com", aud: "764086051850-abc.apps.googleusercontent.com", scope: "openid https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/cloud-platform", exp: "1795000000", expires_in: "3599", email: OPERATOR, email_verified: "true", access_type: "offline" };
 
-// A pending command whose lease ended at T0, in Policy's memory stores.
-const world = async ({ info = GOOD_INFO, status = 200, account = OPERATOR, tokenError = null, fetchError = null } = {}) => {
+// A pending command whose lease ended at T0, in Policy's memory stores. The
+// auth client answers `tokens` in turn (then the last); token-info answers
+// `infoFor(token)`. Every Firestore client built is recorded with its settings.
+const world = async ({ info = GOOD_INFO, infoFor = null, tokens = [TOKEN], status = 200, account = OPERATOR, tokenError = null, fetchError = null } = {}) => {
   const root = await mkdtemp(join(tmpdir(), "command-hold-"));
   const commandStore = createMemoryCommandStore({ invocationStore: createMemoryInvocationStore() });
   const { command } = await commandStore.allocate({ uid: "0xowner", connectionId: null, taskId: "task-1", inputDigest: "d".repeat(64), idempotencyKey: "k-1", lang: "0013", request: "{}", worker: "api-1", now: T0 - 60_000, scopes: 1 });
   const holds = createMemoryHolds({ commandStore, now: () => T0 + HOLD_MARGIN_MS + 1 });
-  const calls = { fetch: [], openHolds: 0, acts: [], logs: [] };
+  const calls = { fetch: [], tokens: 0, firestores: [], dbs: [], acts: [] };
+  const auth = {
+    getAccessToken: async () => {
+      if (tokenError) throw tokenError;
+      return tokens[Math.min(calls.tokens++, tokens.length - 1)];
+    },
+  };
+  class Firestore {
+    constructor(settings) {
+      calls.firestores.push(settings);
+      this.settings = settings;
+    }
+  }
   const deps = {
     root,
     fs,
-    getAccessToken: async () => {
-      if (tokenError) throw tokenError;
-      return { access_token: TOKEN, expires_in: 3599 };
-    },
-    fetch: async (url, init) => {
-      calls.fetch.push({ url, init });
-      if (fetchError) throw fetchError;
-      return { ok: status === 200, status, json: async () => info };
-    },
-    gcloudAccount: async () => account,
-    openHolds: async () => {
-      calls.openHolds++;
+    auth,
+    Firestore,
+    projectId: "graffiticode",
+    createHolds: async db => {
+      calls.dbs.push(db);
       return {
         applyHold: async r => {
           calls.acts.push(r);
@@ -49,10 +61,17 @@ const world = async ({ info = GOOD_INFO, status = 200, account = OPERATOR, token
         },
       };
     },
+    fetch: async (url, init) => {
+      calls.fetch.push({ url, init });
+      if (fetchError) throw fetchError;
+      const token = new URLSearchParams(init.body).get("access_token");
+      return { ok: status === 200, status, json: async () => (infoFor ? infoFor(token) : info) };
+    },
+    gcloudAccount: async () => account,
     randomUUID: () => "11111111-2222-4333-8444-555555555555",
     now: () => T0 + 1,
   };
-  return { root, deps, calls, commandStore, holds, commandId: command.commandId };
+  return { root, deps, auth, calls, commandStore, holds, commandId: command.commandId };
 };
 const applyArgs = (commandId, extra = []) => ["apply", commandId, "--reason", "definite-refusal-unsettled", "--note", "staging gone; held until Step 34", "--decision", "docs/c5d-refusal-and-hold-plan.md", "--operator", OPERATOR, ...extra];
 const files = async dir => {
@@ -73,23 +92,32 @@ const refused = async (promise, reason) => {
 
 test("applies a hold with the verified identity, writing the intent first, and the token nowhere", async () => {
   const w = await world();
-  w.deps.openHolds = (open => async () => {
-    // The intent file exists before the first send.
-    const intent = JSON.parse(await readFile(join(w.root, DEFAULT_INTENT_DIR, "11111111-2222-4333-8444-555555555555.intent.json"), "utf8"));
-    assert.equal(intent.actId, "11111111-2222-4333-8444-555555555555");
-    return open();
-  })(w.deps.openHolds);
+  w.deps.createHolds = (open => async db => {
+    const holds = await open(db);
+    return {
+      ...holds,
+      applyHold: async r => {
+        // The intent file exists before the first send.
+        const intent = JSON.parse(await readFile(join(w.root, DEFAULT_INTENT_DIR, "11111111-2222-4333-8444-555555555555.intent.json"), "utf8"));
+        assert.equal(intent.actId, "11111111-2222-4333-8444-555555555555");
+        return holds.applyHold(r);
+      },
+    };
+  })(w.deps.createHolds);
   const out = await runAct(parse(applyArgs(w.commandId)), w.deps);
   assert.deepEqual(out.appliedBy, { email: OPERATOR, verifiedVia: "tokeninfo", azp: GOOD_INFO.azp });
   assert.equal(out.result.replayed, false);
   assert.deepEqual(out.result.record.appliedBy, out.appliedBy);
   assert.equal(out.result.record.n, 1);
   assert.equal(w.commandStore.commands.get(w.commandId).hold.actId, "11111111-2222-4333-8444-555555555555");
-  // Token-info was asked once, by POST, with the token only in the body.
-  assert.equal(w.calls.fetch.length, 1);
-  assert.equal(w.calls.fetch[0].url, TOKENINFO_URL);
-  assert.equal(w.calls.fetch[0].init.method, "POST");
-  assert.ok(!w.calls.fetch[0].url.includes(TOKEN));
+  // Token-info was asked twice (before Firestore, and before the act), by
+  // POST, with the token only in the body.
+  assert.equal(w.calls.fetch.length, 2);
+  for (const call of w.calls.fetch) {
+    assert.equal(call.url, TOKENINFO_URL);
+    assert.equal(call.init.method, "POST");
+    assert.ok(!call.url.includes(TOKEN));
+  }
   // The intent: the complete request, note and lift target included.
   const path = join(w.root, DEFAULT_INTENT_DIR, "11111111-2222-4333-8444-555555555555.intent.json");
   assert.equal(out.intentPath, path);
@@ -128,11 +156,11 @@ test("replays a retry from its intent file exactly, writing nothing", async () =
 
 test("sends a retry whose first send never committed, as the same act", async () => {
   const w = await world();
-  const open = w.deps.openHolds;
-  w.deps.openHolds = async () => ({ applyHold: async () => { throw new Error("unavailable"); } });
+  const open = w.deps.createHolds;
+  w.deps.createHolds = async () => ({ applyHold: async () => { throw new Error("unavailable"); } });
   await assert.rejects(runAct(parse(applyArgs(w.commandId)), w.deps), /unavailable/);
   const intentPath = join(w.root, DEFAULT_INTENT_DIR, "11111111-2222-4333-8444-555555555555.intent.json");
-  w.deps.openHolds = open;
+  w.deps.createHolds = open;
   const out = await runAct(parse(["apply", w.commandId, "--intent", intentPath, "--operator", OPERATOR]), w.deps);
   assert.equal(out.result.replayed, false);
   assert.equal(out.result.record.actId, "11111111-2222-4333-8444-555555555555");
@@ -163,7 +191,7 @@ const refusesBefore = async (name, over, reason, args = null) => {
   test(`refuses before any Firestore call: ${name}`, async () => {
     const w = await world(over);
     await refused(runAct(parse(args ? args(w.commandId) : applyArgs(w.commandId)), w.deps), reason);
-    assert.equal(w.calls.openHolds, 0);
+    assert.deepEqual(w.calls.firestores, []);
     assert.deepEqual(w.calls.acts, []);
     assert.deepEqual(await files(join(w.root, "docs")), []);
     assert.equal(w.commandStore.commands.get(w.commandId).hold, undefined);
@@ -194,7 +222,7 @@ test("refuses a retry whose intent names another operator, before any Firestore 
   const first = await runAct(parse(applyArgs(w.commandId)), w.deps);
   const other = await world({ info: { ...GOOD_INFO, email: "second@example.com" }, account: "second@example.com" });
   await refused(runAct(parse(["apply", "--intent", first.intentPath, "--operator", "second@example.com"]), other.deps), "intent-operator-mismatch");
-  assert.equal(other.calls.openHolds, 0);
+  assert.deepEqual(other.calls.firestores, []);
 });
 
 test("refuses a retry that names another act or command than its intent", async () => {
@@ -202,7 +230,7 @@ test("refuses a retry that names another act or command than its intent", async 
   const first = await runAct(parse(applyArgs(w.commandId)), w.deps);
   await refused(runAct(parse(["lift", "--intent", first.intentPath, "--operator", OPERATOR]), w.deps), "intent-mismatch");
   await refused(runAct(parse(["apply", commandIdFor("0xother", "k"), "--intent", first.intentPath, "--operator", OPERATOR]), w.deps), "intent-mismatch");
-  assert.equal(w.calls.fetch.length, 1);
+  assert.equal(w.calls.fetch.length, 2);
 });
 
 test("parses only complete acts; a retry's act is its intent file's", () => {
@@ -225,4 +253,66 @@ test("verifyIdentity accepts exactly the matching user, case aside, and records 
   assert.deepEqual(appliedBy, { email: "Owner@Example.com", verifiedVia: "tokeninfo", azp: GOOD_INFO.azp });
   assert.throws(() => verifyIdentity({ tokenInfo: { ...GOOD_INFO, email_verified: false }, operator: OPERATOR, intentOperator: OPERATOR, gcloudAccount: OPERATOR }), /not verified/);
   assert.throws(() => verifyIdentity({ tokenInfo: null, operator: OPERATOR, intentOperator: OPERATOR, gcloudAccount: OPERATOR }), /email scope/);
+});
+
+// The owner's requirement: the identity verified is the identity that
+// writes. One auth client gives the verified token and is the Firestore
+// client's own.
+test("opens Policy's database with exactly the auth client whose token was verified", async () => {
+  const w = await world();
+  await runAct(parse(applyArgs(w.commandId)), w.deps);
+  assert.equal(w.calls.firestores.length, 1);
+  const [settings] = w.calls.firestores;
+  assert.ok(settings.auth === w.auth, "the Firestore client's auth is the verified client itself");
+  assert.equal(settings.databaseId, "policy");
+  assert.equal(settings.projectId, "graffiticode");
+  assert.ok(w.calls.dbs[0].settings === settings, "the holds run over that client");
+  // Both verified tokens came from that client.
+  assert.equal(w.calls.tokens, 2);
+});
+
+test("never builds a Firestore client without the auth client", async () => {
+  const w = await world();
+  assert.throws(() => policyFirestore({ Firestore: w.deps.Firestore, projectId: "graffiticode", auth: undefined }), e => e.reason === "no-auth-client");
+  assert.throws(() => policyFirestore({ Firestore: w.deps.Firestore, projectId: "graffiticode", auth: {} }), e => e.reason === "no-auth-client");
+  await refused(runAct(parse(applyArgs(w.commandId)), { ...w.deps, auth: null }), "no-auth-client");
+  assert.deepEqual(w.calls.firestores, []);
+  await runAct(parse(applyArgs(w.commandId)), w.deps);
+  assert.ok(w.calls.firestores.length > 0 && w.calls.firestores.every(s => s.auth === w.auth));
+  // The entry point builds no client from ambient credentials: no
+  // firebase-admin app, and Policy's database only through policyFirestore.
+  const cli = await readFile(new URL("../command-hold.js", import.meta.url), "utf8");
+  assert.doesNotMatch(cli, /from "firebase-admin/);
+  assert.doesNotMatch(cli, /new Firestore\(|getFirestore\(/);
+  assert.match(cli, /policyFirestore\(\{ Firestore, projectId: opts\.project, auth \}\)/);
+  assert.match(cli, /createAuthClient\(\{ GoogleAuth, projectId: opts\.project \}\)/);
+});
+
+test("the installed libraries hand the auth client to Firestore's transport (offline)", () => {
+  const auth = createAuthClient({ GoogleAuth, projectId: "graffiticode" });
+  assert.ok(auth instanceof GoogleAuth);
+  const db = policyFirestore({ Firestore: RealFirestore, projectId: "graffiticode", auth });
+  assert.equal(db.databaseId, "policy");
+  // @google-cloud/firestore passes its settings to the GAPIC client, whose
+  // google-gax GrpcClient takes `auth` as its GoogleAuth.
+  const gapic = new FirestoreGapic({ ...db._settings, fallback: false });
+  assert.ok(gapic.auth === auth, "the transport's auth is the verified client");
+  assert.deepEqual([...AUTH_SCOPES].sort(), ["https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/userinfo.email"]);
+  return gapic.close();
+});
+
+test("refuses before any write when the client's token is no longer the verified identity", async () => {
+  const other = "ya29.another-principal-token";
+  const w = await world({ tokens: [TOKEN, other], infoFor: t => (t === TOKEN ? GOOD_INFO : { ...GOOD_INFO, email: "intruder@example.com" }) });
+  await refused(runAct(parse(applyArgs(w.commandId)), w.deps), "identity-changed");
+  assert.deepEqual(w.calls.acts, []);
+  assert.deepEqual(await files(join(w.root, "docs")), []);
+  assert.equal(w.commandStore.commands.get(w.commandId).hold, undefined);
+  // The re-check is complete: a same-email token about to expire is refused too.
+  const expiring = await world({ tokens: [TOKEN, other], infoFor: t => (t === TOKEN ? GOOD_INFO : { ...GOOD_INFO, expires_in: "30" }) });
+  await refused(runAct(parse(applyArgs(expiring.commandId)), expiring.deps), "token-expiring");
+  assert.deepEqual(expiring.calls.acts, []);
+  // A refresh to a new token of the same principal is the same identity.
+  const refreshed = await world({ tokens: [TOKEN, other] });
+  assert.equal((await runAct(parse(applyArgs(refreshed.commandId)), refreshed.deps)).result.replayed, false);
 });
