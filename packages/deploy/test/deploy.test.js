@@ -690,11 +690,11 @@ const c5dHistory = {
 test("C5d's floors: Broker's at the refusal's merge, Policy's at the hold's; releasing or rolling back below either is refused", async t => {
   const raw = JSON.parse(await readFile(new URL("../../../deploy.json", import.meta.url), "utf8"));
   const cases = [
-    ["broker", { milestone: "C5d-refusal", commit: C5D_REFUSAL, floor: true }, [C5D_PLAN, C5D_REFUSAL_TIP]],
+    { service: "broker", expected: { milestone: "C5d-refusal", commit: C5D_REFUSAL, floor: true }, olders: [C5D_PLAN, C5D_REFUSAL_TIP] },
     // A Policy with the refusal but not the hold is below Policy's floor.
-    ["policy", { milestone: "C5d-hold", commit: C5D_HOLD, floor: true }, [C5D_REFUSAL, C5D_DEPS, C5D_PLAN]],
+    { service: "policy", expected: { milestone: "C5d-hold", commit: C5D_HOLD, floor: true }, olders: [C5D_REFUSAL, C5D_DEPS, C5D_PLAN] },
   ];
-  for (const [service, expected, olders] of cases) {
+  for (const { service, expected, olders } of cases) {
     const baselines = raw.services[service].baselines;
     assert.deepEqual(baselines.at(-1), expected, service);
     const floored = withBaselines(baselines.filter(b => b.floor === true));
