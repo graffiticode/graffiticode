@@ -164,4 +164,22 @@ describe("PUT /v1/commands/:id/occurrences/:stage/:occ (an item-scoped bind)", (
     expect(after.command).toEqual(before.command);
     expect(occurrenceKey(commandId)).toBeUndefined();
   });
+
+  // The refusal is permanent for the occurrence: a retry with the correct
+  // argd meets the recorded refusal and gets it back, and nothing changes.
+  it.each([
+    ["missing", () => ({})],
+    ["mismatched", () => ({ argd: hex("e") })],
+  ])("after a %s-argd refusal, a retry with the correct argd returns the same refusal and changes nothing", async (_label, argdOf) => {
+    const { commandId, payload, argd } = await staged();
+    const first = await bind(commandId, { args: JSON.stringify(payload), ...argdOf() });
+    expect(first.status).toBe(403);
+    const refused = recordsOf(commandId);
+    const retry = await bind(commandId, { args: JSON.stringify(payload), argd });
+    expect(retry.status).toBe(403);
+    expect(retry.body.error).toEqual(first.body.error);
+    expect(retry.body.error).toMatchObject({ reason: "binding-mismatch" });
+    expect(recordsOf(commandId)).toEqual(refused);
+    expect(occurrenceKey(commandId)).toBeUndefined();
+  });
 });
