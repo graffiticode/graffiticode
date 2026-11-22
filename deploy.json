@@ -591,6 +591,17 @@
           "milestone": "C5a-scopes",
           "commit": "3ecebcb0d7c70ba73fd0e7d968fec14b9d60fc4a",
           "floor": true
+        },
+        {
+          "milestone": "C5d-hold",
+          "commit": "33d662d03b1a052ac6d4700914d5b0579537725b",
+          "floor": true
+        }
+      ],
+      "requires": [
+        {
+          "service": "broker",
+          "milestone": "C5d-refusal"
         }
       ],
       "minInstances": 0,
