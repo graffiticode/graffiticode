@@ -96,6 +96,15 @@ export const decideAct = ({ request, command, existing, history, readTime }) => 
   return { replayed: false, record, hold: act === "apply" ? base : null };
 };
 
+// A transaction the database ended for contention, rather than refused:
+// ABORTED, or one killed while it waited on a lock (the emulator answers
+// INVALID_ARGUMENT, "Transaction is invalid or closed", for two acts that
+// both read the history). The client's own retries cover only ABORTED at
+// commit.
+const CONTENTION_ATTEMPTS = 5;
+const contended = e => !(e instanceof CommandRefused) &&
+  (e?.code === 10 || (e?.code === 3 && /transaction is invalid or closed/i.test(String(e?.details ?? e?.message ?? ""))));
+
 const answer = (decided, commandId) => ({ commandId, replayed: decided.replayed, record: decided.record, hold: decided.replayed ? undefined : decided.hold });
 
 // Firestore, in Policy's database. The field is written with `update`, never
@@ -110,26 +119,36 @@ export const createFirestoreHolds = db => {
     const problem = actProblem(request);
     if (problem) throw new CommandRefused(problem);
     const FieldValue = await fieldValue;
-    return db.runTransaction(async tx => {
-      const ref = commandRef(request.commandId);
-      const actRef = ref.collection("holds").doc(request.actId);
-      const snap = await tx.get(ref);
-      const existing = await tx.get(actRef);
-      const history = await tx.get(ref.collection("holds"));
-      const decided = decideAct({
-        request,
-        command: snap.exists ? snap.data() : null,
-        existing: existing.exists ? existing.data() : null,
-        history: history.docs.map(d => d.data()),
-        readTime: snap.readTime.toMillis(),
-      });
-      if (!decided.replayed) {
-        tx.update(ref, { hold: decided.hold ?? FieldValue.delete() });
-        tx.create(actRef, decided.record);
+    // An act is idempotent by its id, so a transaction the database killed
+    // for contention is simply run again: it then commits, replays, or is
+    // refused on what it reads.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await once(request, FieldValue);
+      } catch (e) {
+        if (attempt >= CONTENTION_ATTEMPTS || !contended(e)) throw e;
       }
-      return answer(decided, request.commandId);
-    });
+    }
   };
+  const once = (request, FieldValue) => db.runTransaction(async tx => {
+    const ref = commandRef(request.commandId);
+    const actRef = ref.collection("holds").doc(request.actId);
+    const snap = await tx.get(ref);
+    const existing = await tx.get(actRef);
+    const history = await tx.get(ref.collection("holds"));
+    const decided = decideAct({
+      request,
+      command: snap.exists ? snap.data() : null,
+      existing: existing.exists ? existing.data() : null,
+      history: history.docs.map(d => d.data()),
+      readTime: snap.readTime.toMillis(),
+    });
+    if (!decided.replayed) {
+      tx.update(ref, { hold: decided.hold ?? FieldValue.delete() });
+      tx.create(actRef, decided.record);
+    }
+    return answer(decided, request.commandId);
+  });
   return {
     applyHold: request => act({ ...request, act: "apply", lifts: null }),
     liftHold: request => act({ ...request, act: "lift" }),

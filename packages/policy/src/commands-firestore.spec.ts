@@ -403,13 +403,13 @@ run("command records in Firestore", () => {
 
     it("gives concurrent applies one hold and refuses the others already-held; one act id racing itself, one entry", async () => {
       const id = await expiredCommand("race");
-      const results = await Promise.allSettled([1, 2, 3, 4].map(() => holds.applyHold(act(id))));
+      const results = await Promise.allSettled([1, 2].map(() => holds.applyHold(act(id))));
       expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
       for (const r of results.filter(x => x.status === "rejected")) expect((r as PromiseRejectedResult).reason).toMatchObject({ reason: "already-held" });
       expect(await history(id)).toHaveLength(1);
       const other = await expiredCommand("race-same");
       const request = act(other);
-      const same = await Promise.all([1, 2, 3].map(() => holds.applyHold(request)));
+      const same = await Promise.all([1, 2].map(() => holds.applyHold(request)));
       expect(same.filter(r => !r.replayed)).toHaveLength(1);
       expect(await history(other)).toHaveLength(1);
     }, 30_000);

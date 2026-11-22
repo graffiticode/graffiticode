@@ -5,6 +5,7 @@ import { generateKeyPair, exportJWK } from "jose";
 import { createHash, randomUUID } from "node:crypto";
 import {
   createMemoryHolds,
+  createFirestoreHolds,
   createMemoryCommandBackend,
   createCommandRecords,
   ownableBy,
@@ -465,6 +466,41 @@ describe("the command hold", () => {
     expect(held.status).toBe("fulfilled");
     expect(fenced).toMatchObject({ status: "rejected", reason: { reason: "command-held" } });
     expect(commandStore.commands.get(b).owner.generation).toBe(1);
+  });
+
+  // The Firestore store, over a fake database: a transaction killed for
+  // contention runs again (the act is idempotent); a refusal never does.
+  it("runs a Firestore act again when its transaction was killed for contention, and never a refused one", async () => {
+    const ref = { collection: () => ({ doc: () => ({}) }) };
+    const db = { collection: () => ({ doc: () => ref }), runTransaction: null };
+    const snap = data => ({ exists: data !== null, data: () => data, readTime: { toMillis: () => T0 + COMMAND_LEASE_MS + HOLD_MARGIN_MS } });
+    const command = structuredClone(commandStore.commands.get((await allocate()).commandId));
+    const writes = [];
+    let runs = 0;
+    db.runTransaction = async fn => {
+      runs++;
+      if (runs === 1) throw Object.assign(new Error("3 INVALID_ARGUMENT: Transaction is invalid or closed."), { code: 3, details: "Transaction is invalid or closed." });
+      let reads = 0;
+      return fn({
+        get: async () => (++reads === 1 ? snap(command) : reads === 2 ? snap(null) : { docs: [] }),
+        update: (_r, patch) => writes.push(["update", patch]),
+        create: (_r, doc) => writes.push(["create", doc]),
+      });
+    };
+    const firestoreHolds = createFirestoreHolds(db);
+    expect(await firestoreHolds.applyHold(act(command.commandId))).toMatchObject({ replayed: false, record: { n: 1 } });
+    expect(runs).toBe(2);
+    expect(writes.map(([kind]) => kind)).toEqual(["update", "create"]);
+    runs = 1;
+    command.status = "failed";
+    await expect(firestoreHolds.applyHold(act(command.commandId))).rejects.toMatchObject({ reason: "not-pending" });
+    expect(runs).toBe(2);
+    db.runTransaction = async () => {
+      runs++;
+      throw Object.assign(new Error("permission denied"), { code: 7 });
+    };
+    await expect(firestoreHolds.applyHold(act(command.commandId))).rejects.toMatchObject({ code: 7 });
+    expect(runs).toBe(3);
   });
 
   it("is refused while a renewing owner's lease is live", async () => {
