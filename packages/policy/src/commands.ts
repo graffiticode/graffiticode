@@ -98,11 +98,15 @@ export const requestProblem = text => {
 };
 
 // Why an owner request is refused, or null: it needs exactly the current
-// generation and a live lease.
+// generation and a live lease, and a command no operator holds (C5d,
+// docs/c5d-refusal-and-hold-plan.md decision 7). The hold is checked last, so
+// a stale worker still sees the reason every worker knows; a hold is applied
+// only past a lease (holds.js), so a live owner never meets it.
 export const ownerRefusal = (command, { generation, now }) => {
   if (!command) return "command-not-found";
   if (command.owner.generation !== generation) return "stale-generation";
   if (command.owner.leaseExpiresAt <= now) return "lease-expired";
+  if (command.hold) return "command-held";
   return null;
 };
 
@@ -146,14 +150,21 @@ export const newCommandRecord = ({ commandId, uid, idempotencyKey, invocationId,
 // recording only by a worker that records outputs (`recording: 1`), since an
 // older one would fetch again what was recorded. Any other, by any worker.
 // A repair, only by a worker that runs repairs (B6 slice 3). A v3 command, only
-// by a worker that runs them (C5).
+// by a worker that runs them (C5). A held command, by no worker (C5d
+// decision 7): it never fills a sweep.
 export const ownableBy = (command, { recording = 0, repairs = 0, scopes = 0 } = {}) =>
-  (command?.admission?.recording !== 1 || recording === 1) && (command?.kind !== "repair" || repairs === 1) && (command?.scopes !== 1 || scopes === 1);
+  (command?.admission?.recording !== 1 || recording === 1) && (command?.kind !== "repair" || repairs === 1) && (command?.scopes !== 1 || scopes === 1) && !command?.hold;
+// A held command is refused by its own reason, before any capability's.
+const requireNotHeld = command => {
+  if (command.hold) throw new CommandRefused("command-held");
+};
 const requireCapableWorker = (command, caps) => {
   if (!ownableBy(command, caps)) throw new CommandRefused("worker-unsupported");
 };
 
-// The lease renewed by its owner: same generation, a new expiry.
+// The lease renewed by its owner: same generation, a new expiry. A held
+// command is refused `command-held` by ownerRefusal, before the capability
+// check.
 
 export const renewedLease = (command, { worker, generation, now, leaseMs, recording = 0, repairs = 0, scopes = 0 }) => {
   const refusal = ownerRefusal(command, { generation, now });
@@ -172,6 +183,7 @@ export const takenOverLease = (command, { worker, expectedGeneration, now, lease
   // A due publication is recovered too (§7); a finished command with nothing
   // due has nothing to own.
   if (command.status !== "pending" && command.publication?.state !== "due") throw new CommandRefused("command-finished");
+  requireNotHeld(command);
   requireCapableWorker(command, { recording, repairs, scopes });
   return { ...command, owner: ownerOf({ worker, generation: expectedGeneration + 1, leaseExpiresAt: now + leaseMs, scopes }), updatedAt: new Date(now).toISOString() };
 };
@@ -193,6 +205,8 @@ export const commandSummary = command => command && ({
   publication: command.publication,
   // Why admission was refused, when it was (C6): { reason, at }.
   ...(command.admissionRefusal ? { admissionRefusal: command.admissionRefusal } : {}),
+  // C5d (decision 7): held by an operator. Older readers ignore it.
+  ...(command.hold ? { held: true } : {}),
   generation: command.owner.generation,
   leaseExpiresAt: command.owner.leaseExpiresAt,
   runRef: command.runRef,

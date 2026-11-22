@@ -16,6 +16,8 @@ import {
   ProtocolMismatch,
   commandIdFor,
   COMMAND_LEASE_MS,
+  createFirestoreHolds,
+  HOLD_MARGIN_MS,
 } from "./index.js";
 
 const run = process.env.FIRESTORE_EMULATOR_HOST ? describe : describe.skip;
@@ -305,5 +307,198 @@ run("command records in Firestore", () => {
     const marked = await commands.get(command.commandId);
     expect(marked).toMatchObject({ scopes: 1, status: "pending", owner: { generation: 1, leaseExpiresAt: T0 + 1000 } });
     await expect(records.installModel({ commandId: command.commandId, generation: 1, stage: "s1", text })).rejects.toMatchObject({ reason: "lease-expired" });
+  });
+
+  // C5d (docs/c5d-refusal-and-hold-plan.md decisions 6–8, 10, 11, §4 "Hold"):
+  // the hold in real transactions, decided on the emulator's read time. A
+  // command allocated at T0 expired long ago; one allocated at Date.now() has
+  // a live lease.
+  describe("the command hold", () => {
+    let holds;
+    beforeAll(() => {
+      holds = createFirestoreHolds(db);
+    });
+    const APPLIED_BY = { email: "owner@example.com", verifiedVia: "tokeninfo", azp: "123.apps.googleusercontent.com" };
+    const act = (commandId, over = {}) => ({
+      commandId, actId: randomUUID(), reason: "definite-refusal-unsettled", note: "held until the owner decides", decision: "docs/c5d-refusal-and-hold-plan.md", decidedBy: "owner", appliedBy: APPLIED_BY, ...over,
+    });
+    const CAPS = [0, 1].flatMap(recording => [0, 1].flatMap(repairs => [0, 1].map(scopes => ({ recording, repairs, scopes }))));
+    const ref = id => db.collection("commands").doc(id);
+    const history = async id => (await ref(id).collection("holds").get()).docs.map(d => d.data()).sort((a, b) => a.n - b.n);
+    const subcollections = async id => {
+      const out = {};
+      for (const c of await ref(id).listCollections()) {
+        if (c.id !== "holds") out[c.id] = (await c.get()).docs.map(d => [d.id, d.data(), d.updateTime.toMillis()]);
+      }
+      return out;
+    };
+    const expiredCommand = async key => (await allocate({ idempotencyKey: `${key}-${uid}` })).command.commandId;
+    const liveCommand = async key => (await allocate({ idempotencyKey: `${key}-${uid}`, now: Date.now() })).command.commandId;
+
+    it("is refused over a live lease and within the margin, then applied past it, on the server's read time", async () => {
+      const id = await liveCommand("live");
+      const before = await ref(id).get();
+      await expect(holds.applyHold(act(id))).rejects.toMatchObject({ reason: "lease-live" });
+      // Ended 90 s ago by Firestore's clock: still within the 100 s margin.
+      await ref(id).update({ "owner.leaseExpiresAt": Date.now() - 90_000 });
+      await expect(holds.applyHold(act(id))).rejects.toMatchObject({ reason: "lease-live" });
+      expect((await ref(id).get()).data().hold).toBeUndefined();
+      expect(await history(id)).toEqual([]);
+      const expires = Date.now() - HOLD_MARGIN_MS - 5_000;
+      await ref(id).update({ "owner.leaseExpiresAt": expires });
+      const applied = await holds.applyHold(act(id));
+      expect(applied.record).toMatchObject({ n: 1, act: "apply", fencing: "lease-expired", generation: 1, leaseExpiresAt: expires, appliedBy: APPLIED_BY, lifts: null });
+      expect(applied.record.readTime).toBeGreaterThanOrEqual(expires + HOLD_MARGIN_MS);
+      expect(Math.abs(applied.record.readTime - Date.now())).toBeLessThan(30_000);
+      expect(applied.record.at).toBe(new Date(applied.record.readTime).toISOString());
+      expect(before.exists).toBe(true);
+    }, 30_000);
+
+    it("holds only a pending command", async () => {
+      const id = await expiredCommand("done");
+      await ref(id).update({ status: "completed", publication: { state: "due", resultDigest: digest("r") } });
+      await expect(holds.applyHold(act(id))).rejects.toMatchObject({ reason: "not-pending" });
+      expect(await history(id)).toEqual([]);
+      await expect(holds.applyHold(act(commandIdFor(uid, "none")))).rejects.toMatchObject({ reason: "command-not-found" });
+    });
+
+    it("changes nothing but the hold, the history allocates 1, 2, 3, and a lift restores the record exactly", async () => {
+      const id = await expiredCommand("shape");
+      await ref(id).collection("outcomes").doc("s0:n0.0").set({ stage: "s0", occurrenceId: "n0.0", outcome: "failed" });
+      const before = (await ref(id).get()).data();
+      const subBefore = await subcollections(id);
+      const first = await holds.applyHold(act(id));
+      const held = (await ref(id).get()).data();
+      const { hold, ...rest } = held;
+      expect(rest).toEqual(before);
+      expect(hold).toMatchObject({ n: 1, actId: first.record.actId, reason: "definite-refusal-unsettled", appliedBy: APPLIED_BY, generation: 1 });
+      expect(await subcollections(id)).toEqual(subBefore);
+      const lift = await holds.liftHold(act(id, { lifts: first.record.actId, reason: "owner-lifted" }));
+      expect((await ref(id).get()).data()).toEqual(before);
+      expect(await subcollections(id)).toEqual(subBefore);
+      // Due again once lifted, at every capability.
+      expect((await commands.listDue({ now: Date.now(), limit: 500, recording: 1, repairs: 1, scopes: 1 })).map(c => c.commandId)).toContain(id);
+      const second = await holds.applyHold(act(id));
+      expect([first, lift, second].map(r => [r.record.n, r.record.act])).toEqual([[1, "apply"], [2, "lift"], [3, "apply"]]);
+      expect((await history(id)).map(h => [h.n, h.act, h.actId])).toEqual([[1, "apply", first.record.actId], [2, "lift", lift.record.actId], [3, "apply", second.record.actId]]);
+      expect(lift.record).toMatchObject({ lifts: first.record.actId, fencing: null });
+    }, 30_000);
+
+    it("answers a retry of a committed act replayed, writing nothing, even after a later lift", async () => {
+      const id = await expiredCommand("retry");
+      const request = act(id);
+      const first = await holds.applyHold(request);
+      const updated = (await ref(id).get()).updateTime.toMillis();
+      expect(await holds.applyHold(request)).toMatchObject({ replayed: true, record: first.record });
+      expect((await ref(id).get()).updateTime.toMillis()).toBe(updated);
+      const liftRequest = act(id, { lifts: first.record.actId });
+      await holds.liftHold(liftRequest);
+      const lifted = (await ref(id).get()).updateTime.toMillis();
+      expect(await holds.applyHold(request)).toMatchObject({ replayed: true, record: { n: 1 } });
+      expect(await holds.liftHold(liftRequest)).toMatchObject({ replayed: true, record: { n: 2 } });
+      expect((await ref(id).get()).updateTime.toMillis()).toBe(lifted);
+      expect(await history(id)).toHaveLength(2);
+      expect((await ref(id).get()).data().hold).toBeUndefined();
+    }, 30_000);
+
+    it("gives concurrent applies one hold and refuses the others already-held; one act id racing itself, one entry", async () => {
+      const id = await expiredCommand("race");
+      const results = await Promise.allSettled([1, 2, 3, 4].map(() => holds.applyHold(act(id))));
+      expect(results.filter(r => r.status === "fulfilled")).toHaveLength(1);
+      for (const r of results.filter(x => x.status === "rejected")) expect((r as PromiseRejectedResult).reason).toMatchObject({ reason: "already-held" });
+      expect(await history(id)).toHaveLength(1);
+      const other = await expiredCommand("race-same");
+      const request = act(other);
+      const same = await Promise.all([1, 2, 3].map(() => holds.applyHold(request)));
+      expect(same.filter(r => !r.replayed)).toHaveLength(1);
+      expect(await history(other)).toHaveLength(1);
+    }, 30_000);
+
+    it("refuses a lift naming another act, changing nothing", async () => {
+      const id = await expiredCommand("wrong-lift");
+      await expect(holds.liftHold(act(id, { lifts: randomUUID() }))).rejects.toMatchObject({ reason: "not-held" });
+      await holds.applyHold(act(id));
+      const before = await ref(id).get();
+      await expect(holds.liftHold(act(id, { lifts: randomUUID() }))).rejects.toMatchObject({ reason: "hold-mismatch" });
+      expect((await ref(id).get()).updateTime.toMillis()).toBe(before.updateTime.toMillis());
+      expect(await history(id)).toHaveLength(1);
+    }, 30_000);
+
+    it("is skipped by due selection at every capability, paging on past it to an ownable command", async () => {
+      const paged = createFirestoreCommandStore(db, { duePage: 1 });
+      const held = await expiredCommand("due-held");
+      const free = await expiredCommand("due-free");
+      // The held command expires first, so the scan meets it first.
+      await ref(held).update({ "owner.leaseExpiresAt": 1 });
+      await ref(free).update({ "owner.leaseExpiresAt": 2 });
+      await holds.applyHold(act(held));
+      for (const caps of CAPS) {
+        expect((await commands.listDue({ now: Date.now(), limit: 1, ...caps })).map(c => c.commandId)).toEqual([free]);
+        expect((await paged.listDue({ now: Date.now(), limit: 1, ...caps })).map(c => c.commandId)).toEqual([free]);
+      }
+      await ref(free).update({ "owner.leaseExpiresAt": T0 });
+    }, 30_000);
+
+    it("refuses takeover at every capability and renewal command-held", async () => {
+      const id = await expiredCommand("fence");
+      await holds.applyHold(act(id));
+      const before = (await ref(id).get()).data();
+      for (const caps of CAPS) {
+        await expect(commands.takeOver({ commandId: id, worker: "api-2", expectedGeneration: 1, now: Date.now(), ...caps })).rejects.toMatchObject({ reason: "command-held" });
+      }
+      await expect(commands.renewLease({ commandId: id, worker: "api-1", generation: 1, now: Date.now() })).rejects.toMatchObject({ reason: "lease-expired" });
+      expect((await ref(id).get()).data()).toEqual(before);
+      // Defense in depth: a held command with a live lease.
+      await ref(id).update({ "owner.leaseExpiresAt": Date.now() + COMMAND_LEASE_MS });
+      await expect(commands.renewLease({ commandId: id, worker: "api-1", generation: 1, now: Date.now(), recording: 1, repairs: 1, scopes: 1 })).rejects.toMatchObject({ reason: "command-held" });
+      await expect(records.installInput({ commandId: id, generation: 1, stage: "s0", text: "{}" })).rejects.toMatchObject({ reason: "command-held" });
+    }, 30_000);
+
+    // Races with a live worker: one transaction on commands/{id} decides.
+    const raced = async (id, other) => {
+      const [taken, held] = await Promise.allSettled([other(), holds.applyHold(act(id))]);
+      const doc = (await ref(id).get()).data();
+      if (taken.status === "fulfilled") {
+        expect(held).toMatchObject({ status: "rejected", reason: { reason: "lease-live" } });
+        expect(doc.hold).toBeUndefined();
+        expect(doc.owner.generation).toBe(2);
+      } else {
+        expect(taken.reason).toMatchObject({ reason: "command-held" });
+        expect(held.status).toBe("fulfilled");
+        expect(doc.owner.generation).toBe(1);
+      }
+      expect(await history(id)).toHaveLength(held.status === "fulfilled" ? 1 : 0);
+    };
+
+    it("lets exactly one of a takeover and an apply win", async () => {
+      for (let i = 0; i < 4; i++) {
+        const id = await expiredCommand(`race-takeover-${i}`);
+        await raced(id, () => commands.takeOver({ commandId: id, worker: "api-2", expectedGeneration: 1, now: Date.now() }));
+      }
+    }, 60_000);
+
+    it("lets exactly one of an allocation-path takeover and an apply win", async () => {
+      for (let i = 0; i < 4; i++) {
+        const key = `race-alloc-${i}`;
+        const id = await expiredCommand(key);
+        await raced(id, async () => {
+          const again = await allocate({ idempotencyKey: `${key}-${uid}`, worker: "api-2" });
+          expect(again).toMatchObject({ protocol: "command", reused: true });
+          return commands.takeOver({ commandId: id, worker: "api-2", expectedGeneration: 1, now: Date.now() });
+        });
+      }
+    }, 60_000);
+
+    it("refuses the hold while a renewing owner's lease is live", async () => {
+      const id = await liveCommand("race-renew");
+      const [renewed, held] = await Promise.allSettled([
+        commands.renewLease({ commandId: id, worker: "api-1", generation: 1, now: Date.now() }),
+        holds.applyHold(act(id)),
+      ]);
+      expect(renewed.status).toBe("fulfilled");
+      expect(held).toMatchObject({ status: "rejected", reason: { reason: "lease-live" } });
+      expect((await ref(id).get()).data().hold).toBeUndefined();
+      expect(await history(id)).toEqual([]);
+    }, 30_000);
   });
 });
