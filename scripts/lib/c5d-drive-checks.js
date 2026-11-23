@@ -41,8 +41,17 @@
 //                      reconcile: { status, timedOut, attempts, operations: [{ operationId, verdict, final, result }] },
 //                      objectAfterRetry: object, executeSteps: audit }
 //   stale-worker     { capture, policyAudit: audit, l0013Lines: lines, apiLines: lines }
-//   staging-gone     { capture (the targeted one), faultLines: lines, stagedAtExit: reservation,
-//                      stagedAfterDelete: { absent: true } | {...}, claim: { absent: true } | {...},
+//   staging-gone     { uid, capture (the targeted one, with its uid, admission and publication),
+//                      faultLines: lines, stagedAtExit: reservation,
+//                      stagedAfterDelete: { absent: true } | {...}, operationId (the reservation's),
+//                      occurrence: { stage, occurrenceId, argd, ... } | { absent: true },        Policy commands/{id}/occurrences/{stage}:{occ}
+//                      planRecord: { plan: { registryVersion, stages: [{ stage, lang }] }, invocationId } | { absent: true },  Policy plans/{planDigest}
+//                      claim: { operationId, binding: { principal, scope, lang, fn, op, registryVersion, argsDigest },
+//                               pld, evidence: { refused: "staging-unavailable" }, claimedAt }
+//                             | { absent: true },        receipts/{H}
+//                      outcome: { status, steps, result, reason, category, at } | { absent: true },  receipts/{H}/outcome/final
+//                      runState: { run, state, at } | { absent: true },                         receipts/{H}/run/state
+//                      steps: [{ n, step, at }],                                                receipts/{H}/steps/*
 //                      objectBefore: object, objectAfter: object, renders: number, fresh: capture }
 //   older-after-newer { older: capture, newer: capture, olderFaultLines: lines, olderSteps: [{ step, observed }],
 //                       finalObject: object }
@@ -63,6 +72,11 @@
 
 import { createHash } from "node:crypto";
 import { runAppService as runAppHost } from "./canary-env.js";
+// Broker's own staging refusal (packages/broker/src/stores.ts) and payload
+// digest, and the registry's ops: imported, not copied, so the drive judges
+// exactly what Broker records.
+import { STAGING_REFUSAL, isStagingRefusal, stagingRefusalOutcome, argsDigest } from "@graffiticode/broker";
+import { protectedFunctionsForLang } from "@graffiticode/common/protected-registry";
 
 // ----------------------------------------------------------------- the drive
 
@@ -332,6 +346,61 @@ const accessProbeChecks = compiler => ACCESS_PROBES.map(probe => [
   o => ok(ACCESS_PROBE_JUDGES[probe](o.compilers?.[compiler]?.[probe])),
 ]);
 
+// staging-gone (#466): exactly what Broker records for the takeover's refused
+// snap, each value derived from the records it came from, never assumed.
+const sameKeys = (value, keys) => isPlain(value) && Object.keys(value).sort().join(",") === [...keys].sort().join(",");
+const isPlain = v => v !== null && typeof v === "object" && !Array.isArray(v);
+// The binding Broker writes (broker.ts writeBinding) for an item-scoped v3
+// execution token with no connection function in its stage (policy.ts
+// scopedSession, issueExecution): no ownerUid or connectionId.
+//   principal        the token's sub: the command's uid, the canary
+//   scope            { kind: "item", id }: the reservation's item
+//   lang             the plan's pinned stage's lang (Policy plans/{planDigest}.plan)
+//   fn               snap
+//   op               the registry's one op for that lang's snap (protected-registry)
+//   registryVersion  the plan's registryVersion (the token's rv)
+//   argsDigest       Broker's digest of the payload { item, sha256, captureSequence },
+//                    which Policy holds the occurrence's `argd` to (capturePayloadDigest)
+export const expectedRefusalBinding = o => {
+  const r = oneReservation(o.capture);
+  if (!r) return "the takeover's reservation not observed";
+  if (typeof o.uid !== "string" || o.capture?.uid !== o.uid) return `the command's uid ${show(o.capture?.uid)} isn't the canary's`;
+  const record = o.planRecord;
+  const planDigest = o.capture?.admission?.planDigest;
+  if (!isPlain(record) || isAbsent(record) || !isPlain(record.plan)) return `the command's plan not observed (${show(record)})`;
+  if (record.invocationId !== o.capture.invocationId) return `the plan is invocation ${show(record.invocationId)}'s, not ${show(o.capture.invocationId)}'s`;
+  const plan = record.plan;
+  const pinned = (plan.stages ?? []).find(s => s.stage === r.stage);
+  if (!pinned || typeof pinned.lang !== "string") return `the plan pins no stage ${r.stage}`;
+  if (!Number.isSafeInteger(plan.registryVersion)) return `the plan's registry version is ${show(plan.registryVersion)}`;
+  const ops = protectedFunctionsForLang(pinned.lang)?.snap?.ops ?? [];
+  if (ops.length !== 1) return `the registry lists ${show(ops)} for ${pinned.lang} snap, not one op`;
+  const digest = argsDigest({ item: r.item, sha256: r.sha256, captureSequence: r.captureSequence });
+  const occ = o.occurrence;
+  if (!isPlain(occ) || isAbsent(occ)) return `the occurrence's record not observed (${show(occ)})`;
+  if (occ.stage !== r.stage || occ.occurrenceId !== r.occurrenceId) return `the occurrence read is ${show([occ.stage, occ.occurrenceId])}, not the reservation's`;
+  if (occ.argd !== digest) return `the occurrence's argd ${show(occ.argd)} isn't the reserved payload's digest ${digest}`;
+  return {
+    planDigest,
+    binding: { principal: o.uid, scope: { kind: "item", id: r.item }, lang: pinned.lang, fn: "snap", op: ops[0], registryVersion: plan.registryVersion, argsDigest: digest },
+  };
+};
+const bindingProblem = (actual, expected) => {
+  if (!sameKeys(actual, Object.keys(expected))) return `the claim's binding has fields ${show(isPlain(actual) ? Object.keys(actual).sort() : actual)}, expected ${show(Object.keys(expected).sort())}`;
+  if (!sameKeys(actual.scope, ["kind", "id"]) || actual.scope.kind !== expected.scope.kind || actual.scope.id !== expected.scope.id) return `the claim's scope is ${show(actual.scope)}, not ${show(expected.scope)}`;
+  for (const k of Object.keys(expected)) if (k !== "scope" && actual[k] !== expected[k]) return `the claim's binding ${k} is ${show(actual[k])}, expected ${show(expected[k])}`;
+  return null;
+};
+// The canonical outcome (stores.ts stagingRefusalOutcome) and its `at`
+// (firestore.ts claimRefused), nothing else.
+const refusalOutcomeProblem = outcome => {
+  const expected = stagingRefusalOutcome();
+  if (!sameKeys(outcome, [...Object.keys(expected), "at"])) return `the outcome is ${show(outcome)}, not the staging refusal's fields and its time`;
+  if (!isStagingRefusal(outcome)) return `the outcome is ${show(outcome)}, not the staging refusal`;
+  for (const k of ["status", "result", "reason", "category"]) if (outcome[k] !== expected[k]) return `the outcome's ${k} is ${show(outcome[k])}, expected ${show(expected[k])}`;
+  return Number.isFinite(Date.parse(outcome.at ?? "")) ? null : `the outcome's time is ${show(outcome.at)}`;
+};
+
 export const PHASES = Object.freeze({
   // Step 32's verification, read before any capture.
   checks: [
@@ -547,14 +616,45 @@ export const PHASES = Object.freeze({
       if (!faultLine(o.faultLines, "exit-after-stage", o.capture?.commandId)) return "no exit-after-stage line";
       return o.stagedAtExit?.state === "staged" && o.stagedAtExit?.stagedGeneration === 1 ? true : `at the exit: ${show(o.stagedAtExit)}`;
     }],
-    ["deleted-before-claim", "the operator's deletion came before any claim: Broker refused, definitely, with no receipt", o => {
+    // #466: the operator's deletion came before the takeover's claim, so the
+    // takeover's Broker call found no claim, no staged object, and recorded
+    // its definite refusal as the claim and the final outcome together, in
+    // one transaction (firestore.ts claimRefused). Never refuseRun's shape: that
+    // reopens a run under an earlier, aborted claim, and here none existed.
+    ["refusal-recorded", "the operator's deletion came before any claim: Broker recorded its definite refusal as the takeover's claim, refused staging-unavailable, for this reservation", o => {
       if (!isAbsent(o.stagedAfterDelete)) return `the staged object is ${show(o.stagedAfterDelete)}`;
-      return isAbsent(o.claim) ? true : `a claim exists (${show(o.claim)})`;
+      const r = oneReservation(o.capture);
+      if (!r || typeof o.capture?.invocationId !== "string") return "the takeover's reservation not observed";
+      const operationId = operationIdOf(o.capture.invocationId, r);
+      if (o.operationId !== operationId) return `the receipt read is ${show(o.operationId)}, not the reservation's ${operationId}`;
+      const c = o.claim;
+      if (!c || isAbsent(c)) return `no claim for ${operationId}: Broker refused without recording it`;
+      if (c.operationId !== operationId) return `the claim is for ${show(c.operationId)}, not ${operationId}`;
+      const ev = c.evidence;
+      if (!ev || ev.refused !== STAGING_REFUSAL || Object.keys(ev).length !== 1) return `the claim's evidence is ${show(ev)}, not { refused: "${STAGING_REFUSAL}" }`;
+      const expected = expectedRefusalBinding(o);
+      if (typeof expected === "string") return expected;
+      if (!sameKeys(c, ["operationId", "binding", "pld", "evidence", "claimedAt"])) return `the claim has fields ${show(Object.keys(c).sort())}`;
+      if (typeof expected.planDigest !== "string" || c.pld !== expected.planDigest) return `the claim's plan ${show(c.pld)} isn't the command's ${show(expected.planDigest)}`;
+      if (!Number.isFinite(Date.parse(c.claimedAt ?? ""))) return `the claim's time is ${show(c.claimedAt)}`;
+      return ok(bindingProblem(c.binding, expected.binding));
+    }],
+    ["refusal-outcome", "the operation's final outcome is exactly the staging refusal: failed, staging-unavailable, no step taken, no result, its category, its time", o =>
+      ok(refusalOutcomeProblem(o.outcome))],
+    ["nothing-run", "no run was started: no run state and no step recorded", o => {
+      if (!isAbsent(o.runState)) return `a run state exists (${show(o.runState)})`;
+      if (!Array.isArray(o.steps)) return `the steps aren't readable (${show(o.steps)})`;
+      return o.steps.length === 0 ? true : `${o.steps.length} steps recorded`;
     }],
     ["failed-nothing-published", "the takeover didn't render, the command failed, nothing published", o => {
       if (!Number.isSafeInteger(o.renders)) return `the render count isn't readable (${show(o.renders)})`;
       if (o.renders !== 1) return `${o.renders} renders: the takeover rendered`;
       if (o.capture?.status !== "failed") return `the command is ${show(o.capture?.status)}, not failed`;
+      if (o.capture.result !== null) return `the command has a result (${show(o.capture.result)})`;
+      // Policy's command record: publication { state: none | due | published, resultDigest }.
+      const pub = o.capture.publication;
+      if (!isPlain(pub)) return `the command's publication not observed (${show(pub)})`;
+      if (pub.state !== "none" || pub.resultDigest !== null) return `the command's publication is ${show(pub)}, not none`;
       return ok(first(objectRead("before", o.objectBefore), objectRead("after", o.objectAfter),
         sameObject(o.objectBefore, o.objectAfter) ? null : "the item's object changed"));
     }],
