@@ -354,7 +354,7 @@ Each slice needs the owner's approval. None is approved by this plan.
 4. **Policy release,** as decision 12 step 2.
 5. **api release,** as decision 12 step 3.
 6. **Apply the hold** (§5), as decision 12 step 4.
-7. **A fresh drive's infrastructure and window,** as Step 32 again, reviewed anew (held).
+7. **A fresh drive's infrastructure and window,** as Step 32 again, reviewed anew (held): drafted as [Step 32a](capability-policy-iam-review.md) on 2026-11-23.
 8. **The fresh drive** (held). Its `staging-gone` must show `failed` with nothing published, and its `cleanup` must pass.
 9. **The compilers' registry-10 releases; Step 33; Step 34** (held).
 
