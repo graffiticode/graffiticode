@@ -2918,7 +2918,14 @@ Retiring revisions (§8 step 4) and deleting infrastructure (§8 step 5) **stay 
 
 How it reads and judges them:
 - **Complete pagination.** Every listing is read page by page to its end; a repeated page token, or more than 50 pages, fails.
-- **Unreadable data fails.** Any status other than 200 or 404 is unreadable, and so is unparseable JSON, a truncated or malformed listing, or a query error. An unreadable record exits 2, never "unchanged".
+- **Unreadable data fails, exit 2, never "unchanged".** Each page, document and query result is validated before anything is taken from it (corrected 2026-11-23, owner's review of `d5278c49`):
+  - **A listing page** must be an object with only `documents` and `nextPageToken`. Its token must be a non-empty string, and each of its documents must be named in that collection, with its timestamps.
+  - **A document read** must be the document at its own path.
+  - **A query response** must be a non-empty array of results, each with a `readTime`.
+  - **A 404** must be Firestore's `NOT_FOUND`.
+  - **Also unreadable:** any status other than 200 or 404, unparseable JSON, a repeated page token, or more than 50 pages.
+  - **Saved baselines** are held to the same shapes.
+  - Before the fix, a status-200 `[]` or `{"error":…}` page read as "no documents", so `c2-holds` came out `same` with exit 0.
 - **The post-hold baseline is the private originals** of the hold's after-reads, `docs/evidence/c5d/hold/after-2026-11-23/` (its `legacy-*.json`, `legacy-broker-steps.json`, `drop-outcome-reconciliation-attempts.json`, and the retained-record reads `fresh-7` to `fresh-13`).
   - Each file is accepted only if its sha256 is the `originalSha256` that the published `publication.json` records for it. The redacted published copies are refused.
 - **Fixed expectations,** where no after-read saved a record: absent, or no documents. The drop-outcome command's `refusals` and `holds` have none, read 2026-11-23.
@@ -2927,7 +2934,8 @@ How it reads and judges them:
 - **Its dry run,** read-only, on 2026-11-23:
   - 27 records `same` against the post-hold baseline, and the drop-outcome step recorded; exit 0;
   - rerun with that capture as `--before`: 28 `same`; exit 0;
-  - pointed at the redacted copies: 2 unreadable; exit 2.
+  - pointed at the redacted copies: 2 unreadable; exit 2;
+  - after the validation fix, both runs again: 27 `same` plus 1 recorded, then 28 `same`; exit 0.
 
 ```bash
 node scripts/c5d-retained-records.js --hold <private after-2026-11-23> --out <private run evidence>/legacy-before
@@ -3083,7 +3091,7 @@ Stop the drive, run no further phase, and go to §10 from the earliest step that
    - **Corrected coverage claim:** the drive does **not** exercise #468.
      - The drive compiler binds occurrences through `POST /v1/command-occurrences`, Policy's compiler route.
      - #468 fixes the gateway's `PUT /v1/commands/:id/occurrences/:stage/:occ`, which no drive phase calls.
-   - **An explicit probe is open for the owner,** only if the drive's evidence should cover #468.
+   - **The owner doesn't require the explicit probe** (2026-11-23). #468 is covered by its HTTP regression tests. The probe is described below for the record only, and isn't part of this drive.
      - It is one gateway `PUT` with a wrong `argd`, using `api-run`'s window token, against a command created for the probe alone. It expects 403 `binding-mismatch` and exactly one permanent `refusals/` record. A retry with the correct `argd` then gets the same refusal, with nothing else changed.
      - Its command is in the run's journal and plan like any other, and `cleanup` must account for it.
      - It would be drafted as a runner phase, with tests, for review before use. Without it, #468's coverage is its own tests (`packages/policy/src/bind-http.spec.ts`).

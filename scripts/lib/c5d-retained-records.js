@@ -118,17 +118,66 @@ const prefixQuery = inv => ({
   }
 });
 
+// A Firestore REST document, as listed or read: a name (under `parent`, when
+// given), its timestamps, and fields when it has any. Anything else is
+// unreadable, never an empty or unchanged record.
+const DOC_KEYS = new Set(["name", "fields", "createTime", "updateTime"]);
+export const validateDocument = (d, what, { parent = null, name = null } = {}) => {
+  if (!d || typeof d !== "object" || Array.isArray(d)) throw new Unreadable(`${what}: a document that isn't an object`);
+  const extra = Object.keys(d).filter(k => !DOC_KEYS.has(k));
+  if (extra.length) throw new Unreadable(`${what}: unexpected document keys ${extra.join(", ")}`);
+  if (typeof d.name !== "string" || !d.name) throw new Unreadable(`${what}: a document without a name`);
+  if (typeof d.createTime !== "string" || typeof d.updateTime !== "string") throw new Unreadable(`${what}: ${d.name} without its timestamps`);
+  if (d.fields !== undefined && (!d.fields || typeof d.fields !== "object" || Array.isArray(d.fields))) throw new Unreadable(`${what}: ${d.name} with malformed fields`);
+  if (parent !== null && !(d.name.startsWith(`${parent}/`) && !d.name.slice(parent.length + 1).includes("/"))) throw new Unreadable(`${what}: ${d.name} isn't in ${parent}`);
+  if (name !== null && d.name !== name) throw new Unreadable(`${what}: read ${d.name}, not ${name}`);
+  return d;
+};
+
+// One page of a listing (documents.list), validated before anything is taken
+// from it: an object with only `documents` (an array of documents in this
+// collection) and `nextPageToken` (a non-empty string), each optional.
+export const validatePage = (j, what, parent) => {
+  if (!j || typeof j !== "object" || Array.isArray(j)) throw new Unreadable(`${what}: a page that isn't a listing object`);
+  const extra = Object.keys(j).filter(k => k !== "documents" && k !== "nextPageToken");
+  if (extra.length) throw new Unreadable(`${what}: unexpected listing keys ${extra.join(", ")}`);
+  if (j.documents !== undefined && !Array.isArray(j.documents)) throw new Unreadable(`${what}: malformed documents`);
+  if (j.nextPageToken !== undefined && (typeof j.nextPageToken !== "string" || !j.nextPageToken)) throw new Unreadable(`${what}: a malformed page token`);
+  for (const d of j.documents ?? []) validateDocument(d, what, { parent });
+  return j;
+};
+
+// A runQuery response: a non-empty array of results, each an object with a
+// readTime, and a document only where one matched. An error, or any other
+// shape, is unreadable.
+export const validateQuery = (j, what, parentDocs) => {
+  if (!Array.isArray(j) || j.length === 0) throw new Unreadable(`${what}: not a query response`);
+  for (const r of j) {
+    if (!r || typeof r !== "object" || Array.isArray(r)) throw new Unreadable(`${what}: a query result that isn't an object`);
+    if (r.error) throw new Unreadable(`${what}: the query answered an error`);
+    const extra = Object.keys(r).filter(k => !["document", "readTime", "skippedResults", "transaction"].includes(k));
+    if (extra.length) throw new Unreadable(`${what}: unexpected query keys ${extra.join(", ")}`);
+    if (typeof r.readTime !== "string") throw new Unreadable(`${what}: a query result without readTime`);
+    if (r.document !== undefined) validateDocument(r.document, what, { parent: parentDocs });
+  }
+  return j;
+};
+
+const docName = (db, path) => `projects/graffiticode/databases/${db}/documents/${decodeURIComponent(path)}`;
+
 // One record, read completely: every page of a listing (a page token that
-// repeats, or more than maxPages, is unreadable). Any status but the expected
-// ones is unreadable. Returns { status, body } with body the merged read.
+// repeats, or more than maxPages, is unreadable), each page validated before
+// its documents are taken. Any status but the expected ones is unreadable.
+// Returns { status, body } with body the merged read.
 export const readRecord = async (record, { get, post, maxPages = 50 }) => {
   const base = `${FS}/${record.db}/documents`;
   if (record.kind === "query") {
     const r = await post(`${base}:runQuery`, prefixQuery(record.invocation));
     if (r.status !== 200) throw new Unreadable(`${record.id}: status ${r.status}`);
-    return { status: 200, body: parse(r.text, record.id) };
+    return { status: 200, body: validateQuery(parse(r.text, record.id), record.id, docName(record.db, "receipts")) };
   }
   if (record.kind === "collection") {
+    const parent = docName(record.db, record.path);
     const documents = [];
     const seen = new Set();
     let token = "";
@@ -136,10 +185,9 @@ export const readRecord = async (record, { get, post, maxPages = 50 }) => {
       if (page >= maxPages) throw new Unreadable(`${record.id}: more than ${maxPages} pages`);
       const r = await get(`${base}/${record.path}?pageSize=${PAGE_SIZE}${token ? `&pageToken=${enc(token)}` : ""}`);
       if (r.status !== 200) throw new Unreadable(`${record.id}: status ${r.status}`);
-      const j = parse(r.text, record.id);
-      if (j.documents !== undefined && !Array.isArray(j.documents)) throw new Unreadable(`${record.id}: malformed documents`);
+      const j = validatePage(parse(r.text, record.id), record.id, parent);
       documents.push(...(j.documents ?? []));
-      if (!j.nextPageToken) break;
+      if (j.nextPageToken === undefined) break;
       if (seen.has(j.nextPageToken)) throw new Unreadable(`${record.id}: a repeated page token`);
       seen.add(j.nextPageToken);
       token = j.nextPageToken;
@@ -147,9 +195,13 @@ export const readRecord = async (record, { get, post, maxPages = 50 }) => {
     return { status: 200, body: documents.length ? { documents } : {} };
   }
   const r = await get(`${base}/${record.path}`);
-  if (r.status === 404) return { status: 404, body: parse(r.text, record.id) };
+  if (r.status === 404) {
+    const j = parse(r.text, record.id);
+    if (j?.error?.code !== 404 && j?.error?.status !== "NOT_FOUND") throw new Unreadable(`${record.id}: a 404 that isn't Firestore's NOT_FOUND`);
+    return { status: 404, body: j };
+  }
   if (r.status !== 200) throw new Unreadable(`${record.id}: status ${r.status}`);
-  return { status: 200, body: parse(r.text, record.id) };
+  return { status: 200, body: validateDocument(parse(r.text, record.id), record.id, { name: docName(record.db, record.path) }) };
 };
 
 // The expected canonical form of one record, or an Unreadable when its
@@ -165,7 +217,13 @@ export const expected = (record, { readHold, readBefore }) => {
     } catch (err) {
       throw new Unreadable(`${record.id}: baseline ${b.hold} unreadable${err instanceof Unreadable ? ` (${err.message})` : ""}`);
     }
-    return normalize(record.kind, parse(text, `baseline ${b.hold}`), `baseline ${b.hold}`);
+    const body = parse(text, `baseline ${b.hold}`);
+    const what = `baseline ${b.hold}`;
+    // A saved read is held to the same shape as a fresh one.
+    if (record.kind === "collection") validatePage(body, what, docName(record.db, record.path));
+    if (record.kind === "doc") validateDocument(body, what, { name: docName(record.db, record.path) });
+    if (record.kind === "query") validateQuery(body, what, docName(record.db, "receipts"));
+    return normalize(record.kind, body, what);
   }
   if (b.before) {
     if (!readBefore) return null;

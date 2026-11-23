@@ -25,30 +25,37 @@ const world = () => {
   list("broker", `receipts/${H2}/reconciliation-attempts`, [doc("att/1")]);
   list("broker", `receipts/${H2}/steps`, [doc("step/0")]);
   const queries = new Map();
-  const state = { docs, lists, queries, calls: [], status: new Map(), pageSize: PAGE_SIZE, tokens: null };
+  const state = { docs, lists, queries, calls: [], status: new Map(), raw: new Map(), pageSize: PAGE_SIZE, tokens: null };
+  // Firestore's own names: a listed document under its collection, a read
+  // document at its path (the fixtures' short names are their ids).
+  const DB = "projects/graffiticode/databases";
+  const named = (key, d) => ({ ...d, name: `${DB}/${key.split("/")[0]}/documents/${decodeURIComponent(key.split("/").slice(1).join("/"))}` });
+  const listed = (key, d) => named(`${key}/${d.name.replace(/\//g, "-")}`, d);
   state.get = async url => {
     state.calls.push(url);
     const u = new URL(url);
     const [, db, , ...rest] = u.pathname.replace("/v1/projects/graffiticode/databases/", "/").split("/");
     const key = `${db}/${rest.join("/")}`;
     const forced = state.status.get(key);
-    if (forced) return { status: forced, text: forced === 404 ? "{\"error\":{}}" : "oops" };
+    if (forced) return { status: forced, text: "oops" };
+    if (state.raw.has(key)) return { status: 200, text: state.raw.get(key) };
     if (lists.has(key)) {
       const all = lists.get(key);
       const start = Number(u.searchParams.get("pageToken") ?? 0);
-      const page = all.slice(start, start + state.pageSize);
+      const page = all.slice(start, start + state.pageSize).map(d => listed(key, d));
       const next = start + state.pageSize < all.length ? String(start + state.pageSize) : null;
       const token = state.tokens ? state.tokens(next) : next;
       return { status: 200, text: JSON.stringify({ ...(page.length ? { documents: page } : {}), ...(token ? { nextPageToken: token } : {}) }) };
     }
-    if (docs.has(key)) return { status: 200, text: JSON.stringify(docs.get(key)) };
-    return { status: 404, text: "{\"error\":{\"code\":404}}" };
+    if (docs.has(key)) return { status: 200, text: JSON.stringify(named(key, docs.get(key))) };
+    return { status: 404, text: "{\"error\":{\"code\":404,\"status\":\"NOT_FOUND\"}}" };
   };
   state.post = async (url, body) => {
     state.calls.push(url);
     const inv = body.structuredQuery.where.compositeFilter.filters[0].fieldFilter.value.stringValue.slice(0, -1);
+    if (state.raw.has(`query/${inv}`)) return { status: 200, text: state.raw.get(`query/${inv}`) };
     const hits = queries.get(inv) ?? [];
-    return { status: 200, text: JSON.stringify(hits.length ? hits.map(d => ({ document: d, readTime: "t" })) : [{ readTime: "t" }]) };
+    return { status: 200, text: JSON.stringify(hits.length ? hits.map(d => ({ document: listed("broker/receipts", d), readTime: "t" })) : [{ readTime: "t" }]) };
   };
   return state;
 };
@@ -192,10 +199,17 @@ test("unreadable data fails, never passes as unchanged", async () => {
   const missing = holdReader({ readFile: () => { throw new Error("ENOENT"); }, publication });
   r = await compareAll({ ...y, readHold: missing, readBefore: await beforeOf(y) });
   assert.ok(r.rows.filter(x => x.verdict === "UNREADABLE").length >= 10);
+  // A saved baseline of the wrong shape (an error saved in place of a listing).
+  const errorSaved = new Map(files);
+  errorSaved.set("legacy-holds.json", "{\"error\":{\"code\":7}}");
+  const pubErr = { files: [...errorSaved].map(([name, text]) => ({ path: `after-2026-11-23/${name}`, originalSha256: sha(text) })) };
+  r = await compareAll({ ...y, readHold: holdReader({ readFile: n => errorSaved.get(n), publication: pubErr }), readBefore: await beforeOf(y) });
+  assert.equal(verdicts(r.rows)["c1-holds"], "UNREADABLE");
+  assert.equal(exitCode(r, { first: false }), 2);
   const unlisted = holdReader({ readFile: n => files.get(n), publication: { files: [] } });
   r = await compareAll({ ...y, readHold: unlisted, readBefore: await beforeOf(y) });
   assert.match(r.rows.find(x => x.id === "c1-holds").note, /not in publication.json/);
-  // Not JSON, a truncated saved listing, a malformed document.
+  // Not JSON, a truncated saved listing, a malformed document (in a saved baseline).
   assert.throws(() => normalize("collection", { documents: [], nextPageToken: "p" }, "b"), /truncated/);
   assert.throws(() => normalize("collection", { documents: [{}] }, "b"), /malformed/);
   assert.throws(() => normalize("doc", { fields: {} }, "b"), /not a document/);
@@ -211,4 +225,87 @@ test("comparison is canonical: key order and listing order don't matter, readTim
   assert.deepEqual(a, b);
   assert.deepEqual(normalize("query", [{ readTime: "1" }], "q"), normalize("query", [{ readTime: "2" }], "q"));
   assert.deepEqual(normalize("collection", {}, "e"), canon({ documents: [] }));
+});
+
+// The owner's review of d5278c49: a status-200 response that isn't a listing
+// (`[]`, or an error object) was reduced to "no documents" before its shape
+// was checked, so c2-holds compared `same` and the run exited 0. Every page,
+// document and query result is now validated before anything is taken from it.
+const C2_HOLDS = `policy/commands/${encodeURIComponent(C2)}/holds`;
+const malformedPages = [
+  ["an array", "[]"],
+  ["an error object", "{\"error\":{\"code\":7}}"],
+  ["null", "null"],
+  ["a string", "\"documents\""],
+  ["documents not an array", "{\"documents\":{}}"],
+  ["an unexpected key", "{\"documents\":[],\"status\":\"ok\"}"],
+  ["an empty page token", "{\"nextPageToken\":\"\"}"],
+  ["a page token that isn't a string", "{\"nextPageToken\":7}"],
+  ["a document without a name", "{\"documents\":[{\"createTime\":\"t\",\"updateTime\":\"t\"}]}"],
+  ["a document without its timestamps", `{"documents":[{"name":"projects/graffiticode/databases/policy/documents/commands/${C2}/holds/h"}]}`],
+  ["a document from another collection", `{"documents":[{"name":"projects/graffiticode/databases/policy/documents/commands/${C1}/holds/h","createTime":"t","updateTime":"t"}]}`],
+  ["a document that isn't an object", "{\"documents\":[7]}"],
+  ["malformed fields", `{"documents":[{"name":"projects/graffiticode/databases/policy/documents/commands/${C2}/holds/h","createTime":"t","updateTime":"t","fields":[]}]}`],
+];
+
+test("a malformed status-200 listing page is unreadable through readRecord, and exits 2 through compareAll", async () => {
+  const record = RECORDS.find(r => r.id === "c2-holds");
+  for (const [what, text] of malformedPages) {
+    const w = world();
+    const { readHold } = await baselineOf(w);
+    const readBefore = await beforeOf(w);
+    w.raw.set(C2_HOLDS, text);
+    await assert.rejects(readRecord(record, w), Unreadable, what);
+    const r = await compareAll({ ...w, readHold, readBefore });
+    assert.equal(verdicts(r.rows)["c2-holds"], "UNREADABLE", what);
+    assert.deepEqual(r.rows.filter(x => x.verdict !== "same").map(x => x.id), ["c2-holds"], what);
+    assert.equal(exitCode(r, { first: false }), 2, what);
+    assert.equal(exitCode(r, { first: true }), 2, what);
+  }
+});
+
+test("a malformed later page is unreadable too, after a valid first page", async () => {
+  const w = world();
+  w.pageSize = 1;
+  w.lists.set(`policy/commands/${encodeURIComponent(C1)}/holds`, [doc("h/1"), doc("h/2")]);
+  const { readHold } = await baselineOf(w);
+  const readBefore = await beforeOf(w);
+  const get = w.get;
+  w.get = async url => (url.includes("/holds?") && url.includes("pageToken=") ? { status: 200, text: "{\"error\":{\"code\":7}}" } : get(url));
+  await assert.rejects(readRecord(RECORDS.find(r => r.id === "c1-holds"), w), Unreadable);
+  const r = await compareAll({ ...w, readHold, readBefore });
+  assert.equal(verdicts(r.rows)["c1-holds"], "UNREADABLE");
+  assert.equal(exitCode(r, { first: false }), 2);
+});
+
+test("a malformed status-200 document, 404 or query result is unreadable, and exits 2", async () => {
+  const cases = [
+    ["c1-command", `policy/commands/${encodeURIComponent(C1)}`, "[]"],
+    ["c1-command", `policy/commands/${encodeURIComponent(C1)}`, "{\"error\":{\"code\":7}}"],
+    ["c1-command", `policy/commands/${encodeURIComponent(C1)}`, JSON.stringify(doc(`projects/graffiticode/databases/policy/documents/commands/${C2}`))],
+    ["h2-receipt", `broker/receipts/${H2}`, JSON.stringify({ ...doc("x"), name: `projects/graffiticode/databases/broker/documents/receipts/${H2}`, extra: 1 })],
+    ["h1-invocation-query", "query/inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3", "[]"],
+    ["h1-invocation-query", "query/inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3", "{\"error\":{\"code\":7}}"],
+    ["h1-invocation-query", "query/inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3", "[{\"error\":{\"code\":7}}]"],
+    ["h1-invocation-query", "query/inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3", "[{}]"],
+    ["h1-invocation-query", "query/inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3", "[{\"readTime\":\"t\",\"document\":{\"name\":\"elsewhere\",\"createTime\":\"t\",\"updateTime\":\"t\"}}]"],
+  ];
+  for (const [id, key, text] of cases) {
+    const w = world();
+    const { readHold } = await baselineOf(w);
+    const readBefore = await beforeOf(w);
+    w.raw.set(key, text);
+    await assert.rejects(readRecord(RECORDS.find(r => r.id === id), w), Unreadable, `${id} ${text}`);
+    const r = await compareAll({ ...w, readHold, readBefore });
+    assert.equal(verdicts(r.rows)[id], "UNREADABLE", `${id} ${text}`);
+    assert.equal(exitCode(r, { first: false }), 2, `${id} ${text}`);
+  }
+  // A 404 that isn't Firestore's NOT_FOUND (a proxy's, say) isn't an absence.
+  const w = world();
+  const { readHold } = await baselineOf(w);
+  const get = w.get;
+  w.get = async url => (url.endsWith(`/receipts/${H1}`) ? { status: 404, text: "{}" } : get(url));
+  const r = await compareAll({ ...w, readHold, readBefore: await beforeOf(world()) });
+  assert.equal(verdicts(r.rows)["h1-receipt"], "UNREADABLE");
+  assert.equal(exitCode(r, { first: false }), 2);
 });
