@@ -73,7 +73,8 @@
 //                    waits (bounded) for the operator's deletion, then for the
 //                    takeover's failure, and reads Broker's recorded refusal
 //                    (#466: the claim refused staging-unavailable, its final
-//                    outcome, and no run state or steps); then a fresh,
+//                    outcome, no run state or steps, and the occurrence and
+//                    plan its binding is judged against); then a fresh,
 //                    untargeted capture.
 //   older-after-newer, two-stage, mixed, non-owner
 //                    runner, as slice 3 lists them.
@@ -461,7 +462,8 @@ const asConsoleToPolicy = async () => ({
 });
 
 // A command's capture observation (c5d-drive-checks.js "capture"): Policy's
-// record, reservations and result (L0013's { item, url }), Broker's claim of
+// record (its uid, admission and publication), reservations and result
+// (L0013's { item, url }), Broker's claim of
 // its first reservation, and the drive bucket's object.
 const captureOf = async commandId => {
   if (!commandId) throw new Error("no command id");
@@ -477,10 +479,13 @@ const captureOf = async commandId => {
   const first = reservations[0];
   return {
     commandId,
+    uid: record.uid ?? null,
     status: record.status,
     ownerGeneration: record.owner?.generation ?? null,
     invocationId: record.invocationId,
     admission: record.admission ?? null,
+    // { state: none | due | published, resultDigest } (Policy's command record).
+    publication: record.publication ?? null,
     result,
     reservations,
     claim: first ? await receiptDoc(operationIdOf(record.invocationId, first)) : { absent: true },
@@ -795,6 +800,14 @@ if (phase === "staging-gone") {
       await collect("outcome", () => receiptDoc(observations.operationId, "/outcome/final"));
       await collect("runState", () => receiptDoc(observations.operationId, "/run/state"));
       await collect("steps", () => receiptDocs(observations.operationId, "steps"));
+      // What the claim's binding is judged against: the occurrence's recorded
+      // argd, and the plan (its registryVersion and the stage's lang).
+      await collect("occurrence", () => doc("policy", `commands/${encodeURIComponent(id)}/occurrences/${encodeURIComponent(`${taken.stage}:${taken.occurrenceId}`)}`));
+      await collect("planRecord", () => {
+        const planDigest = observations.capture.admission?.planDigest;
+        if (typeof planDigest !== "string") throw new Error(`no plan digest on ${id}'s admission`);
+        return doc("policy", `plans/${encodeURIComponent(planDigest)}`);
+      });
     }
   }
   await collect("objectAfter", () => objectOf(config.bucket, `${item}.png`));

@@ -12,6 +12,7 @@ import path from "node:path";
 import * as C from "../lib/c5d-drive-checks.js";
 import { writeManifestOnce } from "../lib/c5b-thumbnails.js";
 import { verifyRetired } from "../lib/c5a-gate-fixtures.js";
+import { argsDigest as brokerArgsDigest, stagingRefusalOutcome } from "@graffiticode/broker";
 
 const { DRIVE, FIXTURES, BROKER_RUN, PUBLIC_CAPTURE_LIMIT, DIRECT_REFUSAL, PHASES, DRIVE_PHASES, commandIdFor, driveTargets, driveNamesProblem, runAppService, judgePhase, verdict, thumbnailUrl, stagedObject, operationIdOf, revisionService, latestByPhase, phaseFile, stampOf, captureProblem } = C;
 
@@ -71,25 +72,42 @@ const accessProbesPassing = () => {
 // claimRefused): the claim, refused staging-unavailable, bound to this
 // reservation's item, and the final outcome (stores.ts stagingRefusalOutcome);
 // no run state, no steps. The command failed; nothing published.
+// The binding is the one Broker writes (broker.ts writeBinding) for the
+// item-scoped snap token, its values written out here, not derived: L0013's
+// snap op in the registry is gcs.put-thumbnail, the plan's registry version
+// 10 (REGISTRY_VERSION), and the digest Broker's of the reserved payload,
+// which Policy recorded as the occurrence's argd.
+const PLAN_DIGEST = "d".repeat(64);
 const stagingGone = () => {
   const ids = T.ids;
   const base = capture({ commandId: ids["staging-gone"] });
   const r = base.reservations[0];
   const operationId = operationIdOf(base.invocationId, r);
+  const digest = brokerArgsDigest({ item: r.item, sha256: r.sha256, captureSequence: r.captureSequence });
   const claim = {
     operationId,
-    binding: { principal: UID, scope: { kind: "item", id: r.item }, lang: "0013", fn: "snap", op: "publish-thumbnail", registryVersion: 9, argsDigest: SHA("f") },
-    pld: "plan-1",
+    binding: { principal: UID, scope: { kind: "item", id: r.item }, lang: "0013", fn: "snap", op: "gcs.put-thumbnail", registryVersion: 10, argsDigest: digest },
+    pld: PLAN_DIGEST,
     evidence: { refused: "staging-unavailable" },
     claimedAt: at(30),
   };
   return {
     uid: UID,
-    capture: { ...base, status: "failed", result: null, claim },
+    capture: {
+      ...base,
+      uid: UID,
+      status: "failed",
+      result: null,
+      admission: { planDigest: PLAN_DIGEST, contractVersion: 3, stages: { s0: { lang: "0013" } } },
+      publication: { state: "none", resultDigest: null },
+      claim,
+    },
     faultLines: faultLines("exit-after-stage", ids["staging-gone"]),
     stagedAtExit: clone(r),
     stagedAfterDelete: { absent: true },
     operationId,
+    occurrence: { stage: r.stage, occurrenceId: r.occurrenceId, intentId: "i1", argd: digest, argsDigest: SHA("e"), item: r.item, generation: 1 },
+    planRecord: { plan: { registryVersion: 10, stages: [{ stage: "s0", lang: "0013", revision: "l0013r-c5d-drive-r1", requiredFunctions: ["snap"] }] }, invocationId: base.invocationId, createdAt: at(0) },
     claim: clone(claim),
     outcome: { status: "failed", steps: [], result: null, reason: "staging-unavailable", category: "conflict", at: at(30) },
     runState: { absent: true },
@@ -434,11 +452,19 @@ test("staging-gone: the recorded refusal's exact shape passes", () => {
   assert.deepEqual(r.checks.map(c => c.id), ["observations-read", "fault-fired", "refusal-recorded", "refusal-outcome", "nothing-run", "failed-nothing-published", "fresh-capture"]);
 });
 
-test("staging-gone: the outcome Broker records for a staging refusal is the one the judge accepts", async () => {
-  const { stagingRefusalOutcome } = await import("@graffiticode/broker");
+test("staging-gone: the outcome Broker records for a staging refusal is the one the judge accepts", () => {
   const o = stagingGone();
   o.outcome = { ...stagingRefusalOutcome(), at: at(30) };
   assert.equal(judgePhase("staging-gone", o).passed, true);
+});
+
+test("staging-gone: the expected binding is derived from the plan, the registry and the reserved payload", () => {
+  const o = stagingGone();
+  const e = C.expectedRefusalBinding(o);
+  assert.deepEqual(e.binding, o.claim.binding);
+  assert.equal(e.binding.op, "gcs.put-thumbnail");
+  assert.equal(e.binding.registryVersion, 10);
+  assert.equal(e.planDigest, PLAN_DIGEST);
 });
 
 const STAGING_GONE_REJECTIONS = {
@@ -458,6 +484,30 @@ const STAGING_GONE_REJECTIONS = {
     "a claim bound to another item": o => { o.claim.binding.scope.id = FIXTURES.public; },
     "a claim bound to a connection, not the item": o => { o.claim.binding.scope = { kind: "connection", id: "conn-1" }; },
     "the staged object not deleted": o => { o.stagedAfterDelete = { generation: "1700000000000005" }; },
+    "a binding with another op": o => { o.claim.binding.op = "publish-thumbnail"; },
+    "a binding with another args digest": o => { o.claim.binding.argsDigest = SHA("f"); },
+    "a binding with another lang": o => { o.claim.binding.lang = "L0013"; },
+    "a binding with another registry version": o => { o.claim.binding.registryVersion = 9; },
+    "a binding with a string registry version": o => { o.claim.binding.registryVersion = "10"; },
+    "a binding with an extra field (ownerUid)": o => { o.claim.binding.ownerUid = UID; },
+    "a binding with an extra field (connectionId)": o => { o.claim.binding.connectionId = "conn-1"; },
+    "a binding missing a field": o => { delete o.claim.binding.registryVersion; },
+    "a scope with an extra field": o => { o.claim.binding.scope.extra = 1; },
+    "a claim with an extra field": o => { o.claim.extra = 1; },
+    "a claim without its plan": o => { delete o.claim.pld; },
+    "a claim with another plan": o => { o.claim.pld = "e".repeat(64); },
+    "a claim without its time": o => { delete o.claim.claimedAt; },
+    "a command not the canary's": o => { o.capture.uid = "someone-else"; },
+    "the occurrence not observed": o => { delete o.occurrence; },
+    "the occurrence absent": o => { o.occurrence = { absent: true }; },
+    "the occurrence's argd not the reserved payload's": o => { o.occurrence.argd = SHA("f"); o.claim.binding.argsDigest = SHA("f"); },
+    "the occurrence read for another occurrence": o => { o.occurrence.occurrenceId = "o2"; },
+    "the plan not observed": o => { delete o.planRecord; },
+    "the plan absent": o => { o.planRecord = { absent: true }; },
+    "the plan another invocation's": o => { o.planRecord.invocationId = "inv-2"; },
+    "the plan pins no such stage": o => { o.planRecord.plan.stages[0].stage = "s1"; },
+    "the plan at another registry version": o => { o.planRecord.plan.registryVersion = 9; },
+    "the plan's stage in another lang": o => { o.planRecord.plan.stages[0].lang = "0176"; },
   },
   "refusal-outcome": {
     "no outcome": o => { o.outcome = { absent: true }; },
@@ -468,6 +518,13 @@ const STAGING_GONE_REJECTIONS = {
     "an outcome with no reason": o => { delete o.outcome.reason; },
     "an outcome with steps taken": o => { o.outcome.steps = ["publish"]; },
     "an outcome with no steps array": o => { delete o.outcome.steps; },
+    "an outcome with a result": o => { o.outcome.result = { item: FIXTURES.private }; },
+    "an outcome with no result field": o => { delete o.outcome.result; },
+    "an outcome with another category": o => { o.outcome.category = "transient"; },
+    "an outcome with no category": o => { delete o.outcome.category; },
+    "an outcome with an extra field": o => { o.outcome.failedStep = "publish"; },
+    "an outcome with no time": o => { delete o.outcome.at; },
+    "an outcome with an unreadable time": o => { o.outcome.at = "yesterday"; },
   },
   "nothing-run": {
     "a run state (refuseRun's shape, a reopened run)": o => { o.runState = { run: 1, state: "open", at: at(30) }; },
@@ -484,19 +541,29 @@ const STAGING_GONE_REJECTIONS = {
     "the item's object published where there was none": o => { o.objectBefore = { absent: true }; },
     "an extra render (the takeover rendered)": o => { o.renders = 2; },
     "the renders not counted": o => { delete o.renders; },
+    "the publication not observed": o => { delete o.capture.publication; },
+    "the publication null": o => { o.capture.publication = null; },
+    "the publication due": o => { o.capture.publication = { state: "due", resultDigest: SHA("c") }; },
+    "the publication published": o => { o.capture.publication = { state: "published", resultDigest: SHA("c") }; },
+    "the publication in an unknown state": o => { o.capture.publication = { state: "pending", resultDigest: null }; },
+    "the publication with no state": o => { o.capture.publication = { resultDigest: null }; },
+    "the publication none with a result digest": o => { o.capture.publication = { state: "none", resultDigest: SHA("c") }; },
   },
 };
 
 test("staging-gone: every departure from the recorded refusal is rejected by its own check", () => {
+  const passed = [];
+  const missed = [];
   for (const [id, cases] of Object.entries(STAGING_GONE_REJECTIONS)) {
     for (const [name, mutate] of Object.entries(cases)) {
       const o = stagingGone();
       mutate(o);
       const r = judgePhase("staging-gone", o);
-      assert.equal(r.passed, false, `${id}: ${name} passed`);
-      assert.ok(r.checks.find(c => c.id === id && !c.ok), `${id}: ${name} didn't fail ${id} (${JSON.stringify(r.checks.filter(c => !c.ok))})`);
+      if (r.passed) passed.push(`${id}: ${name}`);
+      else if (!r.checks.find(c => c.id === id && !c.ok)) missed.push(`${id}: ${name} (failed ${r.checks.filter(c => !c.ok).map(c => c.id).join(", ")})`);
     }
   }
+  assert.deepEqual({ passed, missed }, { passed: [], missed: [] });
 });
 
 test("staging-gone: the old no-claim observation fails the drive", () => {
