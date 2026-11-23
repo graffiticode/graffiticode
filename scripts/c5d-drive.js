@@ -71,7 +71,10 @@
 //   staging-gone     runner: the targeted capture; on its exit-after-stage line
 //                    it prints the exact reviewed deletion (Step 32, deletion 1),
 //                    waits (bounded) for the operator's deletion, then for the
-//                    takeover's failure; then a fresh, untargeted capture.
+//                    takeover's failure, and reads Broker's recorded refusal
+//                    (#466: the claim refused staging-unavailable, its final
+//                    outcome, and no run state or steps); then a fresh,
+//                    untargeted capture.
 //   older-after-newer, two-stage, mixed, non-owner
 //                    runner, as slice 3 lists them.
 //   rate-limit       runner: reads the public item's public captures still in
@@ -305,7 +308,10 @@ const docs = async (database, collectionPath) => {
   } while (pageToken);
   return out;
 };
-const receiptDoc = (operationId, sub = "") => doc("broker", `receipts/${createHash("sha256").update(operationId).digest("hex")}${sub}`);
+const receiptPath = operationId => `receipts/${createHash("sha256").update(operationId).digest("hex")}`;
+const receiptDoc = (operationId, sub = "") => doc("broker", `${receiptPath(operationId)}${sub}`);
+// A receipt's subcollection (steps, attempts): every document, [] when none.
+const receiptDocs = (operationId, sub) => docs("broker", `${receiptPath(operationId)}/${sub}`);
 // Broker's claims for one invocation: every receipt whose operation id is under it.
 const claimsOf = async invocationId => {
   const range = (op, value) => ({ fieldFilter: { field: { fieldPath: "operationId" }, op, value: { stringValue: value } } });
@@ -779,7 +785,17 @@ if (phase === "staging-gone") {
     observations.stagedDeletedAt = new Date().toISOString();
     await terminal(id);
     await collect("capture", () => captureOf(id));
-    observations.claim = observations.capture?.claim;
+    // #466: the takeover's definite refusal is recorded (claimRefused): the
+    // claim (captureOf's, of this reservation) and the final outcome, and
+    // nothing run: no run state, no steps.
+    const taken = observations.capture?.reservations?.[0];
+    if (taken) {
+      observations.operationId = operationIdOf(observations.capture.invocationId, taken);
+      observations.claim = observations.capture.claim;
+      await collect("outcome", () => receiptDoc(observations.operationId, "/outcome/final"));
+      await collect("runState", () => receiptDoc(observations.operationId, "/run/state"));
+      await collect("steps", () => receiptDocs(observations.operationId, "steps"));
+    }
   }
   await collect("objectAfter", () => objectOf(config.bucket, `${item}.png`));
   // Before the fresh capture, which renders the same item.

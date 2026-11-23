@@ -41,8 +41,13 @@
 //                      reconcile: { status, timedOut, attempts, operations: [{ operationId, verdict, final, result }] },
 //                      objectAfterRetry: object, executeSteps: audit }
 //   stale-worker     { capture, policyAudit: audit, l0013Lines: lines, apiLines: lines }
-//   staging-gone     { capture (the targeted one), faultLines: lines, stagedAtExit: reservation,
-//                      stagedAfterDelete: { absent: true } | {...}, claim: { absent: true } | {...},
+//   staging-gone     { uid, capture (the targeted one), faultLines: lines, stagedAtExit: reservation,
+//                      stagedAfterDelete: { absent: true } | {...}, operationId (the reservation's),
+//                      claim: { operationId, binding, pld?, evidence: { refused: "staging-unavailable" }, claimedAt }
+//                             | { absent: true },        receipts/{H}
+//                      outcome: { status, steps, result, reason, category, at } | { absent: true },  receipts/{H}/outcome/final
+//                      runState: { run, state, at } | { absent: true },                         receipts/{H}/run/state
+//                      steps: [{ n, step, at }],                                                receipts/{H}/steps/*
 //                      objectBefore: object, objectAfter: object, renders: number, fresh: capture }
 //   older-after-newer { older: capture, newer: capture, olderFaultLines: lines, olderSteps: [{ step, observed }],
 //                       finalObject: object }
@@ -63,6 +68,10 @@
 
 import { createHash } from "node:crypto";
 import { runAppService as runAppHost } from "./canary-env.js";
+// Broker's own reading of a recorded staging refusal (packages/broker/src/
+// stores.ts): failed, reason staging-unavailable, steps []. Imported, not
+// copied, so the drive judges exactly what Broker records.
+import { STAGING_REFUSAL, isStagingRefusal } from "@graffiticode/broker";
 
 // ----------------------------------------------------------------- the drive
 
@@ -547,14 +556,41 @@ export const PHASES = Object.freeze({
       if (!faultLine(o.faultLines, "exit-after-stage", o.capture?.commandId)) return "no exit-after-stage line";
       return o.stagedAtExit?.state === "staged" && o.stagedAtExit?.stagedGeneration === 1 ? true : `at the exit: ${show(o.stagedAtExit)}`;
     }],
-    ["deleted-before-claim", "the operator's deletion came before any claim: Broker refused, definitely, with no receipt", o => {
+    // #466: the operator's deletion came before the takeover's claim, so the
+    // takeover's Broker call found no claim, no staged object, and recorded
+    // its definite refusal as the claim and the final outcome together, in
+    // one transaction (firestore.ts claimRefused). Never refuseRun's shape: that
+    // reopens a run under an earlier, aborted claim, and here none existed.
+    ["refusal-recorded", "the operator's deletion came before any claim: Broker recorded its definite refusal as the takeover's claim, refused staging-unavailable, for this reservation", o => {
       if (!isAbsent(o.stagedAfterDelete)) return `the staged object is ${show(o.stagedAfterDelete)}`;
-      return isAbsent(o.claim) ? true : `a claim exists (${show(o.claim)})`;
+      const r = oneReservation(o.capture);
+      if (!r || typeof o.capture?.invocationId !== "string") return "the takeover's reservation not observed";
+      const operationId = operationIdOf(o.capture.invocationId, r);
+      if (o.operationId !== operationId) return `the receipt read is ${show(o.operationId)}, not the reservation's ${operationId}`;
+      const c = o.claim;
+      if (!c || isAbsent(c)) return `no claim for ${operationId}: Broker refused without recording it`;
+      if (c.operationId !== operationId) return `the claim is for ${show(c.operationId)}, not ${operationId}`;
+      const ev = c.evidence;
+      if (!ev || ev.refused !== STAGING_REFUSAL || Object.keys(ev).length !== 1) return `the claim's evidence is ${show(ev)}, not { refused: "${STAGING_REFUSAL}" }`;
+      const b = c.binding;
+      if (!b) return "the claim has no binding";
+      if (b.principal !== o.uid) return `the claim's principal is ${show(b.principal)}, not the canary`;
+      if (b.fn !== "snap") return `the claim's function is ${show(b.fn)}, not snap`;
+      if (b.scope?.kind !== "item" || b.scope?.id !== r.item || Object.keys(b.scope).length !== 2) return `the claim's scope is ${show(b.scope)}, not the item ${r.item}`;
+      return true;
+    }],
+    ["refusal-outcome", "the operation's final outcome is the staging refusal: failed, staging-unavailable, no step taken", o =>
+      (isStagingRefusal(o.outcome) ? true : `the outcome is ${show(o.outcome)}, not the staging refusal`)],
+    ["nothing-run", "no run was started: no run state and no step recorded", o => {
+      if (!isAbsent(o.runState)) return `a run state exists (${show(o.runState)})`;
+      if (!Array.isArray(o.steps)) return `the steps aren't readable (${show(o.steps)})`;
+      return o.steps.length === 0 ? true : `${o.steps.length} steps recorded`;
     }],
     ["failed-nothing-published", "the takeover didn't render, the command failed, nothing published", o => {
       if (!Number.isSafeInteger(o.renders)) return `the render count isn't readable (${show(o.renders)})`;
       if (o.renders !== 1) return `${o.renders} renders: the takeover rendered`;
       if (o.capture?.status !== "failed") return `the command is ${show(o.capture?.status)}, not failed`;
+      if (o.capture.result !== null) return `the command has a result (${show(o.capture.result)})`;
       return ok(first(objectRead("before", o.objectBefore), objectRead("after", o.objectAfter),
         sameObject(o.objectBefore, o.objectAfter) ? null : "the item's object changed"));
     }],

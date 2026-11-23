@@ -66,6 +66,41 @@ const accessProbesPassing = () => {
   };
 };
 
+// staging-gone after #466: the takeover found no claim and no staged object,
+// and Broker recorded its definite refusal in one transaction (firestore.ts
+// claimRefused): the claim, refused staging-unavailable, bound to this
+// reservation's item, and the final outcome (stores.ts stagingRefusalOutcome);
+// no run state, no steps. The command failed; nothing published.
+const stagingGone = () => {
+  const ids = T.ids;
+  const base = capture({ commandId: ids["staging-gone"] });
+  const r = base.reservations[0];
+  const operationId = operationIdOf(base.invocationId, r);
+  const claim = {
+    operationId,
+    binding: { principal: UID, scope: { kind: "item", id: r.item }, lang: "0013", fn: "snap", op: "publish-thumbnail", registryVersion: 9, argsDigest: SHA("f") },
+    pld: "plan-1",
+    evidence: { refused: "staging-unavailable" },
+    claimedAt: at(30),
+  };
+  return {
+    uid: UID,
+    capture: { ...base, status: "failed", result: null, claim },
+    faultLines: faultLines("exit-after-stage", ids["staging-gone"]),
+    stagedAtExit: clone(r),
+    stagedAfterDelete: { absent: true },
+    operationId,
+    claim: clone(claim),
+    outcome: { status: "failed", steps: [], result: null, reason: "staging-unavailable", category: "conflict", at: at(30) },
+    runState: { absent: true },
+    steps: [],
+    objectBefore: { generation: "1700000000000003", metadata: {} },
+    objectAfter: { generation: "1700000000000003", metadata: {} },
+    renders: 1,
+    fresh: capture({ commandId: ids["staging-gone-fresh"], seq: 12 }),
+  };
+};
+
 // A passing observation for every phase.
 const passing = () => {
   const ids = T.ids;
@@ -153,17 +188,7 @@ const passing = () => {
         { at: at(11), text: `WARN command ${stale.commandId}: stopped, stale-generation` },
       ],
     },
-    "staging-gone": {
-      capture: { ...capture({ commandId: ids["staging-gone"] }), status: "failed", result: null },
-      faultLines: faultLines("exit-after-stage", ids["staging-gone"]),
-      stagedAtExit: capture({ commandId: ids["staging-gone"] }).reservations[0],
-      stagedAfterDelete: { absent: true },
-      claim: { absent: true },
-      objectBefore: { generation: "1700000000000003", metadata: {} },
-      objectAfter: { generation: "1700000000000003", metadata: {} },
-      renders: 1,
-      fresh: capture({ commandId: ids["staging-gone-fresh"], seq: 12 }),
-    },
+    "staging-gone": stagingGone(),
     "older-after-newer": {
       older: { ...capture({ commandId: ids.older, seq: 13, ownerGeneration: 2 }), result: { url: thumbnailUrl({ bucket: DRIVE.bucket, item: FIXTURES.private, sha256: SHA("a") }), item: FIXTURES.private, captureSequence: 13 } },
       newer: capture({ commandId: ids.newer, seq: 14 }),
@@ -352,7 +377,9 @@ const MUTATIONS = {
   },
   "staging-gone": {
     "fault-fired": o => { o.stagedAtExit.stagedGeneration = 2; },
-    "deleted-before-claim": o => { o.claim = { evidence: {} }; },
+    "refusal-recorded": o => { o.claim = { absent: true }; },
+    "refusal-outcome": o => { o.outcome = { absent: true }; },
+    "nothing-run": o => { o.runState = { run: 0, state: "open", at: at(30) }; },
     "failed-nothing-published": o => { o.capture.status = "completed"; },
     "fresh-capture": o => { o.fresh.commandId = o.capture.commandId; },
   },
@@ -397,6 +424,90 @@ test("every check fails on its own", () => {
       failsOnly(phase, o, id);
     }
   }
+});
+
+// staging-gone (#466): only Broker's recorded refusal passes, each part of it
+// checked on its own.
+test("staging-gone: the recorded refusal's exact shape passes", () => {
+  const r = judgePhase("staging-gone", stagingGone());
+  assert.equal(r.passed, true, JSON.stringify(r.checks.filter(c => !c.ok)));
+  assert.deepEqual(r.checks.map(c => c.id), ["observations-read", "fault-fired", "refusal-recorded", "refusal-outcome", "nothing-run", "failed-nothing-published", "fresh-capture"]);
+});
+
+test("staging-gone: the outcome Broker records for a staging refusal is the one the judge accepts", async () => {
+  const { stagingRefusalOutcome } = await import("@graffiticode/broker");
+  const o = stagingGone();
+  o.outcome = { ...stagingRefusalOutcome(), at: at(30) };
+  assert.equal(judgePhase("staging-gone", o).passed, true);
+});
+
+const STAGING_GONE_REJECTIONS = {
+  "refusal-recorded": {
+    "the pre-#466 behaviour: no claim at all": o => { o.claim = { absent: true }; },
+    "no claim observed": o => { delete o.claim; },
+    "a claim without the refusal evidence": o => { delete o.claim.evidence; },
+    "a claim with empty evidence": o => { o.claim.evidence = {}; },
+    "a claim refused for another reason": o => { o.claim.evidence = { refused: "unavailable" }; },
+    "a claim with publication evidence beside the refusal": o => { o.claim.evidence = { refused: "staging-unavailable", bucket: DRIVE.bucket }; },
+    "an ordinary publish claim": o => { o.claim.evidence = clone(capture({ commandId: o.capture.commandId }).claim.evidence); },
+    "a claim for another operation": o => { o.claim.operationId = "inv-1/s0/o2"; },
+    "a receipt read for another operation": o => { o.operationId = "inv-1/s0/o2"; },
+    "a claim without a binding": o => { delete o.claim.binding; },
+    "a claim bound to another principal": o => { o.claim.binding.principal = "someone-else"; },
+    "a claim bound to another function": o => { o.claim.binding.fn = "save-to-itembank"; },
+    "a claim bound to another item": o => { o.claim.binding.scope.id = FIXTURES.public; },
+    "a claim bound to a connection, not the item": o => { o.claim.binding.scope = { kind: "connection", id: "conn-1" }; },
+    "the staged object not deleted": o => { o.stagedAfterDelete = { generation: "1700000000000005" }; },
+  },
+  "refusal-outcome": {
+    "no outcome": o => { o.outcome = { absent: true }; },
+    "the outcome not observed": o => { delete o.outcome; },
+    "an outcome that isn't failed": o => { o.outcome.status = "succeeded"; },
+    "an uncertain outcome": o => { o.outcome.status = "uncertain"; },
+    "an outcome with another reason": o => { o.outcome.reason = "unavailable"; },
+    "an outcome with no reason": o => { delete o.outcome.reason; },
+    "an outcome with steps taken": o => { o.outcome.steps = ["publish"]; },
+    "an outcome with no steps array": o => { delete o.outcome.steps; },
+  },
+  "nothing-run": {
+    "a run state (refuseRun's shape, a reopened run)": o => { o.runState = { run: 1, state: "open", at: at(30) }; },
+    "an aborted run state": o => { o.runState = { run: 0, state: "aborted", reason: "x", at: at(30) }; },
+    "the run state not observed": o => { delete o.runState; },
+    "a step recorded": o => { o.steps = [{ n: 0, step: "publish", at: at(31) }]; },
+    "the steps not observed": o => { delete o.steps; },
+  },
+  "failed-nothing-published": {
+    "a command that completed": o => { o.capture.status = "completed"; },
+    "a command still uncertain": o => { o.capture.status = "uncertain"; },
+    "a command with a result": o => { o.capture.result = { item: FIXTURES.private, url: "https://storage.googleapis.com/x" }; },
+    "the item's object changed": o => { o.objectAfter = { generation: "1700000000000004", metadata: {} }; },
+    "the item's object published where there was none": o => { o.objectBefore = { absent: true }; },
+    "an extra render (the takeover rendered)": o => { o.renders = 2; },
+    "the renders not counted": o => { delete o.renders; },
+  },
+};
+
+test("staging-gone: every departure from the recorded refusal is rejected by its own check", () => {
+  for (const [id, cases] of Object.entries(STAGING_GONE_REJECTIONS)) {
+    for (const [name, mutate] of Object.entries(cases)) {
+      const o = stagingGone();
+      mutate(o);
+      const r = judgePhase("staging-gone", o);
+      assert.equal(r.passed, false, `${id}: ${name} passed`);
+      assert.ok(r.checks.find(c => c.id === id && !c.ok), `${id}: ${name} didn't fail ${id} (${JSON.stringify(r.checks.filter(c => !c.ok))})`);
+    }
+  }
+});
+
+test("staging-gone: the old no-claim observation fails the drive", () => {
+  const o = stagingGone();
+  o.claim = { absent: true };
+  o.capture.claim = { absent: true };
+  o.outcome = { absent: true };
+  const r = judgePhase("staging-gone", o);
+  assert.equal(r.passed, false);
+  assert.deepEqual(r.checks.filter(c => !c.ok).map(c => c.id), ["refusal-recorded", "refusal-outcome"]);
+  assert.match(r.checks.find(c => c.id === "refusal-recorded").detail, /no claim/);
 });
 
 test("a missing observation fails, never reads as unchanged (the #441 lesson)", () => {
