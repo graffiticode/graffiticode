@@ -2837,6 +2837,195 @@ Retiring revisions (§8 step 4) and deleting infrastructure (§8 step 5) **stay 
   - `--confirm-unrecoverable` for this plan.
 - **C5d's completion gate, item 1,** needs a **new run** after the fix. That run's `staging-gone` shows the command finishing `failed` with nothing published, and its `cleanup` passes. This run's failed cleanup is never rewritten or rerun as a pass.
 
+### Step 32a: the fresh C5d drive [HELD: drafted for review; nothing applied]
+
+> **Status (2026-11-23).** This section is drafted for review, and nothing in it has been applied. It is slices 7 and 8 of [`c5d-refusal-and-hold-plan.md`](c5d-refusal-and-hold-plan.md): Step 32 run again, against the released refusal and hold (rollout steps 0–4, complete 2026-11-23; evidence [`docs/evidence/c5d/hold/`](evidence/c5d/README.md)). Every action below needs its own approval from the owner. That covers infrastructure, invokers, the proxy roll, the window grants, releases, every drive phase, each operator deletion and fault, and teardown. Lifting the hold, the compilers' production registry-10 releases, Step 33 and Step 34 all stay held until this drive passes.
+
+**What this drive must show.**
+- Every phase of a new run passes, and so do `cleanup` and `judge`.
+- **`staging-gone` in particular:**
+  - Broker records the refusal: a claim with `evidence.refused: "staging-unavailable"` and a final failed outcome (`staging-unavailable`, `steps: []`), with no `run/state` and no step documents.
+  - The command is `failed`, nothing is published, and `cleanup` passes. This is the case run `ad49c0ac` could not settle.
+- **The legacy command and the retained drive records are unchanged before and after.**
+  - These are `c:f54ea9f1…`, its hold and its hold history, and the drop-outcome records with their one reconciliation attempt (§0, §9).
+  - **Any change to any of them fails the drive,** whatever the phases say.
+
+**What is the same as Step 32.**
+- **Names.** The same names, reused: `broker-c5d-drive`, `l0013r-c5d-drive`, `l0176r-c5d-drive`, `api-c5d-drive` and `gs://graffiticode-c5d-drive`.
+  - **Why reuse is safe.** All five were deleted at teardown (2026-11-21), and none exists today.
+    - Each Cloud Run URL is derived from its name, so the proxy host and its certificate secret's name are the same as before.
+    - The runner's name guards apply unchanged.
+    - The first drive's revisions are retired, and their approval and unrecoverable records stay as they are. A new release id gives new revision names, so no record can resolve to a new revision.
+  - **B6's `l0176r-drive` is untouched,** and `broker-faults` is never recreated (Step 32, "Names").
+- **Accounts.** No new identity or role. Each service runs as its production twin's runtime account. The grants are Step 32's: invokers on the four drive services only (§3.2's table), `broker-run` `objectUser` on the drive bucket only, and the window.
+- **Procedure.** Step 32 §2 (the bucket), §3 (services, invokers, releases and sweeper), §6 (the operator's actions, with the 2026-11-20 traffic correction for the Broker fault) and §7 (verification and access probes) apply as written, except where this section says otherwise.
+
+**Prerequisites: code only, each merged on the owner's approval before §1.**
+1. **The runner PR, #473** (held draft): `staging-gone` collects and judges Broker's recorded refusal. It requires the claim, the final failed outcome, no `run/state` and no steps, and a failed command with publication none. Its negative tests reject the old no-claim shape, and incomplete or incorrect refusal records.
+2. **The deploy-entry PR, #472** (held draft):
+   - It restores the four drive entries in `deploy.json` and the drive Broker host in `deploy/egress-proxy/production/network.json` (`compilers-l0013` and `compilers-l0176`), with its certificate in the generated step 1 checklist. This is the revert of #463's removal.
+   - **Current settings.** Each entry's environment matches its production twin's today, except for the drive's own values (Step 32 §3.3).
+   - **New, `requires` on production Policy's `C5d-hold` floor:** `broker-c5d-drive` (beside the twin's `sexp`) and `api-c5d-drive`. Each fails closed against a Policy without the refusal step and hold enforcement.
+   - **No drive entry carries a `baselines` milestone** (the reviewed test "no production milestones"), so `protected-execution enable` never depends on a drive service. Instead, §3 checks the drive code by commit ancestry.
+   - The proxy's config digest is `94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697`, the same as the first drive's.
+3. **#468** (argd on the bind route) is merged as `6b1cd468`. Whether Policy is released with it before the drive is the owner's decision (§12, question 1). The drive doesn't depend on it.
+
+#### 0. Before anything: the retained records (read-only)
+
+Into `docs/evidence/c5d/drive/<run>/legacy-before/`, with the private and redacted copies handled as for the hold's evidence (`<operator>` and `<operator-ip>`; the private originals are kept outside the repository):
+
+1. **Read 1 (Policy):** `commands/c:f54ea9f1…`, in full, and its six subcollections: `occurrences`, `reservations`, `outcomes`, `refusals`, `ledger` and `holds`.
+2. **The hold:**
+   - `fields.hold` names act `ae946e64-dadc-4479-a38a-fc023fad0b97`, with `n: 1` and generation 11;
+   - `holds` has exactly that one document.
+3. **Read 2 (Broker), for the legacy operation `{H1}`:**
+   - the four paths answer 404;
+   - the invocation-prefix `runQuery` finds no claim, and its control finds its receipt;
+   - the positive control answers 200.
+4. **The drop-outcome records, `receipts/{H2}`:**
+   - the claim and `resolution/final` are present;
+   - `outcome/final` answers 404;
+   - `reconciliation-attempts` has exactly one document.
+5. **The comparison:**
+   - Reads 1–4 are compared canonically with the private originals of `docs/evidence/c5d/hold/after-2026-11-23/`, by the same comparator as that evidence's `retained-records/compare.mjs`, rerun into a new directory.
+   - **Every record must be `same`,** with no exception for `hold`: that change belongs to the hold's own evidence, and since then nothing may change.
+6. **Due selection:** the released `ownableBy` is `false` for all eight capability combinations.
+
+**Any difference stops here,** before any infrastructure, and goes to the owner.
+
+#### 1. The run
+
+```bash
+node scripts/c5d-drive.js --phase plan     # offline; a fresh run id, new keys, new fault maps; writes plan.json once
+```
+
+- **A fresh run.** Nothing of `0aa69b9a` or `ad49c0ac` carries over. The run id is recorded in the approval for §3.3's releases.
+- **The fault maps** are `L0013_CAPTURE_FAULTS` and `API_COMMAND_FAULT_TARGETS`. They come from this `plan.json` only, are set once at the releases, and never change during the run (Step 32 §1).
+
+#### 2. The bucket
+
+As Step 32 §2: `gs://graffiticode-c5d-drive`, private, with uniform access, public access prevention and soft delete off. Its policy is edited by hand and reviewed, and `broker-run` is its only `objectUser`. The policy at creation, the intended policy and the policy afterwards all go to the evidence.
+
+#### 3. The services
+
+1. **Placeholders,** as Step 32 §3.1:
+   - each from its live production twin's image digest, read at the time and recorded;
+   - the Broker placeholder's environment generated from the merged `deploy.json` entry, without `BROKER_FAULT_PRINCIPALS`;
+   - all four Ready, each at 100% on its ready revision.
+2. **Invokers,** as Step 32 §3.2's table, `allUsers` included on the two compilers, bound before their releases. Read each back: exactly one unconditioned `roles/run.invoker` binding, with the table's members.
+3. **Releases with the deploy CLI, from `main`,** at or after the merge commits of both prerequisite PRs, in this order:
+   - `broker-c5d-drive` first, since the compilers name its URL.
+   - Then `l0013r-c5d-drive` and `l0176r-c5d-drive`, and `api-c5d-drive` last.
+   - The run's two fault maps and the canary uid are passed as the entries' required variables.
+
+   **Verify each release's commit (in place of a floor):**
+   - the receipt's `commit-sha` label is a clean build (`gc-dirty=false`);
+   - `git merge-base --is-ancestor` holds for:
+     - `769d8e9e` (Broker's `C5d-refusal`) on `broker-c5d-drive`;
+     - `33d662d0` (`C5d-hold`, `command-held` in `LOST_OWNERSHIP`) on `api-c5d-drive`;
+     - the runner PR's merge commit on the checkout running the runner.
+   - **The compilers** report registry version 10: read from the preflight manifest that `access-probes`' `gateway-control` check saves.
+   - `npm run deploy -- release-check broker-c5d-drive` and `release-check api-c5d-drive` pass: production Policy meets `C5d-hold`.
+4. **The sweeper,** as Step 32 §3.4: `command-sweep-c5d-drive`, its audience the drive api's stable URL.
+
+#### 4. The proxy: restore the drive Broker host
+
+1. **The certificate.** Issue `broker-c5d-drive-sja7fatcta-uc.a.run.app`'s certificate from the offline CA into a new `egress-proxy-cert-broker-c5d-drive-sja7fatcta-uc-a-run-app`, readable by `egress-proxy` only, exactly as the step 1 checklist's lines for that host. The first drive's secret was deleted on 2026-11-21, so this is a new secret, starting at version 1.
+   - **Read back:** the secret's policy is `secretAccessor` for `egress-proxy` alone.
+2. **The template.**
+   - `egress-proxy-9a1404b049a2` (created 2026-11-19 for the first drive) still exists. Reuse it only if:
+     - its `isolate01-config-sha256` metadata is `94ecf108…`;
+     - `user-data-digest.js` over its user-data starts with `9a1404b049a2`;
+     - `generate.js` from the merged `network.json` prints the same `config_sha256`.
+   - Otherwise build a new template from `out/cloud-init.yaml`, as the checklist says.
+3. **The roll.** Roll the managed group from `egress-proxy-ce42b3628a5a` (today's) to that template. Then verify:
+   - `verify-rollout.js --expect 94ecf108…` gives `ok: true`, with both VMs `match: true`;
+   - the production canary passes 36/36 (with `--l0185-tail`) after the roll.
+
+**Rollback:** roll back to `egress-proxy-ce42b3628a5a` (config `8b637609…`) and verify the same way. Teardown does this anyway (§10).
+
+#### 5. The window, `canary-window-c5d2`
+
+As Step 32 §5: `roles/iam.serviceAccountOpenIdTokenCreator` for `<operator>` on `api-run@graffiticode` and `console-run@graffiticode-app`. No compiler account is granted.
+- **Its condition:** `title=canary-window-c5d2`, `expression=request.time < timestamp("<grant time + 24h>")`.
+- **No extension.** If the run can't finish inside the window, it stops and the owner decides (Step 32 §9).
+
+#### 6. The drive
+
+`checks`, `access-probes` and `baseline`, then the capture phases in the runner's order (`DRIVE_PHASES`), each one approved and stopping on failure. The operator's actions are Step 32 §6's, each printed by the runner and checked before it is done:
+- **`drop-outcome`.** The Broker fault is set by revision and moved by traffic, and then restored and cleared from the template, each step verified (the 2026-11-20 correction).
+- **Deletion 1 (`staging-gone`).** Check all four preconditions first, then delete with `--if-generation-match`, before the takeover. If the takeover claims first, the phase fails and is rerun under a new run.
+- **Deletion 2 (`drop-outcome`).** As written. Then `drop-outcome-retry`.
+
+**`staging-gone`'s expected result, with the fix** (judged by the runner PR):
+- the fault fired at generation 1, with the reservation staged;
+- the staged object was deleted before any claim;
+- **the takeover's operation has Broker's recorded refusal:**
+  - the claim, with `evidence.refused: "staging-unavailable"` and the takeover's binding;
+  - `outcome/final` = `{ status: "failed", reason: "staging-unavailable", steps: [] }`;
+  - no `run/state`, and no step documents;
+- the command is `failed`;
+- one render, and the item's object unchanged (publication none);
+- a fresh capture then succeeds.
+
+Run `ad49c0ac`'s finding, an unsettled command, fails here.
+
+#### 7. Verification during the drive
+
+Step 32 §7 in full: environments, `/egress`, bucket IAM, fault maps, the access-probe table, the baseline listing, invoker read-backs, the sweeper, and `l0176r-drive` unchanged. Added:
+- **The held command stays out of the drive's work.** The drive api is a scopes worker, and its sweeper reads Policy's shared `due` listing.
+  - **During the window:** no `DATA_WRITE` entry names `commands/c:f54ea9f1…` or any of its subcollections.
+  - **No Policy audit line** names it as owned, taken over or renewed.
+  - **Read with** the `cloudaudit.googleapis.com%2Fdata_access` filter used for the hold's own read-back, narrowed to that document prefix and to the window.
+
+#### 8. After the drive's last phase, before teardown
+
+- `cleanup` passes for the run, and `judge` passes every phase.
+- The run's evidence is complete in `docs/evidence/c5d/drive/<run>/`.
+
+#### 9. The retained records again (read-only), before and after teardown
+
+§0's reads 1–6, into `legacy-after-drive/` and again into `legacy-after-teardown/`, each compared canonically with `legacy-before/`. **Every record must be `same`.**
+- the legacy command, in full, including `updateTime`;
+- its hold and its one hold-history document;
+- its five other subcollections;
+- Broker's absences for `{H1}`;
+- the drop-outcome claim, `resolution/final`, the absent `outcome/final` and the single reconciliation attempt;
+- `ownableBy` false for all eight combinations.
+
+**Any change fails the drive's verification,** and goes to the owner before anything else is done.
+
+#### 10. Teardown
+
+Step 32 §8, in its order, each step approved:
+1. **`cleanup` passes** (§8), and then the sweeper is deleted.
+2. **Access to both compilers is closed,** with `allUsers` removed first, and verified: no invoker binding, and Cloud Run's own 403.
+3. **Both compilers are parked** on unapproved revisions, with plain `gcloud`.
+4. **Every approved drive revision is retired,** one at a time, with `scripts/revisions.js retire`. **A non-empty retirement report stops teardown there.** It is a finding, brought to the owner. `--confirm-unrecoverable` is used only by the owner's separate, named decision for that report.
+5. **Deletion:**
+   - the four services, and then the bucket after its listing goes to the evidence;
+   - the certificate secret, after confirming the running proxy no longer references it (item 6).
+6. **Configuration:**
+   - A reviewed PR removes the drive entries and the proxy host again.
+   - The proxy rolls back to `egress-proxy-ce42b3628a5a` (or a template verified equal to the generated configuration), with `verify-rollout` passing.
+   - The production canary passes 36/36.
+7. **Afterwards:** B6's `l0176r-drive` is read back unchanged, and §9's reads are taken again.
+
+#### 11. Rollback, at any point
+
+Stop the drive, run no further phase, and go to §10 from the earliest step that applies. Nothing in this step changes a production service's code, environment or traffic, and the proxy roll's own rollback is §4's.
+- **The legacy command's hold is never lifted** as part of this step.
+- **The drop-outcome records are never written.**
+
+#### 12. Questions for the owner
+
+1. **Release Policy with #468 before the drive?**
+   - **Recommended: yes, as its own approved release.** The drive then exercises the bind route's `argd` check, through every phase's occurrence binds, at the Policy that Step 34 will run.
+   - **Otherwise** the drive runs at `538f3647`, and #468's release is reviewed separately later.
+2. **Reuse template `egress-proxy-9a1404b049a2`?**
+   - **Recommended: yes,** if §4.2's three checks pass, since it was built and verified for this exact configuration.
+   - **Otherwise** build a new template.
+
 ### Step 33: the api's rollback floor, `C5d-v9` [HELD: draft #443]
 
 Decision 4: before activation, an api baseline at `3b6b4a50` marked `floor: true` (milestone `C5d-v9`). The first activated api binds snap chains' artifacts to registry 9, which a registry-8 api can't read.
