@@ -2861,16 +2861,77 @@ Retiring revisions (§8 step 4) and deleting infrastructure (§8 step 5) **stay 
 - **Procedure.** Step 32 §2 (the bucket), §3 (services, invokers, releases and sweeper), §6 (the operator's actions, with the 2026-11-20 traffic correction for the Broker fault) and §7 (verification and access probes) apply as written, except where this section says otherwise.
 
 **Prerequisites: code only, each merged on the owner's approval before §1.**
-1. **The runner PR, #473** (held draft): `staging-gone` collects and judges Broker's recorded refusal. It requires the claim, the final failed outcome, no `run/state` and no steps, and a failed command with publication none. Its negative tests reject the old no-claim shape, and incomplete or incorrect refusal records.
+1. **The runner PR, #473** (held draft, tightened after the owner's review on 2026-11-23): `staging-gone` collects and judges Broker's recorded refusal.
+   - **The claim** has exactly `operationId`, `binding`, `pld`, `evidence` and `claimedAt`:
+     - `evidence` is exactly `{ refused: "staging-unavailable" }`;
+     - `pld` is the command's plan digest.
+   - **Its binding is exactly the expected one,** derived from Policy's records:
+     - `principal`: the command's `uid`, which is the canary;
+     - `scope`: `{ kind: "item", id }`, the reservation's item;
+     - `lang` and `registryVersion`: from the admitted plan's stage;
+     - `fn`: `snap`;
+     - `op`: the registry's `gcs.put-thumbnail`;
+     - `argsDigest`: the reservation's capture-payload digest, which must also equal the occurrence's recorded `argd`.
+   - **The outcome** has exactly `stagingRefusalOutcome()`'s fields (failed, `steps: []`, `result: null`, `staging-unavailable`, its category) plus `at`.
+   - **No run:** no `run/state`, and no steps.
+   - **The command** is `failed`, with `result: null` and publication exactly `{ state: "none", resultDigest: null }`; one render, and the object unchanged.
+   - **Tests:**
+     - negatives for the old no-claim shape, and 38 mutations of binding, claim, occurrence, plan, outcome and publication;
+     - 37 of the 38 pass the whole phase under the first draft's judge, and every one fails its own check now.
 2. **The deploy-entry PR, #472** (held draft):
    - It restores the four drive entries in `deploy.json` and the drive Broker host in `deploy/egress-proxy/production/network.json` (`compilers-l0013` and `compilers-l0176`), with its certificate in the generated step 1 checklist. This is the revert of #463's removal.
    - **Current settings.** Each entry's environment matches its production twin's today, except for the drive's own values (Step 32 §3.3).
    - **New, `requires` on production Policy's `C5d-hold` floor:** `broker-c5d-drive` (beside the twin's `sexp`) and `api-c5d-drive`. Each fails closed against a Policy without the refusal step and hold enforcement.
-   - **No drive entry carries a `baselines` milestone** (the reviewed test "no production milestones"), so `protected-execution enable` never depends on a drive service. Instead, §3 checks the drive code by commit ancestry.
+   - **No drive entry carries a `baselines` milestone** (the reviewed test "no production milestones"). §3 checks the drive code by commit ancestry instead. **This does not keep the drive services out of `protected-execution enable`'s release checks** (corrected 2026-11-23, owner's review): see "Protected execution while the drive entries are on `main`" below.
    - The proxy's config digest is `94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697`, the same as the first drive's.
-3. **#468** (argd on the bind route) is merged as `6b1cd468`. Whether Policy is released with it before the drive is the owner's decision (§12, question 1). The drive doesn't depend on it.
+3. **#468** is merged as `6b1cd468`. It forwards `argd` on the gateway's `PUT /v1/commands/:id/occurrences/:stage/:occ` route. **The owner's decision (2026-11-23):** Policy is released with it before the drive, as the intended sequence, under its own release approval (§12, item 1).
+4. **The retained-record comparator,** `scripts/c5d-retained-records.js` (this PR), used by §0 and §9.
+
+**Protected execution while the drive entries are on `main`** (corrected 2026-11-23, owner's review).
+- **The selector.** `protected-execution enable` runs the deploy CLI's `release-check` for every `deploy.json` service with `retireTags`, `baseline(s)`, `pinnable` or `contractMinimum` (`scripts/protected-execution.js` `releaseChecks`). All four drive entries have `retireTags`, the two compilers are `pinnable`, and `broker-c5d-drive` has `contractMinimum`. So all four enter its release checks, milestones or not, exactly as during the first drive (2026-11-19 to 2026-11-21).
+- **`enable` refuses** (fails closed) whenever any drive service's check fails:
+  1. **From #472's merge until the four placeholders exist:** a missing service can't be read.
+  2. **From the placeholders until the managed releases:** each compiler serves an unapproved placeholder revision.
+  3. **From §10.3's parking:** the compilers serve unapproved `parked` revisions.
+  4. **From §10.5's deletion until the configuration cleanup PR (§10.6) merges:** the services are missing again.
+
+  In production `--skip-release-check` is refused, so nothing bypasses it.
+- **What is not affected:** `disable`, `drain` and `status` don't run the checks. Protected execution has been enabled in both databases since 2026-10-18 (`controls/protected-execution`, read 2026-11-23), and no step here disables or re-enables it.
+- **The constraint:** if protected execution must be disabled during any of these periods (an incident), it can't be re-enabled until either the drive's services pass their checks, or the cleanup PR has merged. The owner then decides whether to tear down first.
+- **To keep the periods short:**
+  - #472 merges only when §1–§3 are approved to proceed at once;
+  - the cleanup PR is prepared and reviewed before teardown begins, and merges right after §10.5;
+  - before #472 merges, and after the cleanup PR merges, `status` is read and recorded.
+- **Before §6, read-only:** `npm run deploy -- release-check` passes for each drive service.
 
 #### 0. Before anything: the retained records (read-only)
+
+**The comparator.** `scripts/c5d-retained-records.js` is read-only, and its tests are in `scripts/test/c5d-retained-records.test.js`. It reads 28 records, each completely:
+- **Both retained commands' Policy records,** each command and all six subcollections:
+  - `c:f54ea9f1…` (the legacy command, held);
+  - `c:db80a736…` (the drop-outcome command).
+- **For the legacy operation `{H1}`, Broker's absences:** the receipt, `outcome/final`, `run/state`, `resolution/final` and `active-executions`; no steps; and no claim under its invocation prefix.
+- **For the drop-outcome operation `{H2}`:**
+  - the receipt and `resolution/final`, present;
+  - `outcome/final`, `run/state` and `active-executions`, absent;
+  - its reconciliation attempts and its steps.
+
+How it reads and judges them:
+- **Complete pagination.** Every listing is read page by page to its end; a repeated page token, or more than 50 pages, fails.
+- **Unreadable data fails.** Any status other than 200 or 404 is unreadable, and so is unparseable JSON, a truncated or malformed listing, or a query error. An unreadable record exits 2, never "unchanged".
+- **The post-hold baseline is the private originals** of the hold's after-reads, `docs/evidence/c5d/hold/after-2026-11-23/` (its `legacy-*.json`, `legacy-broker-steps.json`, `drop-outcome-reconciliation-attempts.json`, and the retained-record reads `fresh-7` to `fresh-13`).
+  - Each file is accepted only if its sha256 is the `originalSha256` that the published `publication.json` records for it. The redacted published copies are refused.
+- **Fixed expectations,** where no after-read saved a record: absent, or no documents. The drop-outcome command's `refusals` and `holds` have none, read 2026-11-23.
+- **One record has no post-hold read:** the drop-outcome operation's single Broker step. §0's capture records it, and every later run compares it with that capture (`--before`). After §0, a record left without a baseline fails.
+- **The exit code:** 0 when every record is `same`; 1 when any changed; 2 when any is unreadable.
+- **Its dry run,** read-only, on 2026-11-23:
+  - 27 records `same` against the post-hold baseline, and the drop-outcome step recorded; exit 0;
+  - rerun with that capture as `--before`: 28 `same`; exit 0;
+  - pointed at the redacted copies: 2 unreadable; exit 2.
+
+```bash
+node scripts/c5d-retained-records.js --hold <private after-2026-11-23> --out <private run evidence>/legacy-before
+```
 
 Into `docs/evidence/c5d/drive/<run>/legacy-before/`, with the private and redacted copies handled as for the hold's evidence (`<operator>` and `<operator-ip>`; the private originals are kept outside the repository):
 
@@ -2886,9 +2947,7 @@ Into `docs/evidence/c5d/drive/<run>/legacy-before/`, with the private and redact
    - the claim and `resolution/final` are present;
    - `outcome/final` answers 404;
    - `reconciliation-attempts` has exactly one document.
-5. **The comparison:**
-   - Reads 1–4 are compared canonically with the private originals of `docs/evidence/c5d/hold/after-2026-11-23/`, by the same comparator as that evidence's `retained-records/compare.mjs`, rerun into a new directory.
-   - **Every record must be `same`,** with no exception for `hold`: that change belongs to the hold's own evidence, and since then nothing may change.
+5. **The comparison:** reads 1–4, and the drop-outcome command's Policy records, are the comparator's. It must exit 0, with every record `same` against the post-hold baseline and no exception for `hold`: that change belongs to the hold's own evidence, and nothing may change since. The earlier `retained-records/compare.mjs` isn't used: it reads the pre-hold paths, and it omits the hold history and the reconciliation attempts.
 6. **Due selection:** the released `ownableBy` is `false` for all eight capability combinations.
 
 **Any difference stops here,** before any infrastructure, and goes to the owner.
@@ -2933,10 +2992,10 @@ As Step 32 §2: `gs://graffiticode-c5d-drive`, private, with uniform access, pub
 1. **The certificate.** Issue `broker-c5d-drive-sja7fatcta-uc.a.run.app`'s certificate from the offline CA into a new `egress-proxy-cert-broker-c5d-drive-sja7fatcta-uc-a-run-app`, readable by `egress-proxy` only, exactly as the step 1 checklist's lines for that host. The first drive's secret was deleted on 2026-11-21, so this is a new secret, starting at version 1.
    - **Read back:** the secret's policy is `secretAccessor` for `egress-proxy` alone.
 2. **The template.**
-   - `egress-proxy-9a1404b049a2` (created 2026-11-19 for the first drive) still exists. Reuse it only if:
-     - its `isolate01-config-sha256` metadata is `94ecf108…`;
-     - `user-data-digest.js` over its user-data starts with `9a1404b049a2`;
-     - `generate.js` from the merged `network.json` prints the same `config_sha256`.
+   - `egress-proxy-9a1404b049a2` (created 2026-11-19 for the first drive) still exists. **Reuse it only if every check holds** (owner's decision, 2026-11-23):
+     - its `isolate01-config-sha256` metadata is `94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697`;
+     - `generate.js` from the merged `network.json` prints that same `config_sha256`;
+     - **the full logical user-data digest matches.** `user-data-digest.js` over the template's own user-data (read with `gcloud compute instance-templates describe … --format=json`) prints exactly `9a1404b049a2dd2af395b0ee3655acf66677168da7b0a8d2f86aa1b305648d17`. That is the digest a fresh generation produces, and the owner reproduced it; a matching prefix is not enough.
    - Otherwise build a new template from `out/cloud-init.yaml`, as the checklist says.
 3. **The roll.** Roll the managed group from `egress-proxy-ce42b3628a5a` (today's) to that template. Then verify:
    - `verify-rollout.js --expect 94ecf108…` gives `ok: true`, with both VMs `match: true`;
@@ -2960,12 +3019,12 @@ As Step 32 §5: `roles/iam.serviceAccountOpenIdTokenCreator` for `<operator>` on
 **`staging-gone`'s expected result, with the fix** (judged by the runner PR):
 - the fault fired at generation 1, with the reservation staged;
 - the staged object was deleted before any claim;
-- **the takeover's operation has Broker's recorded refusal:**
-  - the claim, with `evidence.refused: "staging-unavailable"` and the takeover's binding;
-  - `outcome/final` = `{ status: "failed", reason: "staging-unavailable", steps: [] }`;
+- **the takeover's operation has Broker's recorded refusal** (#473's checks, prerequisite 1):
+  - the claim, with exactly the expected binding and `evidence: { refused: "staging-unavailable" }`;
+  - `outcome/final`, exactly the canonical staging refusal;
   - no `run/state`, and no step documents;
-- the command is `failed`;
-- one render, and the item's object unchanged (publication none);
+- the command is `failed`, with no result and publication `{ state: "none", resultDigest: null }`;
+- one render, and the item's object unchanged;
 - a fresh capture then succeeds.
 
 Run `ad49c0ac`'s finding, an unsettled command, fails here.
@@ -2985,12 +3044,13 @@ Step 32 §7 in full: environments, `/egress`, bucket IAM, fault maps, the access
 
 #### 9. The retained records again (read-only), before and after teardown
 
-§0's reads 1–6, into `legacy-after-drive/` and again into `legacy-after-teardown/`, each compared canonically with `legacy-before/`. **Every record must be `same`.**
+§0's reads 1–6, into `legacy-after-drive/` and again into `legacy-after-teardown/`. Each comparison is the comparator, against the post-hold baseline, with `--before <legacy-before>`, and must exit 0. **Every record must be `same`:**
 - the legacy command, in full, including `updateTime`;
 - its hold and its one hold-history document;
 - its five other subcollections;
 - Broker's absences for `{H1}`;
-- the drop-outcome claim, `resolution/final`, the absent `outcome/final` and the single reconciliation attempt;
+- the drop-outcome command's Policy records;
+- the drop-outcome claim, `resolution/final`, its step, the absent `outcome/final`, `run/state` and active execution, and the single reconciliation attempt;
 - `ownableBy` false for all eight combinations.
 
 **Any change fails the drive's verification,** and goes to the owner before anything else is done.
@@ -3019,12 +3079,15 @@ Stop the drive, run no further phase, and go to §10 from the earliest step that
 
 #### 12. Questions for the owner
 
-1. **Release Policy with #468 before the drive?**
-   - **Recommended: yes, as its own approved release.** The drive then exercises the bind route's `argd` check, through every phase's occurrence binds, at the Policy that Step 34 will run.
-   - **Otherwise** the drive runs at `538f3647`, and #468's release is reviewed separately later.
-2. **Reuse template `egress-proxy-9a1404b049a2`?**
-   - **Recommended: yes,** if §4.2's three checks pass, since it was built and verified for this exact configuration.
-   - **Otherwise** build a new template.
+1. **Policy with #468: decided (2026-11-23).** Release it before the drive, as the intended sequence, subject to its own release approval.
+   - **Corrected coverage claim:** the drive does **not** exercise #468.
+     - The drive compiler binds occurrences through `POST /v1/command-occurrences`, Policy's compiler route.
+     - #468 fixes the gateway's `PUT /v1/commands/:id/occurrences/:stage/:occ`, which no drive phase calls.
+   - **An explicit probe is open for the owner,** only if the drive's evidence should cover #468.
+     - It is one gateway `PUT` with a wrong `argd`, using `api-run`'s window token, against a command created for the probe alone. It expects 403 `binding-mismatch` and exactly one permanent `refusals/` record. A retry with the correct `argd` then gets the same refusal, with nothing else changed.
+     - Its command is in the run's journal and plan like any other, and `cleanup` must account for it.
+     - It would be drafted as a runner phase, with tests, for review before use. Without it, #468's coverage is its own tests (`packages/policy/src/bind-http.spec.ts`).
+2. **The template: decided (2026-11-23).** Reuse `egress-proxy-9a1404b049a2` only if all of §4.2's checks pass, including the full logical user-data digest. Otherwise build a new template.
 
 ### Step 33: the api's rollback floor, `C5d-v9` [HELD: draft #443]
 
