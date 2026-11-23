@@ -1,0 +1,18 @@
+{
+  "service": "firestore.googleapis.com",
+  "method": "google.firestore.v1.Firestore.Commit",
+  "principal": "<operator>",
+  "database": "projects/graffiticode/databases/policy",
+  "permissionType": "DATA_WRITE",
+  "keys": [
+    "projects/graffiticode/databases/policy/documents/commands/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f",
+    "projects/graffiticode/databases/policy/documents/commands/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f/holds/ae946e64-dadc-4479-a38a-fc023fad0b97"
+  ],
+  "knownOperatorWrite": {
+    "at": "2026-11-21T17:50:39.152706Z",
+    "database": "projects/graffiticode/databases/revisions",
+    "document": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-c5d-drive-rmwo9rmds-b7a578",
+    "keyField": "protoPayload.metadata.keys",
+    "writeNameField": "protoPayload.request.writes[].update.name"
+  }
+}

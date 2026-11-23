@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "action": "apply",
+  "commandId": "c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f",
+  "sourceCommit": "538f3647560a5de310b16e3665974204d3b24cde",
+  "actId": "ae946e64-dadc-4479-a38a-fc023fad0b97",
+  "reason": "definite-refusal-unsettled",
+  "note": "Quarantine the legacy staging-gone command after C5d rollout steps 0–3. Preserve its pending/admitted generation 11 and unsettled records. No lift is authorized.",
+  "operator": "<operator>",
+  "decidedBy": "owner",
+  "decision": "C5d rollout step 4 approval in this conversation after the recorded read-only preflight",
+  "preflight": "docs/evidence/c5d/hold/preflight-2026-11-23/summary.json",
+  "expected": {
+    "n": 1,
+    "fencing": "lease-expired",
+    "status": "pending",
+    "phase": "admitted",
+    "generation": 11,
+    "dropOutcomeReconciliationAttemptCount": 1
+  },
+  "scope": "Apply this one hold; every lift and every other held action remains held."
+}

@@ -1,0 +1,531 @@
+{
+  "schema": 1,
+  "sourceCommit": "538f3647560a5de310b16e3665974204d3b24cde",
+  "commandId": "c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f",
+  "actId": "ae946e64-dadc-4479-a38a-fc023fad0b97",
+  "appliedAt": "2026-11-23T01:25:30.970Z",
+  "auditCommitAt": "2026-11-23T01:25:31.507120Z",
+  "redactions": {
+    "operatorEmail": "<operator>",
+    "auditCallerIp": "<operator-ip>",
+    "localEvidencePath": "repository-relative path"
+  },
+  "operativeIntent": "The published .intent.json is a redacted evidence copy and cannot be replayed. The unchanged original intent remains in the private execution checkout. Reuse only that original for any retry.",
+  "comparison": "The retained-record comparator reports 12/13 unchanged and exits 1 because the legacy command gained the approved hold. Independent comparison must ignore only that command's fields.hold and updateTime; all other fields and records remain equal.",
+  "reportedAfterReadChecks": 21,
+  "remainingHolds": [
+    "lifting this hold",
+    "PR #468",
+    "compiler releases",
+    "new drive infrastructure and window",
+    "fresh drive",
+    "Steps 33\u201334"
+  ],
+  "files": [
+    {
+      "path": "ae946e64-dadc-4479-a38a-fc023fad0b97.intent.json",
+      "originalSha256": "656486a2f292bc270c2a03e23f6f33446da127a319170666f7c9501d887e2048",
+      "publishedSha256": "2537949a977b3d08801b9ac0e21a386e6d0c40b1c8dfd875f2064e8f44f4904a",
+      "operatorEmailReplacements": 1,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/apply.out",
+      "originalSha256": "fdeda852ecb3e02c22c6374dad9b80e6d825ea8a06ae31e4cbb57001ff575e21",
+      "publishedSha256": "e2c609ac964822d71e6cee0a9d6662868f8818599e5957b4738c00db63e7da50",
+      "operatorEmailReplacements": 3,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/broker-control-invocation-query.json",
+      "originalSha256": "54b07303d9d22a46b4f72b84805c8236b0dec1d3e03f728cc2f8d2fa895d35fc",
+      "publishedSha256": "54b07303d9d22a46b4f72b84805c8236b0dec1d3e03f728cc2f8d2fa895d35fc",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/broker-legacy-invocation-query.json",
+      "originalSha256": "9155a9276da752864d700d9929acee069d01965fad9f9c1074789d46ba430c3b",
+      "publishedSha256": "9155a9276da752864d700d9929acee069d01965fad9f9c1074789d46ba430c3b",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/broker-positive-control.json",
+      "originalSha256": "851bc18d3d248e5841d3b7481098818df24626417d20ba8626a2fb81f510a647",
+      "publishedSha256": "851bc18d3d248e5841d3b7481098818df24626417d20ba8626a2fb81f510a647",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/data-write-audit.json",
+      "originalSha256": "6804bb387e361491310cef4368612c7758ada732337da4fa7d33fe1bd8d50787",
+      "publishedSha256": "ced833e3910d0b1089094f110d2df6e5df2a5be6fad5c365832794df54e74a44",
+      "operatorEmailReplacements": 2,
+      "callerIpReplacements": 1,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/drop-outcome-reconciliation-attempts.json",
+      "originalSha256": "0ee589c587efa66282ac7bdf020d6401585b59c96fa9cf489aceb789eaa86fd2",
+      "publishedSha256": "0ee589c587efa66282ac7bdf020d6401585b59c96fa9cf489aceb789eaa86fd2",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/hold-after-reads.mjs",
+      "originalSha256": "1f885f2935717eb44425b9db714805e5be571122e3740a933c256b879f5babc8",
+      "publishedSha256": "1f885f2935717eb44425b9db714805e5be571122e3740a933c256b879f5babc8",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/legacy-broker-steps.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/legacy-command.json",
+      "originalSha256": "e2166a03146da5e8da0ffb6b5e25e02bceb94b5e6a77a251f10d7973674d88f8",
+      "publishedSha256": "5e10b0d62e3562ce609da4483ef97d8cf27a29fd94a6c5e7bad5ba66557b0b07",
+      "operatorEmailReplacements": 1,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/legacy-holds.json",
+      "originalSha256": "e7062ea1a1d1031b0bac7dbbfe2b0ef2f12bc46a0a0a5ab18915a45f99e62ef3",
+      "publishedSha256": "f16d86bcf8d4e8c601b2fce04f382c50d30ddcfd0c8d2c8902a3af70a820ae6b",
+      "operatorEmailReplacements": 1,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/legacy-ledger.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/legacy-occurrences.json",
+      "originalSha256": "3faea2ecd14e8b73718687e4d662523b67cf5aef33fde7de76ee61abb7deacb4",
+      "publishedSha256": "3faea2ecd14e8b73718687e4d662523b67cf5aef33fde7de76ee61abb7deacb4",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/legacy-outcomes.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/legacy-refusals.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/legacy-reservations.json",
+      "originalSha256": "7e72ffd5ef713e7c4f29ba2f3f95a13ad60094861b19e21fff25b9a9f2dbd909",
+      "publishedSha256": "7e72ffd5ef713e7c4f29ba2f3f95a13ad60094861b19e21fff25b9a9f2dbd909",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/ownable-by.json",
+      "originalSha256": "64648be53f63c34b29053c031358b055fb8ccb25f9b9072ea4511e1f7dce9a28",
+      "publishedSha256": "64648be53f63c34b29053c031358b055fb8ccb25f9b9072ea4511e1f7dce9a28",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/compare.mjs",
+      "originalSha256": "27d157105b93e22116daf5eff383d9fbb165d4eb014969946bfe6988603dbebb",
+      "publishedSha256": "27d157105b93e22116daf5eff383d9fbb165d4eb014969946bfe6988603dbebb",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/comparison.txt",
+      "originalSha256": "8540807d4f58e83990a56427248a3cf3ea57719e8bbb68a452e4b66451557c81",
+      "publishedSha256": "8540807d4f58e83990a56427248a3cf3ea57719e8bbb68a452e4b66451557c81",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-1.json",
+      "originalSha256": "b2fd1d3ad882afe323ec0c8f9bfcc231a0838d6bd4dd4174cf750b49790f1399",
+      "publishedSha256": "ff24a1dc8208ca436222f3800854facbda4d32f4d137b9704120692f3bf6d15b",
+      "operatorEmailReplacements": 1,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-10.json",
+      "originalSha256": "161ad88a48495534888473c8db971e36f86a88fcc3610fcdedc15c3c0bc69848",
+      "publishedSha256": "161ad88a48495534888473c8db971e36f86a88fcc3610fcdedc15c3c0bc69848",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-11.json",
+      "originalSha256": "f3c4e8c6b4c04e943272541ea5fcb790b3b11f555be27a4ff4b7245a53522e70",
+      "publishedSha256": "f3c4e8c6b4c04e943272541ea5fcb790b3b11f555be27a4ff4b7245a53522e70",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-12.json",
+      "originalSha256": "677f2812ed2ad9214a39c615d33dfe01e48a24d26e432f1592549d427c80cf90",
+      "publishedSha256": "677f2812ed2ad9214a39c615d33dfe01e48a24d26e432f1592549d427c80cf90",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-13.json",
+      "originalSha256": "e12879219a6b0dc5db91c28c2769a2a22399714905b7500718d7ec7ca30080ff",
+      "publishedSha256": "e12879219a6b0dc5db91c28c2769a2a22399714905b7500718d7ec7ca30080ff",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-2.json",
+      "originalSha256": "188983ba04597d5de8e0e8fe6a5b8ee4ae6a54f696bc96117574aed6adeb0d17",
+      "publishedSha256": "188983ba04597d5de8e0e8fe6a5b8ee4ae6a54f696bc96117574aed6adeb0d17",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-3.json",
+      "originalSha256": "7469634f2da8f56d2b2b02f15d3e1818f09f4e9846e76e561c73996c274cdf92",
+      "publishedSha256": "7469634f2da8f56d2b2b02f15d3e1818f09f4e9846e76e561c73996c274cdf92",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-4.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-5.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-6.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-7.json",
+      "originalSha256": "a4ddc69e378a3c653b265b30e96c224f58f63c8ac7ba5321279c7d316f0ad53b",
+      "publishedSha256": "a4ddc69e378a3c653b265b30e96c224f58f63c8ac7ba5321279c7d316f0ad53b",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-8.json",
+      "originalSha256": "f177bd9356d061cbf91a8f64ea2f522d8362e37a6d26b52f8de00e183aaa6954",
+      "publishedSha256": "f177bd9356d061cbf91a8f64ea2f522d8362e37a6d26b52f8de00e183aaa6954",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "after-2026-11-23/retained-records/fresh-9.json",
+      "originalSha256": "6ff38d6be69e43b031961352503450d3b0bf8f99de5799dcae04bdc392c93837",
+      "publishedSha256": "6ff38d6be69e43b031961352503450d3b0bf8f99de5799dcae04bdc392c93837",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "audit-readback-filter.json",
+      "originalSha256": "6abc687d85401c3b17a7b8a0be49d717feeb9ce59217389ccbcb02861871d9a9",
+      "publishedSha256": "e75e050610d34bb60bd00a82b7730e8e85f2531b347210f28f13f578253407c5",
+      "operatorEmailReplacements": 1,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/broker-control-invocation-query.json",
+      "originalSha256": "6102afb9c6da8fe29780d6dd5df00d473a4503ed4bf8fd141e3d7c101048bc23",
+      "publishedSha256": "6102afb9c6da8fe29780d6dd5df00d473a4503ed4bf8fd141e3d7c101048bc23",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/broker-legacy-invocation-query.json",
+      "originalSha256": "59e1ea3604563b5ae0dd324bdc8177a55f451cc2e646e468f7b6cd2b8df0fab3",
+      "publishedSha256": "59e1ea3604563b5ae0dd324bdc8177a55f451cc2e646e468f7b6cd2b8df0fab3",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/broker-positive-control.json",
+      "originalSha256": "45555b3934fcad30c781691ad9c5e3c4ff75d1ec4511d31188837cdcc266ab4b",
+      "publishedSha256": "45555b3934fcad30c781691ad9c5e3c4ff75d1ec4511d31188837cdcc266ab4b",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/drop-outcome-no-outcome.json",
+      "originalSha256": "021fe3d74c354aeed86b2ea1e0187ddd9f3f8ea5a1efed7e797212b598835cc9",
+      "publishedSha256": "021fe3d74c354aeed86b2ea1e0187ddd9f3f8ea5a1efed7e797212b598835cc9",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/drop-outcome-reconciliation-attempts.json",
+      "originalSha256": "189c66b6e007f4d78566e538988282985f8707195e1013be149d9ccbc4ed2184",
+      "publishedSha256": "189c66b6e007f4d78566e538988282985f8707195e1013be149d9ccbc4ed2184",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/drop-outcome-staging-live.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/drop-outcome-staging-soft-deleted.json",
+      "originalSha256": "a0f8784a02d9fad687228fd1e8ee348ca16e774559bcf432db585ba96e18a05c",
+      "publishedSha256": "a0f8784a02d9fad687228fd1e8ee348ca16e774559bcf432db585ba96e18a05c",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/legacy-broker-steps.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/legacy-command-second-read.json",
+      "originalSha256": "f4c78388b7d95bc6684ede8463217fd14c1eeb5f318dac40de8573ec49981b53",
+      "publishedSha256": "f4c78388b7d95bc6684ede8463217fd14c1eeb5f318dac40de8573ec49981b53",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/legacy-holds.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/legacy-staging-live.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/legacy-staging-soft-deleted.json",
+      "originalSha256": "ce9a178c2b15951d0b0ac3103c212532a9542ace8af0c77b19c9303e94b60f88",
+      "publishedSha256": "ce9a178c2b15951d0b0ac3103c212532a9542ace8af0c77b19c9303e94b60f88",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/compare.mjs",
+      "originalSha256": "27d157105b93e22116daf5eff383d9fbb165d4eb014969946bfe6988603dbebb",
+      "publishedSha256": "27d157105b93e22116daf5eff383d9fbb165d4eb014969946bfe6988603dbebb",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/comparison.txt",
+      "originalSha256": "1ee7fd1314be53966a3de20072643d96f3417f76a796698970a8c6b7e2c036bd",
+      "publishedSha256": "1ee7fd1314be53966a3de20072643d96f3417f76a796698970a8c6b7e2c036bd",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-1.json",
+      "originalSha256": "e0c919ce2abab89e4d00ac4be2d0c9df77610833c5b915889c11e0ef83fa6c13",
+      "publishedSha256": "e0c919ce2abab89e4d00ac4be2d0c9df77610833c5b915889c11e0ef83fa6c13",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-10.json",
+      "originalSha256": "46c36a895915f149af1f1c19c5ad90354333100bfc52ece33c0db1dde566a3e6",
+      "publishedSha256": "46c36a895915f149af1f1c19c5ad90354333100bfc52ece33c0db1dde566a3e6",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-11.json",
+      "originalSha256": "c75fcc828d96b8007b53e081adfe042fa8ccdbfe872e1355d0a995fb49fdf044",
+      "publishedSha256": "c75fcc828d96b8007b53e081adfe042fa8ccdbfe872e1355d0a995fb49fdf044",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-12.json",
+      "originalSha256": "f8b0b386236377650bdaa14f92764f8c844cda61f1e002e9094a3b093105521a",
+      "publishedSha256": "f8b0b386236377650bdaa14f92764f8c844cda61f1e002e9094a3b093105521a",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-13.json",
+      "originalSha256": "14ef2f22c3770cf479f36c3e1adf322eab64184d50712e6fb01110369ee5b66e",
+      "publishedSha256": "14ef2f22c3770cf479f36c3e1adf322eab64184d50712e6fb01110369ee5b66e",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-2.json",
+      "originalSha256": "40f2134428d565b97cf687e92a7c08201102412ac3c4a6f23ee5fde9b82dad06",
+      "publishedSha256": "40f2134428d565b97cf687e92a7c08201102412ac3c4a6f23ee5fde9b82dad06",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-3.json",
+      "originalSha256": "f7794c837b8ff5be0488d8f28d6cdfba398ad6df72ca3b720e990c53483cd839",
+      "publishedSha256": "f7794c837b8ff5be0488d8f28d6cdfba398ad6df72ca3b720e990c53483cd839",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-4.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-5.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-6.json",
+      "originalSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "publishedSha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-7.json",
+      "originalSha256": "09a9c00ab708f4447abf514f7daef69fc92f1c4b96ed3255aa3a81d92509d30a",
+      "publishedSha256": "09a9c00ab708f4447abf514f7daef69fc92f1c4b96ed3255aa3a81d92509d30a",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-8.json",
+      "originalSha256": "ff1e4868c34c00a109e3790a55e3fa7bafd1fa5c3a1538f1e8b9b61c0657fdc9",
+      "publishedSha256": "ff1e4868c34c00a109e3790a55e3fa7bafd1fa5c3a1538f1e8b9b61c0657fdc9",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/retained-records/fresh-9.json",
+      "originalSha256": "11698e8e3a476316e276df92ce97967777c40eda51ee0a77431d870e744cda7d",
+      "publishedSha256": "11698e8e3a476316e276df92ce97967777c40eda51ee0a77431d870e744cda7d",
+      "operatorEmailReplacements": 0,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    },
+    {
+      "path": "preflight-2026-11-23/summary.json",
+      "originalSha256": "596b83999de93f3bb004f6c4535eebeb3df46e0228a1883e2c26c490bd325894",
+      "publishedSha256": "be046313b0ff4702d57459ffd49d2d56e64d583944a3adc38248119525b7da38",
+      "operatorEmailReplacements": 1,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 1
+    },
+    {
+      "path": "step-4-approval.json",
+      "originalSha256": "e7b840654bd94ac1f404cac5c1be8fe1e7e335df301f90066dda49833420091a",
+      "publishedSha256": "59055cf5f545ca8a3bc0910c376baa3aafc9879c3dc3c9e497dffe1e1b5fa7eb",
+      "operatorEmailReplacements": 1,
+      "callerIpReplacements": 0,
+      "localPathNormalizations": 0
+    }
+  ],
+  "policyCommandsModule": {
+    "releaseCommit": "538f3647560a5de310b16e3665974204d3b24cde",
+    "sha256": "206e6fb255ed9a154895148c3093d1dc37eeec4307f6f0b389b81e7c3f9e07a4"
+  },
+  "generatedFiles": [
+    "after-2026-11-23/absence-readback.json",
+    "verify-saved.mjs",
+    "verification-summary.json"
+  ]
+}

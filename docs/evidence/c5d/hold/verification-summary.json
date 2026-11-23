@@ -1,0 +1,22 @@
+{
+  "commandId": "c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f",
+  "actId": "ae946e64-dadc-4479-a38a-fc023fad0b97",
+  "appliedAt": "2026-11-23T01:25:30.970Z",
+  "commandChange": "hold and updateTime only",
+  "unchangedSubcollections": 5,
+  "dropOutcomeRecordsUnchanged": true,
+  "dropOutcomeReconciliationAttempts": 1,
+  "brokerPathsAbsent": 5,
+  "ownableFalse": 8,
+  "audit": {
+    "commitCount": 1,
+    "permissionType": "DATA_WRITE",
+    "keys": [
+      "projects/graffiticode/databases/policy/documents/commands/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f",
+      "projects/graffiticode/databases/policy/documents/commands/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f/holds/ae946e64-dadc-4479-a38a-fc023fad0b97"
+    ],
+    "principal": "<operator>"
+  },
+  "evidenceFilesCheckedExcludingSummary": 65,
+  "privateOriginalHashesChecked": 62
+}

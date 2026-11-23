@@ -1,0 +1,23 @@
+{
+  "readAt": "2026-11-23T01:19:28.212Z",
+  "identity": {
+    "email": "<operator>",
+    "verifiedVia": "tokeninfo",
+    "azp": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+  },
+  "commandId": "c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f",
+  "status": "pending",
+  "phase": "admitted",
+  "generation": 11,
+  "leaseExpiresAt": 1795204514178,
+  "existingHoldCount": 0,
+  "retainedRecordsSame": 13,
+  "legacyBrokerDocumentsAbsent": true,
+  "brokerPositiveControl": "projects/graffiticode/databases/broker/documents/receipts/f520f526ecf9a8acc26274f20ed261c4b16cc3f6bc64e6412949157695ec8b4e",
+  "legacyQueryCount": 0,
+  "dropOutcomeReconciliationAttemptCount": 1,
+  "stagingLiveCount": 0,
+  "tokenExpiriesChecked": 11,
+  "latestRecordedTokenExpiry": "2026-11-20T19:55:16.000Z",
+  "evidence": "docs/evidence/c5d/hold/preflight-2026-11-23"
+}

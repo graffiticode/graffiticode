@@ -46,3 +46,11 @@ drive/ad49c0ac/teardown/gc-c5-retirement-readback-1795280089709.json
 Proxy cleanup (2026-11-21): the operator's address replaced by <operator> in:
 drive/ad49c0ac/teardown/14-proxy-cleanup/cert-secret-after.err
 teardown/14-proxy-cleanup/instances.json: each VM's user-data (the proxy cloud-init of egress-proxy-ce42b3628a5a, config digest 8b637609...) replaced by its length and sha256.
+
+Durable hold evidence (2026-11-23), under hold/:
+- The operator's email is consistently replaced by <operator> (12 occurrences).
+- The audit request's callerIp is replaced by <operator-ip> (one occurrence).
+- The preflight summary's local temporary-checkout path is normalized to the repository-relative evidence path (one occurrence).
+- hold/publication.json lists each original capture's SHA-256 and the SHA-256 of its published copy, with per-file replacement counts. The original private captures and operative intent were not modified.
+- The published .intent.json is a redacted evidence copy, not an executable replay request. Retry only with the unchanged private original and its existing act id.
+- The added absence readback and offline verifier contain no operator identity or credential. The verifier checks all JSON, redactions and original/published hashes when the private originals are supplied.

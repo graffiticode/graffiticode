@@ -1,0 +1,50 @@
+[
+  {
+    "recording": 0,
+    "repairs": 0,
+    "scopes": 0,
+    "ownable": false
+  },
+  {
+    "recording": 0,
+    "repairs": 0,
+    "scopes": 1,
+    "ownable": false
+  },
+  {
+    "recording": 0,
+    "repairs": 1,
+    "scopes": 0,
+    "ownable": false
+  },
+  {
+    "recording": 0,
+    "repairs": 1,
+    "scopes": 1,
+    "ownable": false
+  },
+  {
+    "recording": 1,
+    "repairs": 0,
+    "scopes": 0,
+    "ownable": false
+  },
+  {
+    "recording": 1,
+    "repairs": 0,
+    "scopes": 1,
+    "ownable": false
+  },
+  {
+    "recording": 1,
+    "repairs": 1,
+    "scopes": 0,
+    "ownable": false
+  },
+  {
+    "recording": 1,
+    "repairs": 1,
+    "scopes": 1,
+    "ownable": false
+  }
+]

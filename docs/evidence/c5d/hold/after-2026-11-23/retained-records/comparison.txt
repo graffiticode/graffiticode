@@ -1,0 +1,19 @@
+CHANGED 200 staging-gone-disposal/1-policy-command.json
+same    200 staging-gone-disposal/1-policy-occurrences.json
+same    200 staging-gone-disposal/1-policy-reservations.json
+same    200 staging-gone-disposal/1-policy-outcomes.json
+same    200 staging-gone-disposal/1-policy-refusals.json
+same    200 staging-gone-disposal/1-policy-ledger.json
+same    200 teardown/4-plan2-command.json
+same    200 teardown/4-plan2-occurrences.json
+same    200 teardown/4-plan2-reservations.json
+same    200 teardown/4-plan2-outcomes.json
+same    200 teardown/5-plan2-policy-ledger.json
+same    200 teardown/4-plan2-broker-receipts-1a01024fac1d279dc5c9ca7fe8cfd1b3d5ede747a437f1436200426115f73782.json
+same    200 teardown/5-plan2-broker-resolution-final.json
+absent  404 broker receipts/{H1}
+absent  404 broker receipts/{H1}/outcome/final
+absent  404 broker receipts/{H1}/run/state
+absent  404 broker receipts/{H1}/resolution/final
+absent  404 broker active-executions/{H1}
+changed: 1 of 13

@@ -1,0 +1,107 @@
+[
+  {
+    "insertId": "hrefa5f3sf7m8",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/policy",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/policy",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/policy",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/policy",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "2",
+        "keys": [
+          "projects/graffiticode/databases/policy/documents/commands/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f",
+          "projects/graffiticode/databases/policy/documents/commands/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f/holds/ae946e64-dadc-4479-a38a-fc023fad0b97"
+        ],
+        "processingDuration": "0.025589s",
+        "transactionId": "8629930258231911294_-3045075661588449490"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/policy",
+        "transaction": "ES431bzRt73VIlkAwnkIZq6/Mc72+vWwkfSUMuSt57nWCVwZuTRB0LtEzPXhAF7WIumkUCRU4vVkLpUKICYzoJaJ+uP0WfXrEet9QaMRKHvtuuvdfQLbz07XPpVlew4eE3uydQ==",
+        "writes": [
+          {
+            "currentDocument": {
+              "exists": true
+            },
+            "update": {
+              "name": "projects/graffiticode/databases/policy/documents/commands/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f"
+            },
+            "updateMask": {
+              "fieldPaths": [
+                "hold"
+              ]
+            }
+          },
+          {
+            "currentDocument": {
+              "exists": false
+            },
+            "update": {
+              "name": "projects/graffiticode/databases/policy/documents/commands/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f/holds/ae946e64-dadc-4479-a38a-fc023fad0b97"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-23T01:25:31.532474Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/policy",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-23T01:25:32.055555090Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-23T01:25:31.507120Z"
+  }
+]
