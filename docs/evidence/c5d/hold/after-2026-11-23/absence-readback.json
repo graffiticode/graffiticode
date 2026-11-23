@@ -1,0 +1,26 @@
+{
+  "readAt": "2026-11-23T01:37:01.378Z",
+  "database": "broker",
+  "results": [
+    {
+      "path": "receipts/89c0fb7fe69642cfa032267d839b5f063ec6446c0329f50cc01461ed42140f98",
+      "status": 404
+    },
+    {
+      "path": "receipts/89c0fb7fe69642cfa032267d839b5f063ec6446c0329f50cc01461ed42140f98/outcome/final",
+      "status": 404
+    },
+    {
+      "path": "receipts/89c0fb7fe69642cfa032267d839b5f063ec6446c0329f50cc01461ed42140f98/run/state",
+      "status": 404
+    },
+    {
+      "path": "active-executions/89c0fb7fe69642cfa032267d839b5f063ec6446c0329f50cc01461ed42140f98",
+      "status": 404
+    },
+    {
+      "path": "receipts/1a01024fac1d279dc5c9ca7fe8cfd1b3d5ede747a437f1436200426115f73782/outcome/final",
+      "status": 404
+    }
+  ]
+}

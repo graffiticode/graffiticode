@@ -2,7 +2,7 @@
 
 [Step 32](../../capability-policy-iam-review.md) of the C5d plan ([`docs/c5d-snapshot-commands-plan.md`](../../c5d-snapshot-commands-plan.md)): an isolated drive of snapshot commands through production Policy, publishing only to `gs://graffiticode-c5d-drive`.
 
-**Verdict: the drive has not passed.** It stopped at `staging-gone` on a blocking product finding (below). Its sweeper is paused, Broker's fault is off, the stuck command stays recorded pending, and `cleanup` stays failed. Compiler retirement and infrastructure deletion are held pending review of the command's disposal procedure.
+**Verdict: the drive has not passed.** It stopped at `staging-gone` on a blocking product finding (below), and `cleanup` stays failed. Teardown is complete. The legacy command remains pending under the durable hold applied on 2026-11-23; the refusal fix and hold rollout are recorded below. A successful fresh drive and activation remain held.
 
 The operator's address is redacted throughout as `<operator>` ([`REDACTIONS.txt`](REDACTIONS.txt)). No production credential, and no token or key, is in this evidence; two local-test JWT fixtures in the build logs are redacted ([`REDACTIONS.txt`](REDACTIONS.txt)).
 
@@ -112,4 +112,23 @@ In [`drive/ad49c0ac/staging-gone-disposal/`](drive/ad49c0ac/staging-gone-disposa
   - A first run with the job's own arguments, `canary-m5pf2`, passed its usual 33. The scheduled runs pass 33, and the operator runs with `--l0185-tail` pass 36.
 - **The certificate secret:** `egress-proxy-cert-broker-c5d-drive-sja7fatcta-uc-a-run-app` deleted, after confirming the running configuration doesn't reference it. 48 host-certificate secrets remain, and none names `c5d`.
 
-**Teardown is complete.** The drive and its `cleanup` remain **failed**. Before activation: the product fix, the durable `hold`, and a successful fresh drive.
+**Teardown is complete.** The drive and its `cleanup` remain **failed**. The product fix and durable hold are now verified below; a successful fresh drive remains required before activation.
+
+## Refusal fix and durable hold (2026-11-22/23)
+
+Rollout steps 0–4 of [`c5d-refusal-and-hold-plan.md`](../../c5d-refusal-and-hold-plan.md) are complete. The console serves `1c3ee0ea`, Broker serves `4bbd1072`, and Policy and api serve `538f3647`, all from clean releases. Broker, Policy and api each passed the 36-check production canary after release. Policy's registry-10 previews were accepted by Broker with no registry-version mismatch; registry-9 command tokens remain accepted through the window. The api has no reachable revision carrying `COMMAND_SCOPES`.
+
+The hold evidence is in [`hold/`](hold/). The legacy command `c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f` received act `ae946e64-dadc-4479-a38a-fc023fad0b97` at `2026-11-23T01:25:30.970Z`, with `n: 1` and `fencing: lease-expired`. It remains pending/admitted at generation 11 and unsettled. Only its `hold` field and `updateTime` changed; its five subcollections are unchanged. Every one of the eight ownership capability combinations is now false. Broker still has no legacy claim, outcome, run or active execution, and the positive controls still succeed. The drop-outcome records and their single reconciliation attempt are unchanged.
+
+The `DATA_WRITE` audit contains one successful Commit at `2026-11-23T01:25:31.507120Z`, by the same operator recorded in the hold, touching exactly the command and its one hold-history document. [`publication.json`](hold/publication.json) records redactions and the hashes of the original and published captures. The operator is consistently `<operator>` in the published copies; the audit caller IP is `<operator-ip>`. The unchanged private originals remain outside this evidence branch.
+
+**The published intent is evidence only.** Its redacted operator makes it unsuitable for execution. A retry must reuse the original private intent, with the same act id. No lift is authorized.
+
+The saved retained-record comparator intentionally exits 1 after this act: 12 of 13 records are unchanged, and the only changed record is the legacy command. Ignoring only that command's `fields.hold` and `updateTime` restores equality. The independent offline verifier checks this distinction, the five subcollections, preserved drop-outcome records, Broker absence readbacks, ownership combinations, audit principal and the exact two document keys:
+
+```sh
+npm run build
+node docs/evidence/c5d/hold/verify-saved.mjs
+```
+
+Lifting the hold, #468, compiler releases, the new drive infrastructure and window, the fresh drive, and Steps 33–34 remain held.
