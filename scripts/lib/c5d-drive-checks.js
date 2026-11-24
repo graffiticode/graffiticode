@@ -207,6 +207,42 @@ export const decodeFirestore = v => {
   if ("mapValue" in v) return Object.fromEntries(Object.entries(v.mapValue.fields ?? {}).map(([k, x]) => [k, decodeFirestore(x)]));
   return null;
 };
+// The same, for a document whose values are judged (an outcome/final): each
+// value must carry exactly one known type tag, its payload of that type
+// (#475 review: { stringValue: 20 }, or a value with two tags, decoded and
+// passed). Anything else is refused, naming where.
+const FIRESTORE_TYPES = Object.freeze(["stringValue", "integerValue", "doubleValue", "booleanValue", "timestampValue", "nullValue", "arrayValue", "mapValue"]);
+const onlyKeys = (v, allowed) => Object.keys(v).every(k => allowed.includes(k));
+export const decodeFirestoreStrict = (v, where = "value") => {
+  const bad = why => { throw new Error(`${where}: ${why}`); };
+  if (!isPlain(v)) bad(`not a Firestore value (${show(v)})`);
+  const tags = Object.keys(v);
+  if (tags.length !== 1 || !FIRESTORE_TYPES.includes(tags[0])) bad(`expected exactly one type tag, found ${show(tags)}`);
+  const [type] = tags;
+  const x = v[type];
+  switch (type) {
+    case "stringValue": return typeof x === "string" ? x : bad(`stringValue ${show(x)} isn't a string`);
+    case "integerValue": return typeof x === "string" && /^-?(0|[1-9][0-9]*)$/.test(x) && Number.isSafeInteger(Number(x)) ? Number(x) : bad(`integerValue ${show(x)} isn't an integer string`);
+    case "doubleValue": return typeof x === "number" && Number.isFinite(x) ? x : bad(`doubleValue ${show(x)} isn't a finite number`);
+    case "booleanValue": return typeof x === "boolean" ? x : bad(`booleanValue ${show(x)} isn't a boolean`);
+    case "timestampValue": return typeof x === "string" && !Number.isNaN(Date.parse(x)) ? x : bad(`timestampValue ${show(x)} isn't a timestamp`);
+    case "nullValue": return x === null || x === "NULL_VALUE" ? null : bad(`nullValue ${show(x)}`);
+    case "arrayValue":
+      if (!isPlain(x) || !onlyKeys(x, ["values"]) || !(x.values === undefined || Array.isArray(x.values))) bad(`arrayValue ${show(x)} is malformed`);
+      return (x.values ?? []).map((e, i) => decodeFirestoreStrict(e, `${where}[${i}]`));
+    default:
+      if (!isPlain(x) || !onlyKeys(x, ["fields"]) || !(x.fields === undefined || isPlain(x.fields))) bad(`mapValue ${show(x)} is malformed`);
+      return Object.fromEntries(Object.entries(x.fields ?? {}).map(([k, e]) => [k, decodeFirestoreStrict(e, `${where}.${k}`)]));
+  }
+};
+// A Firestore REST document ({ name, fields, createTime, updateTime }),
+// validated whole and decoded strictly.
+export const decodeFirestoreDocument = d => {
+  if (!isPlain(d) || !onlyKeys(d, ["name", "fields", "createTime", "updateTime"])) throw new Error(`not a Firestore document (keys ${show(isPlain(d) ? Object.keys(d) : d)})`);
+  if (typeof d.name !== "string" || !isPlain(d.fields)) throw new Error("a Firestore document needs a name and fields");
+  for (const k of ["createTime", "updateTime"]) if (d[k] !== undefined && (typeof d[k] !== "string" || Number.isNaN(Date.parse(d[k])))) throw new Error(`the document's ${k} ${show(d[k])} isn't a timestamp`);
+  return decodeFirestoreStrict({ mapValue: { fields: d.fields } }, "document");
+};
 
 // --------------------------------------------------------------- primitives
 
@@ -1066,22 +1102,40 @@ export const recountManifest = ({ source, sourceFile, journalAt, renders, observ
 // changed: the report is a separate file, `rejudge-<phase>-<stamp>.json`
 // (never a phase manifest, so `judge` and latestByPhase never take it for
 // one), naming both sources by file and sha256.
-//   source   the original manifest (no `rejudge`, and without the field the
-//            saved document supplies)
-//   receipt  the saved Firestore REST document ({ name, fields, ... }), whose
-//            name must be exactly the one derived from the source's own
-//            operation: a substituted receipt is refused before any judging
+// Both sources are taken as their raw bytes, and hashed here, so a report's
+// hashes are always of exactly what it judged.
+//   runId       the run being judged (--run): the source must be its own
+//   sourceText  the original manifest (no `rejudge` or `recount`, and without
+//               the field the saved document supplies)
+//   receiptText the saved Firestore REST document ({ name, fields, ... }),
+//               validated whole and decoded strictly, whose name must be
+//               exactly the one derived from the source's own operation: a
+//               substituted or malformed receipt is refused before judging
 export const REJUDGEABLE = Object.freeze(["older-after-newer"]);
+const sha256Of = text => createHash("sha256").update(text).digest("hex");
+const manifestNameRe = phase => new RegExp(`^${phase}-\\d{4}-\\d{2}-\\d{2}T[0-9-]+Z\\.json$`);
+const rejudgeNameRe = phase => new RegExp(`^rejudge-${phase}-\\d{4}-\\d{2}-\\d{2}T[0-9-]+Z\\.json$`);
+const parsed = (text, what) => {
+  if (typeof text !== "string" && !Buffer.isBuffer(text)) throw new Error(`${what} not read`);
+  try {
+    return JSON.parse(String(text));
+  } catch {
+    throw new Error(`${what} isn't JSON`);
+  }
+};
 export const rejudgeFileName = (phase, stamp) => {
   if (!REJUDGEABLE.includes(phase)) throw new Error(`no re-judge for ${phase}`);
   return `rejudge-${phaseFile(phase, stamp)}`;
 };
-export const rejudgeReport = ({ source, sourceFile, sourceSha256, receipt, receiptFile, receiptSha256, at }) => {
+export const rejudgeReport = ({ runId, sourceText, sourceFile, receiptText, receiptFile, at }) => {
+  const source = parsed(sourceText, "the source manifest");
+  const receipt = parsed(receiptText, "the saved receipt");
   const phase = source?.phase;
   if (!REJUDGEABLE.includes(phase)) throw new Error(`re-judged only for ${REJUDGEABLE.join(", ")}; the source is ${show(phase)}`);
+  if (typeof runId !== "string" || source.runId !== runId) throw new Error(`the source is run ${show(source.runId)}, not ${show(runId)}`);
   if (source.rejudge || source.recount) throw new Error("the source must be the phase's original manifest");
-  if (typeof sourceFile !== "string" || !new RegExp(`^${phase}-\\d{4}-\\d{2}-\\d{2}T[0-9-]+Z\\.json$`).test(sourceFile)) throw new Error(`the source file ${show(sourceFile)} isn't a ${phase} manifest`);
-  if (!isSha(sourceSha256) || !isSha(receiptSha256)) throw new Error("both sources' sha256 are required");
+  if (typeof sourceFile !== "string" || !manifestNameRe(phase).test(sourceFile)) throw new Error(`the source file ${show(sourceFile)} isn't a ${phase} manifest`);
+  if (typeof receiptFile !== "string" || !receiptFile || receiptFile.includes("/")) throw new Error(`the receipt file ${show(receiptFile)} isn't a file name`);
   const o = source.observations;
   if (!isPlain(o)) throw new Error("the source has no observations");
   if (o.olderOutcome !== undefined) throw new Error("the source already observed the older's outcome: judge it, don't re-judge it");
@@ -1089,22 +1143,70 @@ export const rejudgeReport = ({ source, sourceFile, sourceSha256, receipt, recei
   if (!r || typeof o.older.invocationId !== "string") throw new Error("the source's older reservation or invocation isn't readable");
   const operationId = operationIdOf(o.older.invocationId, r);
   const name = outcomeDocName(operationId);
-  if (!isPlain(receipt) || !isPlain(receipt.fields)) throw new Error("the saved receipt isn't a Firestore document");
+  let outcome;
+  try {
+    outcome = decodeFirestoreDocument(receipt);
+  } catch (e) {
+    throw new Error(`the saved receipt is malformed: ${e.message}`);
+  }
   if (receipt.name !== name) throw new Error(`the saved receipt is ${show(receipt.name)}, not ${name}`);
-  const olderOutcome = { operationId, name: receipt.name, outcome: decodeFirestore({ mapValue: receipt }) };
+  const olderOutcome = { operationId, name: receipt.name, outcome };
   const judged = judgePhase(phase, { ...o, olderOutcome });
   return {
-    runId: source.runId,
+    runId,
     phase,
     at,
     rejudge: {
-      of: { file: sourceFile, sha256: sourceSha256, at: source.at ?? null },
-      receipt: { file: receiptFile, sha256: receiptSha256, name: receipt.name, createTime: receipt.createTime ?? null, updateTime: receipt.updateTime ?? null },
+      of: { file: sourceFile, sha256: sha256Of(sourceText), at: source.at ?? null },
+      receipt: { file: receiptFile, sha256: sha256Of(receiptText), name: receipt.name, createTime: receipt.createTime ?? null, updateTime: receipt.updateTime ?? null },
       field: "olderOutcome",
     },
     olderOutcome,
     passed: judged.passed,
     checks: judged.checks,
+  };
+};
+
+// The final judge's explicit input (--approve-rejudge <report> --rejudge-receipt
+// <saved document>): an approved re-judge report supplements its phase's
+// latest original manifest. Default judging never reads re-judge reports. The
+// report must be this run's, for this phase, of exactly the latest original
+// manifest; both sources must hash to the report's hashes; and the verdict is
+// recomputed from those sources, never taken from the report, whose own
+// outcome and checks must equal the recomputation (a tampered report is
+// refused). Returns the phase's observations with the supplied field, and the
+// record the aggregate report keeps.
+export const approvedRejudge = ({ runId, latest, sourceText, reportFile, reportText, receiptFile, receiptText }) => {
+  const report = parsed(reportText, "the approved re-judge report");
+  const phase = report?.phase;
+  if (!REJUDGEABLE.includes(phase)) throw new Error(`the approved report's phase ${show(phase)} isn't re-judgeable`);
+  if (typeof reportFile !== "string" || !rejudgeNameRe(phase).test(reportFile)) throw new Error(`the approved report ${show(reportFile)} isn't a rejudge-${phase} report in the run's directory`);
+  if (report.runId !== runId) throw new Error(`the approved report is run ${show(report.runId)}, not ${show(runId)}`);
+  const of = report.rejudge?.of;
+  const rc = report.rejudge?.receipt;
+  if (!isPlain(of) || !isPlain(rc) || report.rejudge.field !== "olderOutcome") throw new Error("the approved report names no sources");
+  const latestFile = latest?.[phase];
+  if (!latestFile) throw new Error(`no ${phase} manifest in the run`);
+  if (of.file !== latestFile) throw new Error(`the approved report is of ${show(of.file)}, not the phase's latest manifest ${latestFile} (stale or mismatched)`);
+  if (sha256Of(sourceText) !== of.sha256) throw new Error(`${latestFile} doesn't hash to the approved report's ${show(of.sha256)}`);
+  if (typeof receiptFile !== "string" || receiptFile !== rc.file) throw new Error(`the receipt given is ${show(receiptFile)}, the report's is ${show(rc.file)}`);
+  if (sha256Of(receiptText) !== rc.sha256) throw new Error(`the receipt doesn't hash to the approved report's ${show(rc.sha256)}`);
+  const again = rejudgeReport({ runId, sourceText, sourceFile: latestFile, receiptText, receiptFile, at: report.at });
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  if (!same(again.olderOutcome, report.olderOutcome) || !same(again.checks, report.checks) || again.passed !== report.passed || !same(again.rejudge, report.rejudge)) {
+    throw new Error("the approved report doesn't match what its sources give (tampered)");
+  }
+  return {
+    phase,
+    observations: { ...parsed(sourceText, "the source manifest").observations, olderOutcome: again.olderOutcome },
+    supplement: {
+      phase,
+      field: "olderOutcome",
+      report: { file: reportFile, sha256: sha256Of(reportText) },
+      of: { file: latestFile, sha256: of.sha256 },
+      receipt: { file: rc.file, sha256: rc.sha256, name: rc.name },
+      recomputedPassed: again.passed,
+    },
   };
 };
 

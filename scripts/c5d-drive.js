@@ -113,6 +113,12 @@
 //                    non-owner, since the run began, each query paged to its
 //                    end) all in the inventory, terminal and not due.
 //   judge            the verdict; exit 1 unless every phase passed.
+//                    --approve-rejudge <rejudge report in the run's directory>
+//                    --rejudge-receipt <the raw document it judged>: the one
+//                    explicit way a re-judge counts. Same run and phase, of the
+//                    phase's latest original manifest; both sources' hashes
+//                    verified and the verdict recomputed from them; recorded
+//                    in the report's `supplements`, the original kept.
 //   rejudge          offline: --of older-after-newer --manifest <its original
 //                    manifest, a file in the run's directory> --receipt <the
 //                    older's saved outcome/final, a Firestore REST document>.
@@ -139,7 +145,7 @@ import {
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
   latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
   priorPublicCaptures, policyFixtureClient, answerResolution, correlateIntents, paginateAll, drivePolicyCommands, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
-  decodeFirestore, receiptPathOf, outcomeDocName, rejudgeReport, rejudgeFileName, REJUDGEABLE,
+  decodeFirestore, decodeFirestoreDocument, receiptPathOf, outcomeDocName, rejudgeReport, rejudgeFileName, approvedRejudge, REJUDGEABLE,
   bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing, directCompileRequest, isRenderLine, RECOUNTABLE, recountManifest, recountSource, observeCount, AUDIT_OBSERVATION_MS,
 } from "./lib/c5d-drive-checks.js";
 
@@ -226,12 +232,38 @@ if (CAPTURE_PHASES.includes(phase) && !existsSync(path.join(dir, BASELINE_FILE))
 
 if (phase === "judge") {
   const latest = latestByPhase(readdirSync(dir));
+  // An approved re-judge, only when named explicitly (both flags): its report
+  // in the run's directory and the raw receipt it judged. Default judging
+  // never reads re-judge reports.
+  const approvedFile = flag("--approve-rejudge");
+  const approvedReceipt = flag("--rejudge-receipt");
+  let approved = null;
+  if (approvedFile || approvedReceipt) {
+    try {
+      if (!approvedFile || !approvedReceipt) throw new Error("--approve-rejudge <report> and --rejudge-receipt <saved document> go together");
+      if (path.basename(approvedFile) !== approvedFile) throw new Error(`--approve-rejudge names a file in the run's directory, not a path (${approvedFile})`);
+      const reportText = readFileSync(path.join(dir, approvedFile));
+      const phaseOf = (() => { try { return JSON.parse(String(reportText)).phase; } catch { return null; } })();
+      approved = approvedRejudge({
+        runId,
+        latest,
+        reportFile: approvedFile,
+        reportText,
+        sourceText: latest[phaseOf] ? readFileSync(path.join(dir, latest[phaseOf])) : null,
+        receiptFile: path.basename(approvedReceipt),
+        receiptText: readFileSync(approvedReceipt),
+      });
+    } catch (e) {
+      console.error(`refused: ${e?.message ?? e}`);
+      process.exit(2);
+    }
+  }
   const phases = {};
   // The run's one baseline, never a later file.
   if (existsSync(path.join(dir, BASELINE_FILE))) phases.baseline = readJson(BASELINE_FILE).observations;
   for (const p of DRIVE_PHASES) {
     if (p === "baseline" || !latest[p]) continue;
-    phases[p] = readJson(latest[p]).observations;
+    phases[p] = approved?.phase === p ? approved.observations : readJson(latest[p]).observations;
     // Each operator pause's own observations join its phase's.
     const step = { "drop-outcome": "drop-outcome-retry", "staging-gone": "staging-gone-delete" }[p];
     if (step && latest[step]) {
@@ -243,7 +275,9 @@ if (phase === "judge") {
   if (phases.boundary) phases.boundary = { ...phases.boundary, thumbnailsBefore: phases.baseline?.thumbnails };
   const result = verdict(phases);
   for (const p of result.phases) for (const c of p.checks) console.log(`${c.ok ? "ok    " : "FAILED"} ${p.phase}/${c.id}: ${c.detail}`);
-  const file = writeOnce(`report-${stampOf(new Date())}.json`, { runId, at: new Date().toISOString(), manifests: { baseline: BASELINE_FILE, ...latest }, ...result });
+  // The failed original stays the phase's manifest; an approved supplement is
+  // recorded beside it, with every source's hash.
+  const file = writeOnce(`report-${stampOf(new Date())}.json`, { runId, at: new Date().toISOString(), manifests: { baseline: BASELINE_FILE, ...latest }, supplements: approved ? [approved.supplement] : [], ...result });
   console.log(`${result.passed ? "DRIVE PASSED" : "DRIVE NOT PASSED"}; ${file}`);
   process.exit(result.passed ? 0 : 1);
 }
@@ -264,15 +298,17 @@ if (phase === "rejudge") {
     console.error(`refused: --manifest names a file in the run's directory, not a path (${manifestFile})`);
     process.exit(2);
   }
-  const read = file => {
-    const bytes = readFileSync(file);
-    return { json: JSON.parse(bytes.toString("utf8")), sha256: createHash("sha256").update(bytes).digest("hex") };
-  };
   let report;
   try {
-    const source = read(path.join(dir, manifestFile));
-    const receipt = read(receiptFile);
-    report = rejudgeReport({ source: source.json, sourceFile: manifestFile, sourceSha256: source.sha256, receipt: receipt.json, receiptFile: path.basename(receiptFile), receiptSha256: receipt.sha256, at: new Date().toISOString() });
+    report = rejudgeReport({
+      runId,
+      sourceText: readFileSync(path.join(dir, manifestFile)),
+      sourceFile: manifestFile,
+      receiptText: readFileSync(receiptFile),
+      receiptFile: path.basename(receiptFile),
+      at: new Date().toISOString(),
+    });
+    if (report.phase !== of) throw new Error(`the manifest is ${report.phase}, not --of ${of}`);
   } catch (e) {
     console.error(`refused: ${e?.message ?? e}`);
     process.exit(2);
@@ -894,7 +930,8 @@ if (phase === "older-after-newer") {
     const res = await http({ method: "GET", url: firestore("broker", `${receiptPath(operationId)}/outcome/final`), headers: await asOperator() });
     if (res.status === 404) return { operationId, name: outcomeDocName(operationId), absent: true };
     if (res.status !== 200) throw new Error(`Firestore broker outcome/final for ${operationId}: ${res.status}`);
-    return { operationId, name: res.json?.name ?? null, outcome: decode({ mapValue: res.json }) };
+    // Validated and decoded strictly: a malformed document is a failed read.
+    return { operationId, name: res.json?.name ?? null, outcome: decodeFirestoreDocument(res.json) };
   });
   await collect("finalObject", () => objectOf(config.bucket, `${FIXTURES.private}.png`));
   finish();
