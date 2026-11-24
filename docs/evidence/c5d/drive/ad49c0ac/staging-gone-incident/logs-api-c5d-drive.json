@@ -3,7 +3,7 @@
     "httpRequest": {
       "latency": "7.626876556s",
       "protocol": "HTTP/1.1",
-      "remoteIp": "50.209.174.90",
+      "remoteIp": "<operator-ip>",
       "requestMethod": "POST",
       "requestSize": "1351",
       "requestUrl": "https://api-c5d-drive-sja7fatcta-uc.a.run.app/command",
