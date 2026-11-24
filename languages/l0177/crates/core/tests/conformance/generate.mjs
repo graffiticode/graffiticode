@@ -47,7 +47,7 @@ console.log(
 );
 
 // vocab.ts is the single source of truth for what each context accepts.
-const { VIEWS, SECTIONS, TOPLEVEL, GROUP_TAGS, WIDGET_TAGS } = vocab;
+const { VIEWS, SECTIONS, TOPLEVEL, GROUP_TAGS, WIDGET_TAGS, GROUP_NAMES, PICKER_TEMPLATES } = vocab;
 writeFileSync(
   join(root, "crates/core/src/vocab.json"),
   JSON.stringify(
@@ -57,6 +57,8 @@ writeFileSync(
       toplevel: TOPLEVEL,
       groupTags: GROUP_TAGS,
       widgetTags: WIDGET_TAGS,
+      groupNames: GROUP_NAMES,
+      pickerTemplates: PICKER_TEMPLATES,
     },
     null,
     2,
@@ -74,6 +76,7 @@ const good = ([, type, constraint]) =>
     records: '[{organisation_id: 1 item_bank_name: "b" item_pool_id: "p"}]',
     widgets: "[MCQ FORMULA]",
     groups: "[MCQ CLOZE]",
+    templates: "[MCQ-STANDARD CLOZE-DROPDOWN]",
   })[type];
 const bad = ([, type, constraint]) =>
   ({
@@ -83,12 +86,20 @@ const bad = ([, type, constraint]) =>
     strings: Array.isArray(constraint) ? '["nope" 1]' : '"one"',
     tags: '[{name: "4"} {type: ""} {type: "G" name: 5} {type: "G" kind: "x"} "plain"]',
     records: '[{organisation_id: "1" filter: {} nope: 2 item_bank_name: 5} "x"]',
-    widgets: "[MCQ NOPE]",
-    groups: "[NOPE]",
+    // Recognised tags of the wrong kind, so these reach the compiler's warnings; a bare
+    // unknown identifier would be a parse error and test nothing about the type.
+    widgets: "[MCQ CHART]",
+    groups: "[MCQ-STANDARD]",
+    templates: "[MCQ-STANDARD MCQ]",
   })[type];
 const chain = (fields, value) =>
   Object.entries(fields)
-    .map(([name, field]) => `${name} ${value(field)}`)
+    .map(([name, field]) => {
+      const sample = value(field);
+      // A type with no sample would print `undefined`, a parse error that tests nothing.
+      if (sample === undefined) throw new Error(`no ${value.name} sample for type "${field[1]}" (${name})`);
+      return `${name} ${sample}`;
+    })
     .join(" ") + " {}";
 
 const DESIGN =
@@ -191,6 +202,19 @@ const handwritten = [
   'author-embed domain "d" user-id "u" question-type-groups MCQ item-edit [] {}..',
   'author-embed domain "d" user-id "u" question-type-groups [MCQ MCQ OTHER 5] item-edit [] {}..',
   'author-embed domain "d" user-id "u" allow-widgets FORMULA item-list [] {}..',
+  // the picker restriction: exact templates, types, and the unsatisfiable (blocking) inputs
+  'author-embed domain "d" user-id "u" reference "r" allow-templates [MCQ-STANDARD CLOZE-DROPDOWN] question-type-groups [MCQ CLOZE] item-edit [] {}..',
+  'author-embed domain "d" user-id "u" reference "r" allow-widgets [MCQ CLOZE-DROPDOWN] item-edit [] {}..',
+  'author-embed domain "d" user-id "u" reference "r" allow-templates CLOZE-TEXT item-edit [] {}..',
+  'author-embed domain "d" user-id "u" reference "r" allow-templates [MCQ-STANDARD MCQ-STANDARD TRUE-OR-FALSE] allow-widgets [MCQ FORMULA] item-edit [] {}..',
+  'author-embed domain "d" user-id "u" reference "r" allow-widgets ["BOGUS"] item-edit [] {}..',
+  'author-embed domain "d" user-id "u" reference "r" allow-templates [MCQ] item-edit [] {}..',
+  'author-embed domain "d" user-id "u" reference "r" allow-widgets [CHART] item-edit [] {}..',
+  'author-embed domain "d" user-id "u" reference "r" allow-widgets [SHORT-TEXT] question-type-groups [MCQ] item-edit [] {}..',
+  'author-embed domain "d" user-id "u" reference "r" allow-widgets [MCQ SHORT-TEXT] question-type-groups [MCQ CHART] item-edit [] {}..',
+  'author-embed domain "d" user-id "u" reference "r" allow-templates [] item-list [] {}..',
+  'author-embed domain "d" user-id "u" allow-widgets [BOGUS] item-edit [] {}..',
+  'author-embed domain "d" user-id "u" reference "r" allow-templates ["constructor"] allow-widgets ["toString"] question-type-groups ["valueOf"] item-edit [] {}..',
   'author-embed domain "d" user-id "u" organisation-id "12" item-list [] {}..',
   'author-embed domain 5 user-id ["u"] reference true item-edit [] {}..',
   'author-embed domain "d" user-id "u" user-email "e" user-firstname "f" user-lastname "l" item-list [] {}..',

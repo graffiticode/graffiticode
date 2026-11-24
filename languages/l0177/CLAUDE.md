@@ -52,7 +52,7 @@ Learnosity API requests, and does not emit runnable host-language code. The comp
 a normalized design plus `warnings`; it is *not* the deliverable. The deliverable is the recipe.
 
 **Coverage:** all four Author API views are modeled — 193 options (item_edit 49, item_list 19,
-activity_edit 102, activity_list 16, plus 7 section options, and top-level `question-type-groups`), every emitted path cross-checked
+activity_edit 102, activity_list 16, plus 7 section options, and the top-level picker properties `question-type-groups`, `allow-widgets` and `allow-templates`), every emitted path cross-checked
 against Learnosity's published reference. Left out deliberately: `player_templates` (out of
 scope — it is Assess API config passed through, see `scope.json`), `item_search.item_banks.filter`
 (needs recursive record schemas), and `item_title` (deprecated by Learnosity).
@@ -181,7 +181,7 @@ resolves differently per view. `spec-directive.md` requires the generator to cop
 Declared per field in `vocab.ts` as `[learnosityPath, type, constraint?]`:
 
 `boolean` · `number` · `string` · `strings` (list of strings) · `widgets` (UPPERCASE widget-type
-tags) · `tags` (Learnosity TagsV2 — records of `{type, name?}`, written as gc records so the
+tags) · `groups` (question-type group tags) · `templates` (documented picker-template tags) · `tags` (Learnosity TagsV2 — records of `{type, name?}`, written as gc records so the
 design mirrors the payload) · `records` (a list of records validated against a schema, used by
 `item-banks`) · `unmodeled` (documented by Learnosity but deliberately not modeled — it reports
 itself as such rather than as a typo).
@@ -238,22 +238,26 @@ exist. Do not soften them without new evidence:
 - **The Author API fails open on `config`.** An unrecognized key is silently ignored — the
   editor still initializes, `readyListener` still fires, and the page looks correct while
   enforcing nothing. A wrong config path is therefore *worse* than an acknowledged unknown.
-- **The picker restriction IS verified, at GROUP granularity.**
-  `config.dependencies.question_editor_api.init_options.question_type_groups` takes
-  `{reference, name, template_references?}` entries. An existing reference overrides that group's
-  templates; `[]` removes the group; omitting the key leaves it whole; a **new** reference ADDS a
-  group. So restricting means overriding all ten (`mcq` `cloze` `match` `writespeak` `highlight`
-  `math` `graph` `chart` `chemistry` `other`) — which `question-type-groups` emits. Measured
-  differentially: control 10 groups/51 templates → restricted to two groups, 2 kept whole = 13
-  templates. The earlier "no effect" reading came from supplying a *new* reference, which is
-  additive: the config was in force and the picker looked untouched. Only a control comparison
-  separates "ignored" from "additive".
-- **Question TYPES are a separate taxonomy; no per-type restriction mechanism has been confirmed in the tested configuration.** `allow-widgets` names types
-  (`mcq`, `clozetext`); the mechanism selects groups and templates, and one group holds several
-  types. It stays design intent, and the compiler warns when it appears without
-  `question-type-groups`. Never emit `init_options.widgetTypes` (no effect, absent from the current
-  reference) or `config.widget_templates.widget_types` (documented `{default, show}` — never a
-  restriction key).
+- **Hiding picker groups is NOT a restriction; search bypasses it (observed 2026-11-24).** L0177
+  used to override all ten default `question_type_groups`, omitting `template_references` on kept
+  groups and `[]` on the rest. That narrowed the sidebar (control 10 groups/51 tiles → 2/13), and
+  the sidebar count was the differential, but searching the picker for "essay" still listed seven
+  templates from the hidden groups (an Author API comparison run on localhost against the public demo consumer). With the
+  default `group_defaults: true`, `question_type_groups` only extends the defaults.
+- **The picker restriction is `group_defaults: false` plus only the wanted groups, each with explicit
+  `template_references` [documented, help.learnosity.com 16735159465757 and 360000755178; verified 2026-11-24].**
+  `question-type-groups` (groups), `allow-widgets` (every documented template of a type) and
+  `allow-templates` (exact templates) each narrow the documented default templates
+  (`PICKER_TEMPLATES` in `vocab.ts`, advanced layout; the references are Learnosity's published
+  defaults, not account-specific). `finalize()` emits both keys, `data.question_type_groups` and
+  `data.picker_templates`. A requested restriction that leaves nothing is a HOLE with no picker
+  config, because an empty group set fails open to the full catalogue. Verified 2026-11-24 with the
+  compiler's own output, search included (Author API v1.152.2, demo consumer): control 10 groups,
+  "essay" 7, empty search 66; exact templates 2/none/2; groups-only 2/none/13; and a hand-built
+  empty group set showed 0 groups and 50 raw question types, the fail-open the hole prevents.
+  Measurements in `spec/instructions.md`. Never emit
+  `init_options.widgetTypes` (no effect) or `config.widget_templates.widget_types` (documented
+  `{default, show}` — never a restriction key).
 - **Because of fail-open, any check on config-driven behaviour must be differential** — a
   control run with the key omitted — *including* enabling keys, not just restricting ones.
   "Confirm editing works" passes whether or not `edit: true` took effect.
@@ -322,7 +326,7 @@ npm run rust:fixtures # build packages/core, then regenerate src/vocab.json, src
 
 ### Conformance
 
-`crates/core/tests/conformance/generate.mjs` builds most of its corpus from the vocabulary: every field of every member, view and section, once with a value of its type and once with a wrong one, in a complete design and in one with holes; every member in each view that does not accept it; every top-level property. Then the spec's programs, the TypeScript suite's, and hand-written cases. `tests/conformance.rs` requires the same JSON text (field order, warning order and recorded paths included) or the same errors, for all 99 but the one difference below. A new field in `vocab.ts` is covered as soon as the fixture is regenerated.
+`crates/core/tests/conformance/generate.mjs` builds most of its corpus from the vocabulary: every field of every member, view and section, once with a value of its type and once with a wrong one, in a complete design and in one with holes; every member in each view that does not accept it; every top-level property. Then the spec's programs, the TypeScript suite's, and hand-written cases. `tests/conformance.rs` requires the same JSON text (field order, warning order and recorded paths included) or the same errors, for all 111 but the one difference below. A new field in `vocab.ts` is covered as soon as the fixture is regenerated.
 
 One deliberate difference: a property given an undefined value (`domain get-var "nope"`) is kept as `null`, so the design shows `"domain": null`; TypeScript's field holds `undefined` and vanishes from the JSON. The warnings are the same.
 

@@ -13,8 +13,15 @@ import { fileURLToPath } from "url";
 // a NEW group reference, which is additive: the config was in force and the picker looked
 // untouched. Both readings were honest; only the comparison against a control separated them.
 //
-// So these assertions now pin the verified mechanism. If a future run contradicts it again, change
-// them again — but only on evidence from a differential run, never from documentation alone.
+// Then a third time, 2026-11-24: that ten-group override narrowed only the SIDEBAR. Searching the
+// picker for "essay" listed seven templates from the hidden groups — the sidebar count, which was
+// the differential, could not see it. An independent implementation of the documented mechanism
+// (group_defaults false plus only the wanted groups, each naming its template references) showed
+// two templates and no essay. So these assertions pin that mechanism as DOCUMENTED, the search
+// check that would have caught the bypass, and the fail-open refusal of an empty restriction. When
+// a search-inclusive differential confirms the mechanism, record it in instructions.md and promote
+// the label; never promote it from documentation alone. (Promoted the same day: the fixed compiler's
+// output, run with search, held — see the measurements in instructions.md.)
 //
 // What this test does NOT do: it pins the prompt, not the output. A passing run says the rules are
 // still written down — it cannot tell you the generator obeyed them. Recipe generation is sampled,
@@ -31,11 +38,49 @@ const directive = read("spec-directive.md");
 const instructions = read("instructions.md");
 
 describe("spec-directive.md keeps the rules the live API taught us", () => {
-  test("asserts the verified group path, and explains why all ten groups appear", () => {
-    expect(instructions).toContain("config.dependencies.question_editor_api.init_options.question_type_groups");
-    expect(directive).toContain("all ten default group references");
-    // The trap that made this key read as inert: an unknown group reference is additive.
-    expect(directive).toContain("ADDITIVE");
+  test("the picker restriction is group_defaults false plus only the wanted groups", () => {
+    expect(instructions).toContain("config.dependencies.question_editor_api.init_options");
+    expect(directive).toContain("`group_defaults: false` plus ONLY the groups in the `<COMPILED_PICKER>` block's `question_type_groups`");
+    // With the default true, question_type_groups only extends the defaults.
+    expect(directive).toContain("only EXTENDS the default groups");
+    expect(directive).toContain("Never emit the old ten-group `[]` override");
+  });
+
+  test("hiding groups is named as sidebar-only, with the observation that showed it", () => {
+    expect(instructions).toContain("Hiding groups is NOT a restriction — search bypasses it");
+    expect(instructions).toContain("removes **sidebar tiles only**");
+    expect(instructions).toContain("counted SIDEBAR groups and tiles only");
+  });
+
+  // Promoted 2026-11-24 on a search-inclusive differential; the table is the evidence.
+  test("the mechanism is verified with search, and the evidence is recorded", () => {
+    expect(instructions).toContain("[verified 2026-11-24, search included");
+    expect(instructions).toContain("| control (no `init_options`) | 10 | 7 templates | 66 tiles |");
+    expect(instructions).toContain("50 raw question types (fails open)");
+    // Verified MECHANISM is not a verified DEPLOYMENT.
+    expect(directive).toContain("intent pending observation in THIS deployment");
+  });
+
+  test("a picker differential must include search, in both runs", () => {
+    expect(directive).toContain("A picker differential must include SEARCH");
+    expect(directive).toContain("search for a question type the design does NOT allow");
+    expect(directive).toContain("submit an empty search");
+    expect(directive).toContain("Counting sidebar groups or tiles proves nothing");
+  });
+
+  // The prompt carries what the compiler resolved (graffiticode-app withCompiledData); a rule that
+  // names data the prompt never holds sends the generator off to derive it.
+  test("the picker and the holes are read from the blocks the prompt carries", () => {
+    expect(directive).toContain("<COMPILED_PICKER>");
+    expect(directive).toContain("<COMPILED_HOLES>");
+    expect(directive).toContain("If there is no `<COMPILED_PICKER>` block, the design sets no picker restriction");
+    expect(directive).not.toContain("data.question_type_groups");
+    expect(directive).not.toContain("data.picker_templates");
+  });
+
+  test("an empty restriction is refused, because it fails open", () => {
+    expect(instructions).toContain("An empty restriction FAILS OPEN");
+    expect(directive).toContain("never emit `group_defaults: false` with an empty group list");
   });
 
   test("still refuses the paths that were shown not to restrict", () => {
@@ -44,10 +89,12 @@ describe("spec-directive.md keeps the rules the live API taught us", () => {
     expect(directive).toContain("widget_templates.widget_types");
   });
 
-  test("question types stay intent — only groups are enforced", () => {
-    expect(directive).toContain("Question TYPES are a different taxonomy");
-    expect(directive).toContain("NOT restrictable");
+  test("question types and templates are restrictable through template references", () => {
+    expect(directive).toContain("Question types and templates ARE restrictable — through template references");
+    expect(directive).toContain("`mcq` has four");
     expect(directive).toContain("Never invent a per-type config key");
+    // The limit: picker restriction, not validation of stored content.
+    expect(directive).toContain("it does not validate stored or imported item JSON");
   });
 
   test("config-behaviour checks must be differential, including enabling keys", () => {
@@ -116,6 +163,15 @@ describe("spec-directive.md keeps the rules the live API taught us", () => {
   test("a present-but-nonexistent reference fails identically to an omitted one", () => {
     expect(directive).toContain("present but names nothing");
     expect(directive).toContain("confirm the named item exists in that bank");
+  });
+
+  // 2026-11-24: in item-edit a new reference creates a draft, so existence is blocking only when
+  // the design's purpose is editing existing content.
+  test("item existence is conditional on the intent to edit existing content", () => {
+    expect(directive).toContain("WHEN THE INTENT IS TO EDIT AN EXISTING item/activity");
+    expect(directive).toContain("a new reference creates a new draft item");
+    expect(directive).toContain("check that an empty draft opens instead");
+    expect(instructions).toContain("a new reference is how a new draft item is created");
   });
 
   // Round two of implementer feedback, 2026-08-12. The first three defects made the recipe wrong;
@@ -207,9 +263,12 @@ describe("spec-directive.md keeps the rules the live API taught us", () => {
     expect(instructions).toContain("41001 vs 41003");
   });
 
-  test("template-reference UUIDs are not a portable per-type restriction", () => {
-    expect(instructions).toContain("ACCOUNT-SPECIFIC UUID");
-    expect(instructions).toContain("nothing transferable");
+  // Corrected 2026-11-24: the earlier text called 457fe101-… an account-specific id. It is the
+  // documented default reference of "Cloze with text", the same for every consumer.
+  test("template references are Learnosity's published defaults, not account-specific", () => {
+    expect(instructions).toContain("Learnosity's published defaults, the same for every consumer");
+    expect(instructions).toContain("457fe101-0667-4a35-b193-b849653acb52");
+    expect(instructions).not.toContain("ACCOUNT-SPECIFIC UUID");
   });
 
   test("what can block the whole task leads the document", () => {
@@ -262,10 +321,11 @@ describe("instructions.md keeps the canonical knowledge honest", () => {
     expect(scope.out_of_scope.join(" ")).toContain("WHO consumes the result");
   });
 
-  test("the restriction mechanism is recorded as verified, with its group references", () => {
-    expect(instructions).toContain("MECHANISM VERIFIED");
+  test("the restriction mechanism is recorded as documented, with its group references", () => {
+    expect(instructions).toContain("`group_defaults: false` plus explicit groups [verified");
+    expect(instructions).not.toContain("MECHANISM VERIFIED");
     expect(instructions).toContain("question_type_groups");
-    // Every group must be listed: restricting means overriding all ten.
+    // Every default group reference is named, so a design's groups can be checked against them.
     for (const g of ["mcq", "cloze", "match", "writespeak", "highlight",
       "math", "graph", "chart", "chemistry", "other"]) {
       expect(instructions).toContain(`\`${g}\``);

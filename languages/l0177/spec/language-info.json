@@ -1,6 +1,6 @@
 {
   "id": "0177",
-  "description": "Empirical integration oracle. Produces developer integration recipes for the Learnosity Author API. The client describes an integration design — which authoring experience to embed (item editor, item browser, activity editor, activity list) and how it's configured (which question-type groups authors may use, editor and widget permissions, list filters and toolbars, assessment-player settings, content tags, item banks) — and L0177 validates it, flags holes (missing required properties like the serving domain, the author user id, or the item reference) as steering warnings, and via get_spec returns a host-language-neutral recipe: goal, preconditions, procedure, gotchas, and runnable verification steps. Restricting the question picker via question-type groups is a mechanism observed to restrict the picker at group granularity; finer-grained question-type limits are carried as design intent plus a verification step. It does NOT author item content (that is L0176) and does NOT emit runnable code. Its knowledge combines documentation with direct API observations. Recipes preserve consequential claims' evidence and limits; a complete design is not a verified deployment. It does not sign or send Learnosity requests when producing a recipe.",
+  "description": "Empirical integration oracle. Produces developer integration recipes for the Learnosity Author API. The client describes an integration design — which authoring experience to embed (item editor, item browser, activity editor, activity list) and how it's configured (which question types and templates authors may add, editor and widget permissions, list filters and toolbars, assessment-player settings, content tags, item banks) — and L0177 validates it, flags holes (missing required properties like the serving domain, the author user id, or the item reference) as steering warnings, and via get_spec returns a host-language-neutral recipe: goal, preconditions, procedure, gotchas, and runnable verification steps. Restricting the question picker by group, question type or exact template uses Learnosity's documented mechanism (group_defaults false plus explicit groups and template references), verified with search included; the recipe carries it as intent that a search-inclusive differential must confirm in the caller's deployment. It does NOT author item content (that is L0176) and does NOT emit runnable code. Its knowledge combines documentation with direct API observations. Recipes preserve consequential claims' evidence and limits; a complete design is not a verified deployment. It does not sign or send Learnosity requests when producing a recipe.",
   "supported_item_types": [
     "item-edit",
     "item-list",
@@ -11,7 +11,7 @@
     {
       "prompt": "How do I embed the Learnosity item editor in my LMS for author u123 on lms.acme.edu, allowing only MCQ and cloze questions?",
       "produces": "item-edit",
-      "notes": "Names the experience (item editor), the serving domain, the author identity, and restricts what authors may add — which becomes question-type-groups, a mechanism observed to restrict the picker at group granularity."
+      "notes": "Names the experience (item editor), the serving domain, the author identity, and restricts what authors may add — which becomes question-type-groups [MCQ CLOZE]: group_defaults false plus only those two groups, each naming its documented templates."
     },
     {
       "prompt": "I want to embed a Learnosity item browser so my authors can find and open existing items.",
@@ -24,9 +24,9 @@
       "notes": "The activity_edit view; reference is optional (new vs existing activity)."
     },
     {
-      "prompt": "Let authors edit item algebra-item-1 but not delete widgets, restricted to short text and formula questions.",
+      "prompt": "Let authors edit item algebra-item-1 but not delete widgets, restricted to short text and standard multiple choice questions.",
       "produces": "item-edit",
-      "notes": "Sets a reference, a widget permission (no delete), and limits the question types offered — the recipe's verification checks each, differentially."
+      "notes": "Sets a reference, a widget permission (no delete), and limits the picker to two exact templates (allow-templates [SHORT-TEXT MCQ-STANDARD]) — the recipe's verification checks each, differentially, the picker including a search for an excluded type."
     }
   ]
 }

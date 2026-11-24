@@ -48,10 +48,35 @@ pub struct Vocab {
     pub views: IndexMap<String, View>,
     pub sections: IndexMap<String, Member>,
     pub toplevel: Fields,
-    /// Question-type groups, the granularity the Author API restricts at, by tag.
+    /// Question-type groups (the picker's sidebar panes), by tag.
     pub group_tags: IndexMap<String, String>,
     /// Widget types by tag.
     pub widget_tags: IndexMap<String, String>,
+    /// The documented label of each default group, by group reference.
+    pub group_names: IndexMap<String, String>,
+    /// The documented default picker templates (advanced layout), by tag, in group order.
+    pub picker_templates: IndexMap<String, Template>,
+}
+
+/// One documented default picker template.
+#[derive(Debug, Clone)]
+pub struct Template {
+    pub reference: String,
+    /// The question type, Learnosity's exact string (`clozedropdown`).
+    pub kind: String,
+    pub group: String,
+    pub name: String,
+}
+
+fn templates(json: &Json) -> IndexMap<String, Template> {
+    json.as_object()
+        .into_iter()
+        .flatten()
+        .map(|(tag, parts)| {
+            let part = |i: usize| parts[i].as_str().expect("a template is [reference, type, group, name]").to_owned();
+            (tag.clone(), Template { reference: part(0), kind: part(1), group: part(2), name: part(3) })
+        })
+        .collect()
 }
 
 fn field(json: &Json) -> Field {
@@ -107,6 +132,8 @@ static VOCAB: LazyLock<Vocab> = LazyLock::new(|| {
         toplevel: fields(&json["toplevel"]),
         group_tags: names(&json["groupTags"]),
         widget_tags: names(&json["widgetTags"]),
+        group_names: names(&json["groupNames"]),
+        picker_templates: templates(&json["pickerTemplates"]),
     }
 });
 
@@ -150,6 +177,14 @@ mod tests {
         assert_eq!(banks.schema.as_ref().unwrap()["filter"].kind, "unmodeled");
         assert_eq!(vocab.toplevel["allow-widgets"].path, None);
         assert_eq!(vocab.group_tags.len(), 10);
+        assert_eq!(vocab.group_names.len(), 10);
+        assert_eq!(vocab.picker_templates.len(), 49);
+        assert_eq!(vocab.picker_templates["CLOZE-DROPDOWN"].reference, "2fbba51b-e35e-441f-83c7-2662e2e81fa6");
+        // Every template sits in a known group, under a known question type.
+        for template in vocab.picker_templates.values() {
+            assert!(vocab.group_names.contains_key(&template.group), "{}", template.group);
+            assert!(vocab.widget_tags.values().any(|kind| *kind == template.kind), "{}", template.kind);
+        }
         // A keyword is a member or a property, never both: it has one arity.
         for view in vocab.views.values() {
             for member in view.members.keys() {
