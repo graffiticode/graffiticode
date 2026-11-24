@@ -15,12 +15,14 @@ L0177 is a developer-integration oracle for the Learnosity **Author API**: it do
 `config`**: an unrecognized key is silently ignored — the editor still initializes, `readyListener`
 still fires, and the page looks correct while enforcing nothing.
 
-What that means in practice differs by property. **`question-type-groups` is enforced** — restricting
-the picker to named question-type groups was verified differentially against the live API, and the
-recipe states it as fact. **`allow-widgets` is not**: it names finer-grained question types, and no
-confirmed config key restricts at that granularity, so the recipe carries it as intent plus a check.
-Ask for `question-type-groups` when a client wants authors limited to particular kinds of question;
-`allow-widgets` alone changes nothing in the editor, and the compiler will say so.
+What that means in practice differs by property. **The question-picker restriction is verified**
+(measured 2026-11-24, search included): `question-type-groups` (groups), `allow-widgets` (every template of a question
+type) and `allow-templates` (exact templates) together produce `group_defaults: false` plus only the
+wanted groups, each naming its templates. The recipe states it as intent that your own differential —
+including a SEARCH for an excluded type — must confirm in your deployment. An earlier L0177 restriction that hid groups
+narrowed only the sidebar, and search still exposed the hidden templates; that is why the search check
+is required. A restriction that leaves nothing to offer is refused as a hole, because an empty one
+would fail open to the full catalogue.
 
 For the same fail-open reason, some **verification steps are differential** — they ask you to load
 the editor twice, once with the key omitted, because simply observing the behaviour you wanted
@@ -52,15 +54,15 @@ Everything is expressed in natural language — the generator writes the DSL. Gi
 - **The serving domain** — the signature binds to it; a mismatch is the #1 401.
 - **The author's user id** — recorded in the item-bank audit trail.
 - For editing, **the item/activity reference**.
-- **Which kinds of question authors may add** — say it plainly ("only multiple choice and cloze") and the design will set `question-type-groups`, a picker restriction observed at group granularity.
+- **Which kinds of question authors may add** — say it plainly. "Only multiple choice and cloze" sets `question-type-groups`; "only standard multiple choice and cloze drop-downs" sets `allow-templates [MCQ-STANDARD CLOZE-DROPDOWN]`. Be exact: multiple choice as a TYPE brings four templates (standard, multiple response, true or false, block layout).
 - Optionally: the specific question types intended, editor options (edit/delete widgets, tags, dynamic content, shared passage), a **specific item bank**, container sizing.
 
 The compiler validates each property, so under-specified or inconsistent designs come back as clear steering warnings to refine.
 
-**A design being expressible is not a promise that Learnosity enforces it.** `question-type-groups`
-is verified and may be promised. The widget edit/delete permissions are verified too. `allow-widgets`
-(question types) is the one that is **not** — ask for it, and the recipe carries it as *intent*
-plus a check that can falsify it. Do not promise a restriction
+**A design being expressible is not a promise that Learnosity enforces it.** The widget
+edit/delete permissions and the picker restriction are verified mechanisms; the recipe still carries
+each as *intent* plus a differential check (for the picker, search-inclusive) that can falsify it in
+your deployment. Do not promise a restriction
 that has not been observed in a running editor.
 
 ## Out of scope

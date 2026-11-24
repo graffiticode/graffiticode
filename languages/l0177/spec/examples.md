@@ -6,7 +6,7 @@ through the generator to produce examples organically; the programs they yield a
 
 They are phrased the way a client actually asks — an integration to embed and how it should behave —
 not as descriptions of the vocabulary. Between them they should reach every part of the surface:
-all four views, the enforced question-picker restriction, editor and widget permissions, the
+all four views, the question-picker restriction (by group, question type and exact template), editor and widget permissions, the
 metadata pane, list filters and toolbars, assessment-player settings, content tags, item banks,
 container and global options, and designs that arrive with holes still in them.
 
@@ -39,6 +39,7 @@ L0177 returns a developer recipe (via `get_spec`), not item content and not runn
 14. Turn off the item editor's save button entirely, our own app handles saving. app.learnco.io, author u-4412, item sci-hotspot-1.
 15. Enable audio recording and dynamic content on items in our editor at media.acme.edu for author m-9, item speaking-1.
 16. Embed the item editor for author j.chen@acme.edu (Jamie Chen) on authoring.acme.edu, item bank 4021, editing item alg-quad-3.
+17. Embed the item editor on lms.acme.edu for author u123, new item faceoff-1, offering only standard multiple choice (not multiple response or true/false) and cloze with drop-downs.
 
 ## Item browser — `item-list`
 

@@ -26,7 +26,7 @@ export const TOK = (kw: string) => kw.toUpperCase().replace(/-/g, "_");
 //   boolean | number | string | strings (array of strings) | widgets (widget-type
 //   tag list) | tags (Learnosity TagsV2: records of {type, name?}) | records (a list
 //   of records validated against a schema) | groups (question-type picker groups, the
-//   granularity Learnosity restricts at) | unmodeled (documented, deliberately not
+//   sidebar panes) | templates (documented default picker templates) | unmodeled (documented, deliberately not
 //   modeled — reported as such rather than as a typo)
 //
 // The optional third element is a per-type CONSTRAINT: the accepted values for
@@ -424,10 +424,11 @@ export const SECTIONS: Record<string, Member> = {
 };
 
 // Top-level properties in the author-embed chain -> [request path, type].
-// `allow-widgets` has NO confirmed Learnosity binding (the documented widget-type
-// restriction path was tested against the live API and restricts nothing), so its
-// path is null: the recipe must carry it as intent plus a verification step, never
-// as a config key. See spec/instructions.md.
+// The three picker properties narrow ONE restriction between them, and finalize() emits
+// it: `init_options.group_defaults: false` plus `init_options.question_type_groups`
+// naming only the groups left, each with explicit documented `template_references`.
+// `allow-widgets` and `allow-templates` have no config key of their own (path null);
+// they select which documented templates those groups carry. See PICKER_TEMPLATES.
 export const TOPLEVEL: Record<string, [string | null, string]> = {
   "domain": ["domain", "string"],
   "user-id": ["user.id", "string"],
@@ -437,8 +438,9 @@ export const TOPLEVEL: Record<string, [string | null, string]> = {
   "reference": ["reference", "string"],
   "organisation-id": ["organisation_id", "number"],
   "allow-widgets": [null, "widgets"],
-  // The one restriction Learnosity actually enforces, and the only top-level property
-  // with a config (rather than request) path.
+  "allow-templates": [null, "templates"],
+  // The only top-level property with a config (rather than request) path. Its sibling
+  // `group_defaults` lives beside it under the same init_options.
   "question-type-groups": [
     "config.dependencies.question_editor_api.init_options.question_type_groups", "groups",
   ],
@@ -464,11 +466,16 @@ export const PROPERTIES: string[] = [
   ]),
 ];
 
-// Question-type GROUPS — the ten panes of the editor's widget picker, and the only
-// granularity at which Learnosity actually restricts what an author may add. Verified
-// differentially against the live Author API (see instructions.md): overriding a group
-// reference with an empty `template_references` removes that group, and overriding it
-// with the key omitted leaves it whole. Restricting therefore means overriding all ten.
+// Question-type GROUPS — the ten panes of the editor's widget picker, by tag.
+//
+// Hiding a group is NOT restricting the picker. Overriding a default group with an empty
+// `template_references` removes its sidebar tile, but with `group_defaults` left at its
+// default (true) the default templates stay in the catalogue that the picker's SEARCH
+// reads: observed 2026-11-24 (faceoff, demo consumer, localhost) — a ten-group override
+// keeping mcq + cloze showed two sidebar groups, yet searching "essay" listed seven
+// templates from the hidden groups. The restriction is `group_defaults: false` plus only
+// the wanted groups, each naming its templates (help.learnosity.com 16735159465757,
+// 360000755178 [documented]); see PICKER_TEMPLATES.
 export const GROUP_TAGS: Record<string, string> = {
   "MCQ": "mcq",
   "CLOZE": "cloze",
@@ -493,4 +500,93 @@ export const WIDGET_TAGS: Record<string, string> = {
   "TOKEN-HIGHLIGHT": "tokenhighlight", "NUMBER-LINE": "numberline", "ASSOCIATION": "association",
   "FILL-IN-THE-BLANKS": "fillintheblanks", "IMAGE-CLOZE-ASSOCIATION": "imageclozeassociation",
   "IMAGE-CLOZE-TEXT": "imageclozetext",
+  // The remaining question types that carry a documented default picker template (the
+  // `question_type_templates` keys in PICKER_TEMPLATES), with Learnosity's exact casing.
+  "IMAGE-CLOZE-ASSOCIATION-V2": "imageclozeassociationV2", "IMAGE-CLOZE-DROPDOWN": "imageclozedropdown",
+  "LONG-TEXT-V2": "longtextV2", "AUDIO": "audio", "VIDEO": "video", "DRAWING": "drawing",
+  "SIMPLE-SHADING": "simpleshading", "CLOZE-FORMULA-V2": "clozeformulaV2",
+  "IMAGE-CLOZE-FORMULA": "imageclozeformula", "IMAGE-CLOZE-FORMULA-V2": "imageclozeformulaV2",
+  "MULTI-STEP-MATH": "multistepmath", "FORMULA-ESSAY-V2": "formulaessayV2",
+  "NUMBER-LINE-PLOT": "numberlineplot", "SIMPLE-CHART": "simplechart", "CHEMISTRY": "chemistry",
+  "CLOZE-CHEMISTRY": "clozechemistry", "CHEMISTRY-ESSAY-V2": "chemistryessayV2",
+  "IMAGE-CLOZE-CHEMISTRY": "imageclozechemistry", "FILE-UPLOAD": "fileupload",
+  "IMAGE-UPLOAD": "imageupload", "RATING": "rating", "GRIDDED": "gridded",
+};
+
+// The documented labels of the ten default groups, by group reference.
+export const GROUP_NAMES: Record<string, string> = {
+  "mcq": "Multiple Choice",
+  "cloze": "Fill in the Blanks (Cloze)",
+  "match": "Classify, Match & Order",
+  "writespeak": "Written & Recorded",
+  "highlight": "Highlight and Drawing",
+  "math": "Math",
+  "graph": "Graphing",
+  "chart": "Charts",
+  "chemistry": "Chemistry",
+  "other": "Other",
+};
+
+// The default picker templates (ADVANCED layout mode, the default), by template tag:
+// [template reference, question type, group reference, documented name]. Copied from
+// help.learnosity.com 360000755178 "Customizing the Tile View With Author API", Default
+// settings → Question templates (advanced mode), retrieved 2026-11-24 [documented]. The
+// references are Learnosity's published defaults, the same for every consumer — not
+// account-specific ids. The simple layout mode has a DIFFERENT set; it is not modeled.
+// A consumer's live catalogue may hold more templates than this list (the 2026-08 control
+// run counted 51 tiles; this lists 49), which is why only explicitly named templates are
+// ever emitted.
+//
+// Tag rule: a question type with ONE default template uses its widget tag (CLOZE-DROPDOWN);
+// a type with several gets one tag per template (MCQ-STANDARD, MCQ-MULTIPLE-RESPONSE …).
+export const PICKER_TEMPLATES: Record<string, [string, string, string, string]> = {
+  "MCQ-STANDARD": ["9e8149bd-e4d8-4dd6-a751-1a113a4b9163", "mcq", "mcq", "Multiple choice – standard"],
+  "MCQ-MULTIPLE-RESPONSE": ["908de244-5c71-4c09-b094-7fb49554f2f9", "mcq", "mcq", "Multiple choice – multiple response"],
+  "TRUE-OR-FALSE": ["3egs0b24-5gs8-49fc-fds9-4a450sdg31ca", "mcq", "mcq", "True or false"],
+  "MCQ-BLOCK-LAYOUT": ["33d53a22-1a59-4a03-9671-7f5104edd62e", "mcq", "mcq", "Multiple choice – block layout"],
+  "CHOICE-MATRIX-STANDARD": ["14b7af71-e146-4747-aae5-ca71618a5038", "choicematrix", "mcq", "Choice matrix – standard"],
+  "CHOICE-MATRIX-INLINE": ["f109c77c-390e-4595-93b8-2dbd547251b6", "choicematrix", "mcq", "Choice matrix – inline"],
+  "CHOICE-MATRIX-LABELS": ["9de82e14-802c-4bea-a635-bf9ad0b622fb", "choicematrix", "mcq", "Choice matrix – labels"],
+  "CLOZE-ASSOCIATION": ["51a8c1e7-f34f-4faf-b211-da458e891fcb", "clozeassociation", "cloze", "Cloze with drag & drop"],
+  "CLOZE-DROPDOWN": ["2fbba51b-e35e-441f-83c7-2662e2e81fa6", "clozedropdown", "cloze", "Cloze with drop down"],
+  "CLOZE-TEXT": ["457fe101-0667-4a35-b193-b849653acb52", "clozetext", "cloze", "Cloze with text"],
+  "IMAGE-CLOZE-ASSOCIATION-V2": ["6e77b403-8f0c-43af-b464-9450e1ac70dc", "imageclozeassociationV2", "cloze", "Label image with drag & drop"],
+  "IMAGE-CLOZE-DROPDOWN": ["f8364191-ada5-4806-83d4-8a36b8fad4b0", "imageclozedropdown", "cloze", "Label image with drop-down"],
+  "IMAGE-CLOZE-TEXT": ["35a850a7-9d3f-4e1c-880a-a340767942b6", "imageclozetext", "cloze", "Label image with text"],
+  "CLASSIFICATION": ["ef2648de-f826-4674-b17d-71e71889d8e6", "classification", "match", "Classification"],
+  "ASSOCIATION": ["1fa22aac-1f88-47f7-941b-3c77759549e6", "association", "match", "Match list"],
+  "ORDER-LIST": ["0c7f68f7-2be6-4ae0-8492-0ab78c8d0010", "orderlist", "match", "Order list"],
+  "SORT-LIST": ["63891006-450a-4ffe-9876-74d62efa0152", "sortlist", "match", "Sort list"],
+  "LONG-TEXT-V2": ["1e6039f8-0676-495d-aca9-108710a51ce5", "longtextV2", "writespeak", "Essay with rich text"],
+  "PLAIN-TEXT": ["0f559437-5072-475e-830d-1fa9d2f6bb0d", "plaintext", "writespeak", "Essay with plain text"],
+  "SHORT-TEXT": ["4fe6c726-419c-4aff-b189-4a9756a0ffda", "shorttext", "writespeak", "Short text"],
+  "AUDIO": ["4e9e4ec1-7441-462f-ad70-d94cbaf0d14e", "audio", "writespeak", "Audio recorder"],
+  "VIDEO": ["4e9e4ec1-7437-462f-ad70-d94cbaf0d14e", "video", "writespeak", "Video recorder"],
+  "DRAWING": ["c20d4103-5214-4cdd-bc17-29c98f0e7c0c", "drawing", "highlight", "Drawing"],
+  "SIMPLE-SHADING": ["b30bc5dc-b616-4913-a8b4-b5dd9c43bafd", "simpleshading", "highlight", "Shading"],
+  "TOKEN-HIGHLIGHT": ["47f0db98-79e8-4273-946f-90faf4a2ae49", "tokenhighlight", "highlight", "Token highlight"],
+  "HOTSPOT": ["f0416e39-72fc-4d40-8d6e-c6f97e621fd4", "hotspot", "highlight", "Hotspot"],
+  "CLOZE-FORMULA-V2": ["ef0ab0ba-235f-459d-9380-a4a106280c9a", "clozeformulaV2", "math", "Math"],
+  "CLOZE-FORMULA": ["57b0690f-4e99-4bbc-9c8f-aa3074baa495", "clozeformula", "math", "Cloze math"],
+  "IMAGE-CLOZE-FORMULA": ["11c9093a-dfd3-4852-b1ee-d5e5c3f032df", "imageclozeformula", "math", "Cloze math with image"],
+  "IMAGE-CLOZE-FORMULA-V2": ["76504b1a-8f37-4ab8-bcbf-875c966c72af", "imageclozeformulaV2", "math", "Label image with math"],
+  "MULTI-STEP-MATH": ["7ebe931e-06b8-4fc8-95d2-c7ec4fbf1239", "multistepmath", "math", "Multi-step math"],
+  "FORMULA-ESSAY-V2": ["7b810c2c-9100-4ff1-96de-cda23bf34445", "formulaessayV2", "math", "Math essay with rich text"],
+  "GRAPH-PLOTTING-STANDARD": ["b7dc8b69-c12a-4c4f-ac17-181ac6e0da26", "graphplotting", "graph", "Graphing"],
+  "GRAPH-PLOTTING-FIRST-QUADRANT": ["f325a114-bb81-4e7f-86e0-1147416a78a8", "graphplotting", "graph", "Graphing in the 1st quadrant"],
+  "NUMBER-LINE": ["f5c683be-b5e0-421d-a593-f6a59312aba2", "numberline", "graph", "Number line with drag & drop"],
+  "NUMBER-LINE-PLOT": ["02a2d2fe-c028-42d0-b139-e58a60780928", "numberlineplot", "graph", "Number line with plot"],
+  "BAR-CHART": ["24f76ba0-24af-4be4-aacf-c31c6efd33e3", "simplechart", "chart", "Bar chart"],
+  "LINE-CHART": ["8c28ecfd-ab0b-43de-bfac-e572eeb06851", "simplechart", "chart", "Line chart"],
+  "HISTOGRAM": ["cb9cb540-05b2-44e0-bef3-1b31727c1c37", "simplechart", "chart", "Histogram"],
+  "DOT-PLOT": ["2f93c2f1-f7d9-423a-94c9-5df5aabdddc9", "simplechart", "chart", "Dot plot"],
+  "LINE-PLOT": ["1f20bb6e-8685-4eaa-9c70-ef80b811e483", "simplechart", "chart", "Line plot"],
+  "CHEMISTRY": ["e484fac0-4022-4b58-b86f-4a537002f449", "chemistry", "chemistry", "Chemistry formula"],
+  "CLOZE-CHEMISTRY": ["36e1da6f-5966-4912-a547-75bffdd77950", "clozechemistry", "chemistry", "Cloze chemistry"],
+  "CHEMISTRY-ESSAY-V2": ["c07e5630-e0f4-4d0d-b1f8-3908e0d7e474", "chemistryessayV2", "chemistry", "Chemistry essay with rich text"],
+  "IMAGE-CLOZE-CHEMISTRY": ["4d2a04cb-f8a9-4678-b8c6-0dd4bce25fbc", "imageclozechemistry", "chemistry", "Cloze chemistry with image"],
+  "FILE-UPLOAD": ["8ff43fa9-804b-42e7-9b3e-4cdd7e3a882d", "fileupload", "other", "File upload"],
+  "IMAGE-UPLOAD": ["8ff43fa9-804b-42e7-9b3e-3cdd7e3a882b", "imageupload", "other", "Image annotation upload"],
+  "RATING": ["8e99fa69-b829-4a7d-ae2a-eb935fe3a2c6", "rating", "other", "Rating"],
+  "GRIDDED": ["f0416e39-72fc-4d40-8d6e-c6f97e621fd5", "gridded", "other", "Gridded"],
 };

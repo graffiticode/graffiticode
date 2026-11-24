@@ -35,7 +35,7 @@ different Learnosity node in `item-edit` than in `item-list`, and the shared nam
 
 | Context | Properties |
 | :------ | :--------- |
-| top-level (`author-embed`) | `domain`(str, req) · `user-id`(str, req) · `user-email` · `user-firstname` · `user-lastname` · `reference`(str) · `organisation-id`(num) · `question-type-groups`(group tag list — the enforced restriction) · `allow-widgets`(widget tag list — intent only) |
+| top-level (`author-embed`) | `domain`(str, req) · `user-id`(str, req) · `user-email` · `user-firstname` · `user-lastname` · `reference`(str) · `organisation-id`(num) · `question-type-groups`(group tag list) · `allow-widgets`(question-type tag list) · `allow-templates`(template tag list) — together the picker restriction: `group_defaults: false` + only the groups left, with explicit template references |
 | `item-edit` › `item` | `answers` `back` `columns` `dynamic-content` `dynamic-image-tag` `enable-audio-recording` `scoring` `shared-passage` `status` `tabs` `actions-show` `popup-content-enable` `math-hints-generation-enable` (bool) · `reference-show` `reference-edit` (bool) · `reference-prefix`(str) · `title-show` `title-edit` `title-mandatory` (bool) · `tags-show` `tags-edit` (bool) · `save-show` `save-persist` `save-restricted-tags-allow-save` (bool) · `save-restricted-tags-all` `save-restricted-tags-either` (tag list) · `duplicate-show` `duplicate-shared-passages` (bool) · `mode-show`(bool) · `mode-default`(`"edit"`/`"preview"`) · `details-{acknowledgements,description,difficulty,note,scoring-type,source,status}-{show,edit}` (bool) |
 | `item-edit` (view-level) | `tags-on-create`(tag list) |
 | `item-edit` › `widget` | `edit` `delete` (bool) |
@@ -66,9 +66,10 @@ the dialect, so members and properties share a single namespace.
 ## Question-type group tags (UPPERCASE)
 
 `MCQ`, `CLOZE`, `MATCH`, `WRITE-SPEAK`, `HIGHLIGHT`, `MATH`, `GRAPH`, `CHART`,
-`CHEMISTRY`, `OTHER` — the ten panes of the editor's widget picker, and the only
-granularity at which the Author API is confirmed to restrict what authors may add.
-`question-type-groups [MCQ CLOZE]` keeps those two groups and removes the other eight.
+`CHEMISTRY`, `OTHER` — the ten panes of the editor's question picker.
+`question-type-groups [MCQ CLOZE]` offers every documented template in those two groups
+and nothing else: the design emits `group_defaults: false` plus only those groups, each
+with its template references written out.
 
 ## Widget-type tags (UPPERCASE)
 
@@ -76,7 +77,23 @@ granularity at which the Author API is confirmed to restrict what authors may ad
 `CLOZE-DROPDOWN`, `CLOZE-FORMULA`, `CLOZE-INLINE-TEXT`, `CHOICE-MATRIX`,
 `CLASSIFICATION`, `ORDER-LIST`, `SORT-LIST`, `FORMULA`, `GRAPH-PLOTTING`,
 `HIGHLIGHT-TEXT`, `HOTSPOT`, `TOKEN-HIGHLIGHT`, `NUMBER-LINE`, `ASSOCIATION`,
-`FILL-IN-THE-BLANKS`, `IMAGE-CLOZE-ASSOCIATION`, `IMAGE-CLOZE-TEXT`.
+`FILL-IN-THE-BLANKS`, `IMAGE-CLOZE-ASSOCIATION`, `IMAGE-CLOZE-TEXT`,
+`IMAGE-CLOZE-ASSOCIATION-V2`, `IMAGE-CLOZE-DROPDOWN`, `LONG-TEXT-V2`, `AUDIO`, `VIDEO`,
+`DRAWING`, `SIMPLE-SHADING`, `CLOZE-FORMULA-V2`, `IMAGE-CLOZE-FORMULA`,
+`IMAGE-CLOZE-FORMULA-V2`, `MULTI-STEP-MATH`, `FORMULA-ESSAY-V2`, `NUMBER-LINE-PLOT`,
+`SIMPLE-CHART`, `CHEMISTRY`, `CLOZE-CHEMISTRY`, `CHEMISTRY-ESSAY-V2`,
+`IMAGE-CLOZE-CHEMISTRY`, `FILE-UPLOAD`, `IMAGE-UPLOAD`, `RATING`, `GRIDDED`.
+In `allow-widgets`, each selects every documented template of that question type.
+
+## Template tags (UPPERCASE)
+
+For `allow-templates`: the documented default picker templates. A question type with one
+template uses its widget tag (`CLOZE-DROPDOWN`, `CLOZE-TEXT`, `SHORT-TEXT` …); a type with
+several has one tag per template: `MCQ-STANDARD`, `MCQ-MULTIPLE-RESPONSE`,
+`TRUE-OR-FALSE`, `MCQ-BLOCK-LAYOUT`, `CHOICE-MATRIX-STANDARD`, `CHOICE-MATRIX-INLINE`,
+`CHOICE-MATRIX-LABELS`, `GRAPH-PLOTTING-STANDARD`, `GRAPH-PLOTTING-FIRST-QUADRANT`,
+`BAR-CHART`, `LINE-CHART`, `HISTOGRAM`, `DOT-PLOT`, `LINE-PLOT`.
+`allow-templates [MCQ-STANDARD CLOZE-DROPDOWN]` offers exactly those two templates.
 
 Function keywords are lowercase-kebab; tag values are UPPERCASE-kebab — so they
 never collide. An unknown property is a parse error (every valid property is a

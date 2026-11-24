@@ -3,9 +3,11 @@
 // are lowercase-kebab; enum TAG values are UPPERCASE-kebab (so they never collide).
 //   - author-embed + members (item/widget/settings/filter-restricted/toolbar) : arity 1
 //   - views + sections + every property                                       : arity 2
-//   - widget-type enum values                                                  : TAG tokens
+//   - widget-type, group and template enum values                              : TAG tokens
 import { lexicon as base, mergeLexicon } from "@graffiticode/l0000";
-import { ARITY1, VIEWS, SECTIONS, PROPERTIES, WIDGET_TAGS, GROUP_TAGS, TOK } from "./vocab.js";
+import {
+  ARITY1, VIEWS, SECTIONS, PROPERTIES, WIDGET_TAGS, GROUP_TAGS, PICKER_TEMPLATES, TOK,
+} from "./vocab.js";
 
 const F = (name: string, arity: number) => ({ tk: 1, name, cls: "function", length: arity, arity });
 const TAG = () => ({ tk: 22, name: "TAG", cls: "val", length: 0, arity: 0 });
@@ -34,7 +36,10 @@ for (const k of ARITY1) additions[k] = F(TOK(k), 1);
 for (const k of [...Object.keys(VIEWS), ...Object.keys(SECTIONS), ...PROPERTIES]) {
   additions[k] = F(TOK(k), 2);
 }
-for (const t of [...Object.keys(WIDGET_TAGS), ...Object.keys(GROUP_TAGS)]) additions[t] = TAG();
+// Widget, group and template tags share names where they share a meaning (CLOZE-DROPDOWN
+// is a widget type and its one template); a tag is one TAG token whatever context reads it.
+const tags = new Set([...Object.keys(WIDGET_TAGS), ...Object.keys(GROUP_TAGS), ...Object.keys(PICKER_TEMPLATES)]);
+for (const t of tags) additions[t] = TAG();
 
 // The merge is child-over-parent, so an L0177 keyword that reuses a base name would
 // SHADOW it silently — the base function simply disappears from the dialect. That is

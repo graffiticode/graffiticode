@@ -28,7 +28,7 @@ const COMPLETE = `author-embed
   user-id "u123"
   reference "algebra-item-1"
   organisation-id 123
-  allow-widgets [MCQ CLOZE-TEXT FORMULA]
+  allow-widgets [MCQ CLOZE-TEXT CLOZE-DROPDOWN]
   question-type-groups [MCQ CLOZE]
   item-edit [
     item back true scoring true reference-prefix "LEAR_" {}
@@ -43,7 +43,7 @@ describe("complete design + tags", () => {
     expect(out.mode).toBe("item_edit");
     expect(out.complete).toBe(true);
     expect(out.warnings).toEqual([]);
-    expect(out.allow_widgets).toEqual(["mcq", "clozetext", "formula"]); // uppercase tags mapped
+    expect(out.allow_widgets).toEqual(["mcq", "clozetext", "clozedropdown"]); // uppercase tags mapped
     expect(out.config.item).toMatchObject({ back: true, scoring: true, "reference-prefix": "LEAR_" });
     expect(out.config.widget).toEqual({ edit: true, delete: false });
   });
@@ -452,53 +452,118 @@ describe("view-level chains must be terminated", () => {
   });
 });
 
-describe("question-type-groups (the one enforced restriction)", () => {
+describe("the question picker restriction", () => {
   const base = (extra: string) =>
     `author-embed domain "d" user-id "u" reference "r" organisation-id 1 ${extra} item-edit [] {}..`;
+  const refs = (out: any) => out.question_type_groups.flatMap((g: any) => g.template_references);
+  const MCQ_STANDARD = "9e8149bd-e4d8-4dd6-a751-1a113a4b9163";
+  const CLOZE_DROPDOWN = "2fbba51b-e35e-441f-83c7-2662e2e81fa6";
+  const UNSATISFIABLE = "restriction is unsatisfiable";
 
-  // Verified differentially against the live Author API: overriding a group reference
-  // with an empty template_references removes the group; overriding it with the key
-  // omitted leaves the group whole. Naming only the wanted groups restricts NOTHING —
-  // extra references are additive — so all ten must be overridden.
-  test("all ten groups are overridden: named ones kept whole, the rest removed", async () => {
+  // Hiding groups with template_references: [] under the default group_defaults: true
+  // narrowed only the sidebar: search still listed the hidden templates (observed
+  // 2026-11-24). The documented restriction is group_defaults: false plus ONLY the wanted
+  // groups, each naming its templates.
+  test("groups only: group_defaults false and only the kept groups, with their documented templates", async () => {
     const out = await compile(base("question-type-groups [MCQ CLOZE]"));
     expect(out.warnings).toEqual([]);
-    const g = out.question_type_groups;
-    expect(g).toHaveLength(10);
-    const kept = g.filter((x: any) => x.template_references === undefined).map((x: any) => x.reference);
-    const removed = g.filter((x: any) => Array.isArray(x.template_references) && x.template_references.length === 0);
-    expect(kept).toEqual(["mcq", "cloze"]);
-    expect(removed).toHaveLength(8);
+    expect(out.group_defaults).toBe(false);
+    expect(out.question_type_groups.map((g: any) => g.reference)).toEqual(["mcq", "cloze"]);
+    expect(out.question_type_groups[0].name).toBe("Multiple Choice");
+    expect(out.question_type_groups[0].template_references).toHaveLength(7);
+    expect(out.question_type_groups[1].template_references).toHaveLength(6);
+    // No group is emitted to be hidden — the [] override is gone.
+    expect(out.question_type_groups.every((g: any) => g.template_references.length > 0)).toBe(true);
   });
 
-  test("it resolves to the verified Learnosity path", async () => {
+  test("both picker keys resolve to their init_options paths", async () => {
     const out = await compile(base("question-type-groups [MATH]"));
     expect(out.paths["question-type-groups"])
       .toBe("config.dependencies.question_editor_api.init_options.question_type_groups");
+    expect(out.paths["group-defaults"])
+      .toBe("config.dependencies.question_editor_api.init_options.group_defaults");
   });
 
-  // SHORT-TEXT is a perfectly good widget tag, but groups and question types are
-  // different taxonomies — using one where the other belongs must not silently pass.
-  // (A token that is no tag at all, like ESSAY, is a parse error instead.)
-  test("a widget tag used as a group tag warns and is not emitted", async () => {
+  // allow-widgets selects every documented template of a type: mcq has four.
+  test("allow-widgets selects every template of each type", async () => {
+    const out = await compile(base("allow-widgets [MCQ CLOZE-DROPDOWN]"));
+    expect(out.warnings).toEqual([]);
+    expect(out.question_type_groups.map((g: any) => g.reference)).toEqual(["mcq", "cloze"]);
+    expect(refs(out)).toHaveLength(5);
+    expect(refs(out)).toContain(MCQ_STANDARD);
+    expect(refs(out)).toContain(CLOZE_DROPDOWN);
+  });
+
+  // The faceoff target: standard MCQ and Cloze dropdown, nothing else.
+  test("allow-templates selects exact templates", async () => {
+    const out = await compile(base("allow-templates [MCQ-STANDARD CLOZE-DROPDOWN] question-type-groups [MCQ CLOZE]"));
+    expect(out.warnings).toEqual([]);
+    expect(out.question_type_groups).toEqual([
+      { reference: "mcq", name: "Multiple Choice", template_references: [MCQ_STANDARD] },
+      { reference: "cloze", name: "Fill in the Blanks (Cloze)", template_references: [CLOZE_DROPDOWN] },
+    ]);
+    expect(out.allow_templates).toEqual([MCQ_STANDARD, CLOZE_DROPDOWN]);
+    expect(out.picker_templates.map((t: any) => t.name)).toEqual(["Multiple choice – standard", "Cloze with drop down"]);
+  });
+
+  // Emitting an empty group set would fail open (the picker lists every question type),
+  // so an unsatisfiable restriction is a hole and emits no picker config at all.
+  for (const extra of [
+    "question-type-groups []",
+    'allow-widgets ["BOGUS"]',
+    "allow-templates [MCQ]",
+    "allow-widgets [CHART]",
+    "allow-widgets [SHORT-TEXT] question-type-groups [MCQ]",
+    "allow-widgets [FORMULA]",
+  ]) {
+    test(`an unsatisfiable restriction blocks: ${extra}`, async () => {
+      const out = await compile(base(extra));
+      expect(out.complete).toBe(false);
+      expect(hasWarning(out, UNSATISFIABLE)).toBe(true);
+      expect(out.group_defaults).toBeUndefined();
+      expect(out.question_type_groups).toBeUndefined();
+      expect(out.paths["question-type-groups"]).toBeUndefined();
+    });
+  }
+
+  // A bare unknown identifier never reaches the compiler: it is a parse error.
+  for (const extra of ["allow-widgets [BOGUS]", "allow-templates [NOPE]"]) {
+    test(`a bare unknown tag is a parse error, not a hole: ${extra}`, async () => {
+      await expect(compile(base(extra))).rejects.toBeTruthy();
+    });
+  }
+
+  test("a wrong-kind tag says which kind it is", async () => {
+    const out = await compile(base("allow-templates [MCQ CLOZE-DROPDOWN]"));
+    expect(hasWarning(out, "MCQ is a question type, not a template")).toBe(true);
+    expect(refs(out)).toEqual([CLOZE_DROPDOWN]);
+    expect(out.complete).toBe(true);
+  });
+
+  // SHORT-TEXT is a widget tag, not a group: warned, and the rest is kept.
+  test("partial unsupported entries warn and keep the rest", async () => {
     const out = await compile(base("question-type-groups [MCQ SHORT-TEXT]"));
     expect(hasWarning(out, "SHORT-TEXT isn't a question-type group")).toBe(true);
-    expect(out.question_type_groups.filter((x: any) => x.template_references === undefined))
-      .toEqual([{ reference: "mcq", name: "mcq" }]);
+    expect(out.question_type_groups.map((g: any) => g.reference)).toEqual(["mcq"]);
+    expect(out.complete).toBe(true);
   });
 
-  // allow-widgets names question types; nothing confirmed restricts at that granularity.
-  // A design reaching for it alone must be told it enforces nothing.
-  test("allow-widgets alone is flagged as unenforced", async () => {
-    const out = await compile(base("allow-widgets [MCQ CLOZE-TEXT]"));
-    expect(out.question_type_groups).toBeUndefined();
-    expect(hasWarning(out, "on its own it enforces nothing")).toBe(true);
-    expect(hasWarning(out, "add `question-type-groups`")).toBe(true);
+  test("an entry the others exclude is reported", async () => {
+    const out = await compile(base("allow-widgets [MCQ SHORT-TEXT] question-type-groups [MCQ]"));
+    expect(hasWarning(out, "allow-widgets: shorttext is excluded by the other picker properties")).toBe(true);
+    expect(refs(out)).toHaveLength(4);
   });
 
-  test("with no restriction at all, the advisory names the enforced one", async () => {
+  test("a type with no documented template is reported", async () => {
+    const out = await compile(base("allow-widgets [MCQ FORMULA]"));
+    expect(hasWarning(out, "formula has no documented default picker template")).toBe(true);
+    expect(refs(out)).toHaveLength(4);
+  });
+
+  test("with no restriction at all, the advisory names the three properties", async () => {
     const out = await compile(base(""));
-    expect(hasWarning(out, "the editor offers all ten question-type groups")).toBe(true);
+    expect(hasWarning(out, "No picker restriction")).toBe(true);
+    expect(out.group_defaults).toBeUndefined();
   });
 });
 

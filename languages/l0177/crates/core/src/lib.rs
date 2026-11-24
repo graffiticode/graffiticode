@@ -25,7 +25,7 @@ use std::sync::LazyLock;
 
 use async_trait::async_trait;
 use graffiticode_l0000::{Dialect, Evaluator, Lexicon, NodeId, Op, Value};
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
 use serde_json::{Value as Json, json};
 
 use crate::plain::{Object, js_order, js_string, plain, truthy};
@@ -189,17 +189,19 @@ fn check_value(name: &str, field: &Field, value: Option<&Json>, findings: &mut F
         )
     };
     match field.kind.as_str() {
-        // Restricting means overriding all ten default groups: the ones named keep their
-        // templates (no `template_references`), and the rest are emptied. Naming only the
-        // wanted groups would leave the other eight in place — verified against the live API.
+        // Normalized to group references; `finalize` turns the three picker properties into
+        // the one restriction. An empty result stays an empty list: a restriction naming
+        // nothing is unsatisfiable, and `finalize` must say so.
         "groups" => {
             let groups = &vocab().group_tags;
-            let mut keep = IndexSet::new();
+            let mut keep: Vec<Json> = Vec::new();
             for given in listed(value) {
                 let tag = tag_of(&given);
                 match tag.as_str().and_then(|tag| groups.get(tag)) {
                     Some(group) => {
-                        keep.insert(group.clone());
+                        if !keep.iter().any(|kept| kept == group) {
+                            keep.push(json!(group));
+                        }
                     }
                     None => findings.warn(format!(
                         "{name}: {} isn't a question-type group — use {}.",
@@ -208,17 +210,39 @@ fn check_value(name: &str, field: &Field, value: Option<&Json>, findings: &mut F
                     )),
                 }
             }
-            if keep.is_empty() {
-                return None;
-            }
-            let all = groups.values().map(|group| {
-                if keep.contains(group) {
-                    json!({ "reference": group, "name": group })
-                } else {
-                    json!({ "reference": group, "name": group, "template_references": [] })
+            Some(Json::Array(keep))
+        }
+        "templates" => {
+            let vocab = vocab();
+            let mut refs: Vec<Json> = Vec::new();
+            for given in listed(value) {
+                let tag = tag_of(&given);
+                if let Some(template) = tag.as_str().and_then(|tag| vocab.picker_templates.get(tag)) {
+                    if !refs.iter().any(|r| r == template.reference.as_str()) {
+                        refs.push(json!(template.reference));
+                    }
+                    continue;
                 }
-            });
-            Some(Json::Array(all.collect()))
+                let kind = tag.as_str().and_then(|tag| vocab.widget_tags.get(tag));
+                let variants: Vec<&str> = vocab
+                    .picker_templates
+                    .iter()
+                    .filter(|(_, template)| kind.is_some_and(|kind| *kind == template.kind))
+                    .map(|(tag, _)| tag.as_str())
+                    .collect();
+                let tag = js_string(tag);
+                findings.warn(if variants.is_empty() {
+                    format!(
+                        "{name}: {tag} isn't a documented picker template — use tags like MCQ-STANDARD, CLOZE-DROPDOWN, CLOZE-TEXT, SHORT-TEXT."
+                    )
+                } else {
+                    format!(
+                        "{name}: {tag} is a question type, not a template — use allow-widgets for every template of a type, or name one of {}.",
+                        variants.join(", ")
+                    )
+                });
+            }
+            Some(Json::Array(refs))
         }
         // A list of records checked against a schema, each key as a property.
         "records" => {
@@ -424,6 +448,89 @@ fn non_empty(json: Option<&Json>) -> bool {
     json.and_then(Json::as_str).is_some_and(|text| !text::trim(text).is_empty())
 }
 
+/// The question picker, resolved from the three properties that narrow it.
+struct Picker {
+    requested: bool,
+    groups: Option<Json>,
+    templates: Option<Json>,
+}
+
+/// Each of `question-type-groups` (groups), `allow-widgets` (question types) and
+/// `allow-templates` (exact templates) present narrows the documented default templates; the
+/// result is `group_defaults: false` plus only the groups left, each naming its templates —
+/// the documented restriction. Hiding groups with `template_references: []` under the
+/// default `group_defaults: true` is not one: search still lists the hidden templates.
+///
+/// A requested restriction that leaves nothing is a hole, never emitted empty: with no group
+/// matching a template the picker falls back to every question type, which fails open.
+fn resolve_picker(get: &dyn Fn(&str) -> Option<Json>, holes: &mut Vec<&str>, findings: &mut Findings) -> Picker {
+    let vocab = vocab();
+    let strings = |key: &str| {
+        get(key)
+            .map(|list| listed(Some(&list)).iter().filter_map(|v| v.as_str().map(str::to_owned)).collect::<Vec<_>>())
+    };
+    let (groups, kinds, refs) = (strings("question-type-groups"), strings("allow-widgets"), strings("allow-templates"));
+    if groups.is_none() && kinds.is_none() && refs.is_none() {
+        return Picker { requested: false, groups: None, templates: None };
+    }
+    let allows =
+        |list: &Option<Vec<String>>, item: &str| list.as_ref().is_none_or(|list| list.iter().any(|x| x == item));
+    let permitted: Vec<(&String, &vocab::Template)> = vocab
+        .picker_templates
+        .iter()
+        .filter(|(_, t)| allows(&groups, &t.group) && allows(&kinds, &t.kind) && allows(&refs, &t.reference))
+        .collect();
+    for group in groups.iter().flatten() {
+        if !permitted.iter().any(|(_, t)| t.group == *group) {
+            findings.warn(format!(
+                "question-type-groups: {group} keeps no template once the other picker properties are applied — it is not offered."
+            ));
+        }
+    }
+    for kind in kinds.iter().flatten() {
+        if !vocab.picker_templates.values().any(|t| t.kind == *kind) {
+            findings.warn(format!(
+                "allow-widgets: {kind} has no documented default picker template, so the picker cannot offer it — not offered."
+            ));
+        } else if !permitted.iter().any(|(_, t)| t.kind == *kind) {
+            findings.warn(format!("allow-widgets: {kind} is excluded by the other picker properties — not offered."));
+        }
+    }
+    for reference in refs.iter().flatten() {
+        if !permitted.iter().any(|(_, t)| t.reference == *reference) {
+            let tag =
+                vocab.picker_templates.iter().find(|(_, t)| t.reference == *reference).map(|(tag, _)| tag.as_str());
+            findings.warn(format!(
+                "allow-templates: {} is excluded by the other picker properties — not offered.",
+                tag.unwrap_or(reference)
+            ));
+        }
+    }
+    if permitted.is_empty() {
+        holes.push("The question-picker restriction is unsatisfiable: `question-type-groups`, `allow-widgets` and `allow-templates` together leave no documented template to offer, so no picker config was emitted. An empty restriction would FAIL OPEN — with no group matching a template the Author API lists every question type. Name at least one group, question type or template that the others allow.");
+        return Picker { requested: true, groups: None, templates: None };
+    }
+    let emitted: Vec<Json> = vocab
+        .group_tags
+        .values()
+        .filter_map(|group| {
+            let refs: Vec<&str> =
+                permitted.iter().filter(|(_, t)| t.group == *group).map(|(_, t)| t.reference.as_str()).collect();
+            (!refs.is_empty())
+                .then(|| json!({ "reference": group, "name": vocab.group_names[group], "template_references": refs }))
+        })
+        .collect();
+    let path = vocab.toplevel["question-type-groups"].path.clone().unwrap_or_default();
+    let defaults = format!("{}group_defaults", path.strip_suffix("question_type_groups").unwrap_or(&path));
+    findings.paths.insert("group-defaults".into(), defaults);
+    findings.paths.insert("question-type-groups".into(), path);
+    let templates: Vec<Json> = permitted
+        .iter()
+        .map(|(_, t)| json!({ "reference": t.reference, "name": t.name, "type": t.kind, "group": t.group }))
+        .collect();
+    Picker { requested: true, groups: Some(Json::Array(emitted)), templates: Some(Json::Array(templates)) }
+}
+
 /// `author-embed`: the design, its holes first (progressive disclosure), and the paths.
 fn finalize(design: &Json, findings: &mut Findings) -> Value {
     let vocab = vocab();
@@ -464,21 +571,12 @@ fn finalize(design: &Json, findings: &mut Findings) -> Value {
     if mode_is("item_edit") && !non_empty(get("reference").as_ref()) {
         holes.push("item-edit needs a `reference` — the existing item to edit, or a new reference to create.");
     }
-    // What the editor offers is set by question-type-groups. allow-widgets names question
-    // types, which no confirmed config key selects.
-    if !set("question-type-groups") && (mode_is("item_edit") || mode_is("activity_edit")) {
-        specificity.push(if set("allow-widgets") {
-            "`allow-widgets` names question types, which Learnosity has no confirmed way to restrict — on its own it enforces nothing. Add `question-type-groups` to actually limit the picker; the group is the level the Author API enforces."
-        } else {
-            "No `question-type-groups` — the editor offers all ten question-type groups. This is the one restriction the Author API is confirmed to enforce."
-        });
+    let picker = resolve_picker(&get, &mut holes, findings);
+    if !picker.requested && (mode_is("item_edit") || mode_is("activity_edit")) {
+        specificity.push("No picker restriction — the editor offers every question template. Set `question-type-groups`, `allow-widgets` or `allow-templates` to limit what authors may add.");
     }
     if !set("organisation-id") {
         specificity.push("No item bank specified (`organisation-id`) — the default is used.");
-    }
-    if set("question-type-groups") {
-        let path = vocab.toplevel["question-type-groups"].path.clone().unwrap_or_default();
-        findings.paths.insert("question-type-groups".into(), path);
     }
 
     // Holes lead, and specificity waits until they are filled; but validity warnings always
@@ -512,7 +610,10 @@ fn finalize(design: &Json, findings: &mut Findings) -> Value {
     put("reference", get("reference"));
     put("organisation_id", get("organisation-id"));
     put("allow_widgets", get("allow-widgets"));
-    put("question_type_groups", get("question-type-groups"));
+    put("allow_templates", get("allow-templates"));
+    put("group_defaults", picker.groups.as_ref().map(|_| json!(false)));
+    put("question_type_groups", picker.groups);
+    put("picker_templates", picker.templates);
     put("config", get("config"));
     put("container", get("container"));
     put("widget_templates", get("widget-templates"));

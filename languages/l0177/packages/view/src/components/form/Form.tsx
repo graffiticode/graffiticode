@@ -105,7 +105,18 @@ export const Form = ({ state }: FormProps) => {
     ["organisation_id", data.organisation_id],
   ].filter(([, v]) => v !== undefined) as Array<[string, unknown]>;
 
-  const widgets = Array.isArray(data.allow_widgets) ? data.allow_widgets : undefined;
+  // The question picker: what the design asked for, and the one restriction it resolved to.
+  const widgets = Array.isArray(data.allow_widgets) ? (data.allow_widgets as string[]) : undefined;
+  const templateRefs = Array.isArray(data.allow_templates) ? (data.allow_templates as string[]) : undefined;
+  const groups = Array.isArray(data.question_type_groups)
+    ? (data.question_type_groups as Array<{ reference: string; name: string; template_references: string[] }>)
+    : undefined;
+  const offered = Array.isArray(data.picker_templates)
+    ? (data.picker_templates as Array<{ reference: string; name: string; type: string; group: string }>)
+    : [];
+  // An unsatisfiable restriction emits no picker config; the compiler reports it as a hole.
+  const pickerBlocked = warnings.some((w) => w.includes("question-picker restriction is unsatisfiable"));
+  const showPicker = groups !== undefined || widgets !== undefined || templateRefs !== undefined || pickerBlocked;
 
   return (
     <div className="p-4 font-mono text-xs text-zinc-900">
@@ -152,15 +163,48 @@ export const Form = ({ state }: FormProps) => {
         </Section>
       )}
 
-      {widgets && (
-        <Section title="Allowed question types">
-          <div className="break-all text-zinc-900">{widgets.join(", ") || "—"}</div>
-          {/* The dialect's central caveat: this restriction has no confirmed config
-              binding, so the UI must not imply the editor will enforce it. */}
-          <p className="mt-1 text-[11px] text-zinc-500">
-            Design intent. The Learnosity config binding for restricting question types is
-            unconfirmed — verify it in the running editor before relying on it.
-          </p>
+      {showPicker && (
+        <Section title="Question picker">
+          {widgets && <Row name="allow-widgets" value={widgets.join(", ") || "—"} />}
+          {templateRefs && <Row name="allow-templates" value={`${templateRefs.length} template(s)`} />}
+          {groups ? (
+            <>
+              <Row name="group_defaults" value={false} path={paths["group-defaults"]} />
+              <Row name="question_type_groups" value={`${groups.length} group(s), ${offered.length} template(s)`} path={paths["question-type-groups"]} />
+              <div className="mt-2 pl-3">
+                {groups.map((g) => (
+                  <div key={g.reference} className="mb-2">
+                    <div className="text-zinc-700">
+                      {g.name} <span className="text-[11px] text-zinc-400">{g.reference}</span>
+                    </div>
+                    <ul className="pl-3">
+                      {g.template_references.map((ref) => {
+                        const t = offered.find((o) => o.reference === ref);
+                        return (
+                          <li key={ref} className="flex flex-wrap gap-x-3">
+                            <span className="text-zinc-900">{t ? t.name : ref}</span>
+                            {t && <span className="text-[11px] text-zinc-500">{t.type}</span>}
+                            <span className="break-all text-[11px] text-zinc-400">{ref}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              {/* A verified mechanism is not a verified deployment: say what would show it. */}
+              <p className="mt-1 text-[11px] text-zinc-500">
+                Verified mechanism. Confirm it in your running editor against a control run,
+                including a search for a question type the design leaves out — the sidebar alone
+                proves nothing.
+              </p>
+            </>
+          ) : pickerBlocked ? (
+            <p className="mt-1 rounded-md border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900">
+              No picker config was emitted: the requested restriction leaves no template to offer,
+              and an empty one would open the full catalogue. See the hole above.
+            </p>
+          ) : null}
         </Section>
       )}
 

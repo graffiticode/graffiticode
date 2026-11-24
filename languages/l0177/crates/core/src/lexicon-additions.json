@@ -209,6 +209,13 @@
     "length": 2,
     "arity": 2
   },
+  "allow-templates": {
+    "tk": 1,
+    "name": "ALLOW_TEMPLATES",
+    "cls": "function",
+    "length": 2,
+    "arity": 2
+  },
   "question-type-groups": {
     "tk": 1,
     "name": "QUESTION_TYPE_GROUPS",
@@ -1441,6 +1448,160 @@
     "length": 0,
     "arity": 0
   },
+  "IMAGE-CLOZE-ASSOCIATION-V2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "IMAGE-CLOZE-DROPDOWN": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "LONG-TEXT-V2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "AUDIO": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "VIDEO": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "DRAWING": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "SIMPLE-SHADING": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CLOZE-FORMULA-V2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "IMAGE-CLOZE-FORMULA": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "IMAGE-CLOZE-FORMULA-V2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "MULTI-STEP-MATH": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "FORMULA-ESSAY-V2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "NUMBER-LINE-PLOT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "SIMPLE-CHART": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CHEMISTRY": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CLOZE-CHEMISTRY": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CHEMISTRY-ESSAY-V2": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "IMAGE-CLOZE-CHEMISTRY": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "FILE-UPLOAD": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "IMAGE-UPLOAD": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "RATING": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "GRIDDED": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
   "CLOZE": {
     "tk": 22,
     "name": "TAG",
@@ -1490,14 +1651,105 @@
     "length": 0,
     "arity": 0
   },
-  "CHEMISTRY": {
+  "OTHER": {
     "tk": 22,
     "name": "TAG",
     "cls": "val",
     "length": 0,
     "arity": 0
   },
-  "OTHER": {
+  "MCQ-STANDARD": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "MCQ-MULTIPLE-RESPONSE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "TRUE-OR-FALSE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "MCQ-BLOCK-LAYOUT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CHOICE-MATRIX-STANDARD": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CHOICE-MATRIX-INLINE": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "CHOICE-MATRIX-LABELS": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "GRAPH-PLOTTING-STANDARD": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "GRAPH-PLOTTING-FIRST-QUADRANT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "BAR-CHART": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "LINE-CHART": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "HISTOGRAM": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "DOT-PLOT": {
+    "tk": 22,
+    "name": "TAG",
+    "cls": "val",
+    "length": 0,
+    "arity": 0
+  },
+  "LINE-PLOT": {
     "tk": 22,
     "name": "TAG",
     "cls": "val",

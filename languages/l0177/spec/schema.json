@@ -46,7 +46,14 @@
       "type": "number"
     },
     "allow_widgets": {
-      "description": "Question types the design intends (mapped from UPPERCASE tags). Design INTENT only \u2014 no confirmed config key restricts at question-type granularity; question_type_groups is what the API enforces.",
+      "description": "Question types (mapped from UPPERCASE tags; Learnosity's exact strings). In the picker restriction each selects every documented default template of that type.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "allow_templates": {
+      "description": "Exact picker templates requested (template references, mapped from tags like MCQ-STANDARD).",
       "type": "array",
       "items": {
         "type": "string"
@@ -86,8 +93,19 @@
         "type": "string"
       }
     },
+    "group_defaults": {
+      "description": "false whenever a picker restriction is emitted: only the groups in question_type_groups are shown. Emit at config.dependencies.question_editor_api.init_options.group_defaults (see paths).",
+      "type": "boolean"
+    },
     "question_type_groups": {
-      "description": "The verified picker restriction: all ten default question-type groups, with template_references omitted on those kept and [] on those removed. Emit at config.dependencies.question_editor_api.init_options.question_type_groups (see paths). Naming only the wanted groups would restrict nothing \u2014 an unrecognised group reference is additive.",
+      "description": "The picker restriction: ONLY the groups that keep a template after question-type-groups, allow-widgets and allow-templates are applied, each {reference, name, template_references} with Learnosity's documented default template references written out. Emit at config.dependencies.question_editor_api.init_options.question_type_groups beside group_defaults false (see paths). Absent when no restriction was requested, or when the requested one is unsatisfiable (then a hole: an empty group set fails open).",
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "picker_templates": {
+      "description": "The templates the restriction offers, for display and verification: {reference, name, type, group}.",
       "type": "array",
       "items": {
         "type": "object"

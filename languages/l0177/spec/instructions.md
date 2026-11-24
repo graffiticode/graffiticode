@@ -131,14 +131,27 @@ Learnosity's own segment name, not our flattening.
 - **`user-id`** (string, required) — the author's stable id (recorded in the item-bank audit trail). Also `user-email`, `user-firstname`, `user-lastname` (optional).
 - **`reference`** (string) — the item/activity to edit (required for `item-edit`).
 - **`organisation-id`** (number) — which item bank to load from.
-- **`question-type-groups`** (list of group **tags**: `MCQ`, `CLOZE`, `MATCH`, `WRITE-SPEAK`,
-  `HIGHLIGHT`, `MATH`, `GRAPH`, `CHART`, `CHEMISTRY`, `OTHER`) — **the only restriction the Author
-  API is confirmed to enforce.** Names the picker groups authors may use; every other group is
-  removed. Emits the verified `question_type_groups` config; read its path from `data.paths`.
-- **`allow-widgets`** (list of widget-type **tags**) — the finer-grained question types the design
-  intends. Nothing confirmed restricts at this granularity, so on its own it enforces nothing; the
-  compiler says so. Use it alongside `question-type-groups` to record intent the recipe can name and
-  a verification step can check.
+- **The question picker** is limited by up to three properties. Each one present narrows the same
+  set of documented default templates, and the compiler emits ONE restriction from them:
+  `group_defaults: false` plus `question_type_groups` naming only the groups left, each with explicit
+  `template_references`. Read both paths from `data.paths` and the result from
+  `data.question_type_groups` / `data.picker_templates`.
+  - **`question-type-groups`** (list of group **tags**: `MCQ`, `CLOZE`, `MATCH`, `WRITE-SPEAK`,
+    `HIGHLIGHT`, `MATH`, `GRAPH`, `CHART`, `CHEMISTRY`, `OTHER`) — every documented template in
+    those groups.
+  - **`allow-widgets`** (list of question-type **tags**) — every documented template of those
+    types. One type can have several templates: `MCQ` brings standard, multiple response, true or
+    false, and block layout.
+  - **`allow-templates`** (list of template **tags**, e.g. `MCQ-STANDARD`, `CLOZE-DROPDOWN`) —
+    exactly those templates. A type with one default template uses its widget tag; a type with
+    several has one tag per template (`MCQ-STANDARD`, `MCQ-MULTIPLE-RESPONSE`, `TRUE-OR-FALSE`,
+    `MCQ-BLOCK-LAYOUT`, `CHOICE-MATRIX-STANDARD|INLINE|LABELS`,
+    `GRAPH-PLOTTING-STANDARD|FIRST-QUADRANT`, `BAR-CHART`, `LINE-CHART`, `HISTOGRAM`, `DOT-PLOT`,
+    `LINE-PLOT`).
+
+  A restriction that leaves no template (`question-type-groups []`, `allow-widgets [FORMULA]` — a
+  type with no default template — or `allow-widgets [SHORT-TEXT] question-type-groups [MCQ]`) is a
+  design **hole**, and no picker config is emitted: an empty group set would fail open (below).
 
 **Members**: see the view-scoped table above — a member's legal properties depend on the view it
 appears in, and so does the type of a shared name like `status`.
@@ -213,48 +226,82 @@ Learnosity's public demo consumer on `localhost`. Schema-confirmed names and pat
 
 - **⚠ The Author API FAILS OPEN on config [verified].** An unrecognized `config` key is **silently ignored**: the editor still initializes, `readyListener` still fires, and the page looks correct — while enforcing nothing. A wrong config path therefore produces an authoring experience that *appears* restricted but is not. Never tell a client a restriction is in force unless they have observed it in the running editor.
 
-- **✅ Restricting what authors may add: MECHANISM VERIFIED [verified].** The Author API restricts
-  at the level of the picker's **question-type groups**, through
-  `config.dependencies.question_editor_api.init_options.question_type_groups`. Each entry is
-  `{reference, name, template_references?}`, and behaviour depends on the reference:
-  - an **existing** group reference **overrides** that group's template list;
-  - `template_references: []` **removes** the group entirely;
-  - `template_references` **omitted** leaves the group whole;
-  - a **new** reference **ADDS** a group — it restricts nothing.
+- **Restricting what authors may add: `group_defaults: false` plus explicit groups [verified
+  2026-11-24, search included — measurements below].** The picker is configured through
+  `config.dependencies.question_editor_api.init_options` (Question Editor options passed through the
+  Author API). The restriction is two keys there:
+  - `group_defaults: false` — only the groups defined in `question_type_groups` are shown
+    (help.learnosity.com 16735159465757). With the default `true`, `question_type_groups` EXTENDS the
+    default groups instead.
+  - `question_type_groups` — ONLY the wanted groups, each `{reference, name, template_references}`
+    with the template references written out explicitly. The default group references are `mcq`,
+    `cloze`, `match`, `writespeak`, `highlight`, `math`, `graph`, `chart`, `chemistry`, `other`.
 
-  So restricting means **overriding all ten default groups**: omit `template_references` on the ones
-  to keep, give `[]` to the rest. The ten references are `mcq`, `cloze`, `match`, `writespeak`,
-  `highlight`, `math`, `graph`, `chart`, `chemistry`, `other`.
+  The template references are **Learnosity's published defaults, the same for every consumer**
+  (help.learnosity.com 360000755178, "Customizing the Tile View With Author API", Default settings →
+  Question templates, advanced layout mode, retrieved 2026-11-24 [documented]) — e.g. standard
+  multiple choice `9e8149bd-e4d8-4dd6-a751-1a113a4b9163`, Cloze with drop down
+  `2fbba51b-e35e-441f-83c7-2662e2e81fa6`, Cloze with text `457fe101-0667-4a35-b193-b849653acb52`. The
+  simple layout mode uses a different set, which L0177 does not model. Copy every reference from
+  `data.question_type_groups`; never retype one.
 
-  Measured against the live Author API (v1.144.0, demo consumer on `localhost`), counting groups and
-  template tiles in the picker:
+  Measured 2026-11-24 with the `init_options` L0177 compiles, signed by the official Node SDK 0.7.3
+  for the public demo consumer on `localhost`, `item_edit` on a new draft reference, saving disabled
+  (Author API v1.152.2, Question Editor v3.152.2, unpinned). Each run opened Add, counted visible
+  `li.qtGroup` groups and `[data-lrn-qe-template-reference]` tiles, searched "essay", then submitted
+  an empty search:
 
-  | init config | groups | templates |
+  | init config | groups | "essay" search | empty search |
+  |---|---:|---|---|
+  | control (no `init_options`) | 10 | 7 templates | 66 tiles |
+  | `allow-templates [MCQ-STANDARD CLOZE-DROPDOWN] question-type-groups [MCQ CLOZE]` | 2 | none | 2 tiles: `9e8149bd-…`, `2fbba51b-…` |
+  | `question-type-groups [MCQ CLOZE]` | 2 | none | 13 tiles, exactly the documented mcq + cloze references |
+  | hand-built `group_defaults: false`, `question_type_groups: []` | 0 | — | 50 raw question types (fails open) |
+
+  Limits: one consumer (the shared demo account), one API version, searches for "essay" and empty
+  only, the picker only (not imported or stored item JSON, nor settings inside an allowed question).
+  It shows the MECHANISM works; it does not show a caller's deployment has it in force — that is the
+  caller's own differential (below).
+
+- **⚠ Hiding groups is NOT a restriction — search bypasses it [observed 2026-11-24].** The previous
+  L0177 mechanism overrode all ten default groups, omitting `template_references` on the kept ones
+  and setting `[]` on the rest, under the default `group_defaults: true`. That removes **sidebar
+  tiles only**. Observed with the public demo consumer on `localhost`: the sidebar showed only
+  Multiple Choice and Cloze, but **searching "essay" listed seven essay templates from the hidden
+  groups**, and an empty search listed a broad catalogue. The hidden templates are still in the
+  catalogue that search reads. These earlier measurements (Author API v1.144.0, demo consumer)
+  counted SIDEBAR groups and tiles only, and say nothing about search:
+
+  | init config | sidebar groups | sidebar templates |
   |---|---:|---:|
   | control (nothing set) | 10 | 51 |
   | `init_options.widgetTypes` | 10 | 51 |
   | `question_type_groups`, **new** reference | 11 | 53 |
   | `question_type_groups`, override `mcq` with one reference | 10 | 45 |
   | `question_type_groups`, override `math` with `[]` | 9 | 44 |
-  | override all ten, keeping `mcq` + `cloze` | **2** | **13** |
+  | override all ten, keeping `mcq` + `cloze` | 2 | 13 |
 
-  **This is why an earlier investigation concluded the key did nothing.** Supplying a *new* group
-  reference is additive: the config was in force and the picker looked untouched. Only comparing
-  against a control distinguishes "ignored" from "additive" — the fail-open trap in its purest form.
+  Under `group_defaults: true` a **new** group reference ADDS a group — it restricts nothing — which is why an earlier
+  investigation concluded the key did nothing: the config was in force and the picker looked
+  untouched. Only comparing against a control distinguishes "ignored" from "additive".
 
-- **⚠ Question TYPES are a different taxonomy from groups. No per-question-type restriction mechanism has been confirmed in the tested configuration.**
-  `allow-widgets` names question types (`mcq`, `clozetext`). The mechanism above selects **groups and
-  templates**, and one group holds several types — the `cloze` group carries six templates. No
-  confirmed key restricts by question type. So `allow-widgets` remains **design intent**: name the
-  types in the recipe, and carry the restriction as a **verification step**. Finer-grained control is
-  possible only by naming individual `template_references`, whose values are opaque and discoverable
-  solely from the running editor (the `data-lrn-qe-template-reference` attribute on each picker
-  tile). **That attribute is NOT a route to a portable restriction [implementer, 2026-08-13].** It
-  holds an opaque, ACCOUNT-SPECIFIC UUID (`457fe101-…` = "Cloze with text"), not a type name like
-  `clozetext`, so reading it tells you this consumer's template ids and nothing transferable. Point
-  at it only as "how to discover YOUR account's template references", never as the discovery path
-  for a per-type restriction — the earlier wording named the right DOM node while implying a
-  usefulness it does not have.
+- **⚠ An empty restriction FAILS OPEN [documented].** With `group_defaults: false` and no defined
+  group matching any template, the picker shows no groups and lists the question types and default
+  templates instead (360000755178, "Behavior with other init options") — the full catalogue. So
+  never emit `group_defaults: false` with an empty or non-matching `question_type_groups`; the
+  compiler refuses such a design as a hole.
+
+- **Question types and templates are finer than groups, and both are restrictable.** A group holds
+  several question types (`mcq` and `choicematrix` are both in Multiple Choice), and a question
+  type can have several templates (`mcq` has four). Restricting by type means listing every
+  documented template of that type; restricting to one template means listing only its reference.
+  Both are ordinary `template_references`. The picker tile's `data-lrn-qe-template-reference`
+  attribute shows a template's reference in the running editor, which is how to check that the
+  catalogue holds exactly what was configured, and how to find a consumer's CUSTOM templates
+  (`question_type_templates`), which the documented list does not include. Limits: a template
+  restricts what an author can ADD from the picker. It is not server-side validation of stored or
+  imported item JSON, and an allowed question's own settings (e.g. multiple responses on a
+  standard MCQ) can still be changed in the question editor.
 
 - **⚠ These do NOT restrict the picker [verified]:**
   `config.dependencies.question_editor_api.init_options.widgetTypes` (no effect; absent from the
@@ -263,10 +310,10 @@ Learnosity's public demo consumer on `localhost`. Schema-confirmed names and pat
   restriction key, so testing it for restriction tested the wrong thing.
 
 - **Widget-type name strings [schema-confirmed]:** the question `type` values below are
-  Learnosity's exact lowercase strings (confirmed in `schemas.learnosity.com` → `question_type_templates`,
+  Learnosity's exact strings — lowercase, except a `V2` suffix, which keeps its capital (confirmed in `schemas.learnosity.com` → `question_type_templates`,
   which is keyed by exactly these). They are correct as *question type* identifiers, which is a separate taxonomy from the
   picker groups that `question_type_groups` restricts. Copy them exactly — do NOT
-  derive them, do NOT uppercase them, do NOT add underscores:
+  derive them, do NOT change their case, do NOT add underscores:
 
   | DSL tag | Learnosity question `type` value |
   |---|---|
@@ -293,8 +340,27 @@ Learnosity's public demo consumer on `localhost`. Schema-confirmed names and pat
   | `FILL-IN-THE-BLANKS` | `fillintheblanks` |
   | `IMAGE-CLOZE-ASSOCIATION` | `imageclozeassociation` |
   | `IMAGE-CLOZE-TEXT` | `imageclozetext` |
+  | *added 2026-11-24 from the documented `question_type_templates` keys (help.learnosity.com 360000755178) [documented], not re-checked against the schema:* | |
+  | `IMAGE-CLOZE-ASSOCIATION-V2` | `imageclozeassociationV2` |
+  | `IMAGE-CLOZE-DROPDOWN` | `imageclozedropdown` |
+  | `LONG-TEXT-V2` | `longtextV2` |
+  | `AUDIO` · `VIDEO` · `DRAWING` | `audio` · `video` · `drawing` |
+  | `SIMPLE-SHADING` | `simpleshading` |
+  | `CLOZE-FORMULA-V2` | `clozeformulaV2` |
+  | `IMAGE-CLOZE-FORMULA` · `IMAGE-CLOZE-FORMULA-V2` | `imageclozeformula` · `imageclozeformulaV2` |
+  | `MULTI-STEP-MATH` | `multistepmath` |
+  | `FORMULA-ESSAY-V2` | `formulaessayV2` |
+  | `NUMBER-LINE-PLOT` | `numberlineplot` |
+  | `SIMPLE-CHART` | `simplechart` |
+  | `CHEMISTRY` · `CLOZE-CHEMISTRY` | `chemistry` · `clozechemistry` |
+  | `CHEMISTRY-ESSAY-V2` · `IMAGE-CLOZE-CHEMISTRY` | `chemistryessayV2` · `imageclozechemistry` |
+  | `FILE-UPLOAD` · `IMAGE-UPLOAD` · `RATING` · `GRIDDED` | `fileupload` · `imageupload` · `rating` · `gridded` |
 
-  Example: the design `allow-widgets [MCQ CLOZE-TEXT]` refers to the question types `mcq` and `clozetext` — **RIGHT**. Writing `MCQ`, `CLOZE_TEXT`, or `CLOZE-TEXT` as the Learnosity value is **WRONG**. (These are question TYPES; the enforced restriction operates on question-type GROUPS — see above.)
+  `LONG-TEXT`, `FORMULA`, `FILL-IN-THE-BLANKS`, `CLOZE-INLINE-TEXT`, `HIGHLIGHT-TEXT` and
+  `IMAGE-CLOZE-ASSOCIATION` are valid question types with NO documented default picker template, so
+  `allow-widgets` cannot offer them through the picker restriction (the compiler warns).
+
+  Example: the design `allow-widgets [MCQ CLOZE-TEXT]` refers to the question types `mcq` and `clozetext` — **RIGHT**. Writing `MCQ`, `CLOZE_TEXT`, or `CLOZE-TEXT` as the Learnosity value is **WRONG**. (These are question TYPES. In the picker restriction they select every documented template of the type — see above.)
 - **Widget edit/delete permissions [verified].** `config.item_edit.widget.edit` and
   `config.item_edit.widget.delete` (L0177's `widget` member) both work, and independently.
   Measured differentially on an item holding two widgets, counting per-widget affordances:
@@ -347,7 +413,9 @@ Learnosity's public demo consumer on `localhost`. Schema-confirmed names and pat
   against a blank editor.
 - **Confirming an item or activity EXISTS is not an Author API question [implementer, 2026-08-12].**
   The Author API gives no signal for it — a reference naming nothing initializes cleanly and renders
-  empty. The answer lives in the **Data API** `itembank/items` endpoint (a separate API, its own
+  empty. That matters only when the intent is to EDIT AN EXISTING item: in `item-edit`, a new
+  reference is how a new draft item is created, so a reference naming nothing is valid there
+  (observed 2026-11-24: a new draft reference opened the editor and the picker worked). The answer lives in the **Data API** `itembank/items` endpoint (a separate API, its own
   signed request). L0177 does not integrate the Data API and is not describing how to author items
   there; naming the endpoint that answers a precondition is a pointer, not a scope change.
 - **Client-side wiring [verified]:** provide a `readyListener` (fires when initialized) and an `errorListener`; optionally `assetRequest` (your DAM) and `customButtons`. The error event carries

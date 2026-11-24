@@ -25,7 +25,7 @@ import {
   Compiler,
 } from "@graffiticode/l0000";
 import {
-  ARITY1, VIEWS, SECTIONS, TOPLEVEL, PROPERTIES, WIDGET_TAGS, GROUP_TAGS, TOK,
+  ARITY1, VIEWS, SECTIONS, TOPLEVEL, PROPERTIES, WIDGET_TAGS, GROUP_TAGS, GROUP_NAMES, PICKER_TEMPLATES, TOK,
   type Fields,
 } from "./vocab.js";
 
@@ -39,6 +39,9 @@ function toPlainObject(val: any): any {
   return val;
 }
 const isNonEmptyString = (v: any) => typeof v === "string" && v.trim() !== "";
+// A tag lookup that a string like "constructor" cannot satisfy through Object.prototype.
+const own = <T>(table: Record<string, T>, key: any): T | undefined =>
+  typeof key === "string" && Object.hasOwn(table, key) ? table[key] : undefined;
 const pushWarn = (options: any, w: string) => { (options.__warnings ||= []).push(w); };
 const recordPath = (options: any, from: string, to: string) => { (options.__paths ||= {})[from] = to; };
 
@@ -53,20 +56,33 @@ function validateProp(
     pushWarn(options, `${name}: ${JSON.stringify(v)} isn't one of ${values!.map((s) => `"${s}"`).join(", ")}.`);
 
   if (type === "groups") {
-    // Restricting means overriding ALL ten default groups: the ones named keep their
-    // templates (omit template_references) and the rest are removed (empty array).
-    // Naming only the wanted groups would leave the other eight in place — verified
-    // against the live API, and the trap the earlier investigation fell into.
+    // Normalized to group references here; finalize() turns the three picker properties
+    // into the one restriction. An empty result is kept as [] (not undefined): a picker
+    // restriction that names nothing is unsatisfiable, and finalize() must say so.
     const list = Array.isArray(value) ? value : value == null ? [] : [value];
-    const keep = new Set<string>();
+    const keep: string[] = [];
     for (const t of list) {
       const tag = t && typeof t === "object" && "tag" in t ? (t as any).tag : t;
-      if (GROUP_TAGS[tag]) keep.add(GROUP_TAGS[tag]);
+      const group = own(GROUP_TAGS, tag);
+      if (group) { if (!keep.includes(group)) keep.push(group); }
       else pushWarn(options, `${name}: ${tag} isn't a question-type group — use ${Object.keys(GROUP_TAGS).join(", ")}.`);
     }
-    if (keep.size === 0) return undefined;
-    return Object.values(GROUP_TAGS).map((g) =>
-      keep.has(g) ? { reference: g, name: g } : { reference: g, name: g, template_references: [] });
+    return keep;
+  }
+  if (type === "templates") {
+    const list = Array.isArray(value) ? value : value == null ? [] : [value];
+    const refs: string[] = [];
+    for (const t of list) {
+      const tag = t && typeof t === "object" && "tag" in t ? (t as any).tag : t;
+      const template = own(PICKER_TEMPLATES, tag);
+      if (template) { if (!refs.includes(template[0])) refs.push(template[0]); continue; }
+      const type = own(WIDGET_TAGS, tag);
+      const variants = type ? Object.keys(PICKER_TEMPLATES).filter((k) => PICKER_TEMPLATES[k][1] === type) : [];
+      pushWarn(options, variants.length > 0
+        ? `${name}: ${tag} is a question type, not a template — use allow-widgets for every template of a type, or name one of ${variants.join(", ")}.`
+        : `${name}: ${tag} isn't a documented picker template — use tags like MCQ-STANDARD, CLOZE-DROPDOWN, CLOZE-TEXT, SHORT-TEXT.`);
+    }
+    return refs;
   }
   if (type === "records") {
     // A list of records checked against a declared schema (today: item banks). Each key
@@ -104,7 +120,8 @@ function validateProp(
     const mapped: string[] = [];
     for (const t of list) {
       const tag = t && typeof t === "object" && "tag" in t ? (t as any).tag : t; // base TAG -> { tag: "MCQ" }
-      if (WIDGET_TAGS[tag]) mapped.push(WIDGET_TAGS[tag]);
+      const widget = own(WIDGET_TAGS, tag);
+      if (widget) mapped.push(widget);
       else pushWarn(options, `${name}: ${tag} isn't a Learnosity widget type — use tags like MCQ, SHORT-TEXT, CLOZE-TEXT, FORMULA, TOKEN-HIGHLIGHT.`);
     }
     return mapped;
@@ -179,6 +196,62 @@ function validateFields(
   return out;
 }
 
+// --- the question picker: one restriction from three properties ---
+// Each of question-type-groups (groups), allow-widgets (question types) and allow-templates
+// (exact templates) present narrows the documented default templates; the result is
+// `group_defaults: false` plus ONLY the groups left, each naming its templates. That is
+// the documented restriction (help.learnosity.com 16735159465757, 360000755178), measured with
+// search on 2026-11-24 (spec/instructions.md). Hiding
+// groups with `template_references: []` under the default `group_defaults: true` is not:
+// search still lists the hidden templates (observed 2026-11-24).
+//
+// A requested restriction that leaves nothing is a HOLE, never dropped or emitted empty:
+// with `group_defaults: false` and no group matching a template, the picker falls back
+// to listing question types and default templates (360000755178, "Behavior with other
+// init options") — the full catalogue, the fail-open trap in another form.
+const PICKER = Object.entries(PICKER_TEMPLATES).map(([tag, [reference, type, group, name]]) =>
+  ({ tag, reference, type, group, name }));
+function resolvePicker(top: any, options: any, holes: string[]): { requested: boolean, groups?: any[], templates?: any[] } {
+  const groups: string[] | undefined = top["question-type-groups"];
+  const types: string[] | undefined = top["allow-widgets"];
+  const refs: string[] | undefined = top["allow-templates"];
+  if (groups === undefined && types === undefined && refs === undefined) return { requested: false };
+  const permitted = PICKER.filter((t) =>
+    (groups === undefined || groups.includes(t.group))
+    && (types === undefined || types.includes(t.type))
+    && (refs === undefined || refs.includes(t.reference)));
+  // What each named entry contributed — an entry that contributes nothing is reported.
+  for (const g of groups || []) {
+    if (!permitted.some((t) => t.group === g)) pushWarn(options, `question-type-groups: ${g} keeps no template once the other picker properties are applied — it is not offered.`);
+  }
+  for (const w of types || []) {
+    if (!PICKER.some((t) => t.type === w)) pushWarn(options, `allow-widgets: ${w} has no documented default picker template, so the picker cannot offer it — not offered.`);
+    else if (!permitted.some((t) => t.type === w)) pushWarn(options, `allow-widgets: ${w} is excluded by the other picker properties — not offered.`);
+  }
+  for (const r of refs || []) {
+    if (!permitted.some((t) => t.reference === r)) pushWarn(options, `allow-templates: ${PICKER.find((t) => t.reference === r)!.tag} is excluded by the other picker properties — not offered.`);
+  }
+  if (permitted.length === 0) {
+    holes.push("The question-picker restriction is unsatisfiable: `question-type-groups`, `allow-widgets` and `allow-templates` together leave no documented template to offer, so no picker config was emitted. An empty restriction would FAIL OPEN — with no group matching a template the Author API lists every question type. Name at least one group, question type or template that the others allow.");
+    return { requested: true };
+  }
+  const emitted = Object.values(GROUP_TAGS)
+    .map((g) => ({
+      reference: g,
+      name: GROUP_NAMES[g],
+      template_references: permitted.filter((t) => t.group === g).map((t) => t.reference),
+    }))
+    .filter((g) => g.template_references.length > 0);
+  const path = TOPLEVEL["question-type-groups"][0] as string;
+  recordPath(options, "group-defaults", path.replace(/question_type_groups$/, "group_defaults"));
+  recordPath(options, "question-type-groups", path);
+  return {
+    requested: true,
+    groups: emitted,
+    templates: permitted.map((t) => ({ reference: t.reference, name: t.name, type: t.type, group: t.group })),
+  };
+}
+
 // --- author-embed finalize: top-level coherence + design holes ---
 const TOP_ALLOWED = new Set<string>([
   ...Object.keys(TOPLEVEL), "mode", "config", "paths", ...Object.keys(SECTIONS),
@@ -200,19 +273,12 @@ function finalize(rec: any, options: any): any {
   if (!isNonEmptyString(top["user-id"])) holes.push("Your design doesn't identify the author (required). Provide `user-id` — the author's stable id.");
   if (mode === "item_edit" && !isNonEmptyString(top.reference)) holes.push("item-edit needs a `reference` — the existing item to edit, or a new reference to create.");
 
-  // What the editor actually offers is set by question-type-groups; allow-widgets names
-  // the finer-grained question types, which no confirmed config key selects. So the nudge
-  // depends on which of the two a design reached for.
-  if (top["question-type-groups"] === undefined && (mode === "item_edit" || mode === "activity_edit")) {
-    specificity.push(top["allow-widgets"] !== undefined
-      ? "`allow-widgets` names question types, which Learnosity has no confirmed way to restrict — on its own it enforces nothing. Add `question-type-groups` to actually limit the picker; the group is the level the Author API enforces."
-      : "No `question-type-groups` — the editor offers all ten question-type groups. This is the one restriction the Author API is confirmed to enforce.");
+  const picker = resolvePicker(top, options, holes);
+  if (picker.groups === undefined && !picker.requested && (mode === "item_edit" || mode === "activity_edit")) {
+    specificity.push("No picker restriction — the editor offers every question template. Set `question-type-groups`, `allow-widgets` or `allow-templates` to limit what authors may add.");
   }
   if (top["organisation-id"] === undefined) {
     specificity.push("No item bank specified (`organisation-id`) — the default is used.");
-  }
-  if (top["question-type-groups"] !== undefined) {
-    recordPath(options, "question-type-groups", TOPLEVEL["question-type-groups"][0] as string);
   }
 
   // Holes lead (progressive disclosure), and specificity nudges wait until they're filled —
@@ -226,7 +292,10 @@ function finalize(rec: any, options: any): any {
     reference: top.reference,
     organisation_id: top["organisation-id"],
     allow_widgets: top["allow-widgets"],
-    question_type_groups: top["question-type-groups"],
+    allow_templates: top["allow-templates"],
+    group_defaults: picker.groups === undefined ? undefined : false,
+    question_type_groups: picker.groups,
+    picker_templates: picker.templates,
     config: top.config,
     container: top.container,
     widget_templates: top["widget-templates"],
