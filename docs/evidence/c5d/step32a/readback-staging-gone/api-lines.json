@@ -1,0 +1,117 @@
+[
+  {
+    "insertId": "6b05bdba000360b7fa5eb75d",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwts8195-165448",
+      "instanceId": "00e8a408bd44a862bea4601da33ca461279db269e782830519af258f5479c0c1effd2536052ce18b644ec0a4f1179a87f5dd37ab691b66b2383d836b1c54cd57bdcb62ebe3c5a0e01994440858482ce2b05d82cc0b9ee7a1"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:39:22.291085364Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwts8195-165448",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf: recovered at generation 2, failed",
+    "timestamp": "2026-11-24T16:39:22.221367Z"
+  },
+  {
+    "insertId": "6b05bdaf000a3a284a704b7b",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwts8195-165448",
+      "instanceId": "00e8a408bd44a862bea4601da33ca461279db269e782830519af258f5479c0c1effd2536052ce18b644ec0a4f1179a87f5dd37ab691b66b2383d836b1c54cd57bdcb62ebe3c5a0e01994440858482ce2b05d82cc0b9ee7a1"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:39:11.961121462Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwts8195-165448",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf: call start s0 L0013 at https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-24T16:39:11.670248Z"
+  },
+  {
+    "insertId": "6b05bdaf00046dc5cab696a4",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwts8195-165448",
+      "instanceId": "00e8a408bd44a862bea4601da33ca461279db269e782830519af258f5479c0c1effd2536052ce18b644ec0a4f1179a87f5dd37ab691b66b2383d836b1c54cd57bdcb62ebe3c5a0e01994440858482ce2b05d82cc0b9ee7a1"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:39:11.299970615Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwts8195-165448",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf: resuming at s0, its pinned input",
+    "timestamp": "2026-11-24T16:39:11.290245Z"
+  },
+  {
+    "insertId": "6b05bd7d00052f14edb97970",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwts8195-165448",
+      "instanceId": "00e8a408bd44a862bea4601da33ca461279db269e782830519af258f5479c0c1effd2536052ce18b644ec0a4f1179a87f5dd37ab691b66b2383d836b1c54cd57bdcb62ebe3c5a0e01994440858482ce2b05d82cc0b9ee7a1"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:38:21.523365855Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwts8195-165448",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN command c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf: left pending for recovery, s0's answer was lost with its expansion open",
+    "timestamp": "2026-11-24T16:38:21.339732Z"
+  },
+  {
+    "insertId": "6b05bd6f000f05902b55bcf0",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwts8195-165448",
+      "instanceId": "00e8a408bd44a862bea4601da33ca461279db269e782830519af258f5479c0c1effd2536052ce18b644ec0a4f1179a87f5dd37ab691b66b2383d836b1c54cd57bdcb62ebe3c5a0e01994440858482ce2b05d82cc0b9ee7a1"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:38:08.009531166Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "api-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "api-c5d-drive-rmwts8195-165448",
+        "service_name": "api-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "command c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf: call start s0 L0013 at https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+    "timestamp": "2026-11-24T16:38:07.984464Z"
+  }
+]

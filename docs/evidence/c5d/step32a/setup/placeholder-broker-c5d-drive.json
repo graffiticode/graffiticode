@@ -1,0 +1,181 @@
+{
+  "apiVersion": "serving.knative.dev/v1",
+  "kind": "Service",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "586.0.0",
+      "run.googleapis.com/ingress": "all",
+      "run.googleapis.com/ingress-status": "all",
+      "run.googleapis.com/maxScale": "20",
+      "run.googleapis.com/operation-id": "f52a2bb0-2222-44c9-bcad-d046992ff6c4",
+      "run.googleapis.com/urls": "[\"https://broker-c5d-drive-656973052505.us-central1.run.app\",\"https://broker-c5d-drive-sja7fatcta-uc.a.run.app\"]",
+      "serving.knative.dev/creator": "<operator>",
+      "serving.knative.dev/lastModifier": "<operator>"
+    },
+    "creationTimestamp": "2026-11-23T20:43:12.281956Z",
+    "generation": 1,
+    "labels": {
+      "cloud.googleapis.com/location": "us-central1"
+    },
+    "name": "broker-c5d-drive",
+    "namespace": "656973052505",
+    "resourceVersion": "AAZg96Ttjrc",
+    "selfLink": "/apis/serving.knative.dev/v1/namespaces/656973052505/services/broker-c5d-drive",
+    "uid": "827c40bb-116f-432c-92aa-80e1090989d0"
+  },
+  "spec": {
+    "template": {
+      "metadata": {
+        "annotations": {
+          "run.googleapis.com/client-name": "gcloud",
+          "run.googleapis.com/client-version": "586.0.0",
+          "run.googleapis.com/startup-cpu-boost": "true"
+        },
+        "labels": {
+          "client.knative.dev/nonce": "qwpliadzqr",
+          "run.googleapis.com/startupProbeType": "Default"
+        }
+      },
+      "spec": {
+        "containerConcurrency": 80,
+        "containers": [
+          {
+            "env": [
+              {
+                "name": "BROKER_FIRESTORE_DB",
+                "value": "broker"
+              },
+              {
+                "name": "POLICY_KMS_KEY_VERSION",
+                "value": "projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1"
+              },
+              {
+                "name": "POLICY_KMS_KID",
+                "value": "policy-1"
+              },
+              {
+                "name": "LEARNOSITY_DOMAIN",
+                "value": "l0176.graffiticode.org"
+              },
+              {
+                "name": "POLICY_URL",
+                "value": "https://policy-sja7fatcta-uc.a.run.app"
+              },
+              {
+                "name": "BROKER_MIN_CONTRACT_VERSION",
+                "value": "2"
+              },
+              {
+                "name": "SYSTEM_SESSION_MAX_SIGNINGS",
+                "value": "4"
+              },
+              {
+                "name": "BROKER_PREVIEW_CONNECTIONS",
+                "value": "{\"learnosity\":\"conn-d9afcb13-cff3-43a6-8041-c44989bf689c\"}"
+              },
+              {
+                "name": "THUMBNAIL_BUCKET",
+                "value": "graffiticode-c5d-drive"
+              },
+              {
+                "name": "COMMAND_STAGING_BUCKET",
+                "value": "graffiticode-command-staging"
+              },
+              {
+                "name": "BROKER_CALLERS",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "3",
+                    "name": "broker-callers"
+                  }
+                }
+              },
+              {
+                "name": "AUDIT_PSEUDONYM_SECRET",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "1",
+                    "name": "audit-pseudonym-secret"
+                  }
+                }
+              },
+              {
+                "name": "BROKER_SECRET_KEY",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "1",
+                    "name": "BROKER_SECRET_KEY"
+                  }
+                }
+              }
+            ],
+            "image": "us-central1-docker.pkg.dev/graffiticode/services/broker@sha256:208b52e187e70c869ffa98379db6dcce50dc94e8252b67da57e565fdaf154223",
+            "ports": [
+              {
+                "containerPort": 8080,
+                "name": "http1"
+              }
+            ],
+            "resources": {
+              "limits": {
+                "cpu": "1000m",
+                "memory": "512Mi"
+              }
+            },
+            "startupProbe": {
+              "failureThreshold": 1,
+              "periodSeconds": 240,
+              "tcpSocket": {
+                "port": 8080
+              },
+              "timeoutSeconds": 240
+            }
+          }
+        ],
+        "sandboxes": {},
+        "serviceAccountName": "broker-run@graffiticode.iam.gserviceaccount.com",
+        "timeoutSeconds": 300
+      }
+    },
+    "traffic": [
+      {
+        "latestRevision": true,
+        "percent": 100
+      }
+    ]
+  },
+  "status": {
+    "address": {
+      "url": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app"
+    },
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-11-23T20:43:20.483743Z",
+        "status": "True",
+        "type": "Ready"
+      },
+      {
+        "lastTransitionTime": "2026-11-23T20:43:13.382529Z",
+        "status": "True",
+        "type": "ConfigurationsReady"
+      },
+      {
+        "lastTransitionTime": "2026-11-23T20:43:20.440434Z",
+        "status": "True",
+        "type": "RoutesReady"
+      }
+    ],
+    "latestCreatedRevisionName": "broker-c5d-drive-00001-xzs",
+    "latestReadyRevisionName": "broker-c5d-drive-00001-xzs",
+    "observedGeneration": 1,
+    "traffic": [
+      {
+        "latestRevision": true,
+        "percent": 100,
+        "revisionName": "broker-c5d-drive-00001-xzs"
+      }
+    ],
+    "url": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app"
+  }
+}

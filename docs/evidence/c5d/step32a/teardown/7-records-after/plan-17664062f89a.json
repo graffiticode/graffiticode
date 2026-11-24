@@ -1,0 +1,112 @@
+{
+  "name": "projects/graffiticode/databases/policy/documents/plans/17664062f89a1330985d33466b051c76bb49549938484a1a4e9dad843f16469a",
+  "fields": {
+    "invocationId": {
+      "stringValue": "inv-fdc7707c-f0c3-4d67-b8d5-dcd658f2f18b"
+    },
+    "revisions": {
+      "arrayValue": {
+        "values": [
+          {
+            "stringValue": "l0013r-c5d-drive-rmwtr1q6y-99884e"
+          }
+        ]
+      }
+    },
+    "plan": {
+      "mapValue": {
+        "fields": {
+          "inputDigest": {
+            "stringValue": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          },
+          "stages": {
+            "arrayValue": {
+              "values": [
+                {
+                  "mapValue": {
+                    "fields": {
+                      "stage": {
+                        "stringValue": "s0"
+                      },
+                      "lang": {
+                        "stringValue": "0013"
+                      },
+                      "sourceDigest": {
+                        "stringValue": "0ef9ac34e25ec8e98118a8c8eac6464ee5d59916d327803e6d797766cbd4cf10"
+                      },
+                      "programDigest": {
+                        "stringValue": "0ef9ac34e25ec8e98118a8c8eac6464ee5d59916d327803e6d797766cbd4cf10"
+                      },
+                      "optionsDigest": {
+                        "stringValue": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+                      },
+                      "revision": {
+                        "stringValue": "l0013r-c5d-drive-rmwtr1q6y-99884e"
+                      },
+                      "imageDigest": {
+                        "stringValue": "sha256:793badd62ce11b94d79d521825360846afc7a477ad8396d995d4fa17dccb1524"
+                      },
+                      "registryVersion": {
+                        "integerValue": "10"
+                      },
+                      "requiredFunctions": {
+                        "arrayValue": {
+                          "values": [
+                            {
+                              "stringValue": "snap"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "scopes": {
+            "arrayValue": {
+              "values": [
+                {
+                  "mapValue": {
+                    "fields": {
+                      "kind": {
+                        "stringValue": "item"
+                      },
+                      "id": {
+                        "stringValue": "wbyfys3akpc4yEGFrnuu"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "registryVersion": {
+            "integerValue": "10"
+          },
+          "contractVersion": {
+            "integerValue": "3"
+          },
+          "taskIds": {
+            "arrayValue": {
+              "values": [
+                {
+                  "stringValue": "Ta4XydWuyFbTWaQWfDaN"
+                }
+              ]
+            }
+          },
+          "invocationId": {
+            "stringValue": "inv-fdc7707c-f0c3-4d67-b8d5-dcd658f2f18b"
+          }
+        }
+      }
+    },
+    "createdAt": {
+      "stringValue": "2026-11-24T18:51:49.110Z"
+    }
+  },
+  "createTime": "2026-11-24T18:51:49.165350Z",
+  "updateTime": "2026-11-24T18:51:49.165350Z"
+}

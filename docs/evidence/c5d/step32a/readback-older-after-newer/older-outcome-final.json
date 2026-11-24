@@ -1,0 +1,40 @@
+{
+  "name": "projects/graffiticode/databases/broker/documents/receipts/98041531ff698603e2c518f4e3e1cdb1fa614e6c9ee70e4be0b4d416b589adcd/outcome/final",
+  "fields": {
+    "status": {
+      "stringValue": "succeeded"
+    },
+    "at": {
+      "stringValue": "2026-11-24T16:54:08.178Z"
+    },
+    "result": {
+      "mapValue": {
+        "fields": {
+          "captureSequence": {
+            "integerValue": "20"
+          },
+          "sha256": {
+            "stringValue": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+          },
+          "item": {
+            "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+          },
+          "url": {
+            "stringValue": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5"
+          }
+        }
+      }
+    },
+    "steps": {
+      "arrayValue": {
+        "values": [
+          {
+            "stringValue": "publish"
+          }
+        ]
+      }
+    }
+  },
+  "createTime": "2026-11-24T16:54:08.228449Z",
+  "updateTime": "2026-11-24T16:54:08.228449Z"
+}

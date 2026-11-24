@@ -1,0 +1,69 @@
+ok     checks/observations-read: ok
+ok     checks/broker-env: ok
+ok     checks/l0013r-env: ok
+ok     checks/l0176r-env: ok
+ok     checks/api-env: ok
+ok     checks/bucket: ok
+ok     access-probes/observations-read: ok
+ok     access-probes/l0013r-gateway-control: ok
+ok     access-probes/l0013r-no-identity: ok
+ok     access-probes/l0013r-malformed-identity: ok
+ok     access-probes/l0013r-non-gateway: ok
+ok     access-probes/l0013r-model: ok
+ok     access-probes/l0013r-start-malformed-session: ok
+ok     access-probes/l0013r-start-forged-session: ok
+ok     access-probes/l0176r-gateway-control: ok
+ok     access-probes/l0176r-no-identity: ok
+ok     access-probes/l0176r-malformed-identity: ok
+ok     access-probes/l0176r-non-gateway: ok
+ok     access-probes/l0176r-model: ok
+ok     access-probes/l0176r-start-malformed-session: ok
+ok     access-probes/l0176r-start-forged-session: ok
+ok     access-probes/drive-bucket-unchanged: ok
+ok     access-probes/policy-unchanged: ok
+ok     baseline/observations-read: ok
+ok     baseline/thumbnails-listed: ok
+ok     first-capture/observations-read: ok
+ok     first-capture/private: ok
+ok     first-capture/public-anonymous: ok
+ok     direct-refused/observations-read: ok
+ok     direct-refused/refused: ok
+ok     direct-refused/nothing-uploaded: ok
+ok     exit-after-reserve/observations-read: ok
+ok     exit-after-reserve/fault-fired: ok
+ok     exit-after-reserve/taken-over: ok
+ok     exit-after-reserve/same-reservation: ok
+ok     exit-after-stage/observations-read: ok
+ok     exit-after-stage/fault-fired: ok
+ok     exit-after-stage/staged-reused: ok
+ok     drop-outcome/observations-read: ok
+ok     drop-outcome/fault-scoped: ok
+ok     drop-outcome/dropped: ok
+ok     drop-outcome/staging-deleted: ok
+ok     drop-outcome/replayed: ok
+ok     drop-outcome/reconciled: ok
+ok     stale-worker/observations-read: ok
+ok     stale-worker/faults-fired: ok
+ok     stale-worker/takeover-first: ok
+ok     stale-worker/stage-refused: ok
+ok     stale-worker/generation-2-published: ok
+ok     stale-worker/old-worker-finished-nothing: ok
+ok     staging-gone/observations-read: ok
+ok     staging-gone/fault-fired: ok
+ok     staging-gone/refusal-recorded: ok
+ok     staging-gone/refusal-outcome: ok
+ok     staging-gone/nothing-run: ok
+ok     staging-gone/failed-nothing-published: ok
+ok     staging-gone/fresh-capture: ok
+ok     older-after-newer/observations-read: ok
+ok     older-after-newer/older-stopped: ok
+ok     older-after-newer/newer-published: ok
+ok     older-after-newer/older-newer-present: ok
+FAILED two-stage/run: not run
+FAILED mixed/run: not run
+FAILED non-owner/run: not run
+FAILED rate-limit/run: not run
+FAILED canary-snap/run: not run
+FAILED boundary/run: not run
+FAILED cleanup/run: not run
+DRIVE NOT PASSED; docs/evidence/c5d/drive/d1ca6da0/report-2026-11-24T17-22-08-736Z.json

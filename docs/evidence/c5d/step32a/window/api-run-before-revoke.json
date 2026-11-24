@@ -1,0 +1,95 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "serviceAccount:canary-run@graffiticode.iam.gserviceaccount.com"
+      ],
+      "role": "roles/iam.serviceAccountOpenIdTokenCreator"
+    },
+    {
+      "condition": {
+        "expression": "request.time < timestamp(\"2026-10-24T06:00:00Z\")",
+        "title": "canary-window"
+      },
+      "members": [
+        "user:<operator>"
+      ],
+      "role": "roles/iam.serviceAccountOpenIdTokenCreator"
+    },
+    {
+      "condition": {
+        "description": "A5 L0176 connection canary (interpreter plan)",
+        "expression": "request.time < timestamp(\"2026-11-04T04:00:00Z\")",
+        "title": "canary-window-a5"
+      },
+      "members": [
+        "user:<operator>"
+      ],
+      "role": "roles/iam.serviceAccountOpenIdTokenCreator"
+    },
+    {
+      "condition": {
+        "expression": "request.time < timestamp(\"2026-11-10T08:00:00Z\")",
+        "title": "canary-window-c6"
+      },
+      "members": [
+        "user:<operator>"
+      ],
+      "role": "roles/iam.serviceAccountOpenIdTokenCreator"
+    },
+    {
+      "condition": {
+        "expression": "request.time < timestamp(\"2026-11-17T08:00:00Z\")",
+        "title": "canary-window-b6"
+      },
+      "members": [
+        "user:<operator>"
+      ],
+      "role": "roles/iam.serviceAccountOpenIdTokenCreator"
+    },
+    {
+      "condition": {
+        "description": "C5a live gate through api-c5a-gate (C5 plan)",
+        "expression": "request.time < timestamp(\"2026-11-19T03:57:32Z\")",
+        "title": "canary-window-c5a"
+      },
+      "members": [
+        "user:<operator>"
+      ],
+      "role": "roles/iam.serviceAccountOpenIdTokenCreator"
+    },
+    {
+      "condition": {
+        "description": "C5d staged drive (C5d plan)",
+        "expression": "request.time < timestamp(\"2026-11-20T23:14:39Z\")",
+        "title": "canary-window-c5d"
+      },
+      "members": [
+        "user:<operator>"
+      ],
+      "role": "roles/iam.serviceAccountOpenIdTokenCreator"
+    },
+    {
+      "condition": {
+        "expression": "request.time < timestamp(\"2026-11-25T01:41:42Z\")",
+        "title": "canary-window-c5d2"
+      },
+      "members": [
+        "user:<operator>"
+      ],
+      "role": "roles/iam.serviceAccountOpenIdTokenCreator"
+    },
+    {
+      "condition": {
+        "expression": "request.time < timestamp('2026-10-29T23:00:00Z')",
+        "title": "canary-window-a4"
+      },
+      "members": [
+        "user:<operator>"
+      ],
+      "role": "roles/iam.serviceAccountOpenIdTokenCreator"
+    }
+  ],
+  "etag": "BwZg-9AElps=",
+  "version": 3
+}

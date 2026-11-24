@@ -1,0 +1,85 @@
+{
+  "status": 200,
+  "body": {
+    "name": "projects/graffiticode/databases/broker/documents/receipts/1a01024fac1d279dc5c9ca7fe8cfd1b3d5ede747a437f1436200426115f73782",
+    "fields": {
+      "pld": {
+        "stringValue": "b7d4fa03a3b362680b0d3c74337095b31bad6561c56e658aba7a288b2b91cd96"
+      },
+      "binding": {
+        "mapValue": {
+          "fields": {
+            "op": {
+              "stringValue": "gcs.put-thumbnail"
+            },
+            "principal": {
+              "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+            },
+            "fn": {
+              "stringValue": "snap"
+            },
+            "scope": {
+              "mapValue": {
+                "fields": {
+                  "kind": {
+                    "stringValue": "item"
+                  },
+                  "id": {
+                    "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+                  }
+                }
+              }
+            },
+            "argsDigest": {
+              "stringValue": "2ee8939876e8546257483e0c88cca5dc9d3a56cc2397119a566385895c368854"
+            },
+            "lang": {
+              "stringValue": "0013"
+            },
+            "registryVersion": {
+              "integerValue": "9"
+            }
+          }
+        }
+      },
+      "claimedAt": {
+        "stringValue": "2026-11-20T19:33:33.272Z"
+      },
+      "evidence": {
+        "mapValue": {
+          "fields": {
+            "object": {
+              "stringValue": "7vwaCAIyMNCJEzgIfyYY.png"
+            },
+            "bucket": {
+              "stringValue": "graffiticode-c5d-drive"
+            },
+            "captureSequence": {
+              "integerValue": "10"
+            },
+            "format": {
+              "stringValue": "gcs-thumbnail-1"
+            },
+            "item": {
+              "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+            },
+            "sha256": {
+              "stringValue": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+            },
+            "staged": {
+              "stringValue": "c:db80a736f58318fe6f9cb1141bd60fc7c575d922cefe6374fe35496eeeff009b/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png"
+            },
+            "commandId": {
+              "stringValue": "c:db80a736f58318fe6f9cb1141bd60fc7c575d922cefe6374fe35496eeeff009b"
+            }
+          }
+        }
+      },
+      "operationId": {
+        "stringValue": "inv-b8878442-06cb-4517-9a10-fbee816c5f42/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+      }
+    },
+    "createTime": "2026-11-20T19:33:33.332339Z",
+    "updateTime": "2026-11-20T19:33:33.332339Z"
+  }
+}

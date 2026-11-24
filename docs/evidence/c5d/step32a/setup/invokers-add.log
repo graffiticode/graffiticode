@@ -1,0 +1,96 @@
+Updated IAM policy for service [broker-c5d-drive].
+bindings:
+- members:
+  - serviceAccount:l0013r-run@graffiticode.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96fUe_o=
+version: 1
+Updated IAM policy for service [broker-c5d-drive].
+bindings:
+- members:
+  - serviceAccount:l0013r-run@graffiticode.iam.gserviceaccount.com
+  - serviceAccount:l0176r-run@graffiticode.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96fs1Js=
+version: 1
+Updated IAM policy for service [broker-c5d-drive].
+bindings:
+- members:
+  - serviceAccount:deploy-smoke@graffiticode.iam.gserviceaccount.com
+  - serviceAccount:l0013r-run@graffiticode.iam.gserviceaccount.com
+  - serviceAccount:l0176r-run@graffiticode.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96gFF2Q=
+version: 1
+Updated IAM policy for service [l0013r-c5d-drive].
+bindings:
+- members:
+  - serviceAccount:api-run@graffiticode.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96gfK-Q=
+version: 1
+Updated IAM policy for service [l0013r-c5d-drive].
+bindings:
+- members:
+  - serviceAccount:api-run@graffiticode.iam.gserviceaccount.com
+  - serviceAccount:deploy-smoke@graffiticode.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96g2CCY=
+version: 1
+Updated IAM policy for service [l0176r-c5d-drive].
+bindings:
+- members:
+  - serviceAccount:api-run@graffiticode.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96hOfQQ=
+version: 1
+Updated IAM policy for service [l0176r-c5d-drive].
+bindings:
+- members:
+  - serviceAccount:api-run@graffiticode.iam.gserviceaccount.com
+  - serviceAccount:deploy-smoke@graffiticode.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96hj1tY=
+version: 1
+Updated IAM policy for service [api-c5d-drive].
+bindings:
+- members:
+  - serviceAccount:console-run@graffiticode-app.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96h6y7M=
+version: 1
+Updated IAM policy for service [api-c5d-drive].
+bindings:
+- members:
+  - serviceAccount:command-sweeper@graffiticode.iam.gserviceaccount.com
+  - serviceAccount:console-run@graffiticode-app.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96iRjYY=
+version: 1
+Updated IAM policy for service [api-c5d-drive].
+bindings:
+- members:
+  - serviceAccount:command-sweeper@graffiticode.iam.gserviceaccount.com
+  - serviceAccount:console-run@graffiticode-app.iam.gserviceaccount.com
+  - serviceAccount:deploy-smoke@graffiticode.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96ir5uU=
+version: 1
+Updated IAM policy for service [l0013r-c5d-drive].
+bindings:
+- members:
+  - allUsers
+  - serviceAccount:api-run@graffiticode.iam.gserviceaccount.com
+  - serviceAccount:deploy-smoke@graffiticode.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96jCLqw=
+version: 1
+Updated IAM policy for service [l0176r-c5d-drive].
+bindings:
+- members:
+  - allUsers
+  - serviceAccount:api-run@graffiticode.iam.gserviceaccount.com
+  - serviceAccount:deploy-smoke@graffiticode.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg96jakxc=
+version: 1

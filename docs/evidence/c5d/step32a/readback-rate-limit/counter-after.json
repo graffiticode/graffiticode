@@ -1,0 +1,58 @@
+{
+  "name": "projects/graffiticode/databases/policy/documents/item-captures/wbyfys3akpc4yEGFrnuu",
+  "fields": {
+    "publicCaptures": {
+      "arrayValue": {
+        "values": [
+          {
+            "integerValue": "1795546189432"
+          },
+          {
+            "integerValue": "1795546205795"
+          },
+          {
+            "integerValue": "1795546215856"
+          },
+          {
+            "integerValue": "1795546226216"
+          },
+          {
+            "integerValue": "1795546236007"
+          },
+          {
+            "integerValue": "1795546246130"
+          },
+          {
+            "integerValue": "1795546255868"
+          },
+          {
+            "integerValue": "1795546265661"
+          },
+          {
+            "integerValue": "1795546274600"
+          },
+          {
+            "integerValue": "1795546283476"
+          },
+          {
+            "integerValue": "1795546292252"
+          },
+          {
+            "integerValue": "1795546301214"
+          }
+        ]
+      }
+    },
+    "nextCaptureSequence": {
+      "integerValue": "40"
+    },
+    "item": {
+      "stringValue": "wbyfys3akpc4yEGFrnuu"
+    },
+    "updatedAt": {
+      "stringValue": "2026-11-24T18:51:41.214Z"
+    }
+  },
+  "createTime": "2026-11-18T04:20:43.125965Z",
+  "updateTime": "2026-11-24T18:51:41.234292Z"
+}

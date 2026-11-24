@@ -1,0 +1,32 @@
+[{
+  "document": {
+    "name": "projects/graffiticode/databases/policy/documents/admission-leases/ZnZnC5WtcviLUGEUmPsH",
+    "fields": {
+      "revisions": {
+        "arrayValue": {
+          "values": [
+            {
+              "stringValue": "l0013r-c5d-drive-rmwtr1q6y-99884e"
+            }
+          ]
+        }
+      },
+      "createdAt": {
+        "timestampValue": "2026-11-24T18:42:21.380Z"
+      },
+      "expiresAt": {
+        "timestampValue": "2026-11-24T18:42:51.380Z"
+      },
+      "state": {
+        "stringValue": "invalidated"
+      },
+      "invalidatedAt": {
+        "timestampValue": "2026-11-24T20:03:22.534Z"
+      }
+    },
+    "createTime": "2026-11-24T18:42:21.446303Z",
+    "updateTime": "2026-11-24T20:03:22.671078Z"
+  },
+  "readTime": "2026-11-24T20:04:16.143821Z"
+}
+]

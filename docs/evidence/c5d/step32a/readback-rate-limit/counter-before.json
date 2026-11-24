@@ -1,0 +1,19 @@
+{
+  "name": "projects/graffiticode/databases/policy/documents/item-captures/wbyfys3akpc4yEGFrnuu",
+  "fields": {
+    "publicCaptures": {
+      "arrayValue": {}
+    },
+    "updatedAt": {
+      "stringValue": "2026-11-24T17:32:17.230Z"
+    },
+    "nextCaptureSequence": {
+      "integerValue": "28"
+    },
+    "item": {
+      "stringValue": "wbyfys3akpc4yEGFrnuu"
+    }
+  },
+  "createTime": "2026-11-18T04:20:43.125965Z",
+  "updateTime": "2026-11-24T17:32:17.273541Z"
+}

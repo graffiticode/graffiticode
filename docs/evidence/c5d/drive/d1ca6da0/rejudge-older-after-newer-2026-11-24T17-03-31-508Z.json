@@ -1,0 +1,64 @@
+{
+  "runId": "d1ca6da0",
+  "phase": "older-after-newer",
+  "at": "2026-11-24T17:03:31.507Z",
+  "rejudge": {
+    "of": {
+      "file": "older-after-newer-2026-11-24T16-54-16-178Z.json",
+      "sha256": "35780e8ea38138c4b9005200e5314e574860461005a401bcef849fede4a7f8ed",
+      "at": "2026-11-24T16:54:16.178Z"
+    },
+    "receipt": {
+      "file": "older-outcome-final.json",
+      "sha256": "e44c1c66a84fae3c41b9830383b4638af90580d8daee4614af5d40abb2f9cacf",
+      "name": "projects/graffiticode/databases/broker/documents/receipts/98041531ff698603e2c518f4e3e1cdb1fa614e6c9ee70e4be0b4d416b589adcd/outcome/final",
+      "createTime": "2026-11-24T16:54:08.228449Z",
+      "updateTime": "2026-11-24T16:54:08.228449Z"
+    },
+    "field": "olderOutcome"
+  },
+  "olderOutcome": {
+    "operationId": "inv-7891b282-c71d-4c80-b3d6-d0f10db330e2/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+    "name": "projects/graffiticode/databases/broker/documents/receipts/98041531ff698603e2c518f4e3e1cdb1fa614e6c9ee70e4be0b4d416b589adcd/outcome/final",
+    "outcome": {
+      "status": "succeeded",
+      "at": "2026-11-24T16:54:08.178Z",
+      "result": {
+        "captureSequence": 20,
+        "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+        "item": "7vwaCAIyMNCJEzgIfyYY",
+        "url": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5"
+      },
+      "steps": [
+        "publish"
+      ]
+    }
+  },
+  "passed": true,
+  "checks": [
+    {
+      "id": "observations-read",
+      "title": "every observation of the phase was read: no read failed",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "older-stopped",
+      "title": "the older capture, the only target, exited after staging",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "newer-published",
+      "title": "the newer capture of the same item ran untargeted to completion",
+      "ok": true,
+      "detail": "ok"
+    },
+    {
+      "id": "older-newer-present",
+      "title": "the older's takeover published nothing: newer-present, completed with its own result, the newer still published",
+      "ok": true,
+      "detail": "ok"
+    }
+  ]
+}

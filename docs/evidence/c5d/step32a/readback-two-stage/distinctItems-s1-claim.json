@@ -1,0 +1,82 @@
+{
+  "name": "projects/graffiticode/databases/broker/documents/receipts/ba79f66c581f8a20f1f603579b024a4b814959b77c34f24656daad56f01e4e20",
+  "fields": {
+    "claimedAt": {
+      "stringValue": "2026-11-24T17:32:31.082Z"
+    },
+    "evidence": {
+      "mapValue": {
+        "fields": {
+          "sha256": {
+            "stringValue": "db1481a6a0fbc97760f6bb029c00cd40b66558f0d7498c59f30bbda890ff13d1"
+          },
+          "staged": {
+            "stringValue": "c:1fd0b95487ce12bf1b1c5b535a4ec3360655070ebbb8646f73fb57ee2a76c33d/s1/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png"
+          },
+          "item": {
+            "stringValue": "wbyfys3akpc4yEGFrnuu"
+          },
+          "commandId": {
+            "stringValue": "c:1fd0b95487ce12bf1b1c5b535a4ec3360655070ebbb8646f73fb57ee2a76c33d"
+          },
+          "bucket": {
+            "stringValue": "graffiticode-c5d-drive"
+          },
+          "object": {
+            "stringValue": "wbyfys3akpc4yEGFrnuu.png"
+          },
+          "format": {
+            "stringValue": "gcs-thumbnail-1"
+          },
+          "captureSequence": {
+            "integerValue": "27"
+          }
+        }
+      }
+    },
+    "pld": {
+      "stringValue": "b73c6eb71b82054a1ddba59cd34318c3ac72059617751550e817c31db13b5bed"
+    },
+    "binding": {
+      "mapValue": {
+        "fields": {
+          "lang": {
+            "stringValue": "0013"
+          },
+          "fn": {
+            "stringValue": "snap"
+          },
+          "argsDigest": {
+            "stringValue": "33ea353d94aca73eee2c88465a616a79643b67390df425749e4634835644d44f"
+          },
+          "registryVersion": {
+            "integerValue": "10"
+          },
+          "op": {
+            "stringValue": "gcs.put-thumbnail"
+          },
+          "scope": {
+            "mapValue": {
+              "fields": {
+                "kind": {
+                  "stringValue": "item"
+                },
+                "id": {
+                  "stringValue": "wbyfys3akpc4yEGFrnuu"
+                }
+              }
+            }
+          },
+          "principal": {
+            "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+          }
+        }
+      }
+    },
+    "operationId": {
+      "stringValue": "inv-f4148ca3-9c14-4f13-bc49-2983bf77d7e1/s1/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+    }
+  },
+  "createTime": "2026-11-24T17:32:31.197371Z",
+  "updateTime": "2026-11-24T17:32:31.197371Z"
+}

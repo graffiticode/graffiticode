@@ -1,0 +1,488 @@
+{
+  "apiVersion": "serving.knative.dev/v1",
+  "kind": "Revision",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "586.0.0",
+      "run.googleapis.com/operation-id": "1ab049a0-f24c-4cac-a15f-73da2880ea99",
+      "run.googleapis.com/startup-cpu-boost": "true",
+      "serving.knative.dev/creator": "<operator>"
+    },
+    "creationTimestamp": "2026-11-23T21:41:13.938442Z",
+    "generation": 1,
+    "labels": {
+      "cloud.googleapis.com/location": "us-central1",
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwts8195-165448",
+      "run.googleapis.com/startupProbeType": "Default",
+      "serving.knative.dev/configuration": "api-c5d-drive",
+      "serving.knative.dev/configurationGeneration": "2",
+      "serving.knative.dev/route": "api-c5d-drive",
+      "serving.knative.dev/service": "api-c5d-drive",
+      "serving.knative.dev/serviceUid": "6e6ba15b-e748-4fd3-a895-6c07e7c1d423"
+    },
+    "name": "api-c5d-drive-rmwts8195-165448",
+    "namespace": "656973052505",
+    "ownerReferences": [
+      {
+        "apiVersion": "serving.knative.dev/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Configuration",
+        "name": "api-c5d-drive",
+        "uid": "57dad7dd-78a0-4c30-918f-eb056981d2a2"
+      }
+    ],
+    "resourceVersion": "AAZg+HeQVdo",
+    "selfLink": "/apis/serving.knative.dev/v1/namespaces/656973052505/revisions/api-c5d-drive-rmwts8195-165448",
+    "uid": "4fe6cc9d-1312-4abf-bed2-14e921ddbbdf"
+  },
+  "spec": {
+    "containerConcurrency": 80,
+    "containers": [
+      {
+        "env": [
+          {
+            "name": "AUTH_URL",
+            "value": "https://auth-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "SWEEP_AUDIENCE",
+            "value": "https://api-c5d-drive-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "SWEEP_CALLERS",
+            "value": "command-sweeper@graffiticode.iam.gserviceaccount.com"
+          },
+          {
+            "name": "POLICY_URL",
+            "value": "https://policy-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "CHAIN_ADMISSION",
+            "value": "all"
+          },
+          {
+            "name": "CHAIN_ADMISSION_CONNECTIONS",
+            "value": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0158",
+            "value": "l0158-cutover-1"
+          },
+          {
+            "name": "BASE_URL_L0000",
+            "value": "https://l0000r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0000",
+            "value": "https://l0000.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0000",
+            "value": "rust-1"
+          },
+          {
+            "name": "BASE_URL_L0176",
+            "value": "https://l0176r-c5d-drive-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0176",
+            "value": "https://l0176.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0176",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0176",
+            "value": "on"
+          },
+          {
+            "name": "COMMANDS_L0176",
+            "value": "on"
+          },
+          {
+            "name": "REPAIR_L0176",
+            "value": "on"
+          },
+          {
+            "name": "BRIDGE_L0176",
+            "value": "off"
+          },
+          {
+            "name": "BASE_URL_L0184",
+            "value": "https://l0184-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0184",
+            "value": "https://l0184.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0184",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0184",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0186",
+            "value": "https://l0186r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0186",
+            "value": "https://l0186.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0186",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0186",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0187",
+            "value": "https://l0187-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0187",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0187",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0174",
+            "value": "https://l0174r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0174",
+            "value": "https://l0174.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0174",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0174",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0175",
+            "value": "https://l0175r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0175",
+            "value": "https://l0175.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0175",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0175",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0183",
+            "value": "https://l0183r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0183",
+            "value": "https://l0183.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0183",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0183",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0180",
+            "value": "https://l0180r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0180",
+            "value": "https://l0180.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0180",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0180",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0014",
+            "value": "https://l0014r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0014",
+            "value": "https://l0014.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0014",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0014",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0003",
+            "value": "https://l0003r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0003",
+            "value": "https://l0003.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0003",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0003",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0010",
+            "value": "https://l0010r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0010",
+            "value": "https://l0010.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0010",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0010",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0177",
+            "value": "https://l0177r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0177",
+            "value": "https://l0177.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0177",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0177",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0178",
+            "value": "https://l0178r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0178",
+            "value": "https://l0178.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0178",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0178",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0179",
+            "value": "https://l0179r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0179",
+            "value": "https://l0179.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0179",
+            "value": "interp-4"
+          },
+          {
+            "name": "INTERPRETER_L0179",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0181",
+            "value": "https://l0181r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0181",
+            "value": "https://l0181.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0181",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0181",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0185",
+            "value": "https://l0185r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0185",
+            "value": "https://l0185.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0185",
+            "value": "interp-1"
+          },
+          {
+            "name": "INTERPRETER_L0185",
+            "value": "on"
+          },
+          {
+            "name": "BASE_URL_L0182",
+            "value": "https://l0182r-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0182",
+            "value": "https://l0182.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0182",
+            "value": "rust-1"
+          },
+          {
+            "name": "BASE_URL_L0013",
+            "value": "https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PUBLIC_URL_L0013",
+            "value": "https://l0013.graffiticode.org"
+          },
+          {
+            "name": "COMPILE_GENERATION_L0013",
+            "value": "c5d-drive-1"
+          },
+          {
+            "name": "SYSTEM_SIGNING_STAGES_PER_CLIENT_PER_MINUTE",
+            "value": "10"
+          },
+          {
+            "name": "SYSTEM_SIGNING_STAGES_BURST",
+            "value": "10"
+          },
+          {
+            "name": "COMMANDS_L0013",
+            "value": "on"
+          },
+          {
+            "name": "COMMAND_SCOPES",
+            "value": "on"
+          },
+          {
+            "name": "INTERPRETER_L0013",
+            "value": "on"
+          },
+          {
+            "name": "API_COMMAND_FAULT_TARGETS",
+            "value": "{\"c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d\":\"stop-renewal\"}"
+          },
+          {
+            "name": "GC_RELEASE",
+            "value": "rmwts8195-165448"
+          },
+          {
+            "name": "GC_IMAGE_DIGEST",
+            "value": "sha256:9ac0d3908c38ee80b956c7b28c372a7c814a83a2e57f4fbd4a35d69368b3f0ed"
+          },
+          {
+            "name": "EDGE_AUTH_SECRET",
+            "valueFrom": {
+              "secretKeyRef": {
+                "key": "1",
+                "name": "edge-auth-secret"
+              }
+            }
+          }
+        ],
+        "image": "us-central1-docker.pkg.dev/graffiticode/services/api-c5d-drive@sha256:9ac0d3908c38ee80b956c7b28c372a7c814a83a2e57f4fbd4a35d69368b3f0ed",
+        "name": "api-c5d-drive-1",
+        "ports": [
+          {
+            "containerPort": 3100,
+            "name": "http1"
+          }
+        ],
+        "resources": {
+          "limits": {
+            "cpu": "1000m",
+            "memory": "512Mi"
+          }
+        },
+        "startupProbe": {
+          "failureThreshold": 1,
+          "periodSeconds": 240,
+          "tcpSocket": {
+            "port": 3100
+          },
+          "timeoutSeconds": 240
+        }
+      }
+    ],
+    "sandboxes": {},
+    "serviceAccountName": "api-run@graffiticode.iam.gserviceaccount.com",
+    "timeoutSeconds": 300
+  },
+  "status": {
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-11-23T21:42:13.055146Z",
+        "message": "Updating revision scaling succeeded.",
+        "status": "True",
+        "type": "Ready"
+      },
+      {
+        "lastTransitionTime": "2026-11-23T21:41:57.699008Z",
+        "severity": "Info",
+        "status": "True",
+        "type": "Active"
+      },
+      {
+        "lastTransitionTime": "2026-11-23T21:41:57.585871Z",
+        "message": "Containers became healthy in 3.64s.",
+        "status": "True",
+        "type": "ContainerHealthy"
+      },
+      {
+        "lastTransitionTime": "2026-11-23T21:41:51.963653Z",
+        "message": "Container image import completed in 37.41s.",
+        "status": "True",
+        "type": "ContainerReady"
+      },
+      {
+        "lastTransitionTime": "2026-11-23T21:41:53.414830Z",
+        "message": "Provisioning imported containers completed in 1.45s. Checking container health. This will wait for up to 4m for the configured startup probe, including an initial delay of 0s.",
+        "status": "True",
+        "type": "ResourcesAvailable"
+      }
+    ],
+    "containerStatuses": [
+      {
+        "imageDigest": "us-central1-docker.pkg.dev/graffiticode/services/api-c5d-drive@sha256:9ac0d3908c38ee80b956c7b28c372a7c814a83a2e57f4fbd4a35d69368b3f0ed",
+        "name": "api-c5d-drive-1"
+      }
+    ],
+    "imageDigest": "us-central1-docker.pkg.dev/graffiticode/services/api-c5d-drive@sha256:9ac0d3908c38ee80b956c7b28c372a7c814a83a2e57f4fbd4a35d69368b3f0ed",
+    "logUrl": "https://console.cloud.google.com/logs/viewer?project=graffiticode&resource=cloud_run_revision/service_name/api-c5d-drive/revision_name/api-c5d-drive-rmwts8195-165448&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22api-c5d-drive%22%0Aresource.labels.revision_name%3D%22api-c5d-drive-rmwts8195-165448%22",
+    "observedGeneration": 1
+  }
+}

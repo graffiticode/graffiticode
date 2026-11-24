@@ -1,0 +1,23 @@
+{
+  "bindings": [
+    {
+      "members": [
+        "projectOwner:graffiticode"
+      ],
+      "role": "roles/storage.legacyBucketOwner"
+    },
+    {
+      "members": [
+        "projectOwner:graffiticode"
+      ],
+      "role": "roles/storage.legacyObjectOwner"
+    },
+    {
+      "members": [
+        "serviceAccount:broker-run@graffiticode.iam.gserviceaccount.com"
+      ],
+      "role": "roles/storage.objectUser"
+    }
+  ],
+  "etag": "CAI="
+}

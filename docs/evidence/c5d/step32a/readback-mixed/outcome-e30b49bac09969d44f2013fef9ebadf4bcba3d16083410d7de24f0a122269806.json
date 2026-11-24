@@ -1,0 +1,52 @@
+{
+  "name": "projects/graffiticode/databases/broker/documents/receipts/e30b49bac09969d44f2013fef9ebadf4bcba3d16083410d7de24f0a122269806/outcome/final",
+  "fields": {
+    "at": {
+      "stringValue": "2026-11-24T18:34:21.646Z"
+    },
+    "status": {
+      "stringValue": "succeeded"
+    },
+    "steps": {
+      "arrayValue": {
+        "values": [
+          {
+            "stringValue": "questions"
+          },
+          {
+            "stringValue": "items"
+          }
+        ]
+      }
+    },
+    "result": {
+      "mapValue": {
+        "fields": {
+          "questionReferences": {
+            "arrayValue": {
+              "values": [
+                {
+                  "stringValue": "gc-e30b49bac09969d4-artcompiler-mcq-c5a-gate-mixed-r381d64-0-0"
+                }
+              ]
+            }
+          },
+          "saved": {
+            "booleanValue": true
+          },
+          "references": {
+            "arrayValue": {
+              "values": [
+                {
+                  "stringValue": "gc-e30b49bac09969d4-graffiticode-c5a-gate-mixed-r381d64-0"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "createTime": "2026-11-24T18:34:21.715713Z",
+  "updateTime": "2026-11-24T18:34:21.715713Z"
+}

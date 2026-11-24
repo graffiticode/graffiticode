@@ -1,0 +1,1400 @@
+
+> deploy
+> node packages/deploy/src/cli.js l0176r-c5d-drive
+
+{
+  "action": "deploy",
+  "target": "graffiticode/us-central1/l0176r-c5d-drive",
+  "environment": "production",
+  "commit": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+  "dirty": false,
+  "sourceHash": "f966200b9fb0734fec9b4afd8090c3d675c9f25156f17ebda4b16dbf9c033ecb",
+  "files": 241,
+  "configHash": "3e9de1c38e0bd48c926a52cfead134a26183bda08202fd8aeeead563b970d319",
+  "config": {
+    "project": "graffiticode",
+    "region": "us-central1",
+    "buildServiceAccount": "deploy-build@graffiticode.iam.gserviceaccount.com",
+    "exclude": [],
+    "protectedExecution": {
+      "policyUrl": "https://policy-sja7fatcta-uc.a.run.app",
+      "brokerUrl": "https://broker-sja7fatcta-uc.a.run.app"
+    },
+    "image": "us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive",
+    "dockerfile": "configs/Dockerfile.l0176r.yaml",
+    "port": 8080,
+    "access": "public",
+    "retireTags": true,
+    "runtimeServiceAccount": "l0176r-run@graffiticode.iam.gserviceaccount.com",
+    "pinnable": {
+      "lang": "0176",
+      "contractVersions": [
+        1,
+        2
+      ]
+    },
+    "network": {
+      "network": "compilers",
+      "subnet": "compilers-l0176",
+      "tags": [
+        "compiler"
+      ],
+      "proxy": "http://10.8.0.2:3128",
+      "ca": {
+        "secret": "egress-proxy-ca-bundle:1",
+        "path": "/etc/egress-ca/ca.pem"
+      },
+      "allow": [
+        "api.graffiticode.org",
+        "auth.graffiticode.org",
+        "broker-c5d-drive-sja7fatcta-uc.a.run.app",
+        "policy-sja7fatcta-uc.a.run.app",
+        "www.googleapis.com"
+      ]
+    },
+    "steps": [
+      {
+        "name": "rust:1.99-bookworm",
+        "entrypoint": "cargo",
+        "dir": "languages/l0176",
+        "args": [
+          "test",
+          "--locked"
+        ]
+      }
+    ],
+    "env": {
+      "AUTH_URL": "https://auth.graffiticode.org",
+      "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
+      "BROKER_URL": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app",
+      "PREFLIGHT_GATEWAYS": "api-run@graffiticode.iam.gserviceaccount.com"
+    },
+    "smoke": [
+      {
+        "path": "/",
+        "status": 200
+      },
+      {
+        "path": "/lexicon.json",
+        "status": 200
+      }
+    ],
+    "include": [
+      "languages/l0176",
+      "languages/l0000",
+      "configs/Dockerfile.l0176r.yaml"
+    ],
+    "minInstances": 0,
+    "forbiddenEnv": [
+      "SYSTEM_PREVIEW_DIRECT",
+      "LEARNOSITY_KEY",
+      "LEARNOSITY_SECRET"
+    ],
+    "service": "l0176r-c5d-drive"
+  },
+  "requiredVariables": []
+}
+Checking existing service, identity, and secret versions…
+Building rmwtrvx68-fd9659 from snapshot f966200b9fb0…
+Uploading local file [/var/folders/yc/3zb4lhls0kxd8wb7l89_vpsm0000gn/T/gc-deploy-BqRGUw/source.tar.gz] to [gs://graffiticode_cloudbuild/source/1795469003.136711-846a9d5346334cc6bf3a6cf57b666276.gz].
+Created [https://cloudbuild.googleapis.com/v1/projects/graffiticode/locations/us-central1/builds/66d1ceef-0223-4c3f-8a11-cd84d6b1e19a].
+Logs are available at [ https://console.cloud.google.com/cloud-build/builds;region=us-central1/66d1ceef-0223-4c3f-8a11-cd84d6b1e19a?project=656973052505 ].
+
+gcloud builds log --stream only displays logs from Cloud Storage. To view logs from Cloud Logging, run:
+gcloud beta builds log --stream
+
+Waiting for build to complete. Polling interval: 1 second(s).
+----------------------------- REMOTE BUILD OUTPUT ------------------------------
+starting build "66d1ceef-0223-4c3f-8a11-cd84d6b1e19a" using release legacy
+
+FETCHSOURCE
+Fetching storage object: gs://graffiticode_cloudbuild/source/1795469003.136711-846a9d5346334cc6bf3a6cf57b666276.gz#1795469003945579
+BUILD
+Starting Step #0
+Step #0: Pulling image: rust:1.99-bookworm
+Step #0: 1.99-bookworm: Pulling from library/rust
+Step #0: 69245854ad58: Pulling fs layer
+Step #0: 338554e9113f: Pulling fs layer
+Step #0: d6c30932f8d3: Pulling fs layer
+Step #0: 9bab93d346cd: Pulling fs layer
+Step #0: 197527a0befa: Pulling fs layer
+Step #0: 338554e9113f: Verifying Checksum
+Step #0: 338554e9113f: Download complete
+Step #0: 69245854ad58: Verifying Checksum
+Step #0: 69245854ad58: Download complete
+Step #0: d6c30932f8d3: Verifying Checksum
+Step #0: d6c30932f8d3: Download complete
+Step #0: 9bab93d346cd: Verifying Checksum
+Step #0: 9bab93d346cd: Download complete
+Step #0: 197527a0befa: Verifying Checksum
+Step #0: 197527a0befa: Download complete
+Step #0: 69245854ad58: Pull complete
+Step #0: 338554e9113f: Pull complete
+Step #0: d6c30932f8d3: Pull complete
+Step #0: 9bab93d346cd: Pull complete
+Step #0: 197527a0befa: Pull complete
+Step #0: Digest: sha256:e6f2cff35d0f309acf8433b4f05878ed77092602c5065cc81801177da0bb3a9c
+Step #0: Status: Downloaded newer image for rust:1.99-bookworm
+Step #0: docker.io/library/rust:1.99-bookworm
+Step #0:     Updating crates.io index
+Step #0:  Downloading crates ...
+Step #0:   Downloaded aead v0.6.1
+Step #0:   Downloaded ahash v0.8.12
+Step #0:   Downloaded atomic-waker v1.1.2
+Step #0:   Downloaded block-buffer v0.12.1
+Step #0:   Downloaded version_check v0.9.5
+Step #0:   Downloaded want v0.3.2
+Step #0:   Downloaded dunce v1.0.5
+Step #0:   Downloaded idna_adapter v1.2.2
+Step #0:   Downloaded bit-vec v0.8.0
+Step #0:   Downloaded http-body-util v0.1.5
+Step #0:   Downloaded ghash v0.6.0
+Step #0:   Downloaded lru-slab v0.1.3
+Step #0:   Downloaded writeable v0.6.4
+Step #0:   Downloaded matchers v0.2.0
+Step #0:   Downloaded cmov v0.5.4
+Step #0:   Downloaded vsimd v0.8.0
+Step #0:   Downloaded cmake v0.1.58
+Step #0:   Downloaded cpufeatures v0.3.1
+Step #0:   Downloaded ctutils v0.4.3
+Step #0:   Downloaded lock_api v0.4.14
+Step #0:   Downloaded borrow-or-share v0.2.4
+Step #0:   Downloaded bit-set v0.8.0
+Step #0:   Downloaded cfg_aliases v0.2.2
+Step #0:   Downloaded zerofrom v0.1.8
+Step #0:   Downloaded block-padding v0.4.2
+Step #0:   Downloaded form_urlencoded v1.2.2
+Step #0:   Downloaded futures-sink v0.3.34
+Step #0:   Downloaded http-body v1.1.0
+Step #0:   Downloaded num-complex v0.4.6
+Step #0:   Downloaded httpdate v1.0.3
+Step #0:   Downloaded micromap v0.3.0
+Step #0:   Downloaded axum-core v0.5.6
+Step #0:   Downloaded cpubits v0.1.1
+Step #0:   Downloaded errno v0.3.14
+Step #0:   Downloaded futures-core v0.3.34
+Step #0:   Downloaded cfg-if v1.0.5
+Step #0:   Downloaded crypto-common v0.2.2
+Step #0:   Downloaded tower-service v0.3.3
+Step #0:   Downloaded mime v0.3.17
+Step #0:   Downloaded futures-task v0.3.34
+Step #0:   Downloaded http-range-header v0.4.2
+Step #0:   Downloaded lazy_static v1.5.1
+Step #0:   Downloaded itoa v1.0.18
+Step #0:   Downloaded displaydoc v0.2.7
+Step #0:   Downloaded equivalent v1.0.3
+Step #0:   Downloaded heck v0.5.0
+Step #0:   Downloaded hex v0.4.3
+Step #0:   Downloaded uuid-simd v0.8.0
+Step #0:   Downloaded zerofrom-derive v0.1.8
+Step #0:   Downloaded zerotrie v0.2.5
+Step #0:   Downloaded autocfg v1.5.1
+Step #0:   Downloaded bytes v1.12.1
+Step #0:   Downloaded async-trait v0.1.92
+Step #0:   Downloaded cbc v0.2.1
+Step #0:   Downloaded foldhash v0.2.0
+Step #0:   Downloaded inout v0.2.2
+Step #0:   Downloaded num v0.4.3
+Step #0:   Downloaded bytecount v0.6.9
+Step #0:   Downloaded ctr v0.10.1
+Step #0:   Downloaded digest v0.11.3
+Step #0:   Downloaded fs_extra v1.3.0
+Step #0:   Downloaded hyper-rustls v0.27.10
+Step #0:   Downloaded jsonschema-regex v0.58.6
+Step #0:   Downloaded try-lock v0.2.5
+Step #0:   Downloaded zeroize_derive v1.5.0
+Step #0:   Downloaded aho-corasick v1.1.5
+Step #0:   Downloaded allocator-api2 v0.2.21
+Step #0:   Downloaded bitflags v2.13.2
+Step #0:   Downloaded chacha20 v0.10.2
+Step #0:   Downloaded cipher v0.5.2
+Step #0:   Downloaded const-oid v0.10.2
+Step #0:   Downloaded data-encoding v2.11.1
+Step #0:   Downloaded email_address v0.2.9
+Step #0:   Downloaded find-msvc-tools v0.1.14
+Step #0:   Downloaded getrandom v0.2.17
+Step #0:   Downloaded httparse v1.10.1
+Step #0:   Downloaded hybrid-array v0.4.15
+Step #0:   Downloaded ipnet v2.12.2
+Step #0:   Downloaded jobserver v0.1.35
+Step #0:   Downloaded litemap v0.8.3
+Step #0:   Downloaded tracing-log v0.2.0
+Step #0:   Downloaded num-iter v0.1.46
+Step #0:   Downloaded fluent-uri v0.4.1
+Step #0:   Downloaded futures-channel v0.3.34
+Step #0:   Downloaded getrandom v0.3.4
+Step #0:   Downloaded getrandom v0.4.3
+Step #0:   Downloaded icu_provider v2.3.1
+Step #0:   Downloaded log v0.4.34
+Step #0:   Downloaded mime_guess v2.0.5
+Step #0:   Downloaded nu-ansi-term v0.50.3
+Step #0:   Downloaded num-cmp v0.1.0
+Step #0:   Downloaded yoke-derive v0.8.4
+Step #0:   Downloaded zeroize v1.9.1
+Step #0:   Downloaded zerovec-derive v0.11.6
+Step #0:   Downloaded zmij v1.0.23
+Step #0:   Downloaded aes v0.9.3
+Step #0:   Downloaded ar_archive_writer v0.5.3
+Step #0:   Downloaded base64 v0.22.1
+Step #0:   Downloaded memchr v2.8.3
+Step #0:   Downloaded num-integer v0.1.47
+Step #0:   Downloaded num-rational v0.4.2
+Step #0:   Downloaded subtle v2.6.1
+Step #0:   Downloaded unicode-ident v1.0.27
+Step #0:   Downloaded utf8_iter v1.0.4
+Step #0:   Downloaded yoke v0.8.3
+Step #0:   Downloaded aes-gcm v0.11.1
+Step #0:   Downloaded base64 v0.23.1
+Step #0:   Downloaded fraction v0.17.0
+Step #0:   Downloaded icu_locale_core v2.3.0
+Step #0:   Downloaded icu_normalizer_data v2.3.0
+Step #0:   Downloaded indexmap v2.14.2
+Step #0:   Downloaded jsonschema-value v0.58.6
+Step #0:   Downloaded jsonwebtoken v11.1.0
+Step #0:   Downloaded rustc-hash v2.1.3
+Step #0:   Downloaded sync_wrapper v1.0.2
+Step #0:   Downloaded thread_local v1.1.10
+Step #0:   Downloaded http v1.5.0
+Step #0:   Downloaded icu_collections v2.3.0
+Step #0:   Downloaded icu_properties v2.3.0
+Step #0:   Downloaded rand_core v0.6.4
+Step #0:   Downloaded shlex v2.0.1
+Step #0:   Downloaded strum v0.28.0
+Step #0:   Downloaded tower v0.5.3
+Step #0:   Downloaded tracing-attributes v0.1.31
+Step #0:   Downloaded unicode-general-category v1.1.0
+Step #0:   Downloaded url v2.5.8
+Step #0:   Downloaded hyper-util v0.1.21
+Step #0:   Downloaded matchit v0.8.4
+Step #0:   Downloaded openssl-probe v0.2.1
+Step #0:   Downloaded potential_utf v0.1.6
+Step #0:   Downloaded ref-cast v1.0.27
+Step #0:   Downloaded scopeguard v1.2.0
+Step #0:   Downloaded stable_deref_trait v1.2.1
+Step #0:   Downloaded tokio-macros v2.7.2
+Step #0:   Downloaded bigdecimal v0.4.11
+Step #0:   Downloaded cc v1.8.0
+Step #0:   Downloaded percent-encoding v2.3.2
+Step #0:   Downloaded polyval v0.7.3
+Step #0:   Downloaded signature v2.2.0
+Step #0:   Downloaded thiserror v2.0.21
+Step #0:   Downloaded mio v1.2.4
+Step #0:   Downloaded rand_pcg v0.10.2
+Step #0:   Downloaded tower-layer v0.3.3
+Step #0:   Downloaded universal-hash v0.6.1
+Step #0:   Downloaded untrusted v0.7.1
+Step #0:   Downloaded untrusted v0.9.0
+Step #0:   Downloaded outref v0.5.2
+Step #0:   Downloaded serde_urlencoded v0.7.1
+Step #0:   Downloaded ref-cast-impl v1.0.27
+Step #0:   Downloaded pkg-config v0.3.34
+Step #0:   Downloaded psm v0.1.32
+Step #0:   Downloaded rustls-native-certs v0.8.5
+Step #0:   Downloaded serde_path_to_error v0.1.20
+Step #0:   Downloaded thiserror-impl v2.0.21
+Step #0:   Downloaded slab v0.4.12
+Step #0:   Downloaded strum_macros v0.28.0
+Step #0:   Downloaded unicase v2.10.0
+Step #0:   Downloaded parking_lot v0.12.5
+Step #0:   Downloaded parking_lot_core v0.9.12
+Step #0:   Downloaded stacker v0.1.25
+Step #0:   Downloaded synstructure v0.14.0
+Step #0:   Downloaded tokio-rustls v0.26.6
+Step #0:   Downloaded once_cell v1.21.4
+Step #0:   Downloaded quote v1.0.47
+Step #0:   Downloaded sha2 v0.11.1
+Step #0:   Downloaded signal-hook-registry v1.4.8
+Step #0:   Downloaded hashbrown v0.17.1
+Step #0:   Downloaded idna v1.1.0
+Step #0:   Downloaded quinn-udp v0.5.16
+Step #0:   Downloaded rand_core v0.10.1
+Step #0:   Downloaded rustls-pki-types v1.15.1
+Step #0:   Downloaded smallvec v1.16.3
+Step #0:   Downloaded tinystr v0.8.4
+Step #0:   Downloaded tracing-core v0.1.36
+Step #0:   Downloaded typenum v1.20.1
+Step #0:   Downloaded axum v0.8.9
+Step #0:   Downloaded futures-util v0.3.34
+Step #0:   Downloaded icu_properties_data v2.3.0
+Step #0:   Downloaded num-traits v0.2.19
+Step #0:   Downloaded pin-project-lite v0.2.17
+Step #0:   Downloaded proc-macro2 v1.0.107
+Step #0:   Downloaded ryu v1.0.23
+Step #0:   Downloaded serde_core v1.0.229
+Step #0:   Downloaded serde_derive v1.0.229
+Step #0:   Downloaded sharded-slab v0.1.7
+Step #0:   Downloaded tower-http v0.6.11
+Step #0:   Downloaded uuid v1.28.0
+Step #0:   Downloaded libm v0.2.16
+Step #0:   Downloaded referencing v0.58.6
+Step #0:   Downloaded rustls-platform-verifier v0.7.1
+Step #0:   Downloaded rustls-webpki v0.103.15
+Step #0:   Downloaded socket2 v0.6.5
+Step #0:   Downloaded tinyvec v1.13.3
+Step #0:   Downloaded hyper v1.12.0
+Step #0:   Downloaded num-bigint v0.4.8
+Step #0:   Downloaded quinn v0.11.12
+Step #0:   Downloaded serde v1.0.229
+Step #0:   Downloaded zerovec v0.11.8
+Step #0:   Downloaded rand v0.10.3
+Step #0:   Downloaded tower-http v0.7.1
+Step #0:   Downloaded aws-lc-rs v1.18.2
+Step #0:   Downloaded fancy-regex v0.19.2
+Step #0:   Downloaded reqwest v0.13.5
+Step #0:   Downloaded tokio-util v0.7.20
+Step #0:   Downloaded serde_json v1.0.154
+Step #0:   Downloaded tracing-subscriber v0.3.23
+Step #0:   Downloaded regex v1.13.1
+Step #0:   Downloaded quinn-proto v0.11.19
+Step #0:   Downloaded syn v3.0.9
+Step #0:   Downloaded zerocopy v0.8.63
+Step #0:   Downloaded syn v2.0.119
+Step #0:   Downloaded tracing v0.1.44
+Step #0:   Downloaded object v0.39.1
+Step #0:   Downloaded rustls v0.23.46
+Step #0:   Downloaded icu_normalizer v2.3.0
+Step #0:   Downloaded regex-syntax v0.8.11
+Step #0:   Downloaded jsonschema v0.58.6
+Step #0:   Downloaded regex-automata v0.4.18
+Step #0:   Downloaded libc v0.2.190
+Step #0:   Downloaded tokio v1.53.3
+Step #0:   Downloaded ring v0.17.14
+Step #0:   Downloaded aws-lc-sys v0.46.0
+Step #0:    Compiling proc-macro2 v1.0.107
+Step #0:    Compiling quote v1.0.47
+Step #0:    Compiling unicode-ident v1.0.27
+Step #0:    Compiling libc v0.2.190
+Step #0:    Compiling syn v3.0.9
+Step #0:    Compiling syn v2.0.119
+Step #0:    Compiling cfg-if v1.0.5
+Step #0:    Compiling jobserver v0.1.35
+Step #0:    Compiling find-msvc-tools v0.1.14
+Step #0:    Compiling shlex v2.0.1
+Step #0:    Compiling cc v1.8.0
+Step #0:    Compiling once_cell v1.21.4
+Step #0:    Compiling synstructure v0.14.0
+Step #0:    Compiling itoa v1.0.18
+Step #0:    Compiling zerofrom-derive v0.1.8
+Step #0:    Compiling serde_core v1.0.229
+Step #0:    Compiling pin-project-lite v0.2.17
+Step #0:    Compiling typenum v1.20.1
+Step #0:    Compiling zerofrom v0.1.8
+Step #0:    Compiling yoke-derive v0.8.4
+Step #0:    Compiling hybrid-array v0.4.15
+Step #0:    Compiling stable_deref_trait v1.2.1
+Step #0:    Compiling getrandom v0.4.3
+Step #0:    Compiling autocfg v1.5.1
+Step #0:    Compiling smallvec v1.16.3
+Step #0:    Compiling bytes v1.12.1
+Step #0:    Compiling yoke v0.8.3
+Step #0:    Compiling futures-core v0.3.34
+Step #0:    Compiling rand_core v0.10.1
+Step #0:    Compiling cmake v0.1.58
+Step #0:    Compiling zerovec-derive v0.11.6
+Step #0:    Compiling dunce v1.0.5
+Step #0:    Compiling fs_extra v1.3.0
+Step #0:    Compiling pkg-config v0.3.34
+Step #0:    Compiling memchr v2.8.3
+Step #0:    Compiling aws-lc-sys v0.46.0
+Step #0:    Compiling zerovec v0.11.8
+Step #0:    Compiling num-traits v0.2.19
+Step #0:    Compiling displaydoc v0.2.7
+Step #0:    Compiling errno v0.3.14
+Step #0:    Compiling log v0.4.34
+Step #0:    Compiling serde v1.0.229
+Step #0:    Compiling signal-hook-registry v1.4.8
+Step #0:    Compiling crypto-common v0.2.2
+Step #0:    Compiling tracing-core v0.1.36
+Step #0:    Compiling zeroize_derive v1.5.0
+Step #0:    Compiling serde_derive v1.0.229
+Step #0:    Compiling tokio-macros v2.7.2
+Step #0:    Compiling mio v1.2.4
+Step #0:    Compiling socket2 v0.6.5
+Step #0:    Compiling percent-encoding v2.3.2
+Step #0:    Compiling tokio v1.53.3
+Step #0:    Compiling zeroize v1.9.1
+Step #0:    Compiling http v1.5.0
+Step #0:    Compiling tracing-attributes v0.1.31
+Step #0:    Compiling aws-lc-rs v1.18.2
+Step #0:    Compiling tracing v0.1.44
+Step #0:    Compiling http-body v1.1.0
+Step #0:    Compiling tinystr v0.8.4
+Step #0:    Compiling zmij v1.0.23
+Step #0:    Compiling foldhash v0.2.0
+Step #0:    Compiling writeable v0.6.4
+Step #0:    Compiling equivalent v1.0.3
+Step #0:    Compiling litemap v0.8.3
+Step #0:    Compiling allocator-api2 v0.2.21
+Step #0:    Compiling hashbrown v0.17.1
+Step #0:    Compiling icu_locale_core v2.3.0
+Step #0:    Compiling num-integer v0.1.47
+Step #0:    Compiling zerotrie v0.2.5
+Step #0:    Compiling potential_utf v0.1.6
+Step #0:    Compiling futures-task v0.3.34
+Step #0:    Compiling icu_properties_data v2.3.0
+Step #0:    Compiling slab v0.4.12
+Step #0:    Compiling icu_normalizer_data v2.3.0
+Step #0:    Compiling utf8_iter v1.0.4
+Step #0:    Compiling tower-service v0.3.3
+Step #0:    Compiling untrusted v0.7.1
+Step #0:    Compiling serde_json v1.0.154
+Step #0:    Compiling icu_collections v2.3.0
+Step #0:    Compiling futures-util v0.3.34
+Step #0:    Compiling icu_provider v2.3.1
+Step #0:    Compiling indexmap v2.14.2
+Step #0:    Compiling rustls-pki-types v1.15.1
+Step #0:    Compiling block-buffer v0.12.1
+Step #0:    Compiling block-padding v0.4.2
+Step #0:    Compiling regex-syntax v0.8.11
+Step #0:    Compiling object v0.39.1
+Step #0:    Compiling httparse v1.10.1
+Step #0:    Compiling inout v0.2.2
+Step #0:    Compiling num-bigint v0.4.8
+Step #0:    Compiling aho-corasick v1.1.5
+Step #0:    Compiling httpdate v1.0.3
+Step #0:    Compiling untrusted v0.9.0
+Step #0:    Compiling tower-layer v0.3.3
+Step #0:    Compiling getrandom v0.3.4
+Step #0:    Compiling rustls v0.23.46
+Step #0:    Compiling try-lock v0.2.5
+Step #0:    Compiling version_check v0.9.5
+Step #0:    Compiling zerocopy v0.8.63
+Step #0:    Compiling ahash v0.8.12
+Step #0:    Compiling want v0.3.2
+Step #0:    Compiling regex-automata v0.4.18
+Step #0:    Compiling icu_normalizer v2.3.0
+Step #0:    Compiling rustls-webpki v0.103.15
+Step #0:    Compiling icu_properties v2.3.0
+Step #0:    Compiling form_urlencoded v1.2.2
+Step #0:    Compiling sync_wrapper v1.0.2
+Step #0:    Compiling ref-cast v1.0.27
+Step #0:    Compiling cmov v0.5.4
+Step #0:    Compiling subtle v2.6.1
+Step #0:    Compiling atomic-waker v1.1.2
+Step #0:    Compiling cpufeatures v0.3.1
+Step #0:    Compiling parking_lot_core v0.9.12
+Step #0:    Compiling hyper v1.12.0
+Step #0:    Compiling ctutils v0.4.3
+Step #0:    Compiling idna_adapter v1.2.2
+Step #0:    Compiling ar_archive_writer v0.5.3
+Step #0:    Compiling num-rational v0.4.2
+Step #0:    Compiling cipher v0.5.2
+Step #0:    Compiling num-iter v0.1.46
+Step #0:    Compiling http-body-util v0.1.5
+Step #0:    Compiling num-complex v0.4.6
+Step #0:    Compiling futures-channel v0.3.34
+Step #0:    Compiling ref-cast-impl v1.0.27
+Step #0:    Compiling base64 v0.23.1
+Step #0:    Compiling scopeguard v1.2.0
+Step #0:    Compiling ipnet v2.12.2
+Step #0:    Compiling cpubits v0.1.1
+Step #0:    Compiling hyper-util v0.1.21
+Step #0:    Compiling lock_api v0.4.14
+Step #0:    Compiling num v0.4.3
+Step #0:    Compiling psm v0.1.32
+Step #0:    Compiling idna v1.1.0
+Step #0:    Compiling universal-hash v0.6.1
+Step #0:    Compiling tower v0.5.3
+Step #0:    Compiling borrow-or-share v0.2.4
+Step #0:    Compiling heck v0.5.0
+Step #0:    Compiling libm v0.2.16
+Step #0:    Compiling unicode-general-category v1.1.0
+Step #0:    Compiling ryu v1.0.23
+Step #0:    Compiling bitflags v2.13.2
+Step #0:    Compiling bit-vec v0.8.0
+Step #0:    Compiling openssl-probe v0.2.1
+Step #0:    Compiling jsonschema-value v0.58.6
+Step #0:    Compiling bit-set v0.8.0
+Step #0:    Compiling rustls-native-certs v0.8.5
+Step #0:    Compiling serde_urlencoded v0.7.1
+Step #0:    Compiling strum_macros v0.28.0
+Step #0:    Compiling fluent-uri v0.4.1
+Step #0:    Compiling parking_lot v0.12.5
+Step #0:    Compiling polyval v0.7.3
+Step #0:    Compiling url v2.5.8
+Step #0:    Compiling fraction v0.17.0
+Step #0:    Compiling tokio-rustls v0.26.6
+Step #0:    Compiling bigdecimal v0.4.11
+Step #0:    Compiling stacker v0.1.25
+Step #0:    Compiling vsimd v0.8.0
+Step #0:    Compiling micromap v0.3.0
+Step #0:    Compiling outref v0.5.2
+Step #0:    Compiling const-oid v0.10.2
+Step #0:    Compiling num-cmp v0.1.0
+Step #0:    Compiling thiserror v2.0.21
+Step #0:    Compiling bytecount v0.6.9
+Step #0:    Compiling digest v0.11.3
+Step #0:    Compiling uuid-simd v0.8.0
+Step #0:    Compiling referencing v0.58.6
+Step #0:    Compiling hyper-rustls v0.27.10
+Step #0:    Compiling strum v0.28.0
+Step #0:    Compiling tower-http v0.6.11
+Step #0:    Compiling ghash v0.6.0
+Step #0:    Compiling rustls-platform-verifier v0.7.1
+Step #0:    Compiling fancy-regex v0.19.2
+Step #0:    Compiling aes v0.9.3
+Step #0:    Compiling ctr v0.10.1
+Step #0:    Compiling regex v1.13.1
+Step #0:    Compiling aead v0.6.1
+Step #0:    Compiling jsonschema-regex v0.58.6
+Step #0:    Compiling email_address v0.2.9
+Step #0:    Compiling thiserror-impl v2.0.21
+Step #0:    Compiling base64 v0.22.1
+Step #0:    Compiling signature v2.2.0
+Step #0:    Compiling data-encoding v2.11.1
+Step #0:    Compiling jsonschema v0.58.6
+Step #0:    Compiling jsonwebtoken v11.1.0
+Step #0:    Compiling aes-gcm v0.11.1
+Step #0:    Compiling reqwest v0.13.5
+Step #0:    Compiling sha2 v0.11.1
+Step #0:    Compiling cbc v0.2.1
+Step #0:    Compiling uuid v1.28.0
+Step #0:    Compiling async-trait v0.1.92
+Step #0:    Compiling hex v0.4.3
+Step #0:    Compiling graffiticode-l0000 v0.1.0 (/workspace/languages/l0000/crates/core)
+Step #0:    Compiling graffiticode-l0176 v0.1.0 (/workspace/languages/l0176/crates/core)
+Step #0:    Compiling unicase v2.10.0
+Step #0:    Compiling mime v0.3.17
+Step #0:    Compiling mime_guess v2.0.5
+Step #0:    Compiling lazy_static v1.5.1
+Step #0:    Compiling futures-sink v0.3.34
+Step #0:    Compiling tokio-util v0.7.20
+Step #0:    Compiling sharded-slab v0.1.7
+Step #0:    Compiling axum-core v0.5.6
+Step #0:    Compiling matchers v0.2.0
+Step #0:    Compiling tracing-log v0.2.0
+Step #0:    Compiling serde_path_to_error v0.1.20
+Step #0:    Compiling thread_local v1.1.10
+Step #0:    Compiling matchit v0.8.4
+Step #0:    Compiling http-range-header v0.4.2
+Step #0:    Compiling nu-ansi-term v0.50.3
+Step #0:    Compiling tower-http v0.7.1
+Step #0:    Compiling tracing-subscriber v0.3.23
+Step #0:    Compiling axum v0.8.9
+Step #0:    Compiling l0000r-server v0.1.0 (/workspace/languages/l0000/crates/server)
+Step #0:    Compiling l0176r-server v0.1.0 (/workspace/languages/l0176/crates/server)
+Step #0:     Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 06s
+Step #0:      Running unittests src/lib.rs (target/debug/deps/graffiticode_l0176-0b2e8ae6789d76ff)
+Step #0: 
+Step #0: running 10 tests
+Step #0: test activities::tests::template_variables_are_marked_but_a_blank_is_not ... ok
+Step #0: test plain::tests::keys_take_javascripts_order ... ok
+Step #0: test plain::tests::strings_are_javascripts ... ok
+Step #0: test protection::tests::a_broker_acceptable_activity_is_not_refused ... ok
+Step #0: test protection::tests::init_names_what_it_was_given_as_typescript_does ... ok
+Step #0: test protection::tests::only_the_signing_limits_are_busy ... ok
+Step #0: test questions::tests::a_syntax_rule_is_read_without_its_digit_count ... ok
+Step #0: test questions::tests::mathml_is_found_in_any_case ... ok
+Step #0: test questions::tests::trailing_noise_is_stripped_as_the_regular_expression_strips_it ... ok
+Step #0: test activities::tests::dynamic_content_keys_are_the_tables_own_and_keep_every_row_in_order ... ok
+Step #0: 
+Step #0: test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+Step #0: 
+Step #0:      Running tests/brokered.rs (target/debug/deps/brokered-63e5e7edcfb63f56)
+Step #0: 
+Step #0: running 30 tests
+Step #0: test an_author_activity_arriving_as_data_is_refused_unsigned ... ok
+Step #0: test an_incoming_session_id_is_dropped_in_every_mode ... ok
+Step #0: test init_refuses_what_isn_t_an_activity_on_both_paths ... ok
+Step #0: test structured_failures_and_effects::a_compile_with_no_save_reports_no_effects ... ok
+Step #0: test structured_failures_and_effects::a_lost_broker_answer_is_an_uncertain_save_said_the_same_way ... ok
+Step #0: test structured_failures_and_effects::a_partial_save_names_its_code_category_stage_function_and_failed_step ... ok
+Step #0: test structured_failures_and_effects::a_refusal_carries_the_reason_and_category ... ok
+Step #0: test structured_failures_and_effects::a_refused_signing_is_structured_and_is_not_an_effect ... ok
+Step #0: test structured_failures_and_effects::an_earlier_save_is_still_reported_when_a_later_one_fails ... ok
+Step #0: test structured_failures_and_effects::an_uncertain_save_keeps_its_guidance ... ok
+Step #0: test structured_failures_and_effects::bodies_without_category_or_failed_step_give_the_same_messages ... ok
+Step #0: test with_a_connection::a_render_is_signed_by_the_broker_with_only_preview_fields_sent ... ok
+Step #0: test with_a_connection::a_save_needs_an_activity_this_compile_built ... ok
+Step #0: test with_a_connection::a_save_writes_through_the_broker ... ok
+Step #0: test with_a_connection::a_stored_result_is_signed_on_read_by_a_data_only_program ... ok
+Step #0: test evaluate_never_writes_signs_or_asks_policy ... ok
+Step #0: test with_a_connection::every_occurrence_id_is_one_policy_accepts ... ok
+Step #0: test with_a_connection::what_policy_does_not_grant_is_refused_before_anything_runs ... ok
+Step #0: test with_a_connection::the_legacy_member_form_saves_the_same_way ... ok
+Step #0: test without_a_connection::a_failed_system_signing_is_unsigned_not_an_error ... ok
+Step #0: test without_a_connection::a_direct_caller_s_preview_is_unsigned_gateway_only_and_policy_is_never_asked ... ok
+Step #0: test without_a_connection::a_preview_is_signed_by_the_broker_under_a_system_session ... ok
+Step #0: test without_a_connection::an_activity_arriving_signed_is_signed_afresh ... ok
+Step #0: test without_a_connection::init_signs_through_the_system_session_too ... ok
+Step #0: test without_a_connection::a_system_session_never_writes_even_one_that_claims_it_may ... ok
+Step #0: test without_a_connection::program_and_config_credentials_are_ignored ... ok
+Step #0: test without_a_connection::the_signing_limits_come_back_busy_under_their_own_reason ... ok
+Step #0: test without_a_connection::only_present_signs_and_evaluate_never_asks_policy ... ok
+Step #0: test without_a_connection::without_a_policy_client_the_preview_is_unsigned_and_a_connection_is_refused ... ok
+Step #0: test without_a_connection::without_a_session_the_preview_compiles_unsigned_with_a_message ... ok
+Step #0: 
+Step #0: test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+Step #0: 
+Step #0:      Running tests/commands.rs (target/debug/deps/commands-e5081b675cc88e7f)
+Step #0: 
+Step #0: running 14 tests
+Step #0: test a_retried_start_binds_the_same_arguments ... ok
+Step #0: test a_refused_bind_writes_nothing_and_the_stage_reports_it ... ok
+Step #0: test a_save_in_a_lambda_body_is_a_site_by_its_node ... ok
+Step #0: test a_start_binds_each_save_before_it_writes_and_never_signs ... ok
+Step #0: test an_ordinary_compile_saves_and_signs_as_before ... ok
+Step #0: test a_save_repeated_by_map_is_one_expansion_per_call ... ok
+Step #0: test each_save_site_is_one_runtime_intent_policy_accepts ... ok
+Step #0: test replay::a_blocked_save_stops_the_repair_with_nothing_written ... ok
+Step #0: test replay::a_record_of_other_arguments_stops_the_repair_before_the_next_save ... ok
+Step #0: test replay::a_repair_writes_only_the_save_it_was_given ... ok
+Step #0: test replay::a_save_without_its_record_fails_the_replay ... ok
+Step #0: test replay::a_replay_loads_no_schema ... ok
+Step #0: test replay::this_revision_says_it_replays ... ok
+Step #0: test replay::every_save_program_materializes_to_its_original_answer ... ok
+Step #0: 
+Step #0: test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+Step #0: 
+Step #0:      Running tests/conformance.rs (target/debug/deps/conformance-9be418967e8f1cb7)
+Step #0: 
+Step #0: running 6 tests
+Step #0: test activity_ids_and_sessions_are_compared_field_by_field ... ok
+Step #0: test an_activity_written_as_a_literal_is_signed_too ... ok
+Step #0: test an_undefined_attribute_is_null_not_absent ... ok
+Step #0: test masking_hides_only_what_changes ... ok
+Step #0: test the_published_lexicon_never_advertises_a_retired_spelling ... ok
+Step #0: test agrees_with_the_typescript_implementation ... ok
+Step #0: 
+Step #0: test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+Step #0: 
+Step #0:      Running tests/interpret.rs (target/debug/deps/interpret-9c89c74df1ad6fd5)
+Step #0: 
+Step #0: running 4 tests
+Step #0: test a_generated_activity_id_changes_with_the_content_and_an_explicit_one_is_kept ... ok
+Step #0: test every_compile_and_present_answer_is_cache_false_and_no_evaluate_answer_has_cache ... ok
+Step #0: test nothing_in_an_answer_changes_from_one_compile_to_the_next ... ok
+Step #0: test present_answers_as_compile_and_evaluate_is_the_same_unsigned ... ok
+Step #0: 
+Step #0: test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.60s
+Step #0: 
+Step #0:      Running unittests src/main.rs (target/debug/deps/l0176r-cf1499e08be8bd26)
+Step #0: 
+Step #0: running 0 tests
+Step #0: 
+Step #0: test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+Step #0: 
+Step #0:    Doc-tests graffiticode_l0176
+Step #0: 
+Step #0: running 0 tests
+Step #0: 
+Step #0: test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+Step #0:
+Finished Step #0
+Starting Step #1
+Step #1: Already have image (with digest): gcr.io/cloud-builders/docker
+Step #1: Sending build context to Docker daemon  1.848GB
+Step #1: Step 1/25 : FROM node:22-alpine AS static
+Step #1: 22-alpine: Pulling from library/node
+Step #1: 881fc932939e: Already exists
+Step #1: 87aaee1f6667: Pulling fs layer
+Step #1: e868d1035e50: Pulling fs layer
+Step #1: 177fffbd7f51: Pulling fs layer
+Step #1: 177fffbd7f51: Verifying Checksum
+Step #1: 177fffbd7f51: Download complete
+Step #1: e868d1035e50: Verifying Checksum
+Step #1: e868d1035e50: Download complete
+Step #1: 87aaee1f6667: Verifying Checksum
+Step #1: 87aaee1f6667: Download complete
+Step #1: 87aaee1f6667: Pull complete
+Step #1: e868d1035e50: Pull complete
+Step #1: 177fffbd7f51: Pull complete
+Step #1: Digest: sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
+Step #1: Status: Downloaded newer image for node:22-alpine
+Step #1:  ---> 8049382e2048
+Step #1: Step 2/25 : WORKDIR /src
+Step #1:  ---> Running in 0d505aeefec0
+Step #1: Removing intermediate container 0d505aeefec0
+Step #1:  ---> 678836759097
+Step #1: Step 3/25 : COPY languages/l0176/package*.json ./
+Step #1:  ---> 0c7c5d205741
+Step #1: Step 4/25 : COPY languages/l0176/packages/core/package*.json ./packages/core/
+Step #1:  ---> 3c7837726bb5
+Step #1: Step 5/25 : COPY languages/l0176/packages/api/package*.json ./packages/api/
+Step #1:  ---> 05b550520b46
+Step #1: Step 6/25 : COPY languages/l0176/packages/view/package*.json ./packages/view/
+Step #1:  ---> c67029320e0d
+Step #1: Step 7/25 : RUN npm ci
+Step #1:  ---> Running in 0aacd00f0a14
+Step #1: [91mnpm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+Step #1: [0m[91mnpm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+Step #1: [0m
+Step #1: added 502 packages, and audited 506 packages in 54s
+Step #1: 
+Step #1: 101 packages are looking for funding
+Step #1:   run `npm fund` for details
+Step #1: 
+Step #1: 22 vulnerabilities (18 moderate, 3 high, 1 critical)
+Step #1: 
+Step #1: To address issues that do not require attention, run:
+Step #1:   npm audit fix
+Step #1: 
+Step #1: To address all issues possible (including breaking changes), run:
+Step #1:   npm audit fix --force
+Step #1: 
+Step #1: Some issues need review, and may require choosing
+Step #1: a different dependency.
+Step #1: 
+Step #1: Run `npm audit` for details.
+Step #1: [91mnpm notice
+Step #1: npm notice New major version of npm available! 10.9.9 -> 12.2.3
+Step #1: npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.3
+Step #1: npm notice To update run: npm install -g npm@12.2.3
+Step #1: npm notice
+Step #1: [0mRemoving intermediate container 0aacd00f0a14
+Step #1:  ---> ed8e3006956f
+Step #1: Step 8/25 : COPY languages/l0176/tsconfig.base.json ./
+Step #1:  ---> 7e2e7cac0012
+Step #1: Step 9/25 : COPY languages/l0176/packages ./packages
+Step #1:  ---> 961825b68485
+Step #1: Step 10/25 : COPY languages/l0176/tools ./tools
+Step #1:  ---> 2676a18a69a3
+Step #1: Step 11/25 : RUN node tools/assemble-static.mjs --skip-install
+Step #1:  ---> Running in cb7788474e14
+Step #1: 
+Step #1: > @graffiticode/l0176@0.1.0 build
+Step #1: > tsc -p tsconfig.json
+Step #1:
+Step #1: 
+Step #1: > @graffiticode/l0176@0.1.0 build-static
+Step #1: > node tools/build-static.js
+Step #1: 
+Step #1: build-static: wrote /src/packages/core/dist/static
+Step #1: 
+Step #1: > @graffiticode/l0176-view@0.1.0 build
+Step #1: > tsc -p tsconfig.json && vite build
+Step #1:
+Step #1: vite v8.3.0 building client environment for production...
+Step #1: transforming...
+Step #1: ✓ 11 modules transformed.
+Step #1: rendering chunks...
+Step #1: 
+Step #1: [unplugin:dts] Start generate declaration files...
+Step #1: [unplugin:dts] Start bundling declaration files...
+Step #1: [unplugin:dts] Declaration files built in 3939ms.
+Step #1: 
+Step #1: computing gzip size...
+Step #1: dist/style.css  2.64 kB │ gzip: 0.83 kB
+Step #1: dist/index.js   9.17 kB │ gzip: 3.36 kB │ map: 34.87 kB
+Step #1: 
+Step #1: ✓ built in 4.67s
+Step #1: [91m[33m[PLUGIN_TIMINGS] [0mPlugin hooks ran for 4.3s of this 4.7s build (92%).
+Step #1: The slowest hooks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+Step #1:   - unplugin-dts buildStart (82%, 3.8s, 1 call)
+Step #1: Additional hook time came from hooks under 1s.
+Step #1: See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+Step #1:
+Step #1: [0m
+Step #1: > @graffiticode/l0176-view@0.1.0 build:embed
+Step #1: > vite build --config vite.embed.config.ts
+Step #1: 
+Step #1: vite v8.3.0 building client environment for production...
+Step #1: transforming...
+Step #1: ✓ 33 modules transformed.
+Step #1: rendering chunks...
+Step #1: computing gzip size...
+Step #1: dist-embed/index.html                   0.39 kB │ gzip:  0.26 kB
+Step #1: dist-embed/assets/index-CtsfqTGr.css    2.63 kB │ gzip:  0.82 kB
+Step #1: dist-embed/assets/index-BDPRT4vy.js   169.80 kB │ gzip: 56.64 kB
+Step #1: 
+Step #1: ✓ built in 718ms
+Step #1: assemble-static: wrote /src/static
+Step #1: Removing intermediate container cb7788474e14
+Step #1:  ---> cf516a59eedf
+Step #1: Step 12/25 : FROM rust:1.99-bookworm AS server
+Step #1:  ---> 527305910196
+Step #1: Step 13/25 : WORKDIR /src/languages/l0176
+Step #1:  ---> Running in 1f7c464fc317
+Step #1: Removing intermediate container 1f7c464fc317
+Step #1:  ---> b93f5d4f0874
+Step #1: Step 14/25 : COPY languages/l0000/Cargo.toml /src/languages/l0000/Cargo.toml
+Step #1:  ---> 3dce35b3b94a
+Step #1: Step 15/25 : COPY languages/l0000/crates /src/languages/l0000/crates
+Step #1:  ---> 8db06a58852d
+Step #1: Step 16/25 : COPY languages/l0176/Cargo.toml languages/l0176/Cargo.lock ./
+Step #1:  ---> 7e4944f8c8f0
+Step #1: Step 17/25 : COPY languages/l0176/crates ./crates
+Step #1:  ---> 9f3b30b28610
+Step #1: Step 18/25 : RUN cargo build --release --locked -p l0176r-server
+Step #1:  ---> Running in 885f893992b9
+Step #1: [91m    Updating crates.io index
+Step #1: [0m[91m Downloading crates ...
+Step #1: [0m[91m  Downloaded[0m[91m aead v0.6.1
+Step #1: [0m[91m  Downloaded[0m[91m cpubits v0.1.1
+Step #1: [0m[91m  Downloaded[0m[91m futures-core v0.3.34
+Step #1: [0m[91m  Downloaded[0m[91m aes v0.9.3
+Step #1: [0m[91m  Downloaded[0m[91m bit-set v0.8.0
+Step #1: [0m[91m  Downloaded[0m[91m matchers v0.2.0
+Step #1: [0m[91m  Downloaded[0m[91m want v0.3.2
+Step #1: [0m[91m  Downloaded[0m[91m cfg-if v1.0.5
+Step #1: [0m[91m  Downloaded[0m[91m version_check v0.9.5
+Step #1: [0m[91m  Downloaded[0m[91m cpufeatures v0.3.1
+Step #1: [0m[91m  Downloaded[0m[91m ahash v0.8.12
+Step #1: [0m[91m  Downloaded[0m[91m foldhash v0.2.0
+Step #1: [0m[91m  Downloaded[0m[91m vsimd v0.8.0
+Step #1: [0m[91m  Downloaded[0m[91m equivalent v1.0.3
+Step #1: [0m[91m  Downloaded[0m[91m errno v0.3.14
+Step #1: [0m[91m  Downloaded cipher v0.5.2
+Step #1: [0m[91m  Downloaded[0m[91m cmake v0.1.58
+Step #1: [0m[91m  Downloaded[0m[91m dunce v1.0.5
+Step #1: [0m[91m  Downloaded[0m[91m writeable v0.6.4
+Step #1: [0m[91m  Downloaded[0m[91m chacha20 v0.10.2
+Step #1: [0m[91m  Downloaded[0m[91m crypto-common v0.2.2
+Step #1: [0m[91m  Downloaded[0m[91m digest v0.11.3
+Step #1: [0m[91m  Downloaded[0m[91m find-msvc-tools v0.1.14
+Step #1: [0m[91m  Downloaded[0m[91m form_urlencoded v1.2.2
+Step #1: [0m[91m  Downloaded[0m[91m futures-task v0.3.34
+Step #1: [0m[91m  Downloaded[0m[91m cfg_aliases v0.2.2
+Step #1: [0m[91m  Downloaded[0m[91m futures-sink v0.3.34
+Step #1: [0m[91m  Downloaded[0m[91m ghash v0.6.0
+Step #1: [0m[91m  Downloaded[0m[91m lazy_static v1.5.1
+Step #1: [0m[91m  Downloaded[0m[91m zeroize_derive v1.5.0
+Step #1: [0m[91m  Downloaded[0m[91m block-padding v0.4.2
+Step #1: [0m[91m  Downloaded[0m[91m fluent-uri v0.4.1
+Step #1: [0m[91m  Downloaded[0m[91m jsonschema-value v0.58.6
+Step #1: [0m[91m  Downloaded[0m[91m block-buffer v0.12.1
+Step #1: [0m[91m  Downloaded[0m[91m borrow-or-share v0.2.4
+Step #1: [0m[91m  Downloaded[0m[91m ctr v0.10.1
+Step #1: [0m[91m  Downloaded[0m[91m email_address v0.2.9
+Step #1: [0m[91m  Downloaded[0m[91m fs_extra v1.3.0
+Step #1: [0m[91m  Downloaded[0m[91m hex v0.4.3
+Step #1: [0m[91m  Downloaded[0m[91m httpdate v1.0.3
+Step #1: [0m[91m  Downloaded[0m[91m futures-channel v0.3.34
+Step #1: [0m[91m  Downloaded[0m[91m ctutils v0.4.3
+Step #1: [0m[91m  Downloaded[0m[91m indexmap v2.14.2
+Step #1: [0m[91m  Downloaded[0m[91m heck v0.5.0
+Step #1: [0m[91m  Downloaded http-body v1.1.0
+Step #1: [0m[91m  Downloaded idna_adapter v1.2.2
+Step #1: [0m[91m  Downloaded itoa v1.0.18
+Step #1: [0m[91m  Downloaded unicase v2.10.0
+Step #1: [0m[91m  Downloaded axum-core v0.5.6
+Step #1: [0m[91m  Downloaded bytecount v0.6.9
+Step #1: [0m[91m  Downloaded bytes v1.12.1
+Step #1: [0m[91m  Downloaded cbc v0.2.1
+Step #1: [0m[91m  Downloaded cmov v0.5.4
+Step #1: [0m[91m  Downloaded[0m[91m data-encoding v2.11.1
+Step #1: [0m[91m  Downloaded displaydoc v0.2.7
+Step #1: [0m[91m  Downloaded ipnet v2.12.2
+Step #1: [0m[91m  Downloaded[0m[91m jobserver v0.1.35
+Step #1: [0m[91m  Downloaded jsonschema-regex v0.58.6
+Step #1: [0m[91m  Downloaded async-trait v0.1.92
+Step #1: [0m[91m  Downloaded[0m[91m atomic-waker v1.1.2
+Step #1: [0m[91m  Downloaded autocfg v1.5.1
+Step #1: [0m[91m  Downloaded http-body-util v0.1.5
+Step #1: [0m[91m  Downloaded[0m[91m http-range-header v0.4.2
+Step #1: [0m[91m  Downloaded rand_pcg v0.10.2
+Step #1: [0m[91m  Downloaded signature v2.2.0
+Step #1: [0m[91m  Downloaded tracing-log v0.2.0
+Step #1: [0m[91m  Downloaded[0m[91m zerofrom v0.1.8
+Step #1: [0m[91m  Downloaded hyper-rustls v0.27.10
+Step #1: [0m[91m  Downloaded lock_api v0.4.14
+Step #1: [0m[91m  Downloaded lru-slab v0.1.3
+Step #1: [0m[91m  Downloaded strum v0.28.0
+Step #1: [0m[91m  Downloaded[0m[91m zerofrom-derive v0.1.8
+Step #1: [0m[91m  Downloaded hybrid-array v0.4.15
+Step #1: [0m[91m  Downloaded bit-vec v0.8.0
+Step #1: [0m[91m  Downloaded httparse v1.10.1
+Step #1: [0m[91m  Downloaded allocator-api2 v0.2.21
+Step #1: [0m[91m  Downloaded const-oid v0.10.2
+Step #1: [0m[91m  Downloaded[0m[91m inout v0.2.2
+Step #1:   Downloaded jsonwebtoken v11.1.0
+Step #1: [0m[91m  Downloaded litemap v0.8.3
+Step #1: [0m[91m  Downloaded untrusted v0.9.0
+Step #1: [0m[91m  Downloaded zerotrie v0.2.5
+Step #1: [0m[91m  Downloaded aes-gcm v0.11.1
+Step #1: [0m[91m  Downloaded bitflags v2.13.2
+Step #1: [0m[91m  Downloaded getrandom v0.2.17
+Step #1: [0m[91m  Downloaded getrandom v0.3.4
+Step #1: [0m[91m  Downloaded getrandom v0.4.3
+Step #1: [0m[91m  Downloaded icu_provider v2.3.1
+Step #1: [0m[91m  Downloaded num v0.4.3
+Step #1: [0m[91m  Downloaded openssl-probe v0.2.1
+Step #1: [0m[91m  Downloaded universal-hash v0.6.1
+Step #1: [0m[91m  Downloaded yoke-derive v0.8.4
+Step #1: [0m[91m  Downloaded base64 v0.22.1
+Step #1: [0m[91m  Downloaded log v0.4.34
+Step #1: [0m[91m  Downloaded psm v0.1.32
+Step #1: [0m[91m  Downloaded shlex v2.0.1
+Step #1: [0m[91m  Downloaded try-lock v0.2.5
+Step #1: [0m[91m  Downloaded uuid-simd v0.8.0
+Step #1: [0m[91m  Downloaded mime v0.3.17
+Step #1: [0m[91m  Downloaded mime_guess v2.0.5
+Step #1: [0m[91m  Downloaded num-integer v0.1.47
+Step #1: [0m[91m  Downloaded potential_utf v0.1.6
+Step #1: [0m[91m  Downloaded scopeguard v1.2.0
+Step #1: [0m[91m  Downloaded tower-layer v0.3.3
+Step #1: [0m[91m  Downloaded url v2.5.8
+Step #1: [0m[91m  Downloaded zmij v1.0.23
+Step #1: [0m[91m  Downloaded base64 v0.23.1
+Step #1: [0m[91m  Downloaded icu_collections v2.3.0
+Step #1: [0m[91m  Downloaded icu_locale_core v2.3.0
+Step #1: [0m[91m  Downloaded[0m[91m icu_normalizer_data v2.3.0
+Step #1: [0m[91m  Downloaded memchr v2.8.3
+Step #1: [0m[91m  Downloaded nu-ansi-term v0.50.3
+Step #1: [0m[91m  Downloaded num-cmp v0.1.0
+Step #1: [0m[91m  Downloaded num-iter v0.1.46
+Step #1: [0m[91m  Downloaded num-rational v0.4.2
+Step #1: [0m[91m  Downloaded outref v0.5.2
+Step #1: [0m[91m  Downloaded[0m[91m rand_core v0.6.4
+Step #1: [0m[91m  Downloaded ref-cast-impl v1.0.27
+Step #1: [0m[91m  Downloaded stable_deref_trait v1.2.1
+Step #1: [0m[91m  Downloaded sync_wrapper v1.0.2
+Step #1: [0m[91m  Downloaded tower v0.5.3
+Step #1: [0m[91m  Downloaded tracing-core v0.1.36
+Step #1: [0m[91m  Downloaded unicode-general-category v1.1.0
+Step #1: [0m[91m  Downloaded unicode-ident v1.0.27
+Step #1: [0m[91m  Downloaded aho-corasick v1.1.5
+Step #1: [0m[91m  Downloaded ar_archive_writer v0.5.3
+Step #1: [0m[91m  Downloaded cc v1.8.0
+Step #1: [0m[91m  Downloaded fraction v0.17.0
+Step #1: [0m[91m  Downloaded http v1.5.0
+Step #1: [0m[91m  Downloaded icu_properties v2.3.0
+Step #1: [0m[91m  Downloaded num-complex v0.4.6
+Step #1: [0m[91m  Downloaded once_cell v1.21.4
+Step #1: [0m[91m  Downloaded percent-encoding v2.3.2
+Step #1: [0m[91m  Downloaded quote v1.0.47
+Step #1: [0m[91m  Downloaded rand_core v0.10.1
+Step #1: [0m[91m  Downloaded rustc-hash v2.1.3
+Step #1: [0m[91m  Downloaded serde_urlencoded v0.7.1
+Step #1: [0m[91m  Downloaded smallvec v1.16.3
+Step #1: [0m[91m  Downloaded subtle v2.6.1
+Step #1: [0m[91m  Downloaded thiserror v2.0.21
+Step #1: [0m[91m  Downloaded thread_local v1.1.10
+Step #1: [0m[91m  Downloaded tower-service v0.3.3
+Step #1: [0m[91m  Downloaded untrusted v0.7.1
+Step #1: [0m[91m  Downloaded zeroize v1.9.1
+Step #1: [0m[91m  Downloaded bigdecimal v0.4.11
+Step #1: [0m[91m  Downloaded matchit v0.8.4
+Step #1: [0m[91m  Downloaded pin-project-lite v0.2.17
+Step #1: [0m[91m  Downloaded ref-cast v1.0.27
+Step #1: [0m[91m  Downloaded signal-hook-registry v1.4.8
+Step #1: [0m[91m  Downloaded slab v0.4.12
+Step #1: [0m[91m  Downloaded synstructure v0.14.0
+Step #1: [0m[91m  Downloaded tokio-macros v2.7.2
+Step #1: [0m[91m  Downloaded tracing-attributes v0.1.31
+Step #1: [0m[91m  Downloaded utf8_iter v1.0.4
+Step #1: [0m[91m  Downloaded uuid v1.28.0
+Step #1: [0m[91m  Downloaded yoke v0.8.3
+Step #1: [0m[91m  Downloaded zerovec-derive v0.11.6
+Step #1: [0m[91m  Downloaded hyper-util v0.1.21
+Step #1: [0m[91m  Downloaded polyval v0.7.3
+Step #1: [0m[91m  Downloaded rustls-native-certs v0.8.5
+Step #1: [0m[91m  Downloaded ryu v1.0.23
+Step #1: [0m[91m  Downloaded serde_derive v1.0.229
+Step #1: [0m[91m  Downloaded sha2 v0.11.1
+Step #1: [0m[91m  Downloaded sharded-slab v0.1.7
+Step #1: [0m[91m  Downloaded stacker v0.1.25
+Step #1: [0m[91m  Downloaded strum_macros v0.28.0
+Step #1: [0m[91m  Downloaded thiserror-impl v2.0.21
+Step #1: [0m[91m  Downloaded tinystr v0.8.4
+Step #1: [0m[91m  Downloaded tokio-rustls v0.26.6
+Step #1: [0m[91m  Downloaded tower-http v0.6.11
+Step #1: [0m[91m  Downloaded typenum v1.20.1
+Step #1: [0m[91m  Downloaded fancy-regex v0.19.2
+Step #1: [0m[91m  Downloaded hashbrown v0.17.1
+Step #1: [0m[91m  Downloaded[0m[91m icu_properties_data v2.3.0
+Step #1: [0m[91m  Downloaded idna v1.1.0
+Step #1: [0m[91m  Downloaded serde_path_to_error v0.1.20
+Step #1: [0m[91m  Downloaded axum v0.8.9
+Step #1: [0m[91m  Downloaded futures-util v0.3.34
+Step #1: [0m[91m  Downloaded hyper v1.12.0
+Step #1: [0m[91m  Downloaded libm v0.2.16
+Step #1: [0m[91m  Downloaded micromap v0.3.0
+Step #1: [0m[91m  Downloaded parking_lot v0.12.5
+Step #1: [0m[91m  Downloaded parking_lot_core v0.9.12
+Step #1: [0m[91m  Downloaded pkg-config v0.3.34
+Step #1: [0m[91m  Downloaded proc-macro2 v1.0.107
+Step #1: [0m[91m  Downloaded quinn-udp v0.5.16
+Step #1: [0m[91m  Downloaded referencing v0.58.6
+Step #1: [0m[91m  Downloaded serde_core v1.0.229
+Step #1: [0m[91m  Downloaded tinyvec v1.13.3
+Step #1: [0m[91m  Downloaded num-traits v0.2.19
+Step #1: [0m[91m  Downloaded rustls-pki-types v1.15.1
+Step #1: [0m[91m  Downloaded rustls-platform-verifier v0.7.1
+Step #1: [0m[91m  Downloaded serde v1.0.229
+Step #1: [0m[91m  Downloaded socket2 v0.6.5
+Step #1: [0m[91m  Downloaded mio v1.2.4
+Step #1: [0m[91m  Downloaded num-bigint v0.4.8
+Step #1: [0m[91m  Downloaded quinn v0.11.12
+Step #1: [0m[91m  Downloaded rand v0.10.3
+Step #1: [0m[91m  Downloaded rustls-webpki v0.103.15
+Step #1: [0m[91m  Downloaded zerovec v0.11.8
+Step #1: [0m[91m  Downloaded aws-lc-rs v1.18.2
+Step #1: [0m[91m  Downloaded regex v1.13.1
+Step #1: [0m[91m  Downloaded tokio-util v0.7.20
+Step #1: [0m[91m  Downloaded reqwest v0.13.5
+Step #1: [0m[91m  Downloaded serde_json v1.0.154
+Step #1: [0m[91m  Downloaded tower-http v0.7.1
+Step #1: [0m[91m  Downloaded tracing-subscriber v0.3.23
+Step #1: [0m[91m  Downloaded quinn-proto v0.11.19
+Step #1: [0m[91m  Downloaded zerocopy v0.8.63
+Step #1: [0m[91m  Downloaded syn v2.0.119
+Step #1: [0m[91m  Downloaded syn v3.0.9
+Step #1: [0m[91m  Downloaded tracing v0.1.44
+Step #1: [0m[91m  Downloaded regex-syntax v0.8.11
+Step #1: [0m[91m  Downloaded object v0.39.1
+Step #1: [0m[91m  Downloaded rustls v0.23.46
+Step #1: [0m[91m  Downloaded icu_normalizer v2.3.0
+Step #1: [0m[91m  Downloaded jsonschema v0.58.6
+Step #1: [0m[91m  Downloaded regex-automata v0.4.18
+Step #1: [0m[91m  Downloaded libc v0.2.190
+Step #1: [0m[91m  Downloaded tokio v1.53.3
+Step #1: [0m[91m  Downloaded ring v0.17.14
+Step #1: [0m[91m  Downloaded aws-lc-sys v0.46.0
+Step #1: [0m[91m   Compiling proc-macro2 v1.0.107
+Step #1:    Compiling quote v1.0.47
+Step #1: [0m[91m   Compiling[0m[91m unicode-ident v1.0.27
+Step #1: [0m[91m   Compiling libc v0.2.190
+Step #1: [0m[91m   Compiling syn v3.0.9
+Step #1: [0m[91m   Compiling syn v2.0.119
+Step #1: [0m[91m   Compiling[0m[91m cfg-if v1.0.5
+Step #1: [0m[91m   Compiling[0m[91m shlex v2.0.1
+Step #1: [0m[91m   Compiling[0m[91m find-msvc-tools v0.1.14
+Step #1: [0m[91m   Compiling[0m[91m once_cell v1.21.4
+Step #1: [0m[91m   Compiling[0m[91m synstructure v0.14.0
+Step #1: [0m[91m   Compiling[0m[91m jobserver v0.1.35
+Step #1: [0m[91m   Compiling[0m[91m itoa v1.0.18
+Step #1: [0m[91m   Compiling[0m[91m cc v1.8.0
+Step #1: [0m[91m   Compiling[0m[91m zerofrom-derive v0.1.8
+Step #1: [0m[91m   Compiling[0m[91m pin-project-lite v0.2.17
+Step #1: [0m[91m   Compiling[0m[91m serde_core v1.0.229
+Step #1: [0m[91m   Compiling[0m[91m typenum v1.20.1
+Step #1: [0m[91m   Compiling[0m[91m zerofrom v0.1.8
+Step #1: [0m[91m   Compiling[0m[91m yoke-derive v0.8.4
+Step #1: [0m[91m   Compiling hybrid-array v0.4.15
+Step #1: [0m[91m   Compiling getrandom v0.4.3
+Step #1: [0m[91m   Compiling bytes v1.12.1
+Step #1: [0m[91m   Compiling[0m[91m smallvec v1.16.3
+Step #1: [0m[91m   Compiling[0m[91m autocfg v1.5.1
+Step #1: [0m[91m   Compiling[0m[91m stable_deref_trait v1.2.1
+Step #1: [0m[91m   Compiling[0m[91m yoke v0.8.3
+Step #1: [0m[91m   Compiling[0m[91m futures-core v0.3.34
+Step #1: [0m[91m   Compiling rand_core v0.10.1
+Step #1: [0m[91m   Compiling[0m[91m cmake v0.1.58
+Step #1: [0m[91m   Compiling zerovec-derive v0.11.6
+Step #1: [0m[91m   Compiling dunce v1.0.5
+Step #1: [0m[91m   Compiling[0m[91m fs_extra v1.3.0
+Step #1: [0m[91m   Compiling pkg-config v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m memchr v2.8.3
+Step #1: [0m[91m   Compiling[0m[91m aws-lc-sys v0.46.0
+Step #1: [0m[91m   Compiling[0m[91m zerovec v0.11.8
+Step #1: [0m[91m   Compiling[0m[91m num-traits v0.2.19
+Step #1: [0m[91m   Compiling[0m[91m displaydoc v0.2.7
+Step #1: [0m[91m   Compiling errno v0.3.14
+Step #1: [0m[91m   Compiling log v0.4.34
+Step #1: [0m[91m   Compiling serde v1.0.229
+Step #1: [0m[91m   Compiling signal-hook-registry v1.4.8
+Step #1: [0m[91m   Compiling crypto-common v0.2.2
+Step #1: [0m[91m   Compiling tracing-core v0.1.36
+Step #1: [0m[91m   Compiling zeroize_derive v1.5.0
+Step #1: [0m[91m   Compiling[0m[91m tokio-macros v2.7.2
+Step #1: [0m[91m   Compiling[0m[91m serde_derive v1.0.229
+Step #1: [0m[91m   Compiling[0m[91m socket2 v0.6.5
+Step #1: [0m[91m   Compiling[0m[91m mio v1.2.4
+Step #1: [0m[91m   Compiling[0m[91m percent-encoding v2.3.2
+Step #1: [0m[91m   Compiling[0m[91m tokio v1.53.3
+Step #1: [0m[91m   Compiling[0m[91m zeroize v1.9.1
+Step #1: [0m[91m   Compiling[0m[91m http v1.5.0
+Step #1: [0m[91m   Compiling tracing-attributes v0.1.31
+Step #1: [0m[91m   Compiling[0m[91m aws-lc-rs v1.18.2
+Step #1: [0m[91m   Compiling[0m[91m tracing v0.1.44
+Step #1: [0m[91m   Compiling[0m[91m http-body v1.1.0
+Step #1: [0m[91m   Compiling[0m[91m tinystr v0.8.4
+Step #1: [0m[91m   Compiling[0m[91m foldhash v0.2.0
+Step #1: [0m[91m   Compiling[0m[91m writeable v0.6.4
+Step #1: [0m[91m   Compiling[0m[91m zmij v1.0.23
+Step #1: [0m[91m   Compiling[0m[91m litemap v0.8.3
+Step #1: [0m[91m   Compiling[0m[91m equivalent v1.0.3
+Step #1: [0m[91m   Compiling[0m[91m allocator-api2 v0.2.21
+Step #1: [0m[91m   Compiling[0m[91m hashbrown v0.17.1
+Step #1: [0m[91m   Compiling[0m[91m icu_locale_core v2.3.0
+Step #1: [0m[91m   Compiling[0m[91m num-integer v0.1.47
+Step #1: [0m[91m   Compiling[0m[91m zerotrie v0.2.5
+Step #1: [0m[91m   Compiling[0m[91m potential_utf v0.1.6
+Step #1: [0m[91m   Compiling[0m[91m untrusted v0.7.1
+Step #1: [0m[91m   Compiling[0m[91m icu_properties_data v2.3.0
+Step #1: [0m[91m   Compiling[0m[91m slab v0.4.12
+Step #1: [0m[91m   Compiling[0m[91m icu_normalizer_data v2.3.0
+Step #1: [0m[91m   Compiling[0m[91m utf8_iter v1.0.4
+Step #1: [0m[91m   Compiling[0m[91m tower-service v0.3.3
+Step #1: [0m[91m   Compiling[0m[91m serde_json v1.0.154
+Step #1: [0m[91m   Compiling[0m[91m futures-task v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m futures-util v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m icu_collections v2.3.0
+Step #1: [0m[91m   Compiling[0m[91m icu_provider v2.3.1
+Step #1: [0m[91m   Compiling[0m[91m indexmap v2.14.2
+Step #1: [0m[91m   Compiling[0m[91m rustls-pki-types v1.15.1
+Step #1: [0m[91m   Compiling[0m[91m block-buffer v0.12.1
+Step #1: [0m[91m   Compiling[0m[91m block-padding v0.4.2
+Step #1: [0m[91m   Compiling[0m[91m regex-syntax v0.8.11
+Step #1: [0m[91m   Compiling[0m[91m httparse v1.10.1
+Step #1: [0m[91m   Compiling[0m[91m object v0.39.1
+Step #1: [0m[91m   Compiling[0m[91m inout v0.2.2
+Step #1: [0m[91m   Compiling[0m[91m num-bigint v0.4.8
+Step #1: [0m[91m   Compiling[0m[91m aho-corasick v1.1.5
+Step #1: [0m[91m   Compiling[0m[91m rustls v0.23.46
+Step #1: [0m[91m   Compiling[0m[91m getrandom v0.3.4
+Step #1: [0m[91m   Compiling[0m[91m try-lock v0.2.5
+Step #1: [0m[91m   Compiling[0m[91m version_check v0.9.5
+Step #1: [0m[91m   Compiling httpdate v1.0.3
+Step #1: [0m[91m   Compiling zerocopy v0.8.63
+Step #1: [0m[91m   Compiling untrusted v0.9.0
+Step #1: [0m[91m   Compiling tower-layer v0.3.3
+Step #1: [0m[91m   Compiling[0m[91m ahash v0.8.12
+Step #1: [0m[91m   Compiling want v0.3.2
+Step #1: [0m[91m   Compiling regex-automata v0.4.18
+Step #1: [0m[91m   Compiling icu_normalizer v2.3.0
+Step #1: [0m[91m   Compiling icu_properties v2.3.0
+Step #1: [0m[91m   Compiling form_urlencoded v1.2.2
+Step #1: [0m[91m   Compiling[0m[91m sync_wrapper v1.0.2
+Step #1: [0m[91m   Compiling[0m[91m cpufeatures v0.3.1
+Step #1: [0m[91m   Compiling[0m[91m atomic-waker v1.1.2
+Step #1: [0m[91m   Compiling[0m[91m subtle v2.6.1
+Step #1: [0m[91m   Compiling[0m[91m cmov v0.5.4
+Step #1: [0m[91m   Compiling[0m[91m ref-cast v1.0.27
+Step #1: [0m[91m   Compiling[0m[91m parking_lot_core v0.9.12
+Step #1: [0m[91m   Compiling[0m[91m ctutils v0.4.3
+Step #1: [0m[91m   Compiling[0m[91m hyper v1.12.0
+Step #1: [0m[91m   Compiling[0m[91m idna_adapter v1.2.2
+Step #1: [0m[91m   Compiling ar_archive_writer v0.5.3
+Step #1: [0m[91m   Compiling num-rational v0.4.2
+Step #1: [0m[91m   Compiling[0m[91m cipher v0.5.2
+Step #1: [0m[91m   Compiling[0m[91m num-iter v0.1.46
+Step #1: [0m[91m   Compiling[0m[91m http-body-util v0.1.5
+Step #1: [0m[91m   Compiling[0m[91m num-complex v0.4.6
+Step #1: [0m[91m   Compiling[0m[91m futures-channel v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m ref-cast-impl v1.0.27
+Step #1: [0m[91m   Compiling[0m[91m ipnet v2.12.2
+Step #1: [0m[91m   Compiling[0m[91m cpubits v0.1.1
+Step #1: [0m[91m   Compiling[0m[91m scopeguard v1.2.0
+Step #1: [0m[91m   Compiling base64 v0.23.1
+Step #1: [0m[91m   Compiling hyper-util v0.1.21
+Step #1: [0m[91m   Compiling lock_api v0.4.14
+Step #1: [0m[91m   Compiling num v0.4.3
+Step #1: [0m[91m   Compiling[0m[91m psm v0.1.32
+Step #1: [0m[91m   Compiling[0m[91m idna v1.1.0
+Step #1: [0m[91m   Compiling[0m[91m universal-hash v0.6.1
+Step #1: [0m[91m   Compiling[0m[91m tower v0.5.3
+Step #1: [0m[91m   Compiling[0m[91m rustls-webpki v0.103.15
+Step #1: [0m[91m   Compiling[0m[91m borrow-or-share v0.2.4
+Step #1: [0m[91m   Compiling ryu v1.0.23
+Step #1: [0m[91m   Compiling unicode-general-category v1.1.0
+Step #1: [0m[91m   Compiling bitflags v2.13.2
+Step #1: [0m[91m   Compiling heck v0.5.0
+Step #1: [0m[91m   Compiling openssl-probe v0.2.1
+Step #1: [0m[91m   Compiling libm v0.2.16
+Step #1: [0m[91m   Compiling bit-vec v0.8.0
+Step #1: [0m[91m   Compiling jsonschema-value v0.58.6
+Step #1: [0m[91m   Compiling bit-set v0.8.0
+Step #1: [0m[91m   Compiling[0m[91m rustls-native-certs v0.8.5
+Step #1: [0m[91m   Compiling strum_macros v0.28.0
+Step #1: [0m[91m   Compiling tokio-rustls v0.26.6
+Step #1: [0m[91m   Compiling serde_urlencoded v0.7.1
+Step #1: [0m[91m   Compiling fluent-uri v0.4.1
+Step #1: [0m[91m   Compiling parking_lot v0.12.5
+Step #1: [0m[91m   Compiling[0m[91m polyval v0.7.3
+Step #1: [0m[91m   Compiling[0m[91m url v2.5.8
+Step #1: [0m[91m   Compiling[0m[91m fraction v0.17.0
+Step #1: [0m[91m   Compiling[0m[91m bigdecimal v0.4.11
+Step #1: [0m[91m   Compiling[0m[91m stacker v0.1.25
+Step #1: [0m[91m   Compiling[0m[91m vsimd v0.8.0
+Step #1: [0m[91m   Compiling[0m[91m thiserror v2.0.21
+Step #1: [0m[91m   Compiling micromap v0.3.0
+Step #1: [0m[91m   Compiling outref v0.5.2
+Step #1: [0m[91m   Compiling const-oid v0.10.2
+Step #1: [0m[91m   Compiling num-cmp v0.1.0
+Step #1: [0m[91m   Compiling[0m[91m mime v0.3.17
+Step #1: [0m[91m   Compiling[0m[91m bytecount v0.6.9
+Step #1: [0m[91m   Compiling[0m[91m unicase v2.10.0
+Step #1: [0m[91m   Compiling mime_guess v2.0.5
+Step #1: [0m[91m   Compiling[0m[91m digest v0.11.3
+Step #1: [0m[91m   Compiling[0m[91m uuid-simd v0.8.0
+Step #1: [0m[91m   Compiling[0m[91m referencing v0.58.6
+Step #1: [0m[91m   Compiling[0m[91m tower-http v0.6.11
+Step #1: [0m[91m   Compiling[0m[91m ghash v0.6.0
+Step #1: [0m[91m   Compiling[0m[91m hyper-rustls v0.27.10
+Step #1: [0m[91m   Compiling[0m[91m strum v0.28.0
+Step #1: [0m[91m   Compiling[0m[91m rustls-platform-verifier v0.7.1
+Step #1: [0m[91m   Compiling[0m[91m fancy-regex v0.19.2
+Step #1: [0m[91m   Compiling[0m[91m aes v0.9.3
+Step #1: [0m[91m   Compiling[0m[91m ctr v0.10.1
+Step #1: [0m[91m   Compiling[0m[91m regex v1.13.1
+Step #1: [0m[91m   Compiling[0m[91m aead v0.6.1
+Step #1: [0m[91m   Compiling[0m[91m jsonschema-regex v0.58.6
+Step #1: [0m[91m   Compiling[0m[91m email_address v0.2.9
+Step #1: [0m[91m   Compiling[0m[91m thiserror-impl v2.0.21
+Step #1: [0m[91m   Compiling[0m[91m base64 v0.22.1
+Step #1: [0m[91m   Compiling[0m[91m signature v2.2.0
+Step #1: [0m[91m   Compiling[0m[91m data-encoding v2.11.1
+Step #1: [0m[91m   Compiling[0m[91m jsonwebtoken v11.1.0
+Step #1: [0m[91m   Compiling[0m[91m jsonschema v0.58.6
+Step #1: [0m[91m   Compiling[0m[91m aes-gcm v0.11.1
+Step #1: [0m[91m   Compiling[0m[91m reqwest v0.13.5
+Step #1: [0m[91m   Compiling[0m[91m sha2 v0.11.1
+Step #1: [0m[91m   Compiling[0m[91m cbc v0.2.1
+Step #1: [0m[91m   Compiling[0m[91m uuid v1.28.0
+Step #1: [0m[91m   Compiling[0m[91m async-trait v0.1.92
+Step #1: [0m[91m   Compiling[0m[91m futures-sink v0.3.34
+Step #1: [0m[91m   Compiling[0m[91m hex v0.4.3
+Step #1: [0m[91m   Compiling[0m[91m lazy_static v1.5.1
+Step #1: [0m[91m   Compiling[0m[91m sharded-slab v0.1.7
+Step #1: [0m[91m   Compiling[0m[91m graffiticode-l0000 v0.1.0 (/src/languages/l0000/crates/core)
+Step #1: [0m[91m   Compiling[0m[91m tokio-util v0.7.20
+Step #1: [0m[91m   Compiling[0m[91m axum-core v0.5.6
+Step #1: [0m[91m   Compiling[0m[91m matchers v0.2.0
+Step #1: [0m[91m   Compiling[0m[91m tracing-log v0.2.0
+Step #1: [0m[91m   Compiling[0m[91m serde_path_to_error v0.1.20
+Step #1: [0m[91m   Compiling[0m[91m thread_local v1.1.10
+Step #1: [0m[91m   Compiling[0m[91m matchit v0.8.4
+Step #1: [0m[91m   Compiling[0m[91m http-range-header v0.4.2
+Step #1: [0m[91m   Compiling[0m[91m nu-ansi-term v0.50.3
+Step #1: [0m[91m   Compiling[0m[91m tracing-subscriber v0.3.23
+Step #1: [0m[91m   Compiling[0m[91m tower-http v0.7.1
+Step #1: [0m[91m   Compiling[0m[91m axum v0.8.9
+Step #1: [0m[91m   Compiling[0m[91m graffiticode-l0176 v0.1.0 (/src/languages/l0176/crates/core)
+Step #1: [0m[91m   Compiling[0m[91m l0000r-server v0.1.0 (/src/languages/l0000/crates/server)
+Step #1: [0m[91m   Compiling l0176r-server v0.1.0 (/src/languages/l0176/crates/server)
+Step #1: [0m[91m    Finished `release` profile [optimized] target(s) in 4m 05s
+Step #1: [0mRemoving intermediate container 885f893992b9
+Step #1:  ---> db62ed54e875
+Step #1: Step 19/25 : FROM gcr.io/distroless/cc-debian12:nonroot
+Step #1: nonroot: Pulling from distroless/cc-debian12
+Step #1: a5789fc40e82: Already exists
+Step #1: 990a9c434e5e: Already exists
+Step #1: 39dc083afc39: Already exists
+Step #1: bf7a4185f015: Already exists
+Step #1: 2780920e5dbf: Already exists
+Step #1: 7c12895b777b: Already exists
+Step #1: 3214acf345c0: Already exists
+Step #1: 52630fc75a18: Already exists
+Step #1: dd64bf2dd177: Already exists
+Step #1: b839dfae01f6: Already exists
+Step #1: dcaa5a89b0cc: Already exists
+Step #1: 96ed2737ae31: Already exists
+Step #1: 235c3625d753: Pulling fs layer
+Step #1: dc0fb75e565a: Pulling fs layer
+Step #1: 336f6c853c4e: Pulling fs layer
+Step #1: 1e8acdaa2607: Pulling fs layer
+Step #1: a812c900745e: Pulling fs layer
+Step #1: b16bb3b2bd07: Pulling fs layer
+Step #1: 336f6c853c4e: Verifying Checksum
+Step #1: 336f6c853c4e: Download complete
+Step #1: b16bb3b2bd07: Verifying Checksum
+Step #1: b16bb3b2bd07: Download complete
+Step #1: dc0fb75e565a: Verifying Checksum
+Step #1: dc0fb75e565a: Download complete
+Step #1: a812c900745e: Verifying Checksum
+Step #1: a812c900745e: Download complete
+Step #1: 1e8acdaa2607: Verifying Checksum
+Step #1: 1e8acdaa2607: Download complete
+Step #1: 235c3625d753: Verifying Checksum
+Step #1: 235c3625d753: Download complete
+Step #1: 235c3625d753: Pull complete
+Step #1: dc0fb75e565a: Pull complete
+Step #1: 336f6c853c4e: Pull complete
+Step #1: 1e8acdaa2607: Pull complete
+Step #1: a812c900745e: Pull complete
+Step #1: b16bb3b2bd07: Pull complete
+Step #1: Digest: sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+Step #1: Status: Downloaded newer image for gcr.io/distroless/cc-debian12:nonroot
+Step #1:  ---> 311bdcc0a31d
+Step #1: Step 20/25 : WORKDIR /app
+Step #1:  ---> Running in dfdcc8978438
+Step #1: Removing intermediate container dfdcc8978438
+Step #1:  ---> 4a8619f055ff
+Step #1: Step 21/25 : COPY --from=server /src/languages/l0176/target/release/l0176r ./l0176r
+Step #1:  ---> c377b2716a4f
+Step #1: Step 22/25 : COPY --from=static /src/static ./static
+Step #1:  ---> 4cecda003e52
+Step #1: Step 23/25 : ENV STATIC_DIR=/app/static
+Step #1:  ---> Running in 899a70eee6a1
+Step #1: Removing intermediate container 899a70eee6a1
+Step #1:  ---> 5b278caf2b39
+Step #1: Step 24/25 : EXPOSE 8080
+Step #1:  ---> Running in ed215e12b047
+Step #1: Removing intermediate container ed215e12b047
+Step #1:  ---> d303f021f05d
+Step #1: Step 25/25 : CMD ["/app/l0176r"]
+Step #1:  ---> Running in e92a4ea81cf3
+Step #1: Removing intermediate container e92a4ea81cf3
+Step #1:  ---> 93c3e2caadf4
+Step #1: Successfully built 93c3e2caadf4
+Step #1: Successfully tagged us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive:rmwtrvx68-fd9659
+Finished Step #1
+PUSH
+Pushing us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive:rmwtrvx68-fd9659
+The push refers to repository [us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive]
+703cfefc4554: Preparing
+ee152a6d92a7: Preparing
+4a52d452bf69: Preparing
+7095412417d2: Preparing
+c3abae442368: Preparing
+6819a1af097d: Preparing
+2401c5ea32a7: Preparing
+8b8a764c859e: Preparing
+99847da578ef: Preparing
+5904c32f457c: Preparing
+6e7fbcf090d0: Preparing
+ad51d0769d16: Preparing
+4cde6b0bb6f5: Preparing
+bd3cdfae1d3f: Preparing
+6f1cdceb6a31: Preparing
+af5aa97ebe6c: Preparing
+4d049f83d9cf: Preparing
+114dde0fefeb: Preparing
+35b5ba6e08cd: Preparing
+8fa10c0194df: Preparing
+7223ea1323e8: Preparing
+6e7fbcf090d0: Waiting
+ad51d0769d16: Waiting
+4cde6b0bb6f5: Waiting
+bd3cdfae1d3f: Waiting
+6f1cdceb6a31: Waiting
+af5aa97ebe6c: Waiting
+4d049f83d9cf: Waiting
+114dde0fefeb: Waiting
+35b5ba6e08cd: Waiting
+8fa10c0194df: Waiting
+7223ea1323e8: Waiting
+4a52d452bf69: Pushed
+8b8a764c859e: Pushed
+703cfefc4554: Pushed
+c3abae442368: Pushed
+7095412417d2: Pushed
+5904c32f457c: Pushed
+ee152a6d92a7: Pushed
+2401c5ea32a7: Pushed
+6819a1af097d: Pushed
+99847da578ef: Pushed
+6e7fbcf090d0: Pushed
+4cde6b0bb6f5: Pushed
+114dde0fefeb: Pushed
+bd3cdfae1d3f: Pushed
+ad51d0769d16: Pushed
+6f1cdceb6a31: Pushed
+4d049f83d9cf: Pushed
+af5aa97ebe6c: Pushed
+8fa10c0194df: Pushed
+7223ea1323e8: Pushed
+35b5ba6e08cd: Pushed
+rmwtrvx68-fd9659: digest: sha256:d889b10584d2089f98082f3f9910ba83094d2c13d148c28a3f5114e64ec4ad00 size: 4699
+DONE
+--------------------------------------------------------------------------------
+Added tag [us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive:serving-l0176r-c5d-drive-rmwtrvx68-fd9659] to image [us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive@sha256:d889b10584d2089f98082f3f9910ba83094d2c13d148c28a3f5114e64ec4ad00].
+Deploying us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive@sha256:d889b10584d2089f98082f3f9910ba83094d2c13d148c28a3f5114e64ec4ad00 with no traffic…
+Deploying container to Cloud Run service [[1ml0176r-c5d-drive[m] in project [[1mgraffiticode[m] region [[1mus-central1[m]
+Deploying...
+Creating Revision.................................................................done
+Routing traffic.....done
+Done.
+Service [[1ml0176r-c5d-drive[m] revision [[1ml0176r-c5d-drive-rmwtrvx68-fd9659[m] has been deployed and is serving [1m0[m percent of traffic.
+The revision can be reached directly at https://rmwtrvx68-fd9659---l0176r-c5d-drive-sja7fatcta-uc.a.run.app
+Checking the candidate revision…
+Promoting l0176r-c5d-drive-rmwtrvx68-fd9659…
+Updating traffic...
+Routing traffic.........................done
+Done.
+No stale tags.
+Released l0176r-c5d-drive-rmwtrvx68-fd9659: https://l0176r-c5d-drive-sja7fatcta-uc.a.run.app
+Receipt: <release-checkout>/.gc-deploy/releases/rmwtrvx68-fd9659.json
+Rollback: npm run rollback -- l0176r-c5d-drive --env production --release rmwtrvx68-fd9659

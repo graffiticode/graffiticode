@@ -1,0 +1,30 @@
+same       c1-command
+same       c1-occurrences
+same       c1-reservations
+same       c1-outcomes
+same       c1-refusals
+same       c1-ledger
+same       c1-holds
+same       c2-command
+same       c2-occurrences
+same       c2-reservations
+same       c2-outcomes
+same       c2-ledger
+same       c2-refusals
+same       c2-holds
+same       h1-receipt
+same       h1-receipt-outcome-final
+same       h1-receipt-run-state
+same       h1-receipt-resolution-final
+same       h1-active-execution
+same       h1-steps
+same       h1-invocation-query
+same       h2-receipt
+same       h2-resolution
+same       h2-outcome
+same       h2-run-state
+same       h2-active-execution
+same       h2-reconciliation-attempts
+same       h2-steps
+
+28 records: 0 changed, 0 unreadable, 0 recorded without a baseline; exit 0

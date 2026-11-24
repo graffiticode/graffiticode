@@ -1,0 +1,68 @@
+{
+  "status": 200,
+  "body": {
+    "documents": [
+      {
+        "name": "projects/graffiticode/databases/policy/documents/commands/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f/holds/ae946e64-dadc-4479-a38a-fc023fad0b97",
+        "fields": {
+          "decidedBy": {
+            "stringValue": "owner"
+          },
+          "reason": {
+            "stringValue": "definite-refusal-unsettled"
+          },
+          "n": {
+            "integerValue": "1"
+          },
+          "generation": {
+            "integerValue": "11"
+          },
+          "decision": {
+            "stringValue": "docs/evidence/c5d/hold/step-4-approval.json"
+          },
+          "at": {
+            "stringValue": "2026-11-23T01:25:30.970Z"
+          },
+          "lifts": {
+            "nullValue": null
+          },
+          "appliedBy": {
+            "mapValue": {
+              "fields": {
+                "verifiedVia": {
+                  "stringValue": "tokeninfo"
+                },
+                "azp": {
+                  "stringValue": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+                },
+                "email": {
+                  "stringValue": "<operator>"
+                }
+              }
+            }
+          },
+          "leaseExpiresAt": {
+            "integerValue": "1795204514178"
+          },
+          "act": {
+            "stringValue": "apply"
+          },
+          "note": {
+            "stringValue": "Quarantine the legacy staging-gone command after C5d rollout steps 0–3. Preserve its pending/admitted generation 11 and unsettled records. No lift is authorized."
+          },
+          "readTime": {
+            "integerValue": "1795397130970"
+          },
+          "actId": {
+            "stringValue": "ae946e64-dadc-4479-a38a-fc023fad0b97"
+          },
+          "fencing": {
+            "stringValue": "lease-expired"
+          }
+        },
+        "createTime": "2026-11-23T01:25:31.527479Z",
+        "updateTime": "2026-11-23T01:25:31.527479Z"
+      }
+    ]
+  }
+}

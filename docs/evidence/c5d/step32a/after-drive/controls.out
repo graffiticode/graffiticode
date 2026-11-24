@@ -1,0 +1,8 @@
+ok    fields.hold names this act, n 1, generation 11
+ok    command pending, admitted, generation 11 — pending/admitted/11
+ok    holds: exactly that one document — 1
+ok    control query returns its receipt, unchanged — 1 doc(s)
+ok    positive control 200, unchanged
+ok    ownableBy false at all 8 capability combinations
+
+6 ok, 0 failed

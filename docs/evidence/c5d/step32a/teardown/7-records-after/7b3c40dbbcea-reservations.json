@@ -1,0 +1,83 @@
+{
+  "documents": [
+    {
+      "name": "projects/graffiticode/databases/policy/documents/commands/c:7b3c40dbbcea880f85754ef2fec09da8f760dd61db0d3357be865c7c9c3d27c0/reservations/s0:x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "fields": {
+        "sha256": {
+          "stringValue": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+        },
+        "reservedAt": {
+          "stringValue": "2026-11-24T04:09:43.690Z"
+        },
+        "size": {
+          "integerValue": "18516"
+        },
+        "renderGrants": {
+          "arrayValue": {
+            "values": [
+              {
+                "mapValue": {
+                  "fields": {
+                    "jti": {
+                      "stringValue": "eda4c52f-6875-4741-8c97-1c1867695cde"
+                    },
+                    "exp": {
+                      "integerValue": "1795493683"
+                    },
+                    "generation": {
+                      "integerValue": "1"
+                    },
+                    "at": {
+                      "stringValue": "2026-11-24T04:09:43.899Z"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "object": {
+          "stringValue": "c:7b3c40dbbcea880f85754ef2fec09da8f760dd61db0d3357be865c7c9c3d27c0/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png"
+        },
+        "captureSequence": {
+          "integerValue": "16"
+        },
+        "state": {
+          "stringValue": "staged"
+        },
+        "generation": {
+          "integerValue": "1"
+        },
+        "renderTask": {
+          "stringValue": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19"
+        },
+        "stage": {
+          "stringValue": "s0"
+        },
+        "publicCapture": {
+          "booleanValue": false
+        },
+        "stagedAt": {
+          "stringValue": "2026-11-24T04:09:53.181Z"
+        },
+        "occurrenceId": {
+          "stringValue": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+        },
+        "stagedGeneration": {
+          "integerValue": "1"
+        },
+        "expansionKey": {
+          "stringValue": "0#0"
+        },
+        "intentId": {
+          "stringValue": "snap:0"
+        },
+        "item": {
+          "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+        }
+      },
+      "createTime": "2026-11-24T04:09:43.735731Z",
+      "updateTime": "2026-11-24T04:09:53.206988Z"
+    }
+  ]
+}

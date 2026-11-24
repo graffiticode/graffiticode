@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "step": "IAM review Step 32a, the fresh C5d drive",
+  "runId": "d1ca6da0",
+  "planSha256": "cdd76e3ad9afbababfff159cd33f143e7c8e22b7718a66e50c5744a12d9a3682",
+  "commits": {
+    "releases": "62d8198c (#472)",
+    "judgeAndRejudge": "e7ac2aec (#475)",
+    "cleanup": "5261ad89 (#476)",
+    "comparator": "d6847011 (#474)"
+  },
+  "verdict": "DRIVE PASSED, 18 phases / 82 checks, older-after-newer by the owner-approved supplement; the original failed judgment is preserved",
+  "redactions": {
+    "operatorEmail": "<operator>",
+    "operatorIps": "<operator-ip> (the two addresses seen only with the operator principal)",
+    "localPaths": "repository-relative paths, or placeholders such as <release-checkout> and <scratchpad>",
+    "proxyUserData": "the cloud-init in instance and template describes replaced by its length and sha256"
+  },
+  "derivatives": "Files with identical: false are redacted derivatives of private originals, named here by originalSha256; the originals are unchanged and kept outside the repository. Nothing in drive/d1ca6da0/ is a derivative: every run file, including the approved supplement and both aggregate reports, is published byte-identical.",
+  "provenance": {
+    "originalManifest": {
+      "path": "drive/d1ca6da0/older-after-newer-2026-11-24T16-54-16-178Z.json",
+      "sha256": "35780e8ea38138c4b9005200e5314e574860461005a401bcef849fede4a7f8ed",
+      "note": "judged 3/4 (older-newer-present failed: the check read the command result layer); preserved as the phase manifest"
+    },
+    "approvedSupplement": {
+      "path": "drive/d1ca6da0/rejudge-older-after-newer-2026-11-24T17-13-28-973Z.json",
+      "sha256": "e81bf970e6655d68dfb5a6b711c358400c5def3a8f44b5a925a744836985cf69",
+      "note": "owner-approved re-judge (4/4), written by #475 head 5123cfd8"
+    },
+    "receipt": {
+      "path": "step32a/readback-older-after-newer/older-outcome-final.json",
+      "sha256": "e44c1c66a84fae3c41b9830383b4638af90580d8daee4614af5d40abb2f9cacf",
+      "note": "the older operation's Broker outcome/final as saved (raw Firestore REST document)"
+    },
+    "earlierSupplementNotApproved": {
+      "path": "drive/d1ca6da0/rejudge-older-after-newer-2026-11-24T17-03-31-508Z.json",
+      "sha256": "390a78da8ce1a20fa696a66ebc47eee91cef743e36430f0c53286d1c0d64d10f",
+      "note": "written by #475 head 6a057bfc; superseded, not approved"
+    },
+    "firstAggregate": {
+      "path": "drive/d1ca6da0/report-2026-11-24T17-22-08-736Z.json",
+      "sha256": "04e3bc3e0ad967076c1d847af06a170d14467dbe540e085975a69cb1528da52d",
+      "note": "after older-after-newer: 11 phases passed, 7 not run"
+    },
+    "aggregateReport": {
+      "path": "drive/d1ca6da0/report-2026-11-24T19-08-09-162Z.json",
+      "sha256": "17301d867b5c0450b6396a2af25e0a2cd8e363361a480e69727e2d7ca83e82ff",
+      "note": "the final aggregate: DRIVE PASSED with the approved supplement"
+    },
+    "aggregateChecks": 82
+  },
+  "retirementDecision": {
+    "decision": "owner-named --confirm-unrecoverable for l0013r-c5d-drive release rmwtr1q6y-99884e, for exactly these plans",
+    "plans": [
+      "17664062f89a1330985d33466b051c76bb49549938484a1a4e9dad843f16469a",
+      "32f54d6b83c8c826b9e609c55e96a076ee88e04149de910b2b1a0394885b03a6",
+      "6e4d3bb2ed1b881c00aaa563767eeb6db395e1e18d01e22edc7464237781c058"
+    ],
+    "firstReport": "step32a/teardown/4-retire-l0013r-c5d-drive-rmwtr1q6y-99884e.txt",
+    "freshReport": "step32a/teardown/6-retire-report-fresh.txt",
+    "confirmedTranscript": "step32a/teardown/7-retire-confirm.txt",
+    "revisionRecord": "step32a/teardown/7-revision-record-retired.json",
+    "recordsPreserved": "step32a/teardown/7-records-canonical-before.sha.txt == step32a/teardown/7-records-canonical-after.sha.txt (34 records)",
+    "normalRetirementRecord": "step32a/teardown/8-revision-record-l0176r.json"
+  },
+  "remainingHolds": [
+    "lifting the hold on c:f54ea9f1…",
+    "production compiler releases",
+    "Steps 33–34"
+  ],
+  "generatedFiles": [
+    "step32a/README.md",
+    "step32a/publication.json",
+    "step32a/files.json",
+    "step32a/verify-published.mjs"
+  ],
+  "counts": {
+    "published": 1247,
+    "identical": 1075,
+    "derivatives": 172,
+    "excluded": 34
+  },
+  "verification": {
+    "selfTest": "node docs/evidence/c5d/step32a/verify-published.mjs --self-test",
+    "full": "node docs/evidence/c5d/step32a/verify-published.mjs --private-literals <private JSON list of exact strings> --private-source <private evidence root>",
+    "privateLiterals": "the operator address and caller IPs, kept outside the repository; never published"
+  }
+}

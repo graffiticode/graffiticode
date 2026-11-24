@@ -1,0 +1,73 @@
+Updated [https://www.googleapis.com/compute/v1/projects/graffiticode/regions/us-central1/instanceGroupManagers/egress-proxy].
+---
+autoHealingPolicies:
+- healthCheck: https://www.googleapis.com/compute/v1/projects/graffiticode/regions/us-central1/healthChecks/egress-proxy-ready
+  initialDelaySec: 120
+baseInstanceName: egress-proxy
+creationTimestamp: '2026-10-18T15:59:54.880-07:00'
+currentActions:
+  abandoning: 0
+  creating: 2
+  creatingWithoutRetries: 0
+  deleting: 0
+  none: 2
+  recreating: 0
+  refreshing: 0
+  restarting: 0
+  resuming: 0
+  starting: 0
+  stopping: 0
+  suspending: 0
+  verifying: 0
+distributionPolicy:
+  targetShape: EVEN
+  zones:
+  - zone: https://www.googleapis.com/compute/v1/projects/graffiticode/zones/us-central1-a
+  - zone: https://www.googleapis.com/compute/v1/projects/graffiticode/zones/us-central1-b
+fingerprint: B-dpnzNzXzQ=
+id: '417904723270103429'
+instanceGroup: https://www.googleapis.com/compute/v1/projects/graffiticode/regions/us-central1/instanceGroups/egress-proxy
+instanceLifecyclePolicy:
+  defaultActionOnFailure: REPAIR
+  forceUpdateOnRepair: NO
+  onFailedHealthCheck: DEFAULT_ACTION
+instanceTemplate: https://www.googleapis.com/compute/v1/projects/graffiticode/global/instanceTemplates/egress-proxy-ce42b3628a5a
+kind: compute#instanceGroupManager
+listManagedInstancesResults: PAGELESS
+name: egress-proxy
+region: https://www.googleapis.com/compute/v1/projects/graffiticode/regions/us-central1
+satisfiesPzi: true
+satisfiesPzs: true
+selfLink: https://www.googleapis.com/compute/v1/projects/graffiticode/regions/us-central1/instanceGroupManagers/egress-proxy
+standbyPolicy:
+  mode: MANUAL
+status:
+  allInstancesConfig:
+    effective: true
+  isStable: false
+  stateful:
+    hasStatefulConfig: false
+    perInstanceConfigs:
+      allEffective: true
+  versionTarget:
+    isReached: false
+targetSize: 2
+targetSizePolicy:
+  mode: INDIVIDUAL
+targetStoppedSize: 0
+targetSuspendedSize: 0
+updatePolicy:
+  instanceRedistributionType: PROACTIVE
+  maxSurge:
+    calculated: 2
+    fixed: 2
+  maxUnavailable:
+    calculated: 0
+    fixed: 0
+  minimalAction: REPLACE
+  replacementMethod: SUBSTITUTE
+  type: PROACTIVE
+versions:
+- instanceTemplate: https://www.googleapis.com/compute/v1/projects/graffiticode/global/instanceTemplates/egress-proxy-ce42b3628a5a
+  targetSize:
+    calculated: 2

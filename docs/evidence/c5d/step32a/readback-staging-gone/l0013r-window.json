@@ -1,0 +1,847 @@
+[
+  {
+    "insertId": "6b05bf1a000d15753ab99531",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:45:14.872073734Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:45:14.858102Z\u001b[0m \u001b[32m INFO\u001b[0m \u001b[2ml0013_capture\u001b[0m\u001b[2m:\u001b[0m render \u001b[3mitem\u001b[0m\u001b[2m=\u001b[0m7vwaCAIyMNCJEzgIfyYY \u001b[3mcapture_ms\u001b[0m\u001b[2m=\u001b[0m8775 \u001b[3mbytes\u001b[0m\u001b[2m=\u001b[0m18516",
+    "timestamp": "2026-11-24T16:45:14.857461Z"
+  },
+  {
+    "insertId": "6b05bf1a000d1576f44f8818",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2026-11-24T16:45:15.234810082Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "ERROR",
+    "textPayload": "Uncaught signal: 13, pid=26, tid=26, fault_addr=0.",
+    "timestamp": "2026-11-24T16:45:14.857459228Z"
+  },
+  {
+    "insertId": "6b05bf1a000d03535fecb1dc",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2026-11-24T16:45:14.860492549Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "ERROR",
+    "textPayload": "Uncaught signal: 13, pid=24, tid=24, fault_addr=0.",
+    "timestamp": "2026-11-24T16:45:14.852768388Z"
+  },
+  {
+    "insertId": "6b05bf190008a84d8755b8f5",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:45:13.872743128Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:45:13.568464Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2mchromiumoxide::handler\u001b[0m\u001b[2m:\u001b[0m WS Invalid message: data did not match any variant of untagged enum Message",
+    "timestamp": "2026-11-24T16:45:13.567373Z"
+  },
+  {
+    "insertId": "6b05bf1900042b018ef13946",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:45:13.540428411Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:45:13.274227Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2mchromiumoxide::handler\u001b[0m\u001b[2m:\u001b[0m WS Invalid message: data did not match any variant of untagged enum Message",
+    "timestamp": "2026-11-24T16:45:13.273153Z"
+  },
+  {
+    "insertId": "6b05bf190004126bc44f271e",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:45:13.540428411Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:45:13.267926Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2mchromiumoxide::handler\u001b[0m\u001b[2m:\u001b[0m WS Invalid message: data did not match any variant of untagged enum Message",
+    "timestamp": "2026-11-24T16:45:13.266859Z"
+  },
+  {
+    "insertId": "6b05bf18000d3ae40e0530f5",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:45:12.873848079Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:45:12.868126Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2mchromiumoxide::handler\u001b[0m\u001b[2m:\u001b[0m WS Invalid message: data did not match any variant of untagged enum Message",
+    "timestamp": "2026-11-24T16:45:12.867044Z"
+  },
+  {
+    "insertId": "6b05bf18000d3abc126e26e8",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:45:12.873848079Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:45:12.868056Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2mchromiumoxide::handler\u001b[0m\u001b[2m:\u001b[0m WS Invalid message: data did not match any variant of untagged enum Message",
+    "timestamp": "2026-11-24T16:45:12.867004Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "12.664660522s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.96.63.16",
+      "requestMethod": "POST",
+      "requestSize": "2399",
+      "requestUrl": "https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app/interpret",
+      "responseSize": "579",
+      "serverIp": "34.143.74.2",
+      "status": 200
+    },
+    "insertId": "6b05bf1d000c4fc2e94bfc11",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-24T16:45:17.813777989Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "f1928d9b3089024d",
+    "timestamp": "2026-11-24T16:45:05.139342Z",
+    "trace": "projects/graffiticode/traces/e6d896f34cea48b29eba575fb17d6fd0"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.001271010s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.96.63.16",
+      "requestMethod": "POST",
+      "requestSize": "1489",
+      "requestUrl": "https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app/preflight",
+      "responseSize": "709",
+      "serverIp": "34.143.75.2",
+      "status": 200,
+      "userAgent": "node"
+    },
+    "insertId": "6b05bf0d000c6504cd878c63",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-24T16:45:01.869856754Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "7ddcfc2e6aa923e8",
+    "timestamp": "2026-11-24T16:45:01.808872Z",
+    "trace": "projects/graffiticode/traces/fba8c60f5128c4eb0355ee7f48b037d4"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.006009771s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.96.63.16",
+      "requestMethod": "POST",
+      "requestSize": "679",
+      "requestUrl": "https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app/compile",
+      "responseSize": "832",
+      "serverIp": "34.143.73.2",
+      "status": 200
+    },
+    "insertId": "6b05bf0d0001e2244a5f6da4",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-24T16:45:01.201295078Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "c59c53c8e04dfd03",
+    "timestamp": "2026-11-24T16:45:01.115415Z",
+    "trace": "projects/graffiticode/traces/9c5676c34ab35c5964c9e9b7108f148d"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.018838412s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.96.63.16",
+      "requestMethod": "POST",
+      "requestSize": "1491",
+      "requestUrl": "https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app/preflight",
+      "responseSize": "709",
+      "serverIp": "34.143.75.2",
+      "status": 200,
+      "userAgent": "node"
+    },
+    "insertId": "6b05bf0c0002fe681e5a0223",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-24T16:45:00.201675350Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "ed40d28dc89ba158",
+    "timestamp": "2026-11-24T16:45:00.169905Z",
+    "trace": "projects/graffiticode/traces/03a98686f172f2390355ee7f48b03ab7",
+    "traceSampled": true
+  },
+  {
+    "httpRequest": {
+      "latency": "9.452169420s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.96.63.16",
+      "requestMethod": "POST",
+      "requestSize": "2397",
+      "requestUrl": "https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app/interpret",
+      "responseSize": "554",
+      "serverIp": "34.143.73.2",
+      "status": 200
+    },
+    "insertId": "6b05bdb9000227d60ed158cd",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-24T16:39:21.150015607Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "537b0846fab16e70",
+    "timestamp": "2026-11-24T16:39:11.681182Z",
+    "trace": "projects/graffiticode/traces/2d40c6b0422f0a17d575865adaf1f279",
+    "traceSampled": true
+  },
+  {
+    "insertId": "6b05bd970008abb25736807e",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2026-11-24T16:38:47.856147019Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "textPayload": "Default STARTUP TCP probe succeeded after 1 attempt for container \"l0013r-c5d-drive-1\" on port 8080.",
+    "timestamp": "2026-11-24T16:38:47.568242Z"
+  },
+  {
+    "insertId": "6b05bd970008a9d6371b2a9c",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:38:47.879710104Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:38:47.568769Z\u001b[0m \u001b[32m INFO\u001b[0m \u001b[2ml0000r_server\u001b[0m\u001b[2m:\u001b[0m language server listening \u001b[3mlang\u001b[0m\u001b[2m=\u001b[0m0013 \u001b[3mport\u001b[0m\u001b[2m=\u001b[0m8080 \u001b[3mauth_url\u001b[0m\u001b[2m=\u001b[0mhttps://auth.graffiticode.org \u001b[3mstatic_dir\u001b[0m\u001b[2m=\u001b[0m/app/static",
+    "timestamp": "2026-11-24T16:38:47.567766Z"
+  },
+  {
+    "insertId": "6b05bd97000839784f796f25",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:38:47.546344981Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:38:47.539933Z\u001b[0m \u001b[32m INFO\u001b[0m \u001b[2ml0000r_server\u001b[0m\u001b[2m:\u001b[0m outbound requests go through the egress proxy \u001b[3mproxy\u001b[0m\u001b[2m=\u001b[0mhttp://10.8.0.2:3128",
+    "timestamp": "2026-11-24T16:38:47.539Z"
+  },
+  {
+    "insertId": "6b05bd9700082d92bf805893",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstderr",
+    "receiveTimestamp": "2026-11-24T16:38:47.544348111Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "WARN L0013_CAPTURE_FAULTS names 5 target command(s): a drive service",
+    "timestamp": "2026-11-24T16:38:47.535954Z"
+  },
+  {
+    "insertId": "6b05bd970002caee56d01f52",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7dd618347c99a40e83fb9dec126687e93ef70de3a7d42ec2067921b7e67f4d64b7d6474ece3357171d0e20b5df6c1bc4fbbb42fdbe9d56a5ff385b534c39b660c3c404ae3074723ad61a59061dd7b4da74ed6653bb4704",
+      "scaling_reason": "AUTOSCALING"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2026-11-24T16:38:47.190071865Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "textPayload": "Starting new instance. Reason: AUTOSCALING - Instance started due to configured scaling factors (e.g. CPU utilization, request throughput, etc.) or no existing capacity for current traffic.",
+    "timestamp": "2026-11-24T16:38:47.183022Z"
+  },
+  {
+    "insertId": "6b05bd7c000ccb9311582593",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:38:20.985896661Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:38:20.839735Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2ml0013r\u001b[0m\u001b[2m:\u001b[0m capture fault exit-after-stage command c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf",
+    "timestamp": "2026-11-24T16:38:20.838547Z"
+  },
+  {
+    "insertId": "6b05bd7c0003c4c06e84d7c0",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2026-11-24T16:38:20.586990503Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "ERROR",
+    "textPayload": "Uncaught signal: 13, pid=26, tid=26, fault_addr=0.",
+    "timestamp": "2026-11-24T16:38:20.246974020Z"
+  },
+  {
+    "insertId": "6b05bd7c0003c339aa46c27f",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:38:20.318368046Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:38:20.247763Z\u001b[0m \u001b[32m INFO\u001b[0m \u001b[2ml0013_capture\u001b[0m\u001b[2m:\u001b[0m render \u001b[3mitem\u001b[0m\u001b[2m=\u001b[0m7vwaCAIyMNCJEzgIfyYY \u001b[3mcapture_ms\u001b[0m\u001b[2m=\u001b[0m11259 \u001b[3mbytes\u001b[0m\u001b[2m=\u001b[0m18516",
+    "timestamp": "2026-11-24T16:38:20.246585Z"
+  },
+  {
+    "insertId": "6b05bd7c0003bc6c95463ba4",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fvarlog%2Fsystem",
+    "receiveTimestamp": "2026-11-24T16:38:20.252030531Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "ERROR",
+    "textPayload": "Uncaught signal: 13, pid=24, tid=24, fault_addr=0.",
+    "timestamp": "2026-11-24T16:38:20.244772349Z"
+  },
+  {
+    "insertId": "6b05bd79000ded75254df8c8",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:38:17.986294177Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:38:17.914454Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2mchromiumoxide::handler\u001b[0m\u001b[2m:\u001b[0m WS Invalid message: data did not match any variant of untagged enum Message",
+    "timestamp": "2026-11-24T16:38:17.912757Z"
+  },
+  {
+    "insertId": "6b05bd790009c4403941749d",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:38:17.655813649Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:38:17.641846Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2mchromiumoxide::handler\u001b[0m\u001b[2m:\u001b[0m WS Invalid message: data did not match any variant of untagged enum Message",
+    "timestamp": "2026-11-24T16:38:17.640064Z"
+  },
+  {
+    "insertId": "6b05bd790009b5daf592edc5",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:38:17.655813649Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:38:17.638123Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2mchromiumoxide::handler\u001b[0m\u001b[2m:\u001b[0m WS Invalid message: data did not match any variant of untagged enum Message",
+    "timestamp": "2026-11-24T16:38:17.636378Z"
+  },
+  {
+    "insertId": "6b05bd790004cb805fd4e83d",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:38:17.655813649Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:38:17.316105Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2mchromiumoxide::handler\u001b[0m\u001b[2m:\u001b[0m WS Invalid message: data did not match any variant of untagged enum Message",
+    "timestamp": "2026-11-24T16:38:17.314240Z"
+  },
+  {
+    "insertId": "6b05bd790004c9e1291d92c0",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T16:38:17.324658756Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T16:38:17.315641Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2mchromiumoxide::handler\u001b[0m\u001b[2m:\u001b[0m WS Invalid message: data did not match any variant of untagged enum Message",
+    "timestamp": "2026-11-24T16:38:17.313825Z"
+  },
+  {
+    "httpRequest": {
+      "latency": "12.806189745s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.96.63.16",
+      "requestMethod": "POST",
+      "requestSize": "2399",
+      "requestUrl": "https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app/interpret",
+      "responseSize": "67",
+      "serverIp": "34.143.77.2",
+      "status": 503
+    },
+    "insertId": "6b05bd7c000cd295b1a1854f",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-24T16:38:20.847626765Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "ERROR",
+    "spanId": "b97f32d08cd99101",
+    "textPayload": "The request failed because either the HTTP response was malformed or connection to the instance had an error. Additional troubleshooting documentation can be found at: https://cloud.google.com/run/docs/troubleshooting#malformed-response-or-connection-error",
+    "timestamp": "2026-11-24T16:38:08.031743Z",
+    "trace": "projects/graffiticode/traces/653ed3061c17314569f2c9692f4b7394"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.001305770s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.96.63.16",
+      "requestMethod": "POST",
+      "requestSize": "1490",
+      "requestUrl": "https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app/preflight",
+      "responseSize": "709",
+      "serverIp": "34.143.73.2",
+      "status": 200,
+      "userAgent": "node"
+    },
+    "insertId": "6b05bd6d000b0b9199c6f126",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-24T16:38:05.857969161Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "6b6044e0515635ef",
+    "timestamp": "2026-11-24T16:38:05.720509Z",
+    "trace": "projects/graffiticode/traces/b8bb574ab37898e10650d7bfb128e122"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.001673230s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.96.63.16",
+      "requestMethod": "POST",
+      "requestSize": "680",
+      "requestUrl": "https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app/compile",
+      "responseSize": "832",
+      "serverIp": "34.143.75.2",
+      "status": 200
+    },
+    "insertId": "6b05bd6d0005ec8d85a3262f",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-24T16:38:05.525757839Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "12f2d26816cf2398",
+    "timestamp": "2026-11-24T16:38:05.384184Z",
+    "trace": "projects/graffiticode/traces/f575115eda40b6d7f04a89ea6c9df3f0"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.133283137s",
+      "protocol": "HTTP/1.1",
+      "remoteIp": "34.96.63.16",
+      "requestMethod": "POST",
+      "requestSize": "1491",
+      "requestUrl": "https://l0013r-c5d-drive-sja7fatcta-uc.a.run.app/preflight",
+      "responseSize": "709",
+      "serverIp": "34.143.73.2",
+      "status": 200,
+      "userAgent": "node"
+    },
+    "insertId": "6b05bd6c0007eafe4f036ae1",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bdb0df825e153553700315a171741e08adef1716406d0d3fa773e980dafdd6a2febcc344eaaf2d829eda7b09d75802af6efd4301746224bb469351c244ee1628c2d4f08c0aacb2481b7d5e0a0574303d3972ff1836bf61b0"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-11-24T16:38:04.529152362Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "5be3a25ab8ec4f02",
+    "timestamp": "2026-11-24T16:38:04.375424Z",
+    "trace": "projects/graffiticode/traces/31f763c49a61e3f30650d7bfb128ec41",
+    "traceSampled": true
+  }
+]

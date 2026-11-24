@@ -1,0 +1,23 @@
+{
+  "documents": [
+    {
+      "name": "projects/graffiticode/databases/broker/documents/receipts/dd9f03688f70d51136a238b121b9fb324a06cb74e62b35724712edd0b466cc16/steps/0",
+      "fields": {
+        "step": {
+          "stringValue": "publish"
+        },
+        "at": {
+          "stringValue": "2026-11-24T04:09:55.703Z"
+        },
+        "observed": {
+          "stringValue": "published"
+        },
+        "n": {
+          "integerValue": "0"
+        }
+      },
+      "createTime": "2026-11-24T04:09:55.758454Z",
+      "updateTime": "2026-11-24T04:09:55.758454Z"
+    }
+  ]
+}

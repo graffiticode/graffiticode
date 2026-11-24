@@ -1,0 +1,112 @@
+{
+  "name": "projects/graffiticode/databases/policy/documents/plans/6e4d3bb2ed1b881c00aaa563767eeb6db395e1e18d01e22edc7464237781c058",
+  "fields": {
+    "plan": {
+      "mapValue": {
+        "fields": {
+          "contractVersion": {
+            "integerValue": "3"
+          },
+          "invocationId": {
+            "stringValue": "inv-09a5ce16-c965-4eb8-badf-dee4db912871"
+          },
+          "taskIds": {
+            "arrayValue": {
+              "values": [
+                {
+                  "stringValue": "zjy8eEXLUna2vdLNh97v"
+                }
+              ]
+            }
+          },
+          "inputDigest": {
+            "stringValue": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          },
+          "scopes": {
+            "arrayValue": {
+              "values": [
+                {
+                  "mapValue": {
+                    "fields": {
+                      "kind": {
+                        "stringValue": "item"
+                      },
+                      "id": {
+                        "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "stages": {
+            "arrayValue": {
+              "values": [
+                {
+                  "mapValue": {
+                    "fields": {
+                      "stage": {
+                        "stringValue": "s0"
+                      },
+                      "lang": {
+                        "stringValue": "0013"
+                      },
+                      "sourceDigest": {
+                        "stringValue": "840df3dcba8ad5e4ab00505bc2531e4d85b76ac95441de87c1659a0ff08bdd84"
+                      },
+                      "programDigest": {
+                        "stringValue": "840df3dcba8ad5e4ab00505bc2531e4d85b76ac95441de87c1659a0ff08bdd84"
+                      },
+                      "optionsDigest": {
+                        "stringValue": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+                      },
+                      "revision": {
+                        "stringValue": "l0013r-c5d-drive-rmwtr1q6y-99884e"
+                      },
+                      "imageDigest": {
+                        "stringValue": "sha256:793badd62ce11b94d79d521825360846afc7a477ad8396d995d4fa17dccb1524"
+                      },
+                      "registryVersion": {
+                        "integerValue": "10"
+                      },
+                      "requiredFunctions": {
+                        "arrayValue": {
+                          "values": [
+                            {
+                              "stringValue": "snap"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "registryVersion": {
+            "integerValue": "10"
+          }
+        }
+      }
+    },
+    "revisions": {
+      "arrayValue": {
+        "values": [
+          {
+            "stringValue": "l0013r-c5d-drive-rmwtr1q6y-99884e"
+          }
+        ]
+      }
+    },
+    "invocationId": {
+      "stringValue": "inv-09a5ce16-c965-4eb8-badf-dee4db912871"
+    },
+    "createdAt": {
+      "stringValue": "2026-11-24T16:38:06.761Z"
+    }
+  },
+  "createTime": "2026-11-24T16:38:06.890510Z",
+  "updateTime": "2026-11-24T16:38:06.890510Z"
+}

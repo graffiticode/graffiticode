@@ -1,0 +1,5 @@
+ok     observations-read: ok
+ok     fault-fired: ok
+ok     taken-over: ok
+ok     same-reservation: ok
+exit-after-reserve: docs/evidence/c5d/drive/d1ca6da0/exit-after-reserve-2026-11-24T03-48-28-428Z.json

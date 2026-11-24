@@ -1,0 +1,56 @@
+{
+  "at": "2026-11-23T20:42:18.279Z",
+  "config": {
+    "broker": "broker-c5d-drive",
+    "l0013r": "l0013r-c5d-drive",
+    "l0176r": "l0176r-c5d-drive",
+    "api": "api-c5d-drive",
+    "bucket": "graffiticode-c5d-drive",
+    "apiUrl": null
+  },
+  "runId": "d1ca6da0",
+  "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+  "canaryRunId": "c5dd1ca6da0",
+  "keys": {
+    "first-private": "c5d-drive:d1ca6da0:first-private",
+    "exit-after-reserve": "c5d-drive:d1ca6da0:exit-after-reserve",
+    "exit-after-stage": "c5d-drive:d1ca6da0:exit-after-stage",
+    "drop-outcome": "c5d-drive:d1ca6da0:drop-outcome",
+    "stale-worker": "c5d-drive:d1ca6da0:stale-worker",
+    "staging-gone": "c5d-drive:d1ca6da0:staging-gone",
+    "staging-gone-fresh": "c5d-drive:d1ca6da0:staging-gone-fresh",
+    "older": "c5d-drive:d1ca6da0:older",
+    "newer": "c5d-drive:d1ca6da0:newer",
+    "two-stage": "c5d-drive:d1ca6da0:two-stage",
+    "two-stage-same": "c5d-drive:d1ca6da0:two-stage-same",
+    "mixed": "c5d-drive:d1ca6da0:mixed",
+    "canary-snap": "canary:c5dd1ca6da0:snap"
+  },
+  "ids": {
+    "first-private": "c:6f00381099a42ba7e48f1707770d37e03a26bd050fb2a0f3b59dbd5bfcaadc44",
+    "exit-after-reserve": "c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21",
+    "exit-after-stage": "c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0",
+    "drop-outcome": "c:7b3c40dbbcea880f85754ef2fec09da8f760dd61db0d3357be865c7c9c3d27c0",
+    "stale-worker": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+    "staging-gone": "c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf",
+    "staging-gone-fresh": "c:c897eb6bc84fe499615ac0d0a611d24ce92ad79f2d5c9c8f8d5ddca8564e4b72",
+    "older": "c:40bade426ed725afb0da796104817676487ae4ed0654cfb56f08de3904be610f",
+    "newer": "c:a7ca8a26432f0de1e71758dca113e23fb0a6697f57256b3194fbfbb90308b286",
+    "two-stage": "c:1fd0b95487ce12bf1b1c5b535a4ec3360655070ebbb8646f73fb57ee2a76c33d",
+    "two-stage-same": "c:6434b382416463c8d4dc79fbbe9c4a3661ea8ab1223bc09252b448d7e9ed58b1",
+    "mixed": "c:d4e8b1dae4110f3fa109b80db5158a11fdc360a979fada34ead946051855511a",
+    "canary-snap": "c:601a0bb57fba27467c5cad6b8bdf1bca211b7bc70bee8714a99cf5cac05758e6"
+  },
+  "faults": {
+    "L0013_CAPTURE_FAULTS": {
+      "c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21": "exit-after-reserve",
+      "c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0": "exit-after-stage",
+      "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d": "stall-before-stage",
+      "c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf": "exit-after-stage",
+      "c:40bade426ed725afb0da796104817676487ae4ed0654cfb56f08de3904be610f": "exit-after-stage"
+    },
+    "API_COMMAND_FAULT_TARGETS": {
+      "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d": "stop-renewal"
+    }
+  }
+}

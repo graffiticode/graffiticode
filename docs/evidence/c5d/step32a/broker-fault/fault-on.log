@@ -1,0 +1,7 @@
+Deploying...
+Creating Revision....................done
+Done.
+Service [[1mbroker-c5d-drive[m] revision [[1mbroker-c5d-drive-rmwtqs6gy-ea522e[m] has been deployed and is serving [1m100[m percent of traffic.
+Service URL: [1mhttps://broker-c5d-drive-656973052505.us-central1.run.app[m
+The revision can be reached directly at https://rmwtqs6gy-ea522e---broker-c5d-drive-sja7fatcta-uc.a.run.app
+Proxy locally with: gcloud run services proxy broker-c5d-drive --region us-central1 --project graffiticode

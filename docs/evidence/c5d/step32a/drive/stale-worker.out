@@ -1,0 +1,7 @@
+ok     observations-read: ok
+ok     faults-fired: ok
+ok     takeover-first: ok
+ok     stage-refused: ok
+ok     generation-2-published: ok
+ok     old-worker-finished-nothing: ok
+stale-worker: docs/evidence/c5d/drive/d1ca6da0/stale-worker-2026-11-24T04-40-35-087Z.json
