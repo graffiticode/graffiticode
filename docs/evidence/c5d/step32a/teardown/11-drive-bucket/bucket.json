@@ -1,0 +1,16 @@
+{
+  "creation_time": "2026-11-23T20:42:28+0000",
+  "default_storage_class": "STANDARD",
+  "generation": 1795466548670982007,
+  "location": "US-CENTRAL1",
+  "location_type": "region",
+  "metageneration": 2,
+  "name": "graffiticode-c5d-drive",
+  "public_access_prevention": "enforced",
+  "soft_delete_policy": {
+    "retentionDurationSeconds": "0"
+  },
+  "storage_url": "gs://graffiticode-c5d-drive/",
+  "uniform_bucket_level_access": true,
+  "update_time": "2026-11-23T20:42:40+0000"
+}

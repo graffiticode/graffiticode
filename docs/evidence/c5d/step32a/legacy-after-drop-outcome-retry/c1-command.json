@@ -1,0 +1,325 @@
+{
+  "status": 200,
+  "body": {
+    "name": "projects/graffiticode/databases/policy/documents/commands/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f",
+    "fields": {
+      "owner": {
+        "mapValue": {
+          "fields": {
+            "leaseExpiresAt": {
+              "integerValue": "1795204514178"
+            },
+            "generation": {
+              "integerValue": "11"
+            },
+            "worker": {
+              "stringValue": "api-c5d-drive-rmwo9rmds-75d10c:f358de67-0666-4f46-a7fc-b2e919aa5e61"
+            },
+            "scopes": {
+              "integerValue": "1"
+            }
+          }
+        }
+      },
+      "scopes": {
+        "integerValue": "1"
+      },
+      "seq": {
+        "integerValue": "10"
+      },
+      "connectionId": {
+        "nullValue": null
+      },
+      "publication": {
+        "mapValue": {
+          "fields": {
+            "state": {
+              "stringValue": "none"
+            },
+            "resultDigest": {
+              "nullValue": null
+            }
+          }
+        }
+      },
+      "binding": {
+        "mapValue": {
+          "fields": {
+            "connectionId": {
+              "nullValue": null
+            },
+            "taskId": {
+              "stringValue": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19"
+            },
+            "inputDigest": {
+              "stringValue": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+            }
+          }
+        }
+      },
+      "status": {
+        "stringValue": "pending"
+      },
+      "phase": {
+        "stringValue": "admitted"
+      },
+      "uid": {
+        "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+      },
+      "taskId": {
+        "stringValue": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19"
+      },
+      "protocol": {
+        "stringValue": "command"
+      },
+      "stages": {
+        "mapValue": {
+          "fields": {
+            "s0": {
+              "mapValue": {
+                "fields": {
+                  "pinnedInput": {
+                    "stringValue": "8212689cc2ce47a994fb37118d94e1cce57457efbff82a88ff262cfc59c9a2a3"
+                  },
+                  "state": {
+                    "stringValue": "ran"
+                  },
+                  "expansion": {
+                    "stringValue": "closed"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "result": {
+        "mapValue": {
+          "fields": {
+            "state": {
+              "stringValue": "none"
+            },
+            "digest": {
+              "nullValue": null
+            }
+          }
+        }
+      },
+      "invocationId": {
+        "stringValue": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3"
+      },
+      "revisions": {
+        "nullValue": null
+      },
+      "admission": {
+        "mapValue": {
+          "fields": {
+            "recording": {
+              "integerValue": "1"
+            },
+            "stages": {
+              "mapValue": {
+                "fields": {
+                  "s0": {
+                    "mapValue": {
+                      "fields": {
+                        "lang": {
+                          "stringValue": "0013"
+                        },
+                        "revision": {
+                          "stringValue": "l0013r-c5d-drive-rmwo9rmhz-e7abb8"
+                        },
+                        "tagUrl": {
+                          "stringValue": "https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+                        },
+                        "intents": {
+                          "arrayValue": {
+                            "values": [
+                              {
+                                "mapValue": {
+                                  "fields": {
+                                    "id": {
+                                      "stringValue": "snap:0"
+                                    },
+                                    "fn": {
+                                      "stringValue": "snap"
+                                    },
+                                    "op": {
+                                      "stringValue": "gcs.put-thumbnail"
+                                    },
+                                    "runtime": {
+                                      "booleanValue": true
+                                    },
+                                    "bounds": {
+                                      "mapValue": {
+                                        "fields": {
+                                          "maxOccurrences": {
+                                            "integerValue": "16"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "scope": {
+                                      "mapValue": {
+                                        "fields": {
+                                          "kind": {
+                                            "stringValue": "item"
+                                          },
+                                          "id": {
+                                            "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        },
+                        "replay": {
+                          "integerValue": "0"
+                        },
+                        "modelDigest": {
+                          "stringValue": "35ef5f2a647b5751b4916b2c54a2b8e48ac5e71682cfbe94d27de584d67cb4be"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "planDigest": {
+              "stringValue": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6"
+            },
+            "items": {
+              "mapValue": {
+                "fields": {
+                  "7vwaCAIyMNCJEzgIfyYY": {
+                    "mapValue": {
+                      "fields": {
+                        "publicCapture": {
+                          "booleanValue": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "contractVersion": {
+              "integerValue": "3"
+            }
+          }
+        }
+      },
+      "commandId": {
+        "stringValue": "c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f"
+      },
+      "updatedAt": {
+        "stringValue": "2026-11-20T19:54:17.462Z"
+      },
+      "schema": {
+        "integerValue": "1"
+      },
+      "counts": {
+        "mapValue": {
+          "fields": {
+            "partial": {
+              "integerValue": "0"
+            },
+            "uncertain": {
+              "integerValue": "0"
+            },
+            "bound": {
+              "integerValue": "1"
+            },
+            "failed": {
+              "integerValue": "0"
+            },
+            "byIntent": {
+              "mapValue": {
+                "fields": {
+                  "s0/snap:0": {
+                    "integerValue": "1"
+                  }
+                }
+              }
+            },
+            "completed": {
+              "integerValue": "0"
+            }
+          }
+        }
+      },
+      "lang": {
+        "stringValue": "0013"
+      },
+      "idempotencyKey": {
+        "stringValue": "c5d-drive:ad49c0ac:staging-gone"
+      },
+      "kind": {
+        "stringValue": "command"
+      },
+      "hold": {
+        "mapValue": {
+          "fields": {
+            "readTime": {
+              "integerValue": "1795397130970"
+            },
+            "appliedBy": {
+              "mapValue": {
+                "fields": {
+                  "azp": {
+                    "stringValue": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+                  },
+                  "email": {
+                    "stringValue": "<operator>"
+                  },
+                  "verifiedVia": {
+                    "stringValue": "tokeninfo"
+                  }
+                }
+              }
+            },
+            "decision": {
+              "stringValue": "docs/evidence/c5d/hold/step-4-approval.json"
+            },
+            "at": {
+              "stringValue": "2026-11-23T01:25:30.970Z"
+            },
+            "note": {
+              "stringValue": "Quarantine the legacy staging-gone command after C5d rollout steps 0–3. Preserve its pending/admitted generation 11 and unsettled records. No lift is authorized."
+            },
+            "decidedBy": {
+              "stringValue": "owner"
+            },
+            "n": {
+              "integerValue": "1"
+            },
+            "actId": {
+              "stringValue": "ae946e64-dadc-4479-a38a-fc023fad0b97"
+            },
+            "reason": {
+              "stringValue": "definite-refusal-unsettled"
+            },
+            "generation": {
+              "integerValue": "11"
+            },
+            "leaseExpiresAt": {
+              "integerValue": "1795204514178"
+            }
+          }
+        }
+      },
+      "runRef": {
+        "nullValue": null
+      },
+      "createdAt": {
+        "stringValue": "2026-11-20T19:37:47.547Z"
+      }
+    },
+    "createTime": "2026-11-20T19:37:47.648292Z",
+    "updateTime": "2026-11-23T01:25:31.527479Z"
+  }
+}

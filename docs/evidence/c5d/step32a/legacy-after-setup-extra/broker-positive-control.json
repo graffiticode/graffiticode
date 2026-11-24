@@ -1,0 +1,82 @@
+{
+  "name": "projects/graffiticode/databases/broker/documents/receipts/f520f526ecf9a8acc26274f20ed261c4b16cc3f6bc64e6412949157695ec8b4e",
+  "fields": {
+    "claimedAt": {
+      "stringValue": "2026-11-20T17:58:10.190Z"
+    },
+    "operationId": {
+      "stringValue": "inv-059ff7e7-094b-4581-acda-e252075e5df4/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+    },
+    "evidence": {
+      "mapValue": {
+        "fields": {
+          "item": {
+            "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+          },
+          "format": {
+            "stringValue": "gcs-thumbnail-1"
+          },
+          "staged": {
+            "stringValue": "c:2b4b1a4be81ab9a2b3b62dc4a110bd1641e865a8526ea121b1d8d436505000f2/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png"
+          },
+          "sha256": {
+            "stringValue": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+          },
+          "captureSequence": {
+            "integerValue": "9"
+          },
+          "bucket": {
+            "stringValue": "graffiticode-c5d-drive"
+          },
+          "object": {
+            "stringValue": "7vwaCAIyMNCJEzgIfyYY.png"
+          },
+          "commandId": {
+            "stringValue": "c:2b4b1a4be81ab9a2b3b62dc4a110bd1641e865a8526ea121b1d8d436505000f2"
+          }
+        }
+      }
+    },
+    "pld": {
+      "stringValue": "6795cdcc67ff0a39ad0feead545585aa4f3db739644d0c7c54d5991ea236b2d3"
+    },
+    "binding": {
+      "mapValue": {
+        "fields": {
+          "lang": {
+            "stringValue": "0013"
+          },
+          "argsDigest": {
+            "stringValue": "eb5db2642354649339bfef1e31edee605358fd0d4e6c7adad8996daf00a93715"
+          },
+          "principal": {
+            "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+          },
+          "registryVersion": {
+            "integerValue": "9"
+          },
+          "op": {
+            "stringValue": "gcs.put-thumbnail"
+          },
+          "scope": {
+            "mapValue": {
+              "fields": {
+                "kind": {
+                  "stringValue": "item"
+                },
+                "id": {
+                  "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+                }
+              }
+            }
+          },
+          "fn": {
+            "stringValue": "snap"
+          }
+        }
+      }
+    }
+  },
+  "createTime": "2026-11-20T17:58:10.301782Z",
+  "updateTime": "2026-11-20T17:58:10.301782Z"
+}

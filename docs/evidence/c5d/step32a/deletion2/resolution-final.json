@@ -1,0 +1,40 @@
+{
+  "name": "projects/graffiticode/databases/broker/documents/receipts/dd9f03688f70d51136a238b121b9fb324a06cb74e62b35724712edd0b466cc16/resolution/final",
+  "fields": {
+    "verdict": {
+      "stringValue": "applied"
+    },
+    "decisionId": {
+      "stringValue": "535a8025-8e0a-41c4-8833-f37efb5f387f"
+    },
+    "result": {
+      "mapValue": {
+        "fields": {
+          "item": {
+            "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+          },
+          "sha256": {
+            "stringValue": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+          },
+          "captureSequence": {
+            "integerValue": "16"
+          },
+          "url": {
+            "stringValue": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5"
+          }
+        }
+      }
+    },
+    "at": {
+      "stringValue": "2026-11-24T04:27:25.296Z"
+    },
+    "attemptId": {
+      "stringValue": "08e6c7c5-79fa-422d-9a17-668ba2ab774b"
+    },
+    "resultSource": {
+      "stringValue": "evidence"
+    }
+  },
+  "createTime": "2026-11-24T04:27:25.345620Z",
+  "updateTime": "2026-11-24T04:27:25.345620Z"
+}

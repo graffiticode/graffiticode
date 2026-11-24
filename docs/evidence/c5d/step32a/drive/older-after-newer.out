@@ -1,0 +1,5 @@
+ok     observations-read: ok
+ok     older-stopped: ok
+ok     newer-published: ok
+FAILED older-newer-present: the older's result isn't its own capture
+older-after-newer: docs/evidence/c5d/drive/d1ca6da0/older-after-newer-2026-11-24T16-54-16-178Z.json (FAILED)

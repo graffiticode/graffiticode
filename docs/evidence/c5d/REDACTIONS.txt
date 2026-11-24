@@ -54,3 +54,10 @@ Durable hold evidence (2026-11-23), under hold/:
 - hold/publication.json lists each original capture's SHA-256 and the SHA-256 of its published copy, with per-file replacement counts. The original private captures and operative intent were not modified.
 - The published .intent.json is a redacted evidence copy, not an executable replay request. Retry only with the unchanged private original and its existing act id.
 - The added absence readback and offline verifier contain no operator identity or credential. The verifier checks all JSON, redactions and original/published hashes when the private originals are supplied.
+
+Step 32a fresh drive, run d1ca6da0 (published 2026-11-24): step32a/publication.json and step32a/files.json list every published file with its original and published sha256 and its replacement counts.
+- The operator's address replaced by <operator>, and the operator's two caller IPs (seen only with the operator principal) by <operator-ip>.
+- Local paths replaced by repository-relative paths or placeholders (<release-checkout>, <runner-checkout>, <scratchpad>, ...).
+- The proxy cloud-init in instance and template describes replaced by its length and sha256.
+- Excluded, with their hashes in files.json: the raw control-query dumps (policy-run's commit audit entries, used only for their counts) and generate.js output (regenerable).
+- Nothing under drive/d1ca6da0/ needed a change: every run file, the approved supplement and both aggregate reports are published byte-identical. The originals are kept outside the repository.

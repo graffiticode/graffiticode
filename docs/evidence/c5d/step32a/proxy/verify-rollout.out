@@ -1,0 +1,7 @@
+# 1. the group's instances, described (instances.json):
+gcloud compute instance-groups managed list-instances egress-proxy --project=graffiticode --region=us-central1 --format='value(instance.basename(),instance.scope(zones).segment(0))' \
+  | while read -r name zone; do gcloud compute instances describe "$name" --zone="$zone" --project=graffiticode --format=json; done | jq -s . > instances.json
+# 2. the reports of the last hour (entries.json):
+gcloud logging read 'resource.type="gce_instance" AND jsonPayload.isolate01="config"' --project=graffiticode --freshness=1h --format=json > entries.json
+# 3. judge:
+node deploy/egress-proxy/verify-rollout.js --expect 94ecf108c820dac92ccc1d608bacc0b686ba94a9fed0368b808045c3d31cf697 --instances instances.json --logs entries.json --size 2

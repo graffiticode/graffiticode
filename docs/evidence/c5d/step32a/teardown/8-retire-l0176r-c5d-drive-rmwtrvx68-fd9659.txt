@@ -1,0 +1,12 @@
+Marked l0176r-c5d-drive-rmwtrvx68-fd9659 retiring: no new plan can pin it, and its snapshots are refused.
+Fenced 0 admission(s) in flight.
+Retired l0176r-c5d-drive-rmwtrvx68-fd9659; removing its tag in 15 min, once proofs issued before retirement have expired.
+Updating traffic...
+Routing traffic....................done
+Done.
+URL: https://l0176r-c5d-drive-sja7fatcta-uc.a.run.app
+Traffic:
+  100% [1ml0176r-c5d-drive-00004-zuz[m
+         parked: https://parked---l0176r-c5d-drive-sja7fatcta-uc.a.run.app
+Removed the tag rmwtrvx68-fd9659 from l0176r-c5d-drive-rmwtrvx68-fd9659.
+exit 0

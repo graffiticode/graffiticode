@@ -1,0 +1,5 @@
+graffiticode/broker: 0 active write(s)
+graffiticode/policy: ON (by <operator> at 2026-10-18T21:37:06.306Z: registry v8 verified (AT-10))
+  canary while off: 995cc0bc98105563168b7fbee7b1e59a4256331c on conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd
+graffiticode/broker: ON (by <operator> at 2026-10-18T21:37:05.696Z: registry v8 verified (AT-10))
+  canary while off: 995cc0bc98105563168b7fbee7b1e59a4256331c on conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd

@@ -1,0 +1,86 @@
+{
+  "status": 200,
+  "body": {
+    "documents": [
+      {
+        "name": "projects/graffiticode/databases/policy/documents/commands/c:db80a736f58318fe6f9cb1141bd60fc7c575d922cefe6374fe35496eeeff009b/reservations/s0:x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "fields": {
+          "renderGrants": {
+            "arrayValue": {
+              "values": [
+                {
+                  "mapValue": {
+                    "fields": {
+                      "jti": {
+                        "stringValue": "a20dea33-36c4-42a4-b02e-c99a1fbdfe7b"
+                      },
+                      "exp": {
+                        "integerValue": "1795203502"
+                      },
+                      "generation": {
+                        "integerValue": "1"
+                      },
+                      "at": {
+                        "stringValue": "2026-11-20T19:33:22.466Z"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "publicCapture": {
+            "booleanValue": false
+          },
+          "intentId": {
+            "stringValue": "snap:0"
+          },
+          "item": {
+            "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+          },
+          "size": {
+            "integerValue": "18516"
+          },
+          "stagedGeneration": {
+            "integerValue": "1"
+          },
+          "captureSequence": {
+            "integerValue": "10"
+          },
+          "stage": {
+            "stringValue": "s0"
+          },
+          "stagedAt": {
+            "stringValue": "2026-11-20T19:33:31.267Z"
+          },
+          "object": {
+            "stringValue": "c:db80a736f58318fe6f9cb1141bd60fc7c575d922cefe6374fe35496eeeff009b/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png"
+          },
+          "generation": {
+            "integerValue": "1"
+          },
+          "reservedAt": {
+            "stringValue": "2026-11-20T19:33:22.161Z"
+          },
+          "state": {
+            "stringValue": "staged"
+          },
+          "renderTask": {
+            "stringValue": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19"
+          },
+          "sha256": {
+            "stringValue": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+          },
+          "occurrenceId": {
+            "stringValue": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+          },
+          "expansionKey": {
+            "stringValue": "0#0"
+          }
+        },
+        "createTime": "2026-11-20T19:33:22.207209Z",
+        "updateTime": "2026-11-20T19:33:31.302339Z"
+      }
+    ]
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "documents": [
+    {
+      "name": "projects/graffiticode/databases/policy/documents/commands/c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf/reservations/s0:x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "fields": {
+        "stagedGeneration": {
+          "integerValue": "1"
+        },
+        "captureSequence": {
+          "integerValue": "18"
+        },
+        "stagedAt": {
+          "stringValue": "2026-11-24T16:38:20.691Z"
+        },
+        "item": {
+          "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+        },
+        "intentId": {
+          "stringValue": "snap:0"
+        },
+        "stage": {
+          "stringValue": "s0"
+        },
+        "state": {
+          "stringValue": "staged"
+        },
+        "reservedAt": {
+          "stringValue": "2026-11-24T16:38:08.547Z"
+        },
+        "sha256": {
+          "stringValue": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+        },
+        "expansionKey": {
+          "stringValue": "0#0"
+        },
+        "generation": {
+          "integerValue": "1"
+        },
+        "renderTask": {
+          "stringValue": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19"
+        },
+        "publicCapture": {
+          "booleanValue": false
+        },
+        "occurrenceId": {
+          "stringValue": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+        },
+        "size": {
+          "integerValue": "18516"
+        },
+        "object": {
+          "stringValue": "c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png"
+        },
+        "renderGrants": {
+          "arrayValue": {
+            "values": [
+              {
+                "mapValue": {
+                  "fields": {
+                    "jti": {
+                      "stringValue": "aab51c4b-b1c6-41b2-a4fd-9aafe9cb25ff"
+                    },
+                    "exp": {
+                      "integerValue": "1795538588"
+                    },
+                    "generation": {
+                      "integerValue": "1"
+                    },
+                    "at": {
+                      "stringValue": "2026-11-24T16:38:08.808Z"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "createTime": "2026-11-24T16:38:08.596035Z",
+      "updateTime": "2026-11-24T16:38:20.821893Z"
+    }
+  ]
+}

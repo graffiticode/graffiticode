@@ -1,0 +1,9 @@
+2026-11-24T18:42:16.752Z 1a exchange: 200, token received
+2026-11-24T18:42:16.998Z 1b verify: 200, uid a35c2c8948de39fd03bb60d9d44259612dc56470
+2026-11-24T18:42:17.464Z 2a task zjy8eEXLUna2vdLNh97v acl: uids [995cc0bc98105563168b7fbee7b1e59a4256331c, a35c2c8948de39fd03bb60d9d44259612dc56470], public false
+2026-11-24T18:42:18.192Z 2b task read as the verify account: 200, lang 0013
+2026-11-24T18:42:18.546Z 2c item 7vwaCAIyMNCJEzgIfyYY: canary's 200, verify account's 404
+ok     observations-read: ok
+ok     refused: ok
+non-owner: docs/evidence/c5d/drive/d1ca6da0/non-owner-2026-11-24T18-42-23-115Z.json
+2026-11-24T18:42:23.128Z runner exit 0

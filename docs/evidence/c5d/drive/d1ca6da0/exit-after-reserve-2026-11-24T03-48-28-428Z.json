@@ -1,0 +1,152 @@
+{
+  "runId": "d1ca6da0",
+  "phase": "exit-after-reserve",
+  "at": "2026-11-24T03:48:28.429Z",
+  "answered": {
+    "status": 200,
+    "commandId": "c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21",
+    "outcome": "pending",
+    "reason": null
+  },
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "counterBefore": {
+      "item": "7vwaCAIyMNCJEzgIfyYY",
+      "updatedAt": "2026-11-24T01:55:40.725Z",
+      "publicCaptures": [],
+      "nextCaptureSequence": 14
+    },
+    "capture": {
+      "commandId": "c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21",
+      "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+      "status": "completed",
+      "ownerGeneration": 2,
+      "invocationId": "inv-c68997a7-5d10-4e82-a6e0-9c044ae158fb",
+      "admission": {
+        "planDigest": "a6f384609d09bbdc4be0e8d149c63bd7878c40c467111f4a252489d2091ab12f",
+        "items": {
+          "7vwaCAIyMNCJEzgIfyYY": {
+            "publicCapture": false
+          }
+        },
+        "stages": {
+          "s0": {
+            "revision": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+            "tagUrl": "https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+            "lang": "0013",
+            "modelDigest": "35ef5f2a647b5751b4916b2c54a2b8e48ac5e71682cfbe94d27de584d67cb4be",
+            "intents": [
+              {
+                "id": "snap:0",
+                "fn": "snap",
+                "op": "gcs.put-thumbnail",
+                "runtime": true,
+                "bounds": {
+                  "maxOccurrences": 16
+                },
+                "scope": {
+                  "kind": "item",
+                  "id": "7vwaCAIyMNCJEzgIfyYY"
+                }
+              }
+            ],
+            "replay": 0
+          }
+        },
+        "recording": 1,
+        "contractVersion": 3
+      },
+      "publication": {
+        "resultDigest": "b9613f88c865768a7e35aefe07270c70fecb08a800607947d436e20307015881",
+        "state": "published"
+      },
+      "result": {
+        "url": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5",
+        "item": "7vwaCAIyMNCJEzgIfyYY"
+      },
+      "reservations": [
+        {
+          "captureSequence": 14,
+          "generation": 1,
+          "publicCapture": false,
+          "stage": "s0",
+          "reservedAt": "2026-11-24T03:46:47.711Z",
+          "state": "staged",
+          "renderGrants": [
+            {
+              "jti": "52b8e89c-70e9-4b76-8647-9315a705a991",
+              "exp": 1795492307,
+              "generation": 1,
+              "at": "2026-11-24T03:46:47.902Z"
+            },
+            {
+              "jti": "bf948aa0-bfa3-4756-8463-84af88d4714a",
+              "exp": 1795492384,
+              "generation": 2,
+              "at": "2026-11-24T03:48:04.268Z"
+            }
+          ],
+          "stagedGeneration": 2,
+          "renderTask": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "object": "c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "size": 18516,
+          "expansionKey": "0#0",
+          "stagedAt": "2026-11-24T03:48:14.407Z",
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "intentId": "snap:0"
+        }
+      ],
+      "claim": {
+        "evidence": {
+          "object": "7vwaCAIyMNCJEzgIfyYY.png",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "format": "gcs-thumbnail-1",
+          "commandId": "c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21",
+          "bucket": "graffiticode-c5d-drive",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "staged": "c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+          "captureSequence": 14
+        },
+        "pld": "a6f384609d09bbdc4be0e8d149c63bd7878c40c467111f4a252489d2091ab12f",
+        "claimedAt": "2026-11-24T03:48:20.274Z",
+        "binding": {
+          "registryVersion": 10,
+          "scope": {
+            "id": "7vwaCAIyMNCJEzgIfyYY",
+            "kind": "item"
+          },
+          "op": "gcs.put-thumbnail",
+          "fn": "snap",
+          "principal": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "lang": "0013",
+          "argsDigest": "087ebdd75fb3cecdd4663d4189ac37c126226937cf96f586e331cbe3d202aad9"
+        },
+        "operationId": "inv-c68997a7-5d10-4e82-a6e0-9c044ae158fb/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+      },
+      "object": {
+        "generation": "1795492100840090",
+        "metadata": {
+          "captureSequence": "14",
+          "commandId": "c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+        }
+      }
+    },
+    "counterAfter": {
+      "item": "7vwaCAIyMNCJEzgIfyYY",
+      "updatedAt": "2026-11-24T03:46:47.711Z",
+      "nextCaptureSequence": 15,
+      "publicCaptures": []
+    },
+    "faultLines": [
+      {
+        "at": "2026-11-24T03:46:47.973495Z",
+        "text": "\u001b[2m2026-11-24T03:46:47.973774Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2ml0013r\u001b[0m\u001b[2m:\u001b[0m capture fault exit-after-reserve command c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21"
+      }
+    ]
+  }
+}

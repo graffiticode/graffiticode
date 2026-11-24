@@ -1,0 +1,122 @@
+{
+  "at": "2026-11-24T01:51:26.539Z",
+  "before": "docs/evidence/c5d/step32a/legacy-before",
+  "changed": 0,
+  "unreadable": 0,
+  "unbaselined": 0,
+  "exit": 0,
+  "rows": [
+    {
+      "id": "c1-command",
+      "verdict": "same"
+    },
+    {
+      "id": "c1-occurrences",
+      "verdict": "same"
+    },
+    {
+      "id": "c1-reservations",
+      "verdict": "same"
+    },
+    {
+      "id": "c1-outcomes",
+      "verdict": "same"
+    },
+    {
+      "id": "c1-refusals",
+      "verdict": "same"
+    },
+    {
+      "id": "c1-ledger",
+      "verdict": "same"
+    },
+    {
+      "id": "c1-holds",
+      "verdict": "same"
+    },
+    {
+      "id": "c2-command",
+      "verdict": "same"
+    },
+    {
+      "id": "c2-occurrences",
+      "verdict": "same"
+    },
+    {
+      "id": "c2-reservations",
+      "verdict": "same"
+    },
+    {
+      "id": "c2-outcomes",
+      "verdict": "same"
+    },
+    {
+      "id": "c2-ledger",
+      "verdict": "same"
+    },
+    {
+      "id": "c2-refusals",
+      "verdict": "same"
+    },
+    {
+      "id": "c2-holds",
+      "verdict": "same"
+    },
+    {
+      "id": "h1-receipt",
+      "verdict": "same"
+    },
+    {
+      "id": "h1-receipt-outcome-final",
+      "verdict": "same"
+    },
+    {
+      "id": "h1-receipt-run-state",
+      "verdict": "same"
+    },
+    {
+      "id": "h1-receipt-resolution-final",
+      "verdict": "same"
+    },
+    {
+      "id": "h1-active-execution",
+      "verdict": "same"
+    },
+    {
+      "id": "h1-steps",
+      "verdict": "same"
+    },
+    {
+      "id": "h1-invocation-query",
+      "verdict": "same"
+    },
+    {
+      "id": "h2-receipt",
+      "verdict": "same"
+    },
+    {
+      "id": "h2-resolution",
+      "verdict": "same"
+    },
+    {
+      "id": "h2-outcome",
+      "verdict": "same"
+    },
+    {
+      "id": "h2-run-state",
+      "verdict": "same"
+    },
+    {
+      "id": "h2-active-execution",
+      "verdict": "same"
+    },
+    {
+      "id": "h2-reconciliation-attempts",
+      "verdict": "same"
+    },
+    {
+      "id": "h2-steps",
+      "verdict": "same"
+    }
+  ]
+}

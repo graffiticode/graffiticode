@@ -1,0 +1,61 @@
+{
+  "name": "projects/graffiticode/databases/broker/documents/receipts/9dd7db05b17ba789fa0f681838a68463deae5b10aab8a04563b75fb8b102b913",
+  "fields": {
+    "operationId": {
+      "stringValue": "inv-09a5ce16-c965-4eb8-badf-dee4db912871/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+    },
+    "evidence": {
+      "mapValue": {
+        "fields": {
+          "refused": {
+            "stringValue": "staging-unavailable"
+          }
+        }
+      }
+    },
+    "claimedAt": {
+      "stringValue": "2026-11-24T16:39:20.918Z"
+    },
+    "pld": {
+      "stringValue": "6e4d3bb2ed1b881c00aaa563767eeb6db395e1e18d01e22edc7464237781c058"
+    },
+    "binding": {
+      "mapValue": {
+        "fields": {
+          "scope": {
+            "mapValue": {
+              "fields": {
+                "id": {
+                  "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+                },
+                "kind": {
+                  "stringValue": "item"
+                }
+              }
+            }
+          },
+          "fn": {
+            "stringValue": "snap"
+          },
+          "registryVersion": {
+            "integerValue": "10"
+          },
+          "principal": {
+            "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+          },
+          "lang": {
+            "stringValue": "0013"
+          },
+          "argsDigest": {
+            "stringValue": "c7e83d5b09ea1162fbfc127d7cc1cb90b719686c49f90d0b1b5226f4656b8c9b"
+          },
+          "op": {
+            "stringValue": "gcs.put-thumbnail"
+          }
+        }
+      }
+    }
+  },
+  "createTime": "2026-11-24T16:39:21.010028Z",
+  "updateTime": "2026-11-24T16:39:21.010028Z"
+}

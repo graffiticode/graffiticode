@@ -1,0 +1,36 @@
+{
+  "documents": [
+    {
+      "name": "projects/graffiticode/databases/broker/documents/receipts/e30b49bac09969d44f2013fef9ebadf4bcba3d16083410d7de24f0a122269806/steps/0",
+      "fields": {
+        "at": {
+          "stringValue": "2026-11-24T18:34:20.415Z"
+        },
+        "n": {
+          "integerValue": "0"
+        },
+        "step": {
+          "stringValue": "questions"
+        }
+      },
+      "createTime": "2026-11-24T18:34:20.536250Z",
+      "updateTime": "2026-11-24T18:34:20.536250Z"
+    },
+    {
+      "name": "projects/graffiticode/databases/broker/documents/receipts/e30b49bac09969d44f2013fef9ebadf4bcba3d16083410d7de24f0a122269806/steps/1",
+      "fields": {
+        "step": {
+          "stringValue": "items"
+        },
+        "at": {
+          "stringValue": "2026-11-24T18:34:21.567Z"
+        },
+        "n": {
+          "integerValue": "1"
+        }
+      },
+      "createTime": "2026-11-24T18:34:21.634063Z",
+      "updateTime": "2026-11-24T18:34:21.634063Z"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+[
+  {
+    "bucket": "graffiticode-c5d-drive",
+    "cache_control": "no-cache",
+    "content_type": "image/png",
+    "crc32c_hash": "xckdPw==",
+    "creation_time": "2026-11-24T19:00:08+0000",
+    "custom_fields": {
+      "captureSequence": "26",
+      "commandId": "c:601a0bb57fba27467c5cad6b8bdf1bca211b7bc70bee8714a99cf5cac05758e6",
+      "item": "7vwaCAIyMNCJEzgIfyYY",
+      "sha256": "fc042b0be4d05f740154307128238cf67934bd0683fc30b4afa87809cf87993b"
+    },
+    "etag": "CKOEr42loZgDEAE=",
+    "generation": "1795546808042019",
+    "md5_hash": "Tif9/8iD5H3zZP5vGMM1bA==",
+    "metageneration": 1,
+    "name": "7vwaCAIyMNCJEzgIfyYY.png",
+    "size": 7445,
+    "storage_class": "STANDARD",
+    "storage_class_update_time": "2026-11-24T19:00:08+0000",
+    "storage_url": "gs://graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png#1795546808042019",
+    "update_time": "2026-11-24T19:00:08+0000"
+  },
+  {
+    "bucket": "graffiticode-c5d-drive",
+    "cache_control": "no-cache",
+    "content_type": "image/png",
+    "crc32c_hash": "iFcZ+Q==",
+    "creation_time": "2026-11-24T18:51:46+0000",
+    "custom_fields": {
+      "captureSequence": "39",
+      "commandId": "c:e283f5be4e1ec9a5bda732662ebe7b97b41447c1d8ad34e049f9584f51b3573c",
+      "item": "wbyfys3akpc4yEGFrnuu",
+      "sha256": "db1481a6a0fbc97760f6bb029c00cd40b66558f0d7498c59f30bbda890ff13d1"
+    },
+    "etag": "CLuUoJ6joZgDEAE=",
+    "generation": "1795546306579003",
+    "md5_hash": "Rusrd3/Xy1SmL0ofA0KyRA==",
+    "metageneration": 1,
+    "name": "wbyfys3akpc4yEGFrnuu.png",
+    "size": 18010,
+    "storage_class": "STANDARD",
+    "storage_class_update_time": "2026-11-24T18:51:46+0000",
+    "storage_url": "gs://graffiticode-c5d-drive/wbyfys3akpc4yEGFrnuu.png#1795546306579003",
+    "update_time": "2026-11-24T18:51:46+0000"
+  }
+]

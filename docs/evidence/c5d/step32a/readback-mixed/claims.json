@@ -1,0 +1,244 @@
+[{
+  "document": {
+    "name": "projects/graffiticode/databases/broker/documents/receipts/7381df57d7285c4f80c5988e3b0d21688322d01fddcefa3cbbf6d3c97c81f8d5",
+    "fields": {
+      "operationId": {
+        "stringValue": "inv-e6dba3e2-16cc-4dd3-b26b-ec2725c0a054/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+      },
+      "binding": {
+        "mapValue": {
+          "fields": {
+            "principal": {
+              "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+            },
+            "scope": {
+              "mapValue": {
+                "fields": {
+                  "kind": {
+                    "stringValue": "item"
+                  },
+                  "id": {
+                    "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+                  }
+                }
+              }
+            },
+            "lang": {
+              "stringValue": "0013"
+            },
+            "fn": {
+              "stringValue": "snap"
+            },
+            "op": {
+              "stringValue": "gcs.put-thumbnail"
+            },
+            "registryVersion": {
+              "integerValue": "10"
+            },
+            "argsDigest": {
+              "stringValue": "71b8bcada541f6889eb32936812d5d2be4b7ce4903a02a7dea9e2483126e12a5"
+            }
+          }
+        }
+      },
+      "pld": {
+        "stringValue": "bd314dbb672c539bc3f1df73167dad04c918c379181e7bf499c93151b06c821f"
+      },
+      "evidence": {
+        "mapValue": {
+          "fields": {
+            "format": {
+              "stringValue": "gcs-thumbnail-1"
+            },
+            "bucket": {
+              "stringValue": "graffiticode-c5d-drive"
+            },
+            "object": {
+              "stringValue": "7vwaCAIyMNCJEzgIfyYY.png"
+            },
+            "item": {
+              "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+            },
+            "captureSequence": {
+              "integerValue": "25"
+            },
+            "sha256": {
+              "stringValue": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+            },
+            "commandId": {
+              "stringValue": "c:d4e8b1dae4110f3fa109b80db5158a11fdc360a979fada34ead946051855511a"
+            },
+            "staged": {
+              "stringValue": "c:d4e8b1dae4110f3fa109b80db5158a11fdc360a979fada34ead946051855511a/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png"
+            }
+          }
+        }
+      },
+      "claimedAt": {
+        "stringValue": "2026-11-24T18:34:35.400Z"
+      }
+    },
+    "createTime": "2026-11-24T18:34:35.466705Z",
+    "updateTime": "2026-11-24T18:34:35.466705Z"
+  },
+  "readTime": "2026-11-24T18:35:17.919665Z"
+}
+,
+{
+  "document": {
+    "name": "projects/graffiticode/databases/broker/documents/receipts/e30b49bac09969d44f2013fef9ebadf4bcba3d16083410d7de24f0a122269806",
+    "fields": {
+      "operationId": {
+        "stringValue": "inv-e6dba3e2-16cc-4dd3-b26b-ec2725c0a054/s1/x:c02d41fe7feb7497be5711f6d1abfa5039c7920949056286abc2d00b823d0443"
+      },
+      "binding": {
+        "mapValue": {
+          "fields": {
+            "principal": {
+              "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+            },
+            "ownerUid": {
+              "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+            },
+            "scope": {
+              "mapValue": {
+                "fields": {
+                  "kind": {
+                    "stringValue": "connection"
+                  },
+                  "id": {
+                    "stringValue": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd"
+                  }
+                }
+              }
+            },
+            "lang": {
+              "stringValue": "0176"
+            },
+            "fn": {
+              "stringValue": "save-to-itembank"
+            },
+            "op": {
+              "stringValue": "learnosity.write-items"
+            },
+            "registryVersion": {
+              "integerValue": "10"
+            },
+            "argsDigest": {
+              "stringValue": "db386ca450ba2fda2403e9925fe2f41dd227d1d38bae980ab98e01953318dd56"
+            }
+          }
+        }
+      },
+      "pld": {
+        "stringValue": "bd314dbb672c539bc3f1df73167dad04c918c379181e7bf499c93151b06c821f"
+      },
+      "evidence": {
+        "mapValue": {
+          "fields": {
+            "format": {
+              "integerValue": "1"
+            },
+            "projection": {
+              "mapValue": {
+                "fields": {
+                  "questions": {
+                    "arrayValue": {
+                      "values": [
+                        {
+                          "stringValue": "type"
+                        },
+                        {
+                          "stringValue": "data"
+                        }
+                      ]
+                    }
+                  },
+                  "items": {
+                    "arrayValue": {
+                      "values": [
+                        {
+                          "stringValue": "definition"
+                        },
+                        {
+                          "stringValue": "questions"
+                        },
+                        {
+                          "stringValue": "status"
+                        },
+                        {
+                          "stringValue": "metadata"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "mark": {
+              "mapValue": {
+                "fields": {
+                  "questions": {
+                    "stringValue": "data.metadata.gc_operation"
+                  },
+                  "items": {
+                    "stringValue": "metadata.gc_operation"
+                  }
+                }
+              }
+            },
+            "records": {
+              "arrayValue": {
+                "values": [
+                  {
+                    "mapValue": {
+                      "fields": {
+                        "step": {
+                          "stringValue": "questions"
+                        },
+                        "kind": {
+                          "stringValue": "question"
+                        },
+                        "reference": {
+                          "stringValue": "gc-e30b49bac09969d4-artcompiler-mcq-c5a-gate-mixed-r381d64-0-0"
+                        },
+                        "digest": {
+                          "stringValue": "8befe456df0624089a37e9062fb59f9183bae9eba4e599192d6defa3e7676b99"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "mapValue": {
+                      "fields": {
+                        "step": {
+                          "stringValue": "items"
+                        },
+                        "kind": {
+                          "stringValue": "item"
+                        },
+                        "reference": {
+                          "stringValue": "gc-e30b49bac09969d4-graffiticode-c5a-gate-mixed-r381d64-0"
+                        },
+                        "digest": {
+                          "stringValue": "cbc60725824c5ed221e7d9f0118dd7c2d6b3b87f8c1ba91982a4f9045f100c3a"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "claimedAt": {
+        "stringValue": "2026-11-24T18:34:19.282Z"
+      }
+    },
+    "createTime": "2026-11-24T18:34:19.353111Z",
+    "updateTime": "2026-11-24T18:34:19.353111Z"
+  },
+  "readTime": "2026-11-24T18:35:17.919665Z"
+}
+]

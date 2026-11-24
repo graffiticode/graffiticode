@@ -1,0 +1,23 @@
+{
+  "bucket": "graffiticode-c5d-drive",
+  "cache_control": "no-cache",
+  "content_type": "image/png",
+  "crc32c_hash": "wiJMDg==",
+  "creation_time": "2026-11-24T17:32:57+0000",
+  "custom_fields": {
+    "captureSequence": "24",
+    "commandId": "c:6434b382416463c8d4dc79fbbe9c4a3661ea8ab1223bc09252b448d7e9ed58b1",
+    "item": "7vwaCAIyMNCJEzgIfyYY",
+    "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+  },
+  "etag": "CMDMpM+RoZgDEAE=",
+  "generation": "1795541577573952",
+  "md5_hash": "QKcEspRW9qUrbtv3p/SpUQ==",
+  "metageneration": 1,
+  "name": "7vwaCAIyMNCJEzgIfyYY.png",
+  "size": 18516,
+  "storage_class": "STANDARD",
+  "storage_class_update_time": "2026-11-24T17:32:57+0000",
+  "storage_url": "gs://graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png#1795541577573952",
+  "update_time": "2026-11-24T17:32:57+0000"
+}

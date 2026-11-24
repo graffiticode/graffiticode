@@ -1,0 +1,8 @@
+Marked l0013r-c5d-drive-rmwtr1q6y-99884e retiring: no new plan can pin it, and its snapshots are refused.
+Fenced 1 admission(s) in flight.
+3 plan(s) still need l0013r-c5d-drive-rmwtr1q6y-99884e to recover; retiring it makes those recoveries unavailable. Not retired (approved again). Rerun with --confirm-unrecoverable to retire anyway.
+Plans that need this revision to recover:
+  17664062f89a1330985d33466b051c76bb49549938484a1a4e9dad843f16469a  invocation inv-fdc7707c-f0c3-4d67-b8d5-dcd658f2f18b  uncertain 0  unfinished 0  artifact missing
+  32f54d6b83c8c826b9e609c55e96a076ee88e04149de910b2b1a0394885b03a6  invocation inv-712ad3e1-156f-48c0-a3ea-817170062d8b  uncertain 0  unfinished 1  artifact missing
+  6e4d3bb2ed1b881c00aaa563767eeb6db395e1e18d01e22edc7464237781c058  invocation inv-09a5ce16-c965-4eb8-badf-dee4db912871  uncertain 0  unfinished 0  artifact missing
+exit 1

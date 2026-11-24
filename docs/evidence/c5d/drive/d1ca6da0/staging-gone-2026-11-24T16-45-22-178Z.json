@@ -1,0 +1,376 @@
+{
+  "runId": "d1ca6da0",
+  "phase": "staging-gone",
+  "at": "2026-11-24T16:45:22.178Z",
+  "answered": {
+    "status": 200,
+    "commandId": "c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf",
+    "outcome": "pending",
+    "reason": null
+  },
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "objectBefore": {
+      "generation": "1795495214648962",
+      "metadata": {
+        "captureSequence": "17",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "item": "7vwaCAIyMNCJEzgIfyYY",
+        "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+      }
+    },
+    "faultLines": [
+      {
+        "at": "2026-11-24T16:38:20.838547Z",
+        "text": "\u001b[2m2026-11-24T16:38:20.839735Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2ml0013r\u001b[0m\u001b[2m:\u001b[0m capture fault exit-after-stage command c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf"
+      }
+    ],
+    "stagedAtExit": {
+      "renderTask": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+      "intentId": "snap:0",
+      "stagedAt": "2026-11-24T16:38:20.691Z",
+      "item": "7vwaCAIyMNCJEzgIfyYY",
+      "size": 18516,
+      "object": "c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+      "state": "staged",
+      "generation": 1,
+      "publicCapture": false,
+      "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+      "stagedGeneration": 1,
+      "stage": "s0",
+      "renderGrants": [
+        {
+          "jti": "aab51c4b-b1c6-41b2-a4fd-9aafe9cb25ff",
+          "exp": 1795538588,
+          "generation": 1,
+          "at": "2026-11-24T16:38:08.808Z"
+        }
+      ],
+      "reservedAt": "2026-11-24T16:38:08.547Z",
+      "expansionKey": "0#0",
+      "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "captureSequence": 18
+    },
+    "stagedAfterDelete": {
+      "absent": true
+    },
+    "stagedDeletedAt": "2026-11-24T16:38:39.788Z",
+    "capture": {
+      "commandId": "c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf",
+      "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+      "status": "failed",
+      "ownerGeneration": 2,
+      "invocationId": "inv-09a5ce16-c965-4eb8-badf-dee4db912871",
+      "admission": {
+        "contractVersion": 3,
+        "items": {
+          "7vwaCAIyMNCJEzgIfyYY": {
+            "publicCapture": false
+          }
+        },
+        "stages": {
+          "s0": {
+            "tagUrl": "https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+            "intents": [
+              {
+                "id": "snap:0",
+                "fn": "snap",
+                "op": "gcs.put-thumbnail",
+                "runtime": true,
+                "bounds": {
+                  "maxOccurrences": 16
+                },
+                "scope": {
+                  "kind": "item",
+                  "id": "7vwaCAIyMNCJEzgIfyYY"
+                }
+              }
+            ],
+            "modelDigest": "35ef5f2a647b5751b4916b2c54a2b8e48ac5e71682cfbe94d27de584d67cb4be",
+            "lang": "0013",
+            "replay": 0,
+            "revision": "l0013r-c5d-drive-rmwtr1q6y-99884e"
+          }
+        },
+        "recording": 1,
+        "planDigest": "6e4d3bb2ed1b881c00aaa563767eeb6db395e1e18d01e22edc7464237781c058"
+      },
+      "publication": {
+        "state": "none",
+        "resultDigest": null
+      },
+      "result": null,
+      "reservations": [
+        {
+          "object": "c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+          "expansionKey": "0#0",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "stagedGeneration": 1,
+          "captureSequence": 18,
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "state": "staged",
+          "generation": 1,
+          "stage": "s0",
+          "size": 18516,
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "reservedAt": "2026-11-24T16:38:08.547Z",
+          "renderTask": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+          "renderGrants": [
+            {
+              "jti": "aab51c4b-b1c6-41b2-a4fd-9aafe9cb25ff",
+              "exp": 1795538588,
+              "generation": 1,
+              "at": "2026-11-24T16:38:08.808Z"
+            }
+          ],
+          "intentId": "snap:0",
+          "stagedAt": "2026-11-24T16:38:20.691Z",
+          "publicCapture": false
+        }
+      ],
+      "claim": {
+        "evidence": {
+          "refused": "staging-unavailable"
+        },
+        "pld": "6e4d3bb2ed1b881c00aaa563767eeb6db395e1e18d01e22edc7464237781c058",
+        "binding": {
+          "registryVersion": 10,
+          "principal": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "argsDigest": "c7e83d5b09ea1162fbfc127d7cc1cb90b719686c49f90d0b1b5226f4656b8c9b",
+          "fn": "snap",
+          "scope": {
+            "id": "7vwaCAIyMNCJEzgIfyYY",
+            "kind": "item"
+          },
+          "lang": "0013",
+          "op": "gcs.put-thumbnail"
+        },
+        "operationId": "inv-09a5ce16-c965-4eb8-badf-dee4db912871/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "claimedAt": "2026-11-24T16:39:20.918Z"
+      },
+      "object": {
+        "generation": "1795495214648962",
+        "metadata": {
+          "captureSequence": "17",
+          "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+        }
+      }
+    },
+    "operationId": "inv-09a5ce16-c965-4eb8-badf-dee4db912871/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+    "claim": {
+      "evidence": {
+        "refused": "staging-unavailable"
+      },
+      "pld": "6e4d3bb2ed1b881c00aaa563767eeb6db395e1e18d01e22edc7464237781c058",
+      "binding": {
+        "registryVersion": 10,
+        "principal": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+        "argsDigest": "c7e83d5b09ea1162fbfc127d7cc1cb90b719686c49f90d0b1b5226f4656b8c9b",
+        "fn": "snap",
+        "scope": {
+          "id": "7vwaCAIyMNCJEzgIfyYY",
+          "kind": "item"
+        },
+        "lang": "0013",
+        "op": "gcs.put-thumbnail"
+      },
+      "operationId": "inv-09a5ce16-c965-4eb8-badf-dee4db912871/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "claimedAt": "2026-11-24T16:39:20.918Z"
+    },
+    "outcome": {
+      "status": "failed",
+      "category": "conflict",
+      "steps": [],
+      "at": "2026-11-24T16:39:20.918Z",
+      "reason": "staging-unavailable",
+      "result": null
+    },
+    "runState": {
+      "absent": true
+    },
+    "steps": [],
+    "occurrence": {
+      "stage": "s0",
+      "argd": "c7e83d5b09ea1162fbfc127d7cc1cb90b719686c49f90d0b1b5226f4656b8c9b",
+      "item": "7vwaCAIyMNCJEzgIfyYY",
+      "argsDigest": "93bb5366bf4b23b8bbc22299f372e6a212d8e14cac523b633ed45ed0841b044a",
+      "args": "{\"item\":\"7vwaCAIyMNCJEzgIfyYY\",\"sha256\":\"fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba\",\"captureSequence\":18}",
+      "boundAt": "2026-11-24T16:39:12.362Z",
+      "intentId": "snap:0",
+      "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "generation": 2,
+      "publicCapture": false,
+      "minted": [
+        {
+          "jti": "bb804d35-2cc0-4d6a-9330-a5c43f0b105a",
+          "exp": 1795538412
+        }
+      ],
+      "observations": [],
+      "expansionKey": "0#0"
+    },
+    "planRecord": {
+      "createdAt": "2026-11-24T16:38:06.761Z",
+      "revisions": [
+        "l0013r-c5d-drive-rmwtr1q6y-99884e"
+      ],
+      "invocationId": "inv-09a5ce16-c965-4eb8-badf-dee4db912871",
+      "plan": {
+        "stages": [
+          {
+            "stage": "s0",
+            "lang": "0013",
+            "sourceDigest": "840df3dcba8ad5e4ab00505bc2531e4d85b76ac95441de87c1659a0ff08bdd84",
+            "programDigest": "840df3dcba8ad5e4ab00505bc2531e4d85b76ac95441de87c1659a0ff08bdd84",
+            "optionsDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "revision": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+            "imageDigest": "sha256:793badd62ce11b94d79d521825360846afc7a477ad8396d995d4fa17dccb1524",
+            "registryVersion": 10,
+            "requiredFunctions": [
+              "snap"
+            ]
+          }
+        ],
+        "contractVersion": 3,
+        "taskIds": [
+          "zjy8eEXLUna2vdLNh97v"
+        ],
+        "registryVersion": 10,
+        "invocationId": "inv-09a5ce16-c965-4eb8-badf-dee4db912871",
+        "inputDigest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+        "scopes": [
+          {
+            "kind": "item",
+            "id": "7vwaCAIyMNCJEzgIfyYY"
+          }
+        ]
+      }
+    },
+    "objectAfter": {
+      "generation": "1795495214648962",
+      "metadata": {
+        "captureSequence": "17",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "item": "7vwaCAIyMNCJEzgIfyYY",
+        "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+      }
+    },
+    "renders": 1,
+    "fresh": {
+      "commandId": "c:c897eb6bc84fe499615ac0d0a611d24ce92ad79f2d5c9c8f8d5ddca8564e4b72",
+      "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+      "status": "completed",
+      "ownerGeneration": 1,
+      "invocationId": "inv-41624fb0-12af-4048-8b51-072d3e40049e",
+      "admission": {
+        "stages": {
+          "s0": {
+            "revision": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+            "replay": 0,
+            "intents": [
+              {
+                "id": "snap:0",
+                "fn": "snap",
+                "op": "gcs.put-thumbnail",
+                "runtime": true,
+                "bounds": {
+                  "maxOccurrences": 16
+                },
+                "scope": {
+                  "kind": "item",
+                  "id": "7vwaCAIyMNCJEzgIfyYY"
+                }
+              }
+            ],
+            "lang": "0013",
+            "modelDigest": "35ef5f2a647b5751b4916b2c54a2b8e48ac5e71682cfbe94d27de584d67cb4be",
+            "tagUrl": "https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+          }
+        },
+        "contractVersion": 3,
+        "planDigest": "be546689f40bd1c0e61800aa1331cc053f76b428e64f593cbb1f761f9d97be44",
+        "recording": 1,
+        "items": {
+          "7vwaCAIyMNCJEzgIfyYY": {
+            "publicCapture": false
+          }
+        }
+      },
+      "publication": {
+        "resultDigest": "b9613f88c865768a7e35aefe07270c70fecb08a800607947d436e20307015881",
+        "state": "published"
+      },
+      "result": {
+        "url": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5",
+        "item": "7vwaCAIyMNCJEzgIfyYY"
+      },
+      "reservations": [
+        {
+          "publicCapture": false,
+          "size": 18516,
+          "expansionKey": "0#0",
+          "renderGrants": [
+            {
+              "jti": "bcde8862-1c2c-4907-b12c-1a118f5dba4b",
+              "exp": 1795539005,
+              "generation": 1,
+              "at": "2026-11-24T16:45:06.031Z"
+            }
+          ],
+          "state": "staged",
+          "reservedAt": "2026-11-24T16:45:05.622Z",
+          "generation": 1,
+          "stagedGeneration": 1,
+          "renderTask": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "stage": "s0",
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "intentId": "snap:0",
+          "stagedAt": "2026-11-24T16:45:15.255Z",
+          "captureSequence": 19,
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "object": "c:c897eb6bc84fe499615ac0d0a611d24ce92ad79f2d5c9c8f8d5ddca8564e4b72/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png"
+        }
+      ],
+      "claim": {
+        "claimedAt": "2026-11-24T16:45:16.719Z",
+        "pld": "be546689f40bd1c0e61800aa1331cc053f76b428e64f593cbb1f761f9d97be44",
+        "operationId": "inv-41624fb0-12af-4048-8b51-072d3e40049e/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "evidence": {
+          "bucket": "graffiticode-c5d-drive",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "format": "gcs-thumbnail-1",
+          "commandId": "c:c897eb6bc84fe499615ac0d0a611d24ce92ad79f2d5c9c8f8d5ddca8564e4b72",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "captureSequence": 19,
+          "object": "7vwaCAIyMNCJEzgIfyYY.png",
+          "staged": "c:c897eb6bc84fe499615ac0d0a611d24ce92ad79f2d5c9c8f8d5ddca8564e4b72/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png"
+        },
+        "binding": {
+          "principal": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "lang": "0013",
+          "fn": "snap",
+          "argsDigest": "8f1c2bb337b77fd2b080082cbfddf76f578a3c305489d73affcd12c4c4137b56",
+          "op": "gcs.put-thumbnail",
+          "registryVersion": 10,
+          "scope": {
+            "id": "7vwaCAIyMNCJEzgIfyYY",
+            "kind": "item"
+          }
+        }
+      },
+      "object": {
+        "generation": "1795538717338166",
+        "metadata": {
+          "captureSequence": "19",
+          "commandId": "c:c897eb6bc84fe499615ac0d0a611d24ce92ad79f2d5c9c8f8d5ddca8564e4b72",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+        }
+      }
+    }
+  }
+}

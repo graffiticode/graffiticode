@@ -1,0 +1,79 @@
+{
+  "creationTimestamp": "2026-11-17T10:19:48.006-08:00",
+  "description": "",
+  "id": "2479601888498099244",
+  "kind": "compute#instanceTemplate",
+  "name": "egress-proxy-ce42b3628a5a",
+  "properties": {
+    "canIpForward": false,
+    "disks": [
+      {
+        "autoDelete": true,
+        "boot": true,
+        "deviceName": "persistent-disk-0",
+        "index": 0,
+        "initializeParams": {
+          "sourceImage": "https://compute.googleapis.com/compute/v1/projects/cos-cloud/global/images/cos-129-19506-549-7"
+        },
+        "kind": "compute#attachedDisk",
+        "mode": "READ_WRITE",
+        "type": "PERSISTENT"
+      }
+    ],
+    "machineType": "e2-small",
+    "metadata": {
+      "fingerprint": "ZGQypV1GtZk=",
+      "items": [
+        {
+          "key": "cos-update-strategy",
+          "value": "update_disabled"
+        },
+        {
+          "key": "google-logging-enabled",
+          "value": "true"
+        },
+        {
+          "key": "google-monitoring-enabled",
+          "value": "true"
+        },
+        {
+          "key": "isolate01-config-sha256",
+          "value": "8b637609894234b408fe960590380b518927a79fb82491813741569bd81fb47e"
+        },
+        {
+          "key": "user-data",
+          "value": "<user-data elided: 65010 bytes, sha256 2e502b5648ebca6338c2d2262d12a72428c3e553686b4cb286086ac21d65751e>"
+        }
+      ],
+      "kind": "compute#metadata"
+    },
+    "networkInterfaces": [
+      {
+        "kind": "compute#networkInterface",
+        "name": "nic0",
+        "network": "https://www.googleapis.com/compute/v1/projects/graffiticode/global/networks/compilers",
+        "subnetwork": "https://www.googleapis.com/compute/v1/projects/graffiticode/regions/us-central1/subnetworks/egress-proxy"
+      }
+    ],
+    "scheduling": {
+      "automaticRestart": true,
+      "onHostMaintenance": "MIGRATE",
+      "preemptible": false,
+      "provisioningModel": "STANDARD"
+    },
+    "serviceAccounts": [
+      {
+        "email": "egress-proxy@graffiticode.iam.gserviceaccount.com",
+        "scopes": [
+          "https://www.googleapis.com/auth/cloud-platform"
+        ]
+      }
+    ],
+    "shieldedInstanceConfig": {
+      "enableIntegrityMonitoring": true,
+      "enableSecureBoot": true,
+      "enableVtpm": true
+    }
+  },
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/graffiticode/global/instanceTemplates/egress-proxy-ce42b3628a5a"
+}

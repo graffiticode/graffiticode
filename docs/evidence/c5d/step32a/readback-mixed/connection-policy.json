@@ -1,0 +1,25 @@
+{
+  "name": "projects/graffiticode/databases/policy/documents/connections/conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd",
+  "fields": {
+    "label": {
+      "stringValue": "Canary"
+    },
+    "ownerPermissions": {
+      "nullValue": null
+    },
+    "updatedAt": {
+      "stringValue": "2026-11-24T18:26:41.076Z"
+    },
+    "backend": {
+      "stringValue": "learnosity"
+    },
+    "ownerUid": {
+      "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+    },
+    "status": {
+      "stringValue": "active"
+    }
+  },
+  "createTime": "2026-10-05T19:39:21.612863Z",
+  "updateTime": "2026-11-24T18:26:41.103808Z"
+}

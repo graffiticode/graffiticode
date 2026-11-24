@@ -1,0 +1,53 @@
+{
+  "documents": [
+    {
+      "name": "projects/graffiticode/databases/policy/documents/commands/c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf/outcomes/s0:x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "fields": {
+        "outcome": {
+          "stringValue": "failed"
+        },
+        "stage": {
+          "stringValue": "s0"
+        },
+        "reason": {
+          "stringValue": "staging-unavailable"
+        },
+        "source": {
+          "stringValue": "receipt"
+        },
+        "receipt": {
+          "stringValue": "inv-09a5ce16-c965-4eb8-badf-dee4db912871/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+        },
+        "final": {
+          "booleanValue": true
+        },
+        "steps": {
+          "arrayValue": {}
+        },
+        "at": {
+          "stringValue": "2026-11-24T16:39:21.898Z"
+        },
+        "output": {
+          "mapValue": {
+            "fields": {
+              "text": {
+                "stringValue": "null"
+              },
+              "digest": {
+                "stringValue": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+              }
+            }
+          }
+        },
+        "occurrenceId": {
+          "stringValue": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+        },
+        "generation": {
+          "integerValue": "2"
+        }
+      },
+      "createTime": "2026-11-24T16:39:21.948602Z",
+      "updateTime": "2026-11-24T16:39:21.948602Z"
+    }
+  ]
+}

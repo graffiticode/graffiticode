@@ -1,0 +1,495 @@
+{
+  "runId": "d1ca6da0",
+  "phase": "stale-worker",
+  "at": "2026-11-24T04:40:35.087Z",
+  "answered": {
+    "status": 200,
+    "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+    "outcome": "pending",
+    "reason": null
+  },
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "capture": {
+      "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+      "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+      "status": "completed",
+      "ownerGeneration": 2,
+      "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+      "admission": {
+        "items": {
+          "7vwaCAIyMNCJEzgIfyYY": {
+            "publicCapture": false
+          }
+        },
+        "planDigest": "e96c66286b9ffa461f7d0dd27923f55d9d6fd85902debf88923788a6d1ee2a8c",
+        "contractVersion": 3,
+        "recording": 1,
+        "stages": {
+          "s0": {
+            "lang": "0013",
+            "modelDigest": "35ef5f2a647b5751b4916b2c54a2b8e48ac5e71682cfbe94d27de584d67cb4be",
+            "tagUrl": "https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+            "revision": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+            "intents": [
+              {
+                "id": "snap:0",
+                "fn": "snap",
+                "op": "gcs.put-thumbnail",
+                "runtime": true,
+                "bounds": {
+                  "maxOccurrences": 16
+                },
+                "scope": {
+                  "kind": "item",
+                  "id": "7vwaCAIyMNCJEzgIfyYY"
+                }
+              }
+            ],
+            "replay": 0
+          }
+        }
+      },
+      "publication": {
+        "resultDigest": "b9613f88c865768a7e35aefe07270c70fecb08a800607947d436e20307015881",
+        "state": "published"
+      },
+      "result": {
+        "url": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5",
+        "item": "7vwaCAIyMNCJEzgIfyYY"
+      },
+      "reservations": [
+        {
+          "size": 18516,
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "generation": 1,
+          "state": "staged",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "expansionKey": "0#0",
+          "reservedAt": "2026-11-24T04:38:41.589Z",
+          "intentId": "snap:0",
+          "renderGrants": [
+            {
+              "jti": "5e750932-9c79-4153-9f2b-4f9dbc00db92",
+              "exp": 1795495421,
+              "generation": 1,
+              "at": "2026-11-24T04:38:41.803Z"
+            },
+            {
+              "jti": "70e6644b-8153-4708-93f9-263df8c6f6d1",
+              "exp": 1795495441,
+              "generation": 1,
+              "at": "2026-11-24T04:39:01.796Z"
+            },
+            {
+              "jti": "abff0fa6-36b5-4848-a2f0-1520f317cee8",
+              "exp": 1795495452,
+              "generation": 1,
+              "at": "2026-11-24T04:39:12.339Z"
+            },
+            {
+              "jti": "6234f7e7-41c4-477a-8bde-890afb469165",
+              "exp": 1795495462,
+              "generation": 1,
+              "at": "2026-11-24T04:39:22.848Z"
+            },
+            {
+              "jti": "e145d299-b6b3-46d5-aa94-7e99e6da009d",
+              "exp": 1795495473,
+              "generation": 1,
+              "at": "2026-11-24T04:39:33.271Z"
+            },
+            {
+              "jti": "747f1859-dd96-44be-85c3-fdc1a109a9fa",
+              "exp": 1795495504,
+              "generation": 2,
+              "at": "2026-11-24T04:40:04.164Z"
+            }
+          ],
+          "renderTask": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "object": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+          "captureSequence": 17,
+          "stagedAt": "2026-11-24T04:40:08.215Z",
+          "publicCapture": false,
+          "stagedGeneration": 2,
+          "stage": "s0"
+        }
+      ],
+      "claim": {
+        "evidence": {
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+          "format": "gcs-thumbnail-1",
+          "object": "7vwaCAIyMNCJEzgIfyYY.png",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "staged": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+          "bucket": "graffiticode-c5d-drive",
+          "captureSequence": 17
+        },
+        "operationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "binding": {
+          "op": "gcs.put-thumbnail",
+          "lang": "0013",
+          "principal": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "argsDigest": "8bfdff2087f82292e15f6a798627016ac676013a68693eb30b04416ebe62d37e",
+          "registryVersion": 10,
+          "fn": "snap",
+          "scope": {
+            "kind": "item",
+            "id": "7vwaCAIyMNCJEzgIfyYY"
+          }
+        },
+        "claimedAt": "2026-11-24T04:40:13.974Z",
+        "pld": "e96c66286b9ffa461f7d0dd27923f55d9d6fd85902debf88923788a6d1ee2a8c"
+      },
+      "object": {
+        "generation": "1795495214648962",
+        "metadata": {
+          "captureSequence": "17",
+          "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+        }
+      }
+    },
+    "policyAudit": [
+      {
+        "at": "2026-11-24T04:38:39.074Z",
+        "service": "policy",
+        "callerRole": "gateway",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "reason": "new",
+        "requestId": "0d459397-d471-4de4-9ddb-377c81a0a00f",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:38:40.526Z",
+        "service": "policy",
+        "callerRole": "gateway",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command-admission",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "owner": null,
+        "planDigest": "e96c66286b9ffa461f7d0dd27923f55d9d6fd85902debf88923788a6d1ee2a8c",
+        "reason": "new",
+        "registryVersion": 10,
+        "requestId": "a3865c6f-fc6e-4184-8c77-f0450abccf31",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:38:41.161Z",
+        "service": "policy",
+        "callerRole": "gateway",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command-session",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "planDigest": "e96c66286b9ffa461f7d0dd27923f55d9d6fd85902debf88923788a6d1ee2a8c",
+        "requestId": "d96f5af3-065e-4cf5-a5ab-ff588bded6f3",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:38:41.637Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command-reserve",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "provenance": "user",
+        "publicCapture": false,
+        "requestId": "00c2e46e-3037-4291-8ef9-076d43feb961",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:38:41.836Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "render-grant",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "requestId": "00c2e46e-3037-4291-8ef9-076d43feb961",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:39:01.912Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "render-grant",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "requestId": "c8870a23-44db-4119-9f72-8ab3992fd11e",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:39:12.380Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "render-grant",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "requestId": "45709ef9-24d4-4f3d-96e4-a212ea56ae13",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:39:22.881Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "render-grant",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "requestId": "02783318-5c10-4d9f-8678-1342c92e3f94",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:39:33.307Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "render-grant",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "requestId": "a4aded6c-cdc4-41f7-b202-5a87809f23a0",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:39:43.353Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "category": "conflict",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command-reserve",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "denied",
+        "reason": "lease-expired",
+        "requestId": "5d059a9f-ca10-45b3-9001-5d23a6f2d2e7",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:39:53.416Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "category": "conflict",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command-reserve",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "denied",
+        "reason": "lease-expired",
+        "requestId": "c327888e-daba-4981-a826-11fc7aaf5914",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:40:02.145Z",
+        "service": "policy",
+        "callerRole": "gateway",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command-lease",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "reason": "takeover",
+        "requestId": "a3d3d625-040d-43bc-ae6d-bc8fd3eefde7"
+      },
+      {
+        "at": "2026-11-24T04:40:03.462Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "category": "conflict",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command-reserve",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "denied",
+        "reason": "stale-generation",
+        "requestId": "050274ed-684b-4ff0-b237-05ef0dab33aa",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:40:03.504Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "category": "conflict",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command-stage",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "denied",
+        "reason": "stale-generation",
+        "requestId": "e8e81d2c-3fe1-4a8c-b37c-836ec43d198e",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:40:03.697Z",
+        "service": "policy",
+        "callerRole": "gateway",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command-session",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "planDigest": "e96c66286b9ffa461f7d0dd27923f55d9d6fd85902debf88923788a6d1ee2a8c",
+        "requestId": "6bd18938-af0c-4ac7-a996-520d595ea64a",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:40:04.196Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "render-grant",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "requestId": "656dd900-5c3a-48d9-8a52-4700f8cc0519",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:40:08.264Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command-stage",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "lang": "0013",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "requestId": "37ddae3e-63dd-4cfa-9d92-bcb03e8391f9",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:40:08.936Z",
+        "service": "policy",
+        "callerRole": "compiler",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "mint",
+        "fn": "snap",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "lang": "0013",
+        "logName": "security_audit",
+        "op": "gcs.put-thumbnail",
+        "opid": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "outcome": "allowed",
+        "planDigest": "e96c66286b9ffa461f7d0dd27923f55d9d6fd85902debf88923788a6d1ee2a8c",
+        "provenance": "user",
+        "publicCapture": false,
+        "registryVersion": 10,
+        "requestId": "3cb11889-fc20-4afa-a9ad-e44ea372bd9e",
+        "stage": "s0",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:40:16.026Z",
+        "service": "policy",
+        "callerRole": "gateway",
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "event": "command-write",
+        "invocationId": "inv-bb7b41e8-65d4-4108-af64-a2ce422636aa",
+        "logName": "security_audit",
+        "outcome": "allowed",
+        "reason": "invalid",
+        "requestId": "240aed0f-13a1-4815-9d0a-d78da73bac21"
+      }
+    ],
+    "l0013Lines": [
+      {
+        "at": "2026-11-24T04:38:51.400852Z",
+        "text": "\u001b[2m2026-11-24T04:38:51.402278Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2ml0013r\u001b[0m\u001b[2m:\u001b[0m capture fault stall-before-stage command c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d: stalling until the takeover"
+      },
+      {
+        "at": "2026-11-24T04:39:43.359318Z",
+        "text": "\u001b[2m2026-11-24T04:39:43.360230Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2ml0013r\u001b[0m\u001b[2m:\u001b[0m capture fault stall-before-stage command c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d: probe refused (/v1/command-reservations failed (403)), still waiting"
+      },
+      {
+        "at": "2026-11-24T04:39:53.420167Z",
+        "text": "\u001b[2m2026-11-24T04:39:53.421819Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2ml0013r\u001b[0m\u001b[2m:\u001b[0m capture fault stall-before-stage command c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d: probe refused (/v1/command-reservations failed (403)), still waiting"
+      },
+      {
+        "at": "2026-11-24T04:40:03.467335Z",
+        "text": "\u001b[2m2026-11-24T04:40:03.468609Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2ml0013r\u001b[0m\u001b[2m:\u001b[0m capture fault stall-before-stage command c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d: takeover observed"
+      }
+    ],
+    "apiLines": [
+      {
+        "at": "2026-11-24T04:38:39.079318Z",
+        "text": "WARN command c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d: fault stop-renewal at generation 1"
+      },
+      {
+        "at": "2026-11-24T04:38:41.165165Z",
+        "text": "command c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d: call start s0 L0013 at https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+      },
+      {
+        "at": "2026-11-24T04:40:02.640240Z",
+        "text": "command c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d: resuming at s0, its pinned input"
+      },
+      {
+        "at": "2026-11-24T04:40:03.598378Z",
+        "text": "WARN command c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d: stopped, this worker no longer owns the command (stale-generation)"
+      },
+      {
+        "at": "2026-11-24T04:40:03.704440Z",
+        "text": "command c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d: call start s0 L0013 at https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+      },
+      {
+        "at": "2026-11-24T04:40:16.489783Z",
+        "text": "command c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d: recovered at generation 2, completed"
+      }
+    ]
+  }
+}
