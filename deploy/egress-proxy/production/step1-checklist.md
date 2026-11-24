@@ -14,7 +14,7 @@ Expected config digest: `8b637609894234b408fe960590380b518927a79fb82491813741569
   Engine account held Editor (removed there). List them, and decide what to remove or accept *before* step 7
   stores the keys. Checked 2026-10-18: Editor is held only by the Google APIs service agent
   (`<number>@cloudservices.gserviceaccount.com`, which instance groups need), and the default Compute Engine
-  account holds none. Owners admin@ and jeff@artcompiler.com and kevin.m.dyer@gmail.com are accepted (Jeff).
+  account holds none. The approved owners <org-admin>, <operator> and <second-owner> are accepted (the owner's decision).
   Re-run it, and stop if anything else appears:
   ```
   gcloud projects get-iam-policy graffiticode --flatten=bindings --filter="bindings.role:(roles/editor OR roles/owner OR roles/iam.serviceAccountUser OR roles/iam.serviceAccountTokenCreator)" --format="table(bindings.role,bindings.members)"
@@ -43,10 +43,10 @@ Expected config digest: `8b637609894234b408fe960590380b518927a79fb82491813741569
   and check its first line says `config_sha256 8b637609894234b408fe960590380b518927a79fb82491813741569bd81fb47e`, and `<workdir>/out/cloud-init.yaml` is non-empty.
 - [ ] Validate on the pinned Envoy (`deploy/egress-proxy/validate/cloudbuild.yaml`, run in graffiticode as
   `deploy-build`; see its header): `configuration 'envoy.json' OK`, no deprecation warning.
-- [ ] Create the alert channel: email to jeff@artcompiler.com (decided 2026-10-18; channels exist only in
+- [ ] Create the alert channel: email to <alert-recipient> (decided 2026-10-18; channels exist only in
   `gcloud beta`, which may ask to install the component once):
   ```bash
-  gcloud beta monitoring channels create --project=graffiticode --display-name="ISOLATE-01 egress proxy" --type=email --channel-labels=email_address=jeff@artcompiler.com --format="value(name)"
+  gcloud beta monitoring channels create --project=graffiticode --display-name="ISOLATE-01 egress proxy" --type=email --channel-labels=email_address=<alert-recipient> --format="value(name)"
   ```
   Put the printed `projects/.../notificationChannels/<id>` in `proxy.alerts.notificationChannels` in
   `deploy/egress-proxy/classes.json`, and regenerate. Only the alert files change: the template and its digest don't.
