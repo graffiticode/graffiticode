@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import * as C from "../lib/c5d-drive-checks.js";
 import { writeManifestOnce } from "../lib/c5b-thumbnails.js";
 import { verifyRetired } from "../lib/c5a-gate-fixtures.js";
@@ -22,6 +23,7 @@ const T = driveTargets({ uid: UID, runId: RUN });
 const SHA = n => String(n).repeat(64).slice(0, 64);
 const url = (service, tag = null) => `https://${tag ? `${tag}---` : ""}${service}-sja7fatcta-uc.a.run.app`;
 const clone = v => structuredClone(v);
+const createHashHex = v => createHash("sha256").update(v).digest("hex");
 const at = s => `2026-11-20T00:00:${String(s).padStart(2, "0")}Z`;
 
 // A completed capture published exactly as reserved, in the shapes the
@@ -41,6 +43,13 @@ const capture = ({ commandId, item = FIXTURES.private, seq = 5, sha = SHA("a"), 
     evidence: { format: "gcs-thumbnail-1", bucket: DRIVE.bucket, object: `${item}.png`, item, captureSequence: seq, sha256: sha, commandId, staged: `${commandId}/${stage}/o1.png` },
   },
   object: { generation: "1700000000000001", metadata: { captureSequence: String(seq), commandId, sha256: sha, item } },
+});
+// Broker's outcome/final for a published snap (broker.ts), as the runner reads
+// it: the operation, the document's full name, and the decoded document.
+const olderOutcomeOf = (operationId, seq, { item = FIXTURES.private, sha = SHA("a") } = {}) => ({
+  operationId,
+  name: C.outcomeDocName(operationId),
+  outcome: { status: "succeeded", steps: ["publish"], at: at(30), result: { item, captureSequence: seq, sha256: sha, url: thumbnailUrl({ bucket: DRIVE.bucket, item, sha256: sha }) } },
 });
 const faultLines = (kind, commandId, extra = []) => [{ at: at(1), text: `WARN capture fault ${kind} command ${commandId}` }, ...extra.map((t, i) => ({ at: at(2 + i), text: `WARN capture fault ${kind} command ${commandId}: ${t}` }))];
 const listingOf = () => [{ name: "abc.png", generation: "1600000000000001" }, { name: "def.png", generation: "1600000000000002" }];
@@ -207,11 +216,16 @@ const passing = () => {
       ],
     },
     "staging-gone": stagingGone(),
+    // The command results in the real shape, { item, url } (capture()); the
+    // older's own result is its operation's outcome/final (2026-11-24, run
+    // d1ca6da0: a captureSequence on the command's result masked the judge
+    // reading the wrong layer).
     "older-after-newer": {
-      older: { ...capture({ commandId: ids.older, seq: 13, ownerGeneration: 2 }), result: { url: thumbnailUrl({ bucket: DRIVE.bucket, item: FIXTURES.private, sha256: SHA("a") }), item: FIXTURES.private, captureSequence: 13 } },
-      newer: capture({ commandId: ids.newer, seq: 14 }),
+      older: capture({ commandId: ids.older, seq: 13, ownerGeneration: 2, invocationId: "inv-older" }),
+      newer: capture({ commandId: ids.newer, seq: 14, invocationId: "inv-newer" }),
       olderFaultLines: faultLines("exit-after-stage", ids.older),
       olderSteps: [{ step: "publish", observed: "newer-present" }],
+      olderOutcome: olderOutcomeOf("inv-older/s0/o1", 13),
       finalObject: { generation: "1700000000000014", metadata: { commandId: ids.newer, captureSequence: "14" } },
     },
     "two-stage": (() => {
@@ -1545,4 +1559,176 @@ test("a render count is watched for the drive's ingestion-observation period", a
   const r2 = await C.observeCount({ read: async () => (d.now() === 30_000 ? 3 : 1), observeMs: C.AUDIT_OBSERVATION_MS, sleep: d.sleep, now: d.now });
   assert.equal(r2.count, 3);
   assert.equal(C.AUDIT_OBSERVATION_MS, 5 * 60_000);
+});
+
+// ------------------------------------- older-after-newer's own result (d1ca6da0)
+
+// 2026-11-24, run d1ca6da0: older-after-newer failed "the older's result isn't
+// its own capture" though Broker's outcome/final held sequence 20: the judge
+// read the command's result, which is only { item, url }, and the fixture gave
+// that result a captureSequence, masking it.
+const OLDER_OP = "inv-older/s0/o1";
+const olderCase = mutate => {
+  const o = clone(passing()["older-after-newer"]);
+  mutate(o);
+  return judgePhase("older-after-newer", o).checks.find(c => c.id === "older-newer-present");
+};
+
+test("older-after-newer: the command result's real shape passes; the own result comes from the operation's outcome", () => {
+  const o = passing()["older-after-newer"];
+  assert.deepEqual(Object.keys(o.older.result).sort(), ["item", "url"], "the fixture's command result is the real { item, url }");
+  assert.equal(o.olderOutcome.name, `projects/graffiticode/databases/broker/documents/receipts/${createHashHex(OLDER_OP)}/outcome/final`);
+  assert.equal(olderCase(() => {}).ok, true);
+  // The command result plays no part: neither its shape nor a stray sequence.
+  assert.equal(olderCase(x => { x.older.result = { item: x.older.result.item, url: x.older.result.url, captureSequence: 999 }; }).ok, true);
+});
+
+test("older-after-newer: a missing, absent or malformed outcome fails", () => {
+  const cases = {
+    "not observed": o => { delete o.olderOutcome; },
+    null: o => { o.olderOutcome = null; },
+    absent: o => { o.olderOutcome = { operationId: OLDER_OP, name: C.outcomeDocName(OLDER_OP), absent: true }; },
+    "outcome missing": o => { delete o.olderOutcome.outcome; },
+    "outcome not a map": o => { o.olderOutcome.outcome = "succeeded"; },
+    "result missing": o => { delete o.olderOutcome.outcome.result; },
+    "result null": o => { o.olderOutcome.outcome.result = null; },
+    "result an array": o => { o.olderOutcome.outcome.result = [13]; },
+    "status failed": o => { o.olderOutcome.outcome.status = "failed"; },
+    "status uncertain": o => { o.olderOutcome.outcome.status = "uncertain"; },
+    "status missing": o => { delete o.olderOutcome.outcome.status; },
+  };
+  for (const [name, mutate] of Object.entries(cases)) assert.equal(olderCase(mutate).ok, false, name);
+  assert.match(olderCase(cases.absent).detail, /outcome\/final is absent/);
+  assert.match(olderCase(cases["status uncertain"]).detail, /"uncertain", not succeeded/);
+});
+
+test("older-after-newer: a substituted receipt fails", () => {
+  const newerOp = "inv-newer/s0/o1";
+  const cases = {
+    // The newer's own outcome, read as the older's.
+    "another operation's document": o => { o.olderOutcome = olderOutcomeOf(newerOp, 13); },
+    "the right operation, another document's name": o => { o.olderOutcome.name = C.outcomeDocName(newerOp); },
+    "the receipt, not its outcome": o => { o.olderOutcome.name = `${C.BROKER_DOCUMENTS}/${C.receiptPathOf(OLDER_OP)}`; },
+    "another database": o => { o.olderOutcome.name = o.olderOutcome.name.replace("/databases/broker/", "/databases/policy/"); },
+    "another project": o => { o.olderOutcome.name = o.olderOutcome.name.replace("projects/graffiticode/", "projects/other/"); },
+    "no name": o => { delete o.olderOutcome.name; },
+    "the operation not derived from the older": o => { o.olderOutcome.operationId = "inv-older/s0/o2"; },
+    // The older's claim must be its own operation's, in the drive bucket.
+    "the claim another operation's": o => { o.older.claim.operationId = newerOp; },
+    "the claim in another bucket": o => { o.older.claim.evidence.bucket = "graffiticode-thumbnails"; },
+  };
+  for (const [name, mutate] of Object.entries(cases)) assert.equal(olderCase(mutate).ok, false, name);
+  assert.match(olderCase(cases["another operation's document"]).detail, /not the older's inv-older\/s0\/o1/);
+});
+
+test("older-after-newer: an outcome result not exactly the older's own fails", () => {
+  const cases = {
+    "the newer's sequence": o => { o.olderOutcome.outcome.result.captureSequence = 14; },
+    "the sequence as a string": o => { o.olderOutcome.outcome.result.captureSequence = "13"; },
+    "another item": o => { o.olderOutcome.outcome.result.item = FIXTURES.public; },
+    "another digest": o => { o.olderOutcome.outcome.result.sha256 = SHA("b"); },
+    "another url": o => { o.olderOutcome.outcome.result.url = thumbnailUrl({ bucket: "graffiticode-thumbnails", item: FIXTURES.private, sha256: SHA("a") }); },
+    "a field missing": o => { delete o.olderOutcome.outcome.result.url; },
+    "an extra field": o => { o.olderOutcome.outcome.result.commandId = "c:x"; },
+    // The claim's evidence must be the reservation's, which the result is compared to.
+    "the claim's sequence not the reservation's": o => { o.older.claim.evidence.captureSequence = 14; },
+  };
+  for (const [name, mutate] of Object.entries(cases)) assert.equal(olderCase(mutate).ok, false, name);
+  assert.match(olderCase(cases["the newer's sequence"]).detail, /captureSequence 14, expected its own 13/);
+});
+
+test("older-after-newer: newer-present and the final newer object are still required", () => {
+  assert.equal(olderCase(o => { o.olderSteps = [{ step: "publish", observed: "published" }]; }).ok, false);
+  assert.equal(olderCase(o => { o.finalObject.metadata.commandId = o.older.commandId; }).ok, false);
+  assert.equal(olderCase(o => { o.finalObject.metadata.captureSequence = "13"; }).ok, false);
+  assert.equal(olderCase(o => { o.newer.reservations[0].captureSequence = 12; }).ok, false, "the newer's sequence must be higher");
+});
+
+// --------------------------------------------------------------- rejudge
+
+// A Firestore REST document, as the GET returns it and an operator saves it.
+const encodeValue = v => {
+  if (v === null) return { nullValue: null };
+  if (typeof v === "string") return { stringValue: v };
+  if (Number.isInteger(v)) return { integerValue: String(v) };
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(encodeValue) } };
+  return { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, encodeValue(x)])) } };
+};
+const restDoc = (name, value) => ({ name, fields: encodeValue(value).mapValue.fields, createTime: "2026-11-24T16:54:07.900Z", updateTime: "2026-11-24T16:54:07.900Z" });
+// The original manifest as the unfixed runner wrote it: no olderOutcome, and
+// judged failed on the command's result.
+const unfixedSource = () => {
+  const { olderOutcome, ...observations } = clone(passing()["older-after-newer"]);
+  return { runId: RUN, phase: "older-after-newer", at: "2026-11-24T16:54:16.178Z", observations: { uid: UID, errors: {}, ...observations } };
+};
+const savedReceipt = (op = OLDER_OP, seq = 13) => restDoc(C.outcomeDocName(op), olderOutcomeOf(op, seq).outcome);
+const SRC_FILE = "older-after-newer-2026-11-24T16-54-16-178Z.json";
+const rejudge = (over = {}) => C.rejudgeReport({ source: unfixedSource(), sourceFile: SRC_FILE, sourceSha256: SHA("1"), receipt: savedReceipt(), receiptFile: "older-outcome-final.json", receiptSha256: SHA("2"), at: "2026-11-24T18:00:00.000Z", ...over });
+
+test("rejudge: the original manifest plus the saved receipt, judged, naming both sources", () => {
+  const source = unfixedSource();
+  const before = clone(source);
+  const report = rejudge({ source });
+  assert.deepEqual(source, before, "the source is untouched");
+  assert.equal(report.passed, true);
+  assert.equal(report.phase, "older-after-newer");
+  assert.deepEqual(report.rejudge.of, { file: SRC_FILE, sha256: SHA("1"), at: "2026-11-24T16:54:16.178Z" });
+  assert.deepEqual(report.rejudge.receipt, { file: "older-outcome-final.json", sha256: SHA("2"), name: C.outcomeDocName(OLDER_OP), createTime: "2026-11-24T16:54:07.900Z", updateTime: "2026-11-24T16:54:07.900Z" });
+  assert.deepEqual(report.olderOutcome, olderOutcomeOf(OLDER_OP, 13));
+  assert.deepEqual(report.checks.map(c => c.id), ["observations-read", "older-stopped", "newer-published", "older-newer-present"]);
+  // The report is never a phase manifest.
+  const name = C.rejudgeFileName("older-after-newer", "2026-11-24T18-00-00-000Z");
+  assert.equal(name, "rejudge-older-after-newer-2026-11-24T18-00-00-000Z.json");
+  assert.deepEqual(C.latestByPhase([SRC_FILE, name])["older-after-newer"], SRC_FILE);
+  // Judged on its merits: a receipt with the newer's sequence fails, but is a report.
+  const wrong = rejudge({ receipt: restDoc(C.outcomeDocName(OLDER_OP), olderOutcomeOf(OLDER_OP, 14).outcome) });
+  assert.equal(wrong.passed, false);
+});
+
+test("rejudge: a substituted receipt or a source not the original manifest is refused", () => {
+  assert.throws(() => rejudge({ receipt: savedReceipt("inv-newer/s0/o1") }), /the saved receipt is .*, not projects\/graffiticode\/databases\/broker\/documents\/receipts\//);
+  assert.throws(() => rejudge({ receipt: { ...savedReceipt(), name: `${C.BROKER_DOCUMENTS}/${C.receiptPathOf(OLDER_OP)}` } }), /saved receipt is/);
+  assert.throws(() => rejudge({ receipt: { name: C.outcomeDocName(OLDER_OP) } }), /isn't a Firestore document/);
+  assert.throws(() => rejudge({ receipt: null }), /isn't a Firestore document/);
+  assert.throws(() => rejudge({ source: { ...unfixedSource(), phase: "staging-gone" } }), /re-judged only for older-after-newer/);
+  assert.throws(() => rejudge({ source: { ...unfixedSource(), rejudge: {} } }), /original manifest/);
+  assert.throws(() => rejudge({ sourceFile: "rejudge-older-after-newer-2026-11-24T18-00-00-000Z.json" }), /isn't a older-after-newer manifest/);
+  assert.throws(() => rejudge({ sourceFile: "../older-after-newer-2026-11-24T16-54-16-178Z.json" }), /isn't a older-after-newer manifest/);
+  assert.throws(() => rejudge({ sourceSha256: "x" }), /sha256/);
+  const observed = unfixedSource();
+  observed.observations.olderOutcome = olderOutcomeOf(OLDER_OP, 13);
+  assert.throws(() => rejudge({ source: observed }), /already observed/);
+  assert.throws(() => C.rejudgeFileName("staging-gone", "2026-11-24T18-00-00-000Z"), /no re-judge/);
+});
+
+test("the CLI's rejudge is offline, writes a separate report, and changes no manifest or journal", () => {
+  const { parent, dir } = planned();
+  const sourceBytes = JSON.stringify(unfixedSource());
+  writeFileSync(path.join(dir, SRC_FILE), sourceBytes);
+  writeFileSync(path.join(dir, "journal", "older.json"), "{\"at\":\"x\"}");
+  const receiptDir = mkdtempSync(path.join(tmpdir(), "c5d-receipt-"));
+  const receiptFile = path.join(receiptDir, "older-outcome-final.json");
+  writeFileSync(receiptFile, JSON.stringify(savedReceipt()));
+  const before = Object.fromEntries(readdirSync(dir).filter(f => f.endsWith(".json")).map(f => [f, readFileSync(path.join(dir, f), "utf8")]));
+  // PATH is /nonexistent (cli): no gcloud, so nothing could be read from the cloud.
+  const r = cli(["--phase", "rejudge", "--run", RUN, "--uid", UID, "--dir", parent, "--of", "older-after-newer", "--manifest", SRC_FILE, "--receipt", receiptFile]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /ok {5}older-newer-present: ok/);
+  const reports = readdirSync(dir).filter(f => f.startsWith("rejudge-older-after-newer-"));
+  assert.equal(reports.length, 1);
+  const report = JSON.parse(readFileSync(path.join(dir, reports[0]), "utf8"));
+  assert.equal(report.passed, true);
+  assert.equal(report.rejudge.of.sha256, createHashHex(sourceBytes));
+  assert.equal(report.rejudge.receipt.sha256, createHashHex(readFileSync(receiptFile, "utf8")));
+  for (const [f, bytes] of Object.entries(before)) assert.equal(readFileSync(path.join(dir, f), "utf8"), bytes, `${f} unchanged`);
+  assert.equal(readFileSync(path.join(dir, "journal", "older.json"), "utf8"), "{\"at\":\"x\"}");
+  // A substituted receipt: refused, and no report written.
+  writeFileSync(receiptFile, JSON.stringify(savedReceipt("inv-newer/s0/o1")));
+  const bad = cli(["--phase", "rejudge", "--run", RUN, "--uid", UID, "--dir", parent, "--of", "older-after-newer", "--manifest", SRC_FILE, "--receipt", receiptFile]);
+  assert.equal(bad.status, 2);
+  assert.match(bad.stderr, /^refused: the saved receipt is/);
+  assert.equal(readdirSync(dir).filter(f => f.startsWith("rejudge-")).length, 1);
+  // A manifest outside the run's directory, or another phase, is refused.
+  assert.match(cli(["--phase", "rejudge", "--run", RUN, "--uid", UID, "--dir", parent, "--of", "older-after-newer", "--manifest", `../${SRC_FILE}`, "--receipt", receiptFile]).stderr, /refused: --manifest names a file/);
+  assert.equal(cli(["--phase", "rejudge", "--run", RUN, "--uid", UID, "--dir", parent, "--of", "staging-gone", "--manifest", SRC_FILE, "--receipt", receiptFile]).status, 2);
 });

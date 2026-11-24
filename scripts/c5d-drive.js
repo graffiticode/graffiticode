@@ -113,6 +113,13 @@
 //                    non-owner, since the run began, each query paged to its
 //                    end) all in the inventory, terminal and not due.
 //   judge            the verdict; exit 1 unless every phase passed.
+//   rejudge          offline: --of older-after-newer --manifest <its original
+//                    manifest, a file in the run's directory> --receipt <the
+//                    older's saved outcome/final, a Firestore REST document>.
+//                    Re-judges the phase with that document as olderOutcome,
+//                    refusing any document but the one the manifest's own
+//                    operation names; writes rejudge-<phase>-<stamp>.json with
+//                    both sources' sha256; changes no manifest or journal.
 //
 // Needs canary-window-c5d (Step 32): OpenIdTokenCreator on console-run (to
 // call the private api-c5d-drive as the console does) and on api-run (Policy's
@@ -132,6 +139,7 @@ import {
   stagedObject, operationIdOf, revisionService, PLAN_FILE, BASELINE_FILE, JOURNAL_DIR, CAPTURE_PHASES, phaseFile, stampOf,
   latestByPhase, DRIVE_PHASES, baselineRefusal, journalName, journalIdName, journalAmbiguousName, inventory, isTerminal, reconcilePoll,
   priorPublicCaptures, policyFixtureClient, answerResolution, correlateIntents, paginateAll, drivePolicyCommands, observeAudit, auditCovered, commandIdFor, ANONYMOUS_SUBJECT,
+  decodeFirestore, receiptPathOf, outcomeDocName, rejudgeReport, rejudgeFileName, REJUDGEABLE,
   bridgePreAllocationCode, preAllocationResolution, journalAnswerName, phaseExitCode, ACCESS_PROBE_MALFORMED_IDENTITY, ACCESS_PROBE_MALFORMED_SESSION, forgedSession, confirmResolution, parseListing, directCompileRequest, isRenderLine, RECOUNTABLE, recountManifest, recountSource, observeCount, AUDIT_OBSERVATION_MS,
 } from "./lib/c5d-drive-checks.js";
 
@@ -141,7 +149,7 @@ const flag = (name, fallback = null) => {
   return i >= 0 ? args[i + 1] : fallback;
 };
 const PHASE_NAMES = ["plan", "checks", "access-probes", "baseline", "first-capture", "direct-refused", "exit-after-reserve", "exit-after-stage", "drop-outcome", "drop-outcome-retry",
-  "stale-worker", "staging-gone", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap", "resolve-journal", "resolve-intent", "recount-renders", "boundary", "cleanup", "judge"];
+  "stale-worker", "staging-gone", "older-after-newer", "two-stage", "mixed", "non-owner", "rate-limit", "canary-snap", "resolve-journal", "resolve-intent", "recount-renders", "boundary", "cleanup", "judge", "rejudge"];
 const phase = flag("--phase");
 if (!PHASE_NAMES.includes(phase)) {
   console.error(`usage: c5d-drive.js --phase <${PHASE_NAMES.join("|")}> --run <id> [flags]`);
@@ -240,6 +248,41 @@ if (phase === "judge") {
   process.exit(result.passed ? 0 : 1);
 }
 
+// ---------------------------------------------------------------- rejudge
+
+// Offline: nothing below the cloud section is loaded, and nothing is read but
+// the two files.
+if (phase === "rejudge") {
+  const of = flag("--of");
+  const manifestFile = flag("--manifest");
+  const receiptFile = flag("--receipt");
+  if (!REJUDGEABLE.includes(of) || !manifestFile || !receiptFile) {
+    console.error(`usage: c5d-drive.js --phase rejudge --run <id> --of <${REJUDGEABLE.join("|")}> --manifest <file in the run's directory> --receipt <saved document>`);
+    process.exit(2);
+  }
+  if (path.basename(manifestFile) !== manifestFile) {
+    console.error(`refused: --manifest names a file in the run's directory, not a path (${manifestFile})`);
+    process.exit(2);
+  }
+  const read = file => {
+    const bytes = readFileSync(file);
+    return { json: JSON.parse(bytes.toString("utf8")), sha256: createHash("sha256").update(bytes).digest("hex") };
+  };
+  let report;
+  try {
+    const source = read(path.join(dir, manifestFile));
+    const receipt = read(receiptFile);
+    report = rejudgeReport({ source: source.json, sourceFile: manifestFile, sourceSha256: source.sha256, receipt: receipt.json, receiptFile: path.basename(receiptFile), receiptSha256: receipt.sha256, at: new Date().toISOString() });
+  } catch (e) {
+    console.error(`refused: ${e?.message ?? e}`);
+    process.exit(2);
+  }
+  for (const c of report.checks) console.log(`${c.ok ? "ok    " : "FAILED"} ${c.id}: ${c.detail}`);
+  const file = writeOnce(rejudgeFileName(of, stampOf(new Date())), report);
+  console.log(`${of} re-judged ${report.passed ? "PASSED" : "NOT PASSED"} (of ${manifestFile} ${report.rejudge.of.sha256}, receipt ${report.rejudge.receipt.file} ${report.rejudge.receipt.sha256}): ${file}`);
+  process.exit(report.passed ? 0 : 1);
+}
+
 // --------------------------------------------------------------- the cloud
 
 const { createCanaryEnv, loadDeployServices, http, routedRevision, revisionEnv } = await import("./lib/canary-env.js");
@@ -278,18 +321,7 @@ const journalId = (name, resolution) => writeManifestOnce(path.join(journalDir, 
 // The operator's reads.
 let operatorToken;
 const asOperator = async () => ({ Authorization: `Bearer ${(operatorToken ??= await gcloud(["auth", "print-access-token"]))}` });
-const decode = v => {
-  if (v === undefined || v === null) return null;
-  if ("stringValue" in v) return v.stringValue;
-  if ("integerValue" in v) return Number(v.integerValue);
-  if ("doubleValue" in v) return v.doubleValue;
-  if ("booleanValue" in v) return v.booleanValue;
-  if ("timestampValue" in v) return v.timestampValue;
-  if ("nullValue" in v) return null;
-  if ("arrayValue" in v) return (v.arrayValue.values ?? []).map(decode);
-  if ("mapValue" in v) return Object.fromEntries(Object.entries(v.mapValue.fields ?? {}).map(([k, x]) => [k, decode(x)]));
-  return null;
-};
+const decode = decodeFirestore;
 const firestore = (database, docPath) => `https://firestore.googleapis.com/v1/projects/${project}/databases/${database}/documents/${docPath}`;
 const doc = async (database, docPath) => {
   const res = await http({ method: "GET", url: firestore(database, docPath), headers: await asOperator() });
@@ -309,7 +341,7 @@ const docs = async (database, collectionPath) => {
   } while (pageToken);
   return out;
 };
-const receiptPath = operationId => `receipts/${createHash("sha256").update(operationId).digest("hex")}`;
+const receiptPath = receiptPathOf;
 const receiptDoc = (operationId, sub = "") => doc("broker", `${receiptPath(operationId)}${sub}`);
 // A receipt's subcollection (steps, attempts): every document, [] when none.
 const receiptDocs = (operationId, sub) => docs("broker", `${receiptPath(operationId)}/${sub}`);
@@ -854,6 +886,15 @@ if (phase === "older-after-newer") {
     const r = observations.older.reservations[0];
     const opid = operationIdOf(observations.older.invocationId, r);
     return (await docs("broker", `receipts/${createHash("sha256").update(opid).digest("hex")}/steps`)).map(s => ({ step: s.step, observed: s.observed ?? null }));
+  });
+  // The older's own result is its operation's outcome/final (the command's
+  // result is only { item, url }), read with its full document name.
+  await collect("olderOutcome", async () => {
+    const operationId = operationIdOf(observations.older.invocationId, observations.older.reservations[0]);
+    const res = await http({ method: "GET", url: firestore("broker", `${receiptPath(operationId)}/outcome/final`), headers: await asOperator() });
+    if (res.status === 404) return { operationId, name: outcomeDocName(operationId), absent: true };
+    if (res.status !== 200) throw new Error(`Firestore broker outcome/final for ${operationId}: ${res.status}`);
+    return { operationId, name: res.json?.name ?? null, outcome: decode({ mapValue: res.json }) };
   });
   await collect("finalObject", () => objectOf(config.bucket, `${FIXTURES.private}.png`));
   finish();

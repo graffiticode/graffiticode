@@ -188,6 +188,25 @@ export const stagedObject = (commandId, reservation) => `gs://${STAGING_BUCKET}/
 // The operation id of a capture: `<invocation>/<stage>/<occurrence>`.
 export const operationIdOf = (invocationId, reservation) => `${invocationId}/${reservation.stage}/${reservation.occurrenceId}`;
 export const thumbnailUrl = ({ bucket, item, sha256 }) => `https://storage.googleapis.com/${bucket}/${item}.png?v=${sha256.slice(0, 16)}`;
+// Broker's receipt for one operation is receipts/<sha256 hex of its operation
+// id> in the broker database (packages/broker/src/firestore.ts); its final
+// outcome is that receipt's outcome/final.
+export const BROKER_DOCUMENTS = "projects/graffiticode/databases/broker/documents";
+export const receiptPathOf = operationId => `receipts/${createHash("sha256").update(operationId).digest("hex")}`;
+export const outcomeDocName = operationId => `${BROKER_DOCUMENTS}/${receiptPathOf(operationId)}/outcome/final`;
+// A Firestore REST value (a document is { mapValue: document }), decoded.
+export const decodeFirestore = v => {
+  if (v === undefined || v === null) return null;
+  if ("stringValue" in v) return v.stringValue;
+  if ("integerValue" in v) return Number(v.integerValue);
+  if ("doubleValue" in v) return v.doubleValue;
+  if ("booleanValue" in v) return v.booleanValue;
+  if ("timestampValue" in v) return v.timestampValue;
+  if ("nullValue" in v) return null;
+  if ("arrayValue" in v) return (v.arrayValue.values ?? []).map(decodeFirestore);
+  if ("mapValue" in v) return Object.fromEntries(Object.entries(v.mapValue.fields ?? {}).map(([k, x]) => [k, decodeFirestore(x)]));
+  return null;
+};
 
 // --------------------------------------------------------------- primitives
 
@@ -350,6 +369,38 @@ const accessProbeChecks = compiler => ACCESS_PROBES.map(probe => [
 // snap, each value derived from the records it came from, never assumed.
 const sameKeys = (value, keys) => isPlain(value) && Object.keys(value).sort().join(",") === [...keys].sort().join(",");
 const isPlain = v => v !== null && typeof v === "object" && !Array.isArray(v);
+
+// older-after-newer: a capture's own result is its operation's, which Broker
+// records in the receipt's outcome/final; the command's result holds only
+// { item, url } (2026-11-24, run d1ca6da0: the judge read the command's, which never
+// carries the sequence). `observed` is the read of that outcome:
+//   { operationId, name, outcome }     the document, decoded, and its full name
+//   { operationId, name, absent: true } a 404 at that name
+// The operation, and so the receipt, is derived from the capture's own
+// invocation and reservation; a read of any other document is refused.
+export const OUTCOME_RESULT_KEYS = Object.freeze(["captureSequence", "item", "sha256", "url"]);
+export const ownOutcomeProblem = (label, capture, observed) => {
+  const r = oneReservation(capture);
+  if (!r) return `the ${label}'s reservation not observed`;
+  if (typeof capture.invocationId !== "string" || !capture.invocationId) return `the ${label}'s invocation not observed`;
+  const operationId = operationIdOf(capture.invocationId, r);
+  const ev = capture.claim?.evidence;
+  if (capture.claim?.operationId !== operationId || !isPlain(ev)) return `the ${label}'s claim isn't its operation's (${show(capture.claim?.operationId)}, expected ${operationId})`;
+  if (ev.bucket !== DRIVE.bucket) return `the ${label}'s claim names bucket ${show(ev.bucket)}`;
+  for (const k of ["item", "captureSequence", "sha256"]) if (ev[k] !== r[k]) return `the ${label}'s claim ${k} ${show(ev[k])} isn't the reservation's ${show(r[k])}`;
+  if (!isPlain(observed)) return `the ${label}'s outcome not observed`;
+  if (observed.operationId !== operationId) return `the outcome read is for ${show(observed.operationId)}, not the ${label}'s ${operationId}`;
+  const name = outcomeDocName(operationId);
+  if (observed.name !== name) return `the outcome read is ${show(observed.name)}, not ${name}`;
+  if (observed.absent === true) return `the ${label}'s outcome/final is absent`;
+  const out = observed.outcome;
+  if (!isPlain(out)) return `the ${label}'s outcome is malformed (${show(out)})`;
+  if (out.status !== "succeeded") return `the ${label}'s outcome is ${show(out.status)}, not succeeded`;
+  if (!sameKeys(out.result, OUTCOME_RESULT_KEYS)) return `the ${label}'s outcome result is ${show(out.result)}, expected exactly ${OUTCOME_RESULT_KEYS.join(", ")}`;
+  const expected = { item: r.item, captureSequence: r.captureSequence, sha256: r.sha256, url: thumbnailUrl({ bucket: ev.bucket, item: r.item, sha256: r.sha256 }) };
+  for (const k of OUTCOME_RESULT_KEYS) if (out.result[k] !== expected[k]) return `the ${label}'s outcome ${k} ${show(out.result[k])}, expected its own ${show(expected[k])}`;
+  return null;
+};
 // The binding Broker writes (broker.ts writeBinding) for an item-scoped v3
 // execution token with no connection function in its stage (policy.ts
 // scopedSession, issueExecution): no ownerUid or connectionId.
@@ -676,7 +727,9 @@ export const PHASES = Object.freeze({
       if (!(older.captureSequence < newer.captureSequence)) return `older ${older.captureSequence}, newer ${newer.captureSequence}`;
       if (o.older?.status !== "completed") return `the older is ${show(o.older?.status)}`;
       if (!(o.olderSteps ?? []).some(s => s.step === "publish" && s.observed === "newer-present")) return "no publish step observed newer-present";
-      if (o.older.result?.captureSequence !== older.captureSequence) return "the older's result isn't its own capture";
+      // Its own result: its operation's outcome (ownOutcomeProblem), never the command's.
+      const own = ownOutcomeProblem("older", o.older, o.olderOutcome);
+      if (own) return own;
       if (!isObject(o.finalObject)) return `the final object isn't readable (${show(o.finalObject)})`;
       const m = o.finalObject.metadata ?? {};
       return m.commandId === o.newer.commandId && m.captureSequence === String(newer.captureSequence) ? true : `the final object is ${show(m)}, not the newer's`;
@@ -1003,6 +1056,55 @@ export const recountManifest = ({ source, sourceFile, journalAt, renders, observ
     ...(source.answered !== undefined ? { answered: source.answered } : {}),
     recount: { of: sourceFile, field: "renders", from: journalAt, to: source.at, before: source.observations?.renders ?? null, collectedAt: at, observedMs: observedMs ?? null },
     observations: { ...source.observations, renders },
+  };
+};
+
+// An offline re-judge of a phase from its original manifest plus a saved
+// Broker document the original didn't collect (2026-11-24, run d1ca6da0:
+// older-after-newer was judged on the command's result, which never carries
+// the sequence). Nothing is read from the cloud and neither source is
+// changed: the report is a separate file, `rejudge-<phase>-<stamp>.json`
+// (never a phase manifest, so `judge` and latestByPhase never take it for
+// one), naming both sources by file and sha256.
+//   source   the original manifest (no `rejudge`, and without the field the
+//            saved document supplies)
+//   receipt  the saved Firestore REST document ({ name, fields, ... }), whose
+//            name must be exactly the one derived from the source's own
+//            operation: a substituted receipt is refused before any judging
+export const REJUDGEABLE = Object.freeze(["older-after-newer"]);
+export const rejudgeFileName = (phase, stamp) => {
+  if (!REJUDGEABLE.includes(phase)) throw new Error(`no re-judge for ${phase}`);
+  return `rejudge-${phaseFile(phase, stamp)}`;
+};
+export const rejudgeReport = ({ source, sourceFile, sourceSha256, receipt, receiptFile, receiptSha256, at }) => {
+  const phase = source?.phase;
+  if (!REJUDGEABLE.includes(phase)) throw new Error(`re-judged only for ${REJUDGEABLE.join(", ")}; the source is ${show(phase)}`);
+  if (source.rejudge || source.recount) throw new Error("the source must be the phase's original manifest");
+  if (typeof sourceFile !== "string" || !new RegExp(`^${phase}-\\d{4}-\\d{2}-\\d{2}T[0-9-]+Z\\.json$`).test(sourceFile)) throw new Error(`the source file ${show(sourceFile)} isn't a ${phase} manifest`);
+  if (!isSha(sourceSha256) || !isSha(receiptSha256)) throw new Error("both sources' sha256 are required");
+  const o = source.observations;
+  if (!isPlain(o)) throw new Error("the source has no observations");
+  if (o.olderOutcome !== undefined) throw new Error("the source already observed the older's outcome: judge it, don't re-judge it");
+  const r = oneReservation(o.older);
+  if (!r || typeof o.older.invocationId !== "string") throw new Error("the source's older reservation or invocation isn't readable");
+  const operationId = operationIdOf(o.older.invocationId, r);
+  const name = outcomeDocName(operationId);
+  if (!isPlain(receipt) || !isPlain(receipt.fields)) throw new Error("the saved receipt isn't a Firestore document");
+  if (receipt.name !== name) throw new Error(`the saved receipt is ${show(receipt.name)}, not ${name}`);
+  const olderOutcome = { operationId, name: receipt.name, outcome: decodeFirestore({ mapValue: receipt }) };
+  const judged = judgePhase(phase, { ...o, olderOutcome });
+  return {
+    runId: source.runId,
+    phase,
+    at,
+    rejudge: {
+      of: { file: sourceFile, sha256: sourceSha256, at: source.at ?? null },
+      receipt: { file: receiptFile, sha256: receiptSha256, name: receipt.name, createTime: receipt.createTime ?? null, updateTime: receipt.updateTime ?? null },
+      field: "olderOutcome",
+    },
+    olderOutcome,
+    passed: judged.passed,
+    checks: judged.checks,
   };
 };
 
