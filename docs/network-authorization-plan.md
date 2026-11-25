@@ -1,6 +1,6 @@
 # Network authorization: implementation plan (workstream N)
 
-**Status:** draft, revised after the owner's first review (2026-11-25); the fetch-service direction is the owner's preference. Nothing in it is implemented, and it adds no production gate. The brief it implements, [network-egress-authorization-design-brief.md](network-egress-authorization-design-brief.md), is **proposed**, not approved. Today's enforcement (§1) does **not** provide the brief's guarantees, and nothing in this plan should be read as saying it does. Each step in §6 that changes enforcement or production state needs its own approval, as releases do in the interpreter plan.
+**Status:** draft, revised after the owner's second review (2026-11-25); the fetch-service direction is the owner's preference. Nothing in it is implemented, and it adds no production gate. The brief it implements, [network-egress-authorization-design-brief.md](network-egress-authorization-design-brief.md), is **proposed**, not approved. Today's enforcement (§1) does **not** provide the brief's guarantees, and nothing in this plan should be read as saying it does. Each step in §6 that changes enforcement or production state needs its own approval, as releases do in the interpreter plan.
 
 **What the first review changed:**
 1. Execution contexts are a Policy token profile, signed by Policy's KMS key, with a defined verifier, rotation and fail-closed behavior (decision 4).
@@ -64,10 +64,20 @@ Every decision is **open** until the owner chooses. Each says what is proposed a
      - required claims: `sub` (the account's uid, or `anonymous`), `ins` (the installation; `graffiticode` until I-8), `task`, `stg` (stage id), `mode`;
      - optional claims: `inv`, `cmd`, `run` (when the stage belongs to one), and `max` (the request budget, today L0185's 10);
      - `iat`, `nbf`, `exp` and `jti` from the profile's TTL: at most the stage's deadline, capped at 120 s. A durable run's resumption mints a fresh one (Track E's E3); a context is never extended.
-   - **Who asks:** the api, per stage of a language declared to fetch, before calling `/interpret` or `/compile`. It calls Policy as its own service identity and passes the **caller's verified user token**. Policy derives `sub` and `ins` from that token and its own installation check, never from a claim the api or a compiler supplies. An anonymous call gets `sub: anonymous`.
-   - **Signing:** Policy's existing Cloud KMS signer (`packages/policy/src/kms.ts`, `EC_SIGN_P256_SHA256`, JWS ES256). The private key never leaves KMS.
+   - **Who asks:** the api, per stage of a language declared to fetch, before calling `/interpret` or `/compile`. It calls Policy in its `gateway` role, as its own service identity.
+   - **Where each claim comes from:**
+     - **`sub`** comes from the **caller's verified user token**, which the api passes. An anonymous call gets `sub: anonymous`.
+     - **`ins`** follows the installation plan's I-2, never the user token. The frontend's own service identity (`X-Caller-Identity`, verified by the api against the installation registry) names the installation. The api passes it to Policy as an **attested field on its `gateway` call**, and Policy accepts that field only from the `gateway` role. Nothing in a body, a prompt, a compiler's request or a user's token names it. Until I-2 ships, `ins` is `graffiticode` (I-3: absent means Graffiticode).
+     - Neither the api nor a compiler can supply any other claim's value.
+   - **Signing: a separate retrieval key.** A new Cloud KMS key (`EC_SIGN_P256_SHA256`, JWS ES256) used only for this profile. The private key never leaves KMS, and only Policy's service account may sign with it. Policy's existing key keeps signing every existing profile, unchanged.
+     - **Why separate:** the existing key signs 30-minute `invocation` tokens and 15-minute `session` tokens, among others. Broker loads exactly one verification key at startup (`packages/broker/src/main.ts:95`). Sharing a key would tie retrieval rotation to every existing verifier, and would need an overlap covering the longest existing lifetime, with a coordinated Broker change. A separate key leaves Broker, Policy's own verification and every existing profile untouched.
+     - **Separation in both directions:** the retrieval key's `kid` and `typ` are distinct. The fetch service accepts only retrieval-key `kid`s and the `gc-retrieval+jwt` type. Broker and Policy keep pinning their existing key, so a retrieval token is refused there, and an existing-key token is refused by the fetch service.
    - **Verifier:** the fetch service. It checks the signature against Policy's JWKS (`GET /v1/jwks`), and checks `typ`, audience, `nbf` and `exp` with at most 5 s of skew, plus every required claim. It counts requests per `jti` against `max`. A context is reusable within its life for that stage's fetches, and only for them.
-   - **Rotation:** the JWKS publishes one key today (`packages/policy/src/main.ts:83`). N3 makes it publish the current and next key versions by `kid`. A new KMS key version is published at least the longest TTL (120 s) plus the verifier's JWKS cache lifetime before Policy signs with it, and the old one is removed only after the same interval.
+   - **Rotation, of the retrieval key only:**
+     - Policy publishes the retrieval key's current and next versions by `kid` on a JWKS of their own (`GET /v1/jwks/retrieval`), separate from today's `/v1/jwks`, so no existing consumer sees a new key.
+     - A new version is published at least the retrieval TTL (120 s) plus the fetch service's JWKS cache lifetime before Policy signs with it. The old version is removed only after the same interval past its last signature.
+     - The 120 s basis is valid only because nothing else verifies this key.
+     - Rotating Policy's **existing** key is out of scope here. It would need its own plan covering every profile's lifetime and every verifier, Broker's startup-loaded key included.
    - **Fail closed, everywhere:**
      - **minting:** Policy unreachable, or the caller's token invalid → the stage gets no context, and fails with a temporary `retrieval-context-unavailable`;
      - **verifying:** no context, a bad signature, an unknown `kid` after one JWKS refresh, the JWKS unavailable with no cached key, expired, not yet valid, the wrong audience or `typ`, or over budget → the fetch is **refused** (temporary where the cause is), never allowed;
@@ -133,7 +143,7 @@ Every decision is **open** until the owner chooses. Each says what is proposed a
 | B5/B6 (done) | pinned inputs and recorded observations | replay makes no request and needs no authorization; a new observation is a new request |
 | Installation boundary (I-8) | authenticated installation context | the account's installation (decision 1); before I-8, Graffiticode only |
 | Auth | `amr` and `auth_time`, kept through refresh | interactive-session settings writes (decision 6) |
-| Policy | the `retrieval` token profile and a multi-key JWKS | execution contexts and their rotation (decision 4) |
+| Policy | the `retrieval` profile, a separate KMS key and its own JWKS; the attested `ins` on `gateway` calls (I-2) | execution contexts and their rotation (decision 4) |
 | graffiticode-app (console) | the settings page, its session-cookie route, CSRF and re-authentication | brief §8.3, decision 6 |
 | `l0137`, `l0170` repositories | legacy open compilers | they move to the fetch service, or stay on a named legacy class until migrated (§4) |
 
@@ -167,7 +177,7 @@ The interpreter plan's compatibility invariant applies: **no chain that works to
 - **Hostname matching:** exact, wildcard on label boundaries, IDN and normalization, trailing dots, IP literals, bare-TLD wildcards refused.
 - **Network safety, on both paths:** DNS rebinding (an approved name resolving to a private address), redirects to unapproved hosts (each hop authorized), direct-connection bypass, other ports and protocols, the metadata service.
 - **Methods:** only GET and HEAD on the public path (A enforces them; B can't, which the spike records).
-- **Identity:** a compiler can't choose an account, can't alter or extend a context, and can't present a capability. Each fail-closed case of decision 4 refuses: expired, not yet valid, foreign audience or `typ`, bad signature, unknown `kid` after refresh, JWKS unavailable, over budget. Rotation with overlapping keys verifies throughout.
+- **Identity:** a compiler can't choose an account, can't alter or extend a context, and can't present a capability. Each fail-closed case of decision 4 refuses: expired, not yet valid, foreign audience or `typ`, bad signature, unknown `kid` after refresh, JWKS unavailable, over budget. Rotating the retrieval key with overlapping versions verifies throughout. A retrieval token is refused by Broker and Policy, and a token signed with Policy's existing key is refused by the fetch service. `ins` can't be set from a user token, a body or a compiler: only the attested `gateway` field sets it.
 - **Settings:**
   - a write with an `api-key` or `oauth` token is refused, from MCP, A2A and REST alike, and so is a write without the console session, from another origin, or without the CSRF token;
   - a widening change without a re-authentication in the window is refused, and a narrowing one is accepted with the session;
@@ -191,7 +201,7 @@ Every step after N1 is a separate approval. None adds a production gate before i
 - **N1a. Inventory from existing logs** (read-only): §4's N1a, with unattributed traffic reported as such; the platform endpoints (decision 9); and the legacy compilers' fetch code.
 - **N2. Spike:** A against B on latency, payload limits, failure modes and what each can enforce. Then the choice.
 - **N3. Identity, inert:**
-  - Policy's `retrieval` profile and the multi-key JWKS; the api requests a context per fetching stage and forwards it (nothing enforces it yet);
+  - Policy's `retrieval` profile, its separate KMS key and `/v1/jwks/retrieval`; the api requests a context per fetching stage, with `ins` attested per I-2 (Graffiticode until I-2 ships), and forwards it (nothing enforces it yet);
   - auth's `amr` and `auth_time`;
   - the stage cache's authority becomes `(installation, uid)`;
   - storage for catalogs and allowlists;
