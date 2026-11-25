@@ -33,7 +33,7 @@ impl Js {
     /// A program's value, as `toPlainObject` gives it to the TypeScript handlers.
     pub fn from_value(value: &Value) -> Js {
         match value {
-            Value::Undefined => Js::Undefined,
+            Value::Undefined | Value::Pending => Js::Undefined,
             Value::Null => Js::Null,
             Value::Bool(b) => Js::Bool(*b),
             Value::Num(Number::Float(n)) => Js::Num(*n),

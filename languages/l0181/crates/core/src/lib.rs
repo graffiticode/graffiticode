@@ -211,7 +211,7 @@ pub fn spread(value: &Value) -> Record {
         }
         // An exact number is a `Decimal` object in JavaScript, whose spread is its internals;
         // that is not reproduced (see the crate's CLAUDE.md).
-        Value::Undefined | Value::Null | Value::Bool(_) | Value::Num(_) => Record::new(),
+        Value::Undefined | Value::Null | Value::Pending | Value::Bool(_) | Value::Num(_) => Record::new(),
     }
 }
 
@@ -220,7 +220,7 @@ pub fn show(value: &Value) -> String {
     match value {
         Value::Str(text) => serde_json::to_string(text).expect("a string serializes"),
         Value::List(items) => format!("a list of {}", items.len()),
-        Value::Undefined | Value::Null => "nothing".to_owned(),
+        Value::Undefined | Value::Null | Value::Pending => "nothing".to_owned(),
         // Objects in JavaScript, a `Decimal` included.
         Value::Record(_) | Value::Tag(_) | Value::Lambda(_) | Value::Num(Number::Exact(_)) => "a record".to_owned(),
         Value::Num(n) => n.display(),

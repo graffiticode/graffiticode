@@ -51,7 +51,7 @@ pub mod value;
 
 pub use ast::{Ast, AstError, Node, NodeId, Op, Span};
 pub use compiler::{Compilation, Compiler};
-pub use dialect::{Dialect, L0000};
+pub use dialect::{Dialect, Interpretation, L0000};
 pub use error::Diagnostic;
 pub use eval::{Eval, Evaluator};
 pub use exec::{CacheClass, Restriction};

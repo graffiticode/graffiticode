@@ -5,6 +5,15 @@
 //! Errors do not stop evaluation. Each is recorded and a neutral value stands in for the failed
 //! operation, so one compile reports every problem it can find; a compile with any error has no
 //! result.
+//!
+//! An interpretation may also meet a value it can't know yet (docs/c4-l0182-assignment-plan.md,
+//! decision 1 and §3): a dialect's occurrence whose assignment the table doesn't hold is
+//! [`Value::Pending`], and the dialect records a request for it
+//! ([`Evaluator::request_assignment`]). Building a list or record and binding a name carry a
+//! pending value; every other operation that receives one is **suspended**: it runs none of its
+//! branches or body and is pending itself, and every variable the skipped code could have set
+//! reads as pending afterwards. A run that met anything pending, even a value it then
+//! discarded, has no result: it answers its requests instead ([`Evaluated::NeedsAssignment`]).
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -65,6 +74,26 @@ pub struct Evaluator<'e> {
     args: Option<Vec<Value>>,
     errors: Vec<Diagnostic>,
     depth: usize,
+    /// C4: the assignment table this interpretation was given, or `None` for a run that can't
+    /// ask for one (a compile).
+    assignments: Option<&'e Json>,
+    /// C4: what the dialect asked to have assigned, in evaluation order.
+    requests: Vec<Json>,
+    /// C4: how many times this run produced or suspended on a pending value. Any at all, even
+    /// one a sequence discarded, and the run has no result.
+    unresolved: usize,
+    /// C4: a suspended subtree could have set any variable, so every variable not set since
+    /// reads as pending.
+    all_vars_pending: bool,
+}
+
+/// How a run ended when it reported no errors (C4 decision 1).
+#[derive(Debug, PartialEq)]
+pub(crate) enum Evaluated {
+    /// Nothing was left unresolved: the program's value.
+    Value(Value),
+    /// Something was pending; the dialect's requests, in evaluation order.
+    NeedsAssignment(Vec<Json>),
 }
 
 pub(crate) struct Context<'e> {
@@ -75,6 +104,7 @@ pub(crate) struct Context<'e> {
     pub data: &'e Value,
     pub config: &'e Value,
     pub exec: &'e mut ExecContext,
+    pub assignments: Option<&'e Json>,
 }
 
 impl<'e> Evaluator<'e> {
@@ -92,12 +122,34 @@ impl<'e> Evaluator<'e> {
             args: None,
             errors: Vec::new(),
             depth: 0,
+            assignments: cx.assignments,
+            requests: Vec::new(),
+            unresolved: 0,
+            all_vars_pending: false,
         }
     }
 
-    pub(crate) async fn run(mut self) -> Result<Value, Vec<Diagnostic>> {
+    /// Evaluates the program. Errors win; otherwise success means nothing was left unresolved
+    /// anywhere in the run (C4 decision 1): no request, no suspension, and no pending value,
+    /// even one that was discarded. Something pending with no request to resolve it, or a
+    /// request in a run that can't exchange, is an internal error, never a result.
+    pub(crate) async fn run(mut self) -> Result<Evaluated, Vec<Diagnostic>> {
         let value = self.eval(self.ast.root()).await;
-        if self.errors.is_empty() { Ok(value) } else { Err(self.errors) }
+        if !self.errors.is_empty() {
+            return Err(self.errors);
+        }
+        if self.unresolved == 0 && self.requests.is_empty() && !value.contains_pending() {
+            return Ok(Evaluated::Value(value));
+        }
+        let internal =
+            |message: &str| Err(vec![Diagnostic::new(format!("Error: {message}")).with_code("assignment-unresolved")]);
+        if self.requests.is_empty() {
+            return internal("the program was left with a pending value that nothing asked to have assigned.");
+        }
+        if self.assignments.is_none() {
+            return internal("this language asked for an assignment where none can be given.");
+        }
+        Ok(Evaluated::NeedsAssignment(self.requests))
     }
 
     pub fn ast(&self) -> &'e Ast {
@@ -127,6 +179,70 @@ impl<'e> Evaluator<'e> {
     /// The value `set-var` last gave `name`.
     pub fn var(&self, name: &str) -> Option<&Value> {
         self.vars.get(name)
+    }
+
+    /// The assignment table this interpretation was given (C4 decision 1), opaque to the
+    /// kernel: identity to assigned `{ instance, digest, content? }`. `None` means this run
+    /// can't ask for an assignment (a compile, a model's evaluation, a command); an
+    /// interpretation without a table has an empty one.
+    pub fn assignments(&self) -> Option<&'e Json> {
+        self.assignments
+    }
+
+    /// Records a request for an occurrence the table doesn't hold (C4 decision 1) and returns
+    /// the [`Value::Pending`] it evaluates to. The run then answers `needsAssignment` with every
+    /// request, in the order they were made, and no result. Only an occurrence that is reached
+    /// and not suspended may ask: a dialect whose word receives a pending argument
+    /// [`suspend`](Self::suspend)s instead.
+    pub fn request_assignment(&mut self, request: Json) -> Value {
+        self.requests.push(request);
+        self.unresolved += 1;
+        Value::Pending
+    }
+
+    /// Suspends the operation at hand because something it received is pending (C4 §3): the
+    /// operation runs none of `skipped`, the nodes it would have evaluated next (branches, a
+    /// body, remaining arguments), and every variable they could have set reads as pending from
+    /// now on. Returns the [`Value::Pending`] the operation evaluates to. A dialect's own word
+    /// that receives a pending value ([`Value::contains_pending`]) must answer with this rather
+    /// than computing on it.
+    pub fn suspend(&mut self, skipped: &[NodeId]) -> Value {
+        self.unresolved += 1;
+        for &node in skipped {
+            self.forget_vars_set_in(node);
+        }
+        Value::Pending
+    }
+
+    /// Whether any of `values` is or holds a pending value. Kernel argument checks skip the
+    /// recursive walk until a pending value has been observed; dialect results are checked at
+    /// the boundary where they can introduce one.
+    fn holds_pending(&self, values: &[&Value]) -> bool {
+        self.unresolved > 0 && values.iter().any(|value| value.contains_pending())
+    }
+
+    /// Every variable the code at `node` could set now reads as pending (C4 decision 1): the
+    /// literal names of its `set-var`s, or every variable if one of its names is computed or it
+    /// has a function it could apply.
+    fn forget_vars_set_in(&mut self, node: NodeId) {
+        let ast = self.ast;
+        let mut every = false;
+        for (_, found) in ast.reachable_from(node) {
+            match found {
+                Node::Form { op: Op::SetVar, elts } => match elts.first().and_then(|&name| ast.get(name)) {
+                    Some(Node::Str(name)) => {
+                        self.vars.insert(name.clone(), Value::Pending);
+                    }
+                    _ => every = true,
+                },
+                Node::Form { op: Op::Lambda | Op::Apply, .. } => every = true,
+                _ => {}
+            }
+        }
+        if every {
+            self.vars.values_mut().for_each(|value| *value = Value::Pending);
+            self.all_vars_pending = true;
+        }
     }
 
     /// Records a compile error at a node. Evaluation continues.
@@ -164,9 +280,20 @@ impl<'e> Evaluator<'e> {
                 _ => None,
             };
             let value = match offered {
-                Some(value) => value,
+                Some(value) => {
+                    // A dialect can return pending inside a container without having asked
+                    // for an assignment. Remember it before a consumer or sequence can drop
+                    // it, so even that malformed run fails closed rather than returning data.
+                    if self.unresolved == 0 && value.contains_pending() {
+                        self.unresolved += 1;
+                    }
+                    value
+                }
                 None => self.kernel(id, node, args).await,
             };
+            if value.is_pending() {
+                self.unresolved += 1;
+            }
             self.depth -= 1;
             value
         }))
@@ -235,6 +362,10 @@ impl<'e> Evaluator<'e> {
             Node::Ident(name) => return self.lookup(name).cloned().unwrap_or_else(|| Value::Str(name.clone())),
             Node::Form { op, elts } => (op, elts.as_slice()),
         };
+        // C4 §3: a program, a sequence, parentheses, a list, a record's values, a function's
+        // arguments and a variable's value carry a pending value unchanged. Every other
+        // operation below that receives one (`self.holds_pending`) is suspended: it is pending,
+        // and runs nothing it hadn't already evaluated.
         match op {
             Op::Prog => self.eval_arg(id, elts, 0).await,
             Op::Exprs => self.sequence(elts, args).await,
@@ -255,6 +386,8 @@ impl<'e> Evaluator<'e> {
             Op::Apply => {
                 let args = match self.eval_arg(id, elts, 1).await {
                     Value::List(args) => args,
+                    // Not knowing whether it is a list, the arguments aren't known.
+                    Value::Pending => return self.suspend(&elts[..1.min(elts.len())]),
                     arg => vec![arg],
                 };
                 match self.elt(id, elts, 0) {
@@ -266,6 +399,9 @@ impl<'e> Evaluator<'e> {
             Op::Reduce => {
                 let mut acc = self.eval_arg(id, elts, 1).await;
                 let list = self.eval_arg(id, elts, 2).await;
+                if self.holds_pending(&[&acc, &list]) {
+                    return self.suspend(&elts[..1.min(elts.len())]);
+                }
                 let (Value::List(items), Some(function)) = (&list, elts.first().copied()) else {
                     // The accumulator stands: `reduce` over nothing is the initial value.
                     self.report(id, list_arg_error("reduce", &list));
@@ -278,18 +414,27 @@ impl<'e> Evaluator<'e> {
             }
             Op::Case => self.case(id, elts).await,
             Op::If => {
-                let branch = if self.eval_arg(id, elts, 0).await.is_truthy() { 1 } else { 2 };
+                let condition = self.eval_arg(id, elts, 0).await;
+                if self.holds_pending(&[&condition]) {
+                    return self.suspend(elts.get(1..).unwrap_or_default());
+                }
+                let branch = if condition.is_truthy() { 1 } else { 2 };
                 self.eval_arg(id, elts, branch).await
             }
 
             Op::Add | Op::Sub | Op::Mul | Op::Div | Op::Mod | Op::Pow | Op::Min | Op::Max => {
                 match self.operands(id, op, elts).await {
-                    Some((a, b)) => Value::Num(a.evaluate(binary_op(op), &b)),
-                    None => Value::Num(Number::NAN),
+                    Operands::Numbers(a, b) => Value::Num(a.evaluate(binary_op(op), &b)),
+                    Operands::Pending => self.suspend(&[]),
+                    Operands::Failed => Value::Num(Number::NAN),
                 }
             }
             Op::Eq | Op::Ne | Op::Lt | Op::Le | Op::Gt | Op::Ge => {
-                let Some((a, b)) = self.operands(id, op, elts).await else { return Value::Bool(false) };
+                let (a, b) = match self.operands(id, op, elts).await {
+                    Operands::Numbers(a, b) => (a, b),
+                    Operands::Pending => return self.suspend(&[]),
+                    Operands::Failed => return Value::Bool(false),
+                };
                 let ordering = a.compare(&b);
                 Value::Bool(match op {
                     Op::Eq => ordering == Some(Ordering::Equal),
@@ -302,23 +447,43 @@ impl<'e> Evaluator<'e> {
             }
             Op::Range => self.range(id, elts).await,
 
-            Op::Not => Value::Bool(!self.eval_arg(id, elts, 0).await.is_truthy()),
+            Op::Not => {
+                let a = self.eval_arg(id, elts, 0).await;
+                if self.holds_pending(&[&a]) {
+                    return self.suspend(&[]);
+                }
+                Value::Bool(!a.is_truthy())
+            }
             // `and` and `or` evaluate their second operand only when the first does not decide.
-            Op::And => Value::Bool(
-                self.eval_arg(id, elts, 0).await.is_truthy() && self.eval_arg(id, elts, 1).await.is_truthy(),
-            ),
-            Op::Or => Value::Bool(
-                self.eval_arg(id, elts, 0).await.is_truthy() || self.eval_arg(id, elts, 1).await.is_truthy(),
-            ),
+            Op::And | Op::Or => {
+                let a = self.eval_arg(id, elts, 0).await;
+                if self.holds_pending(&[&a]) {
+                    return self.suspend(elts.get(1..).unwrap_or_default());
+                }
+                if a.is_truthy() == (*op == Op::Or) {
+                    return Value::Bool(a.is_truthy());
+                }
+                let b = self.eval_arg(id, elts, 1).await;
+                if self.holds_pending(&[&b]) {
+                    return self.suspend(&[]);
+                }
+                Value::Bool(b.is_truthy())
+            }
             Op::Equiv => {
                 let a = self.eval_arg(id, elts, 0).await;
                 let b = self.eval_arg(id, elts, 1).await;
+                if self.holds_pending(&[&a, &b]) {
+                    return self.suspend(&[]);
+                }
                 Value::Bool(a == b)
             }
 
             Op::Concat => {
                 let a = self.eval_arg(id, elts, 0).await;
                 let b = self.eval_arg(id, elts, 1).await;
+                if self.holds_pending(&[&a, &b]) {
+                    return self.suspend(&[]);
+                }
                 match (a, b) {
                     (Value::Str(a), Value::Str(b)) => Value::Str(a + &b),
                     (Value::List(mut a), Value::List(b)) => {
@@ -334,10 +499,19 @@ impl<'e> Evaluator<'e> {
                     }
                 }
             }
-            Op::StrOf => Value::Str(self.eval_arg(id, elts, 0).await.display()),
+            Op::StrOf => {
+                let value = self.eval_arg(id, elts, 0).await;
+                if self.holds_pending(&[&value]) {
+                    return self.suspend(&[]);
+                }
+                Value::Str(value.display())
+            }
             Op::FormatNumber => {
                 let pattern = self.eval_arg(id, elts, 0).await;
                 let value = self.eval_arg(id, elts, 1).await;
+                if self.holds_pending(&[&pattern, &value]) {
+                    return self.suspend(&[]);
+                }
                 let formatted = match (&pattern, &value) {
                     (Value::Str(pattern), Value::Num(value)) => {
                         format_number(pattern, value).map_err(|err| err.to_string())
@@ -351,6 +525,7 @@ impl<'e> Evaluator<'e> {
                 }))
             }
             Op::Json => match self.eval_arg(id, elts, 0).await {
+                pending if self.holds_pending(&[&pending]) => self.suspend(&[]),
                 Value::Str(text) => match serde_json::from_str::<Json>(&text) {
                     Ok(json) => Value::from_json(&json),
                     Err(err) => {
@@ -364,6 +539,7 @@ impl<'e> Evaluator<'e> {
                 }
             },
             Op::Length => Value::from(match self.eval_arg(id, elts, 0).await {
+                pending if self.holds_pending(&[&pending]) => return self.suspend(&[]),
                 Value::Record(record) => record.len(),
                 Value::List(items) => items.len(),
                 // Counted as every other Graffiticode component counts it: in UTF-16 units.
@@ -374,6 +550,9 @@ impl<'e> Evaluator<'e> {
             Op::Get => {
                 let key = self.eval_arg(id, elts, 0).await;
                 let container = self.eval_arg(id, elts, 1).await;
+                if self.holds_pending(&[&key, &container]) {
+                    return self.suspend(&[]);
+                }
                 member(&container, &key).unwrap_or_else(|| {
                     self.report(id, format!("get: expected a record or list, got {}", container.kind()));
                     Value::Undefined
@@ -384,11 +563,17 @@ impl<'e> Evaluator<'e> {
             Op::Val => {
                 let key = self.eval_arg(id, elts, 0).await;
                 let container = self.eval_arg(id, elts, 1).await;
+                if self.holds_pending(&[&key, &container]) {
+                    return self.suspend(&[]);
+                }
                 member(&container, &key).unwrap_or(Value::Undefined)
             }
             Op::Nth => {
                 let index = self.eval_arg(id, elts, 0).await;
                 let container = self.eval_arg(id, elts, 1).await;
+                if self.holds_pending(&[&index, &container]) {
+                    return self.suspend(&[]);
+                }
                 if !matches!(index, Value::Num(_)) {
                     self.report(id, format!("nth: expected a number, got {}", index.kind()));
                     return Value::Undefined;
@@ -402,6 +587,7 @@ impl<'e> Evaluator<'e> {
                 let key = self.eval_arg(id, elts, 0).await;
                 let value = self.eval_arg(id, elts, 1).await;
                 match self.eval_arg(id, elts, 2).await {
+                    record if self.holds_pending(&[&key, &value, &record]) => self.suspend(&[]),
                     Value::Record(mut record) => {
                         record.insert(Key::of(&key), value);
                         Value::Record(record)
@@ -414,7 +600,11 @@ impl<'e> Evaluator<'e> {
             }
 
             Op::Hd | Op::Tl | Op::Last | Op::IsEmpty => {
-                let Some(mut items) = self.list_arg(id, op, elts, 0).await else {
+                let Some(mut items) = (match self.list_arg(id, op, elts, 0).await {
+                    ListArg::Pending => return self.suspend(&[]),
+                    ListArg::Items(items) => Some(items),
+                    ListArg::Failed => None,
+                }) else {
                     return match op {
                         Op::Tl => Value::List(Vec::new()),
                         Op::IsEmpty => Value::Bool(false),
@@ -440,17 +630,24 @@ impl<'e> Evaluator<'e> {
             Op::Cons | Op::Append => {
                 let item = self.eval_arg(id, elts, 0).await;
                 match self.list_arg(id, op, elts, 1).await {
-                    Some(mut items) => {
+                    ListArg::Pending => self.suspend(&[]),
+                    _ if self.holds_pending(&[&item]) => self.suspend(&[]),
+                    ListArg::Items(mut items) => {
                         let at = if *op == Op::Cons { 0 } else { items.len() };
                         items.insert(at, item);
                         Value::List(items)
                     }
-                    None => Value::List(vec![item]),
+                    ListArg::Failed => Value::List(vec![item]),
                 }
             }
             Op::Drop | Op::Take => {
                 let count = self.eval_arg(id, elts, 0).await;
-                let Some(mut items) = self.list_arg(id, op, elts, 1).await else { return Value::List(Vec::new()) };
+                let mut items = match self.list_arg(id, op, elts, 1).await {
+                    ListArg::Pending => return self.suspend(&[]),
+                    _ if self.holds_pending(&[&count]) => return self.suspend(&[]),
+                    ListArg::Items(items) => items,
+                    ListArg::Failed => return Value::List(Vec::new()),
+                };
                 // A negative count is taken from the end, as in a slice.
                 let split = slice_index(&count, items.len());
                 Value::List(if *op == Op::Drop {
@@ -463,8 +660,8 @@ impl<'e> Evaluator<'e> {
 
             Op::Data => self.data_form(id, elts).await,
             Op::Use => match self.schema_of(id, elts).await {
-                Some(_) => Value::Record(Record::new()),
-                None => Value::Null,
+                Ok(_) => Value::Record(Record::new()),
+                Err(instead) => instead,
             },
             Op::Print => {
                 let value = self.eval_arg(id, elts, 0).await;
@@ -476,16 +673,28 @@ impl<'e> Evaluator<'e> {
                 value
             }
             Op::GetVar => {
-                let name = self.eval_arg(id, elts, 0).await.display();
+                let name = self.eval_arg(id, elts, 0).await;
+                if self.holds_pending(&[&name]) {
+                    return self.suspend(&[]);
+                }
+                let name = name.display();
                 match (self.vars.get(&name), name.as_str()) {
                     (Some(value), _) => value.clone(),
+                    // A suspended subtree could have set it (C4 decision 1).
+                    (None, _) if self.all_vars_pending => Value::Pending,
                     (None, "data") => self.data.clone(),
                     (None, "config") => self.config.clone(),
                     (None, _) => Value::Undefined,
                 }
             }
             Op::SetVar => {
-                let name = self.eval_arg(id, elts, 0).await.display();
+                let name = self.eval_arg(id, elts, 0).await;
+                if self.holds_pending(&[&name]) {
+                    // Which variable it sets isn't known, so any of them may be set.
+                    self.forget_vars_set_in(id);
+                    return self.suspend(elts.get(1..).unwrap_or_default());
+                }
+                let name = name.display();
                 let value = self.eval_arg(id, elts, 1).await;
                 self.vars.insert(name, value.clone());
                 value
@@ -562,6 +771,7 @@ impl<'e> Evaluator<'e> {
     async fn record(&mut self, elts: &[NodeId]) -> Value {
         let ast = self.ast;
         let mut record = Record::new();
+        let mut unknown_key = false;
         for &elt in elts {
             let Some(Node::Form { op: Op::Binding, elts: pair }) = ast.get(elt) else {
                 self.report(elt, "A record field must be a binding.");
@@ -569,7 +779,12 @@ impl<'e> Evaluator<'e> {
             };
             let key = self.eval_arg(elt, pair, 0).await;
             let value = self.eval_arg(elt, pair, 1).await;
+            // A value is carried; a key that isn't known yet leaves the record unknown.
+            unknown_key |= self.holds_pending(&[&key]);
             record.insert(Key::of(&key), value);
+        }
+        if unknown_key {
+            return self.suspend(&[]);
         }
         Value::Record(record)
     }
@@ -578,6 +793,7 @@ impl<'e> Evaluator<'e> {
     async fn map_or_filter(&mut self, id: NodeId, op: &Op, elts: &[NodeId]) -> Value {
         let word = if *op == Op::Map { "map" } else { "filter" };
         let (items, function) = match (self.eval_arg(id, elts, 1).await, elts.first()) {
+            (list, _) if self.holds_pending(&[&list]) => return self.suspend(&elts[..1.min(elts.len())]),
             (Value::List(items), Some(&function)) => (items, function),
             (other, _) => {
                 self.report(id, list_arg_error(word, &other));
@@ -585,12 +801,23 @@ impl<'e> Evaluator<'e> {
             }
         };
         let mut out = Vec::with_capacity(items.len());
+        // A predicate that is pending leaves the filter pending. Every element's predicate still
+        // runs, as it will once the value is known.
+        let mut undecided = false;
         for item in items {
             if *op == Op::Map {
                 out.push(self.apply(function, vec![item]).await);
-            } else if self.apply(function, vec![item.clone()]).await.is_truthy() {
-                out.push(item);
+            } else {
+                let keep = self.apply(function, vec![item.clone()]).await;
+                if self.holds_pending(&[&keep]) {
+                    undecided = true;
+                } else if keep.is_truthy() {
+                    out.push(item);
+                }
             }
+        }
+        if undecided {
+            return self.suspend(&[]);
         }
         Value::List(out)
     }
@@ -600,6 +827,9 @@ impl<'e> Evaluator<'e> {
     async fn case(&mut self, id: NodeId, elts: &[NodeId]) -> Value {
         let ast = self.ast;
         let subject = self.eval_arg(id, elts, 0).await;
+        if self.holds_pending(&[&subject]) {
+            return self.suspend(elts.get(1..).unwrap_or_default());
+        }
         for &clause in elts.iter().skip(1) {
             let Some(Node::Form { op: Op::Of, elts: clause }) = ast.get(clause) else { continue };
             let &[pattern, value] = clause.as_slice() else { continue };
@@ -614,24 +844,28 @@ impl<'e> Evaluator<'e> {
         Value::Record(Record::new())
     }
 
-    async fn operands(&mut self, id: NodeId, op: &Op, elts: &[NodeId]) -> Option<(Decimal, Decimal)> {
+    async fn operands(&mut self, id: NodeId, op: &Op, elts: &[NodeId]) -> Operands {
         let a = self.eval_arg(id, elts, 0).await;
         let b = self.eval_arg(id, elts, 1).await;
+        if self.holds_pending(&[&a, &b]) {
+            return Operands::Pending;
+        }
         match (Decimal::from_value(&a), Decimal::from_value(&b)) {
-            (Ok(a), Ok(b)) => Some((a, b)),
+            (Ok(a), Ok(b)) => Operands::Numbers(a, b),
             (Err(err), _) | (_, Err(err)) => {
                 self.report(id, format!("Error in {op} operation: {err}"));
-                None
+                Operands::Failed
             }
         }
     }
 
-    async fn list_arg(&mut self, id: NodeId, op: &Op, elts: &[NodeId], index: usize) -> Option<Vec<Value>> {
+    async fn list_arg(&mut self, id: NodeId, op: &Op, elts: &[NodeId], index: usize) -> ListArg {
         match self.eval_arg(id, elts, index).await {
-            Value::List(items) => Some(items),
+            list if self.holds_pending(&[&list]) => ListArg::Pending,
+            Value::List(items) => ListArg::Items(items),
             other => {
                 self.report(id, format!("Error in {op} operation: expected a list, got {}", other.kind()));
-                None
+                ListArg::Failed
             }
         }
     }
@@ -640,6 +874,9 @@ impl<'e> Evaluator<'e> {
         let start = self.eval_arg(id, elts, 0).await;
         let end = self.eval_arg(id, elts, 1).await;
         let step = self.eval_arg(id, elts, 2).await;
+        if self.holds_pending(&[&start, &end, &step]) {
+            return self.suspend(&[]);
+        }
         let bounds = [&start, &end, &step].map(Decimal::from_value);
         let [Ok(start), Ok(end), Ok(step)] = bounds else {
             let err = bounds.into_iter().find_map(Result::err).expect("a bound failed to parse");
@@ -683,11 +920,14 @@ impl<'e> Evaluator<'e> {
         let arg = elts.first().map(|&arg| unparenthesized(ast, arg));
         let (fallback, schema) = match arg.and_then(|arg| Some((arg, ast.get(arg)?))) {
             Some((used, Node::Form { op: Op::Use, elts })) => match self.schema_of(used, elts).await {
-                Some(schema) => (Value::Record(Record::new()), Some(schema)),
-                None => return Value::Null,
+                Ok(schema) => (Value::Record(Record::new()), Some(schema)),
+                Err(instead) => return instead,
             },
             _ => (self.eval_arg(id, elts, 0).await, None),
         };
+        if self.holds_pending(&[&fallback]) {
+            return self.suspend(&[]);
+        }
         let upstream = self.data;
         let bound = match upstream {
             Value::Undefined | Value::Null => false,
@@ -721,24 +961,45 @@ impl<'e> Evaluator<'e> {
         Value::Record(merged)
     }
 
-    /// The schema a `USE` node names, or `None` after reporting why there is none.
-    async fn schema_of(&mut self, id: NodeId, elts: &[NodeId]) -> Option<std::sync::Arc<LanguageSchema>> {
+    /// The schema a `USE` node names, or what stands in for it: `null` after reporting why
+    /// there is none, or a pending value when the name isn't known yet (C4 §3), which is
+    /// reported nowhere.
+    async fn schema_of(&mut self, id: NodeId, elts: &[NodeId]) -> Result<std::sync::Arc<LanguageSchema>, Value> {
         let lang = match self.eval_arg(id, elts, 0).await {
+            pending if self.holds_pending(&[&pending]) => return Err(self.suspend(&[])),
             Value::Str(lang) => lang,
             _ => String::new(),
         };
         if !(3..=5).contains(&lang.len()) || !lang.bytes().all(|b| b.is_ascii_digit()) {
             self.report(id, format!("use: argument must be a language id, got \"{lang}\""));
-            return None;
+            return Err(Value::Null);
         }
         match self.schemas.schema(&lang).await {
-            Ok(schema) => Some(schema),
+            Ok(schema) => Ok(schema),
             Err(err) => {
                 self.report(id, format!("use: failed to load L{lang}/schema.json: {err}"));
-                None
+                Err(Value::Null)
             }
         }
     }
+}
+
+/// Two operands as numbers, or why not.
+enum Operands {
+    Numbers(Decimal, Decimal),
+    /// One of them is pending (C4 §3); nothing was reported.
+    Pending,
+    /// Reported.
+    Failed,
+}
+
+/// A list argument, or why not.
+enum ListArg {
+    Items(Vec<Value>),
+    /// It is or holds a pending value (C4 §3); nothing was reported.
+    Pending,
+    /// Reported.
+    Failed,
 }
 
 /// The node inside any parentheses around `id`.

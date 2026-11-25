@@ -7,7 +7,7 @@
 //! |---|---|
 //! | `GET /` | health check |
 //! | `POST /compile` | `{ code, data, config }` → `{ data, errors }` (and `cache: false` for a language whose output expires); with `"form": "model"`, `{ model, errors }` instead |
-//! | `POST /interpret` | `{ model, input, mode, config }` → `{ data, errors }`, as `/compile` answers |
+//! | `POST /interpret` | `{ model, input, mode, config, assignments? }` → `{ data, errors }`, as `/compile` answers, or `{ status: 200, needsAssignment }` |
 //! | `POST /preflight` | the gateway only: a stage's manifest, without running anything |
 //! | `GET /form` | the embeddable View bundle |
 //! | `GET /lexicon.json` | the lexicon |
@@ -366,9 +366,19 @@ async fn interpret(
     // occurrences a repair gives it from their records (B6, decision 7a); `materialize`
     // rebuilds a stage from its records alone, acting on nothing (B6, decision 6). A
     // materialization runs with no identity: no user, connection or session reaches it.
-    let interpreted = match body.get("operation").and_then(Value::as_str).unwrap_or("get") {
+    // C4 (docs/c4-l0182-assignment-plan.md, decision 1 and §3): the assignment table, opaque
+    // here and given to the dialect; absent is empty. Only a read takes one.
+    let assignments = body.get("assignments").filter(|table| !table.is_null());
+    let operation = body.get("operation").and_then(Value::as_str).unwrap_or("get");
+    if assignments.is_some() && operation != "get" {
+        return bad_request("only a read takes assignments");
+    }
+    let interpreted = match operation {
         "get" if recorded.is_none() => {
-            state.compiler.interpret(&model, &body["input"], &body["config"], mode, identity).await
+            state
+                .compiler
+                .interpret_assigned(&model, &body["input"], &body["config"], mode, identity, assignments)
+                .await
         }
         "start" => {
             let command_session = body.get("commandSession").and_then(Value::as_str).map(str::to_owned);

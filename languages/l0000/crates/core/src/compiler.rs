@@ -7,9 +7,9 @@ use serde_json::{Value as Json, json};
 
 use crate::ast::Ast;
 use crate::check::check;
-use crate::dialect::Dialect;
+use crate::dialect::{Dialect, Interpretation};
 use crate::error::Diagnostic;
-use crate::eval::{Context, Evaluator};
+use crate::eval::{Context, Evaluated, Evaluator};
 use crate::exec::{ExecContext, Identity, ProtectedEffect, Recorded};
 use crate::model::{Intent, Mode, Model, ModelKind};
 use crate::preflight::{RevisionIdentity, StageManifest, digest_of, required_protected_functions};
@@ -55,11 +55,34 @@ pub struct Compilation {
     /// C5: a command `start` that stopped for something temporary, and why. Its answer then
     /// lists no occurrences, and the gateway resumes the stage later.
     pub resume: Option<String>,
+    /// C4 (docs/c4-l0182-assignment-plan.md, decision 1 and §3): an interpretation that met
+    /// occurrences its assignment table doesn't hold. It has no result (`result` is
+    /// `Ok(Value::Pending)`), only these requests, in evaluation order, which the api resolves
+    /// before it interprets again with the fuller table. `None` for everything else.
+    pub needs_assignment: Option<Vec<Json>>,
 }
 
 impl Compilation {
     fn of(result: Result<Value, Vec<Diagnostic>>, mode: Mode) -> Self {
-        Self { result, effects: Vec::new(), occurrences: None, restriction: None, mode, replayed: None, resume: None }
+        Self {
+            result,
+            effects: Vec::new(),
+            occurrences: None,
+            restriction: None,
+            mode,
+            replayed: None,
+            resume: None,
+            needs_assignment: None,
+        }
+    }
+
+    /// A run's outcome as a compilation's result, and its requests when it needs assignments.
+    fn evaluated(evaluated: Result<Evaluated, Vec<Diagnostic>>) -> (Result<Value, Vec<Diagnostic>>, Option<Vec<Json>>) {
+        match evaluated {
+            Ok(Evaluated::Value(value)) => (Ok(value), None),
+            Ok(Evaluated::NeedsAssignment(requests)) => (Ok(Value::Pending), Some(requests)),
+            Err(errors) => (Err(errors), None),
+        }
     }
 }
 
@@ -130,6 +153,15 @@ impl Compiler {
     /// TypeScript servers use, without the `revision` the server adds. Built here so a
     /// language's tests check exactly what its server answers.
     pub fn envelope(&self, compiled: &Compilation) -> Json {
+        // C4 §3: an interpretation that needs assignments has no data: only its requests, and
+        // what its protected writes did, if anything.
+        if let Some(requests) = &compiled.needs_assignment {
+            let mut envelope = json!({ "status": 200, "needsAssignment": requests });
+            if !compiled.effects.is_empty() {
+                envelope["effects"] = json!(compiled.effects);
+            }
+            return envelope;
+        }
         // Compiled output goes in `data` and compile errors in `errors`, which is always
         // present; consumers branch on whether it is empty.
         let mut envelope = match &compiled.result {
@@ -190,16 +222,26 @@ impl Compiler {
     /// either. `identity` is the caller's verified identity and becomes this invocation's
     /// [`ExecContext`].
     pub async fn compile(&self, code: &Json, data: &Json, config: &Json, identity: Identity) -> Compilation {
-        self.compile_in(code, data, config, identity, Mode::Present).await
+        self.compile_in(code, data, config, identity, Mode::Present, None).await
     }
 
     /// [`compile`](Self::compile) for a result in `mode`: a compile is `present`; an
-    /// interpretation the dialect declines evaluates its plan in the request's mode.
-    async fn compile_in(&self, code: &Json, data: &Json, config: &Json, identity: Identity, mode: Mode) -> Compilation {
+    /// interpretation the dialect declines evaluates its plan in the request's mode, with its
+    /// assignment table (C4; `None` for a compile, which can't ask for one).
+    async fn compile_in(
+        &self,
+        code: &Json,
+        data: &Json,
+        config: &Json,
+        identity: Identity,
+        mode: Mode,
+        assignments: Option<&Json>,
+    ) -> Compilation {
         let mut exec = ExecContext::new(identity);
         exec.set_policy(self.policy.clone());
         exec.set_mode(mode);
-        let result = self.run(code, data, config, &mut exec, None).await;
+        let (result, needs_assignment) =
+            Compilation::evaluated(self.evaluate(code, data, config, &mut exec, None, assignments).await);
         let occurrences = exec.command_occurrences().cloned();
         let restriction = exec.restriction();
         Compilation {
@@ -210,9 +252,12 @@ impl Compiler {
             mode,
             replayed: None,
             resume: None,
+            needs_assignment,
         }
     }
 
+    /// [`evaluate`](Self::evaluate) for a run that can't ask for an assignment: a dialect's
+    /// request is an internal error, never a result.
     async fn run(
         &self,
         code: &Json,
@@ -221,6 +266,25 @@ impl Compiler {
         exec: &mut ExecContext,
         intents: Option<Vec<Intent>>,
     ) -> Result<Value, Vec<Diagnostic>> {
+        match self.evaluate(code, data, config, exec, intents, None).await? {
+            Evaluated::Value(value) => Ok(value),
+            // The evaluator answers this only to a run that was given a table.
+            Evaluated::NeedsAssignment(_) => Err(vec![
+                Diagnostic::new("Error: this language asked for an assignment where none can be given.")
+                    .with_code("assignment-unresolved"),
+            ]),
+        }
+    }
+
+    async fn evaluate(
+        &self,
+        code: &Json,
+        data: &Json,
+        config: &Json,
+        exec: &mut ExecContext,
+        intents: Option<Vec<Intent>>,
+        assignments: Option<&Json>,
+    ) -> Result<Evaluated, Vec<Diagnostic>> {
         let dialect = &*self.dialect;
         // What executes is the normalized program (preflight applies the same).
         let (program, ast) = self.program(code)?;
@@ -265,6 +329,7 @@ impl Compiler {
             data: &data,
             config: &config,
             exec,
+            assignments,
         })
         .run()
         .await
@@ -314,6 +379,25 @@ impl Compiler {
         mode: Mode,
         identity: Identity,
     ) -> Compilation {
+        self.interpret_assigned(model, input, config, mode, identity, None).await
+    }
+
+    /// [`interpret`](Self::interpret) with an assignment table (docs/c4-l0182-assignment-plan.md,
+    /// decision 1 and §3): identity to assigned `{ instance, digest, content? }`, opaque here and
+    /// passed to the dialect (absent is the empty table). A plan whose dialect meets an
+    /// occurrence the table doesn't hold answers [`Compilation::needs_assignment`] instead of a
+    /// result. A dialect that never asks interprets exactly as [`interpret`](Self::interpret).
+    pub async fn interpret_assigned(
+        &self,
+        model: &Model,
+        input: &Json,
+        config: &Json,
+        mode: Mode,
+        identity: Identity,
+        assignments: Option<&Json>,
+    ) -> Compilation {
+        let empty = Json::Object(serde_json::Map::new());
+        let assignments = assignments.filter(|table| !table.is_null()).unwrap_or(&empty);
         if model.lang != self.dialect.lang_id() {
             let refused = Diagnostic::new(format!(
                 "Error: a model from L{} can't be interpreted by L{}",
@@ -327,9 +411,20 @@ impl Compiler {
         let identity = Identity { command_session: None, ..identity };
         match &model.kind {
             ModelKind::Value(value) => Compilation::of(Ok(Value::from_json(value)), mode),
-            ModelKind::Plan(program) => match self.dialect.interpret(model, input, mode).await {
-                Some(result) => Compilation::of(result.map(|json| Value::from_json(&json)), mode),
-                None => self.compile_in(program, input, config, identity, mode).await,
+            ModelKind::Plan(program) => match self.dialect.interpret_assigned(model, input, mode, assignments).await {
+                Some(Ok(Interpretation::Data(json))) => Compilation::of(Ok(Value::from_json(&json)), mode),
+                Some(Ok(Interpretation::NeedsAssignment(requests))) if requests.is_empty() => Compilation::of(
+                    Err(vec![
+                        Diagnostic::new("Error: this language needs an assignment but didn't say which.")
+                            .with_code("assignment-unresolved"),
+                    ]),
+                    mode,
+                ),
+                Some(Ok(Interpretation::NeedsAssignment(requests))) => {
+                    Compilation { needs_assignment: Some(requests), ..Compilation::of(Ok(Value::Pending), mode) }
+                }
+                Some(Err(errors)) => Compilation::of(Err(errors), mode),
+                None => self.compile_in(program, input, config, identity, mode, Some(assignments)).await,
             },
         }
     }
@@ -393,6 +488,7 @@ impl Compiler {
             mode: Mode::Present,
             replayed,
             resume,
+            needs_assignment: None,
         }
     }
 
@@ -441,6 +537,7 @@ impl Compiler {
             mode: Mode::Replay,
             replayed,
             resume: None,
+            needs_assignment: None,
         }
     }
 

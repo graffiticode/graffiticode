@@ -920,3 +920,65 @@ async fn a_dialect_that_is_not_gateway_only_is_not_gated() {
     let app = server_for(Compiler::new(Permission { gated: false })).app;
     assert_eq!(permitted(&app, None, json!({ "code": add_1_2(), "data": {} })).await, json!(true));
 }
+
+/// C4 (docs/c4-l0182-assignment-plan.md, decision 1 and §3): `OCC <name>` resolves from the
+/// assignment table, or asks for its name and is pending.
+struct Assigned;
+
+#[async_trait]
+impl graffiticode_l0000::Dialect for Assigned {
+    fn lang_id(&self) -> &str {
+        "0000"
+    }
+    async fn eval(
+        &self,
+        cx: &mut graffiticode_l0000::Evaluator<'_>,
+        id: graffiticode_l0000::NodeId,
+        op: &graffiticode_l0000::Op,
+        elts: &[graffiticode_l0000::NodeId],
+    ) -> Option<graffiticode_l0000::Value> {
+        if op.tag() != "OCC" {
+            return None;
+        }
+        let name = cx.eval_arg(id, elts, 0).await.display();
+        Some(match cx.assignments().and_then(|table| table.get(&name)) {
+            Some(assigned) => graffiticode_l0000::Value::from_json(&assigned["instance"]),
+            None => cx.request_assignment(json!({ "identity": name })),
+        })
+    }
+}
+
+// C4 §3: `/interpret` takes an optional assignment table, and answers `needsAssignment`, with no
+// data, while the table lacks something the program reached. Only a read takes a table.
+#[tokio::test]
+async fn interpret_takes_assignments_and_answers_needs_assignment() {
+    let server = server_for(Compiler::new(Assigned));
+    let code = json!({
+        "1": { "tag": "STR", "elts": ["a"] }, "2": { "tag": "OCC", "elts": [1] },
+        "3": { "tag": "EXPRS", "elts": [2] }, "4": { "tag": "PROG", "elts": [3] }, "root": 4,
+    });
+    let model =
+        compile(&server.app, json!({ "code": code, "data": {}, "form": "model" })).await.json()["model"].clone();
+    for assignments in [None, Some(json!(null)), Some(json!({}))] {
+        let mut body = json!({ "model": model, "input": {} });
+        if let Some(assignments) = assignments {
+            body["assignments"] = assignments;
+        }
+        let reply = interpret(&server.app, body).await;
+        assert_eq!(reply.status, StatusCode::OK);
+        assert_eq!(
+            reply.text(),
+            format!(r#"{{"status":200,"needsAssignment":[{{"identity":"a"}}],"revision":"{REVISION}"}}"#)
+        );
+    }
+    let assignments = json!({ "a": { "instance": "a-3", "digest": "d" } });
+    let reply = interpret(&server.app, json!({ "model": model, "input": {}, "assignments": assignments })).await;
+    assert_eq!(reply.text(), format!(r#"{{"data":"a-3","errors":[],"revision":"{REVISION}"}}"#));
+    for operation in ["start", "materialize"] {
+        let body = json!({ "model": model, "input": {}, "operation": operation, "assignments": assignments });
+        assert_eq!(interpret(&server.app, body).await.status, StatusCode::BAD_REQUEST, "{operation}");
+    }
+    // `/compile` is untouched: it has no table, and a request there is an internal error.
+    let reply = compile(&server.app, json!({ "code": code, "data": {} })).await;
+    assert_eq!(reply.json()["errors"][0]["code"], json!("assignment-unresolved"));
+}

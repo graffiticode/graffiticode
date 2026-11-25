@@ -27,6 +27,13 @@ pub enum Value {
     /// A function that has not been applied to all of its arguments. It names the parameters
     /// still unbound; functions are applied where they are written, so it carries no body.
     Lambda(Lambda),
+    /// A value an interpretation can't know yet: a dialect's occurrence whose assignment the
+    /// table doesn't hold (docs/c4-l0182-assignment-plan.md, decision 1 and §3). Only a dialect
+    /// produces it ([`Evaluator::request_assignment`](crate::Evaluator::request_assignment),
+    /// [`Evaluator::suspend`](crate::Evaluator::suspend)). Building a list or record and binding
+    /// a name carry it; every other operation that receives it is suspended and is itself
+    /// pending. A run that produced one is never written as data. It has no JSON form.
+    Pending,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -180,12 +187,28 @@ impl Value {
     /// except `false`, `0`, `NaN`, `""`, `null` and a missing value.
     pub fn is_truthy(&self) -> bool {
         match self {
-            Value::Undefined | Value::Null => false,
+            Value::Undefined | Value::Null | Value::Pending => false,
             Value::Bool(b) => *b,
             Value::Num(Number::Float(n)) => *n != 0.0 && !n.is_nan(),
             Value::Num(Number::Exact(_)) => true,
             Value::Str(s) => !s.is_empty(),
             Value::Tag(_) | Value::List(_) | Value::Record(_) | Value::Lambda(_) => true,
+        }
+    }
+
+    /// Whether this is [`Value::Pending`] itself.
+    pub fn is_pending(&self) -> bool {
+        matches!(self, Value::Pending)
+    }
+
+    /// Whether this value is, or holds anywhere inside a list or record, [`Value::Pending`]:
+    /// a value computed from it would be computed from something unknown (C4 §3).
+    pub fn contains_pending(&self) -> bool {
+        match self {
+            Value::Pending => true,
+            Value::List(items) => items.iter().any(Value::contains_pending),
+            Value::Record(record) => record.iter().any(|(_, value)| value.contains_pending()),
+            _ => false,
         }
     }
 
@@ -201,6 +224,7 @@ impl Value {
             Value::List(_) => "a list",
             Value::Record(_) => "a record",
             Value::Lambda(_) => "a function",
+            Value::Pending => "a pending value",
         }
     }
 
@@ -224,6 +248,7 @@ impl Value {
     fn write_display(&self, out: &mut String, nested: bool) {
         match self {
             Value::Undefined | Value::Null => out.push_str("null"),
+            Value::Pending => out.push_str("pending"),
             Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
             Value::Num(n) => out.push_str(&n.display()),
             Value::Str(s) if nested => out.push_str(&quote(s)),
@@ -272,7 +297,7 @@ impl Value {
     /// when two keys share a name, the later one wins.
     pub fn to_json(&self) -> Option<Json> {
         Some(match self {
-            Value::Undefined => return None,
+            Value::Undefined | Value::Pending => return None,
             Value::Null => Json::Null,
             Value::Bool(b) => Json::Bool(*b),
             Value::Num(n) => number_to_json(n.to_f64()),

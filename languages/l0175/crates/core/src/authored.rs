@@ -20,7 +20,7 @@ pub fn text(value: &Value) -> String {
     match value {
         Value::Tag(name) => name.clone(),
         Value::Str(text) => text.clone(),
-        Value::Undefined | Value::Null => String::new(),
+        Value::Undefined | Value::Null | Value::Pending => String::new(),
         Value::Bool(flag) => flag.to_string(),
         Value::Num(number) => number.display(),
         Value::List(items) => {

@@ -32,7 +32,7 @@ impl Js {
     /// A runtime value as `toPlainObject` hands it to a TypeScript handler.
     pub fn from_value(value: &Value) -> Self {
         match value {
-            Value::Undefined => Js::Undefined,
+            Value::Undefined | Value::Pending => Js::Undefined,
             Value::Null => Js::Null,
             Value::Bool(b) => Js::Bool(*b),
             Value::Num(n) => Js::Num(n.to_f64()),

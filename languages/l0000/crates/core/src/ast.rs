@@ -213,9 +213,15 @@ impl Ast {
     /// The nodes a program can evaluate: those reachable from the root, each once, parents
     /// before children and siblings in source order.
     pub fn reachable(&self) -> Vec<(NodeId, &Node)> {
+        self.reachable_from(self.root)
+    }
+
+    /// The nodes reachable from `id` (itself included), each once, parents before children
+    /// and siblings in source order: everything evaluating `id` could evaluate.
+    pub fn reachable_from(&self, id: NodeId) -> Vec<(NodeId, &Node)> {
         let mut seen = std::collections::HashSet::new();
         let mut found = Vec::new();
-        let mut pending = vec![self.root];
+        let mut pending = vec![id];
         while let Some(id) = pending.pop() {
             if !seen.insert(id) {
                 continue;
