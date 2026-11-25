@@ -1,0 +1,195 @@
+{
+  "apiVersion": "serving.knative.dev/v1",
+  "kind": "Revision",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "586.0.0",
+      "run.googleapis.com/operation-id": "e10aeedf-97fc-4c69-b8b2-a32f43fb31a4",
+      "run.googleapis.com/startup-cpu-boost": "true",
+      "serving.knative.dev/creator": "<operator>"
+    },
+    "creationTimestamp": "2026-11-24T04:28:37.663403Z",
+    "generation": 1,
+    "labels": {
+      "client.knative.dev/nonce": "xwhxvtaxmp",
+      "cloud.googleapis.com/location": "us-central1",
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtqs6gy-ea522e",
+      "run.googleapis.com/startupProbeType": "Default",
+      "serving.knative.dev/configuration": "broker-c5d-drive",
+      "serving.knative.dev/configurationGeneration": "4",
+      "serving.knative.dev/service": "broker-c5d-drive",
+      "serving.knative.dev/serviceUid": "827c40bb-116f-432c-92aa-80e1090989d0"
+    },
+    "name": "broker-c5d-drive-00004-pxp",
+    "namespace": "656973052505",
+    "ownerReferences": [
+      {
+        "apiVersion": "serving.knative.dev/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Configuration",
+        "name": "broker-c5d-drive",
+        "uid": "1623d0da-9236-4077-9275-2865e4e95d58"
+      }
+    ],
+    "resourceVersion": "AAZg/iT8am0",
+    "selfLink": "/apis/serving.knative.dev/v1/namespaces/656973052505/revisions/broker-c5d-drive-00004-pxp",
+    "uid": "4b751666-6bda-4917-bb3a-56699e9a3b16"
+  },
+  "spec": {
+    "containerConcurrency": 80,
+    "containers": [
+      {
+        "env": [
+          {
+            "name": "BROKER_FIRESTORE_DB",
+            "value": "broker"
+          },
+          {
+            "name": "POLICY_KMS_KEY_VERSION",
+            "value": "projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1"
+          },
+          {
+            "name": "POLICY_KMS_KID",
+            "value": "policy-1"
+          },
+          {
+            "name": "LEARNOSITY_DOMAIN",
+            "value": "l0176.graffiticode.org"
+          },
+          {
+            "name": "POLICY_URL",
+            "value": "https://policy-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "BROKER_MIN_CONTRACT_VERSION",
+            "value": "2"
+          },
+          {
+            "name": "SYSTEM_SESSION_MAX_SIGNINGS",
+            "value": "4"
+          },
+          {
+            "name": "BROKER_PREVIEW_CONNECTIONS",
+            "value": "{\"learnosity\":\"conn-d9afcb13-cff3-43a6-8041-c44989bf689c\"}"
+          },
+          {
+            "name": "THUMBNAIL_BUCKET",
+            "value": "graffiticode-c5d-drive"
+          },
+          {
+            "name": "COMMAND_STAGING_BUCKET",
+            "value": "graffiticode-command-staging"
+          },
+          {
+            "name": "BROKER_CALLERS",
+            "valueFrom": {
+              "secretKeyRef": {
+                "key": "3",
+                "name": "broker-callers"
+              }
+            }
+          },
+          {
+            "name": "AUDIT_PSEUDONYM_SECRET",
+            "valueFrom": {
+              "secretKeyRef": {
+                "key": "1",
+                "name": "audit-pseudonym-secret"
+              }
+            }
+          },
+          {
+            "name": "BROKER_SECRET_KEY",
+            "valueFrom": {
+              "secretKeyRef": {
+                "key": "1",
+                "name": "BROKER_SECRET_KEY"
+              }
+            }
+          },
+          {
+            "name": "BROKER_FAULT_PRINCIPALS",
+            "value": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+          },
+          {
+            "name": "GC_RELEASE",
+            "value": "rmwtqs6gy-ea522e"
+          },
+          {
+            "name": "GC_IMAGE_DIGEST",
+            "value": "sha256:d2279a136228b7d986377e5ea5dee4f0f644b3207c5662bb1f50bbd6f2561710"
+          }
+        ],
+        "image": "us-central1-docker.pkg.dev/graffiticode/services/broker-c5d-drive@sha256:d2279a136228b7d986377e5ea5dee4f0f644b3207c5662bb1f50bbd6f2561710",
+        "name": "broker-c5d-drive-1",
+        "ports": [
+          {
+            "containerPort": 8080,
+            "name": "http1"
+          }
+        ],
+        "resources": {
+          "limits": {
+            "cpu": "1000m",
+            "memory": "512Mi"
+          }
+        },
+        "startupProbe": {
+          "failureThreshold": 1,
+          "periodSeconds": 240,
+          "tcpSocket": {
+            "port": 8080
+          },
+          "timeoutSeconds": 240
+        }
+      }
+    ],
+    "sandboxes": {},
+    "serviceAccountName": "broker-run@graffiticode.iam.gserviceaccount.com",
+    "timeoutSeconds": 300
+  },
+  "status": {
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-11-24T04:28:38.745065Z",
+        "reason": "Retired",
+        "status": "True",
+        "type": "Ready"
+      },
+      {
+        "lastTransitionTime": "2026-11-24T04:28:38.745065Z",
+        "message": "Revision retired.",
+        "reason": "Retired",
+        "severity": "Info",
+        "status": "False",
+        "type": "Active"
+      },
+      {
+        "lastTransitionTime": "2026-11-24T04:28:38.604545Z",
+        "message": "Container image import completed.",
+        "status": "True",
+        "type": "ContainerReady"
+      },
+      {
+        "lastTransitionTime": "2026-11-24T04:28:38.745065Z",
+        "message": "Revision retired.",
+        "reason": "Retired",
+        "status": "Unknown",
+        "type": "ResourcesAvailable"
+      }
+    ],
+    "containerStatuses": [
+      {
+        "imageDigest": "us-central1-docker.pkg.dev/graffiticode/services/broker-c5d-drive@sha256:d2279a136228b7d986377e5ea5dee4f0f644b3207c5662bb1f50bbd6f2561710",
+        "name": "broker-c5d-drive-1"
+      }
+    ],
+    "imageDigest": "us-central1-docker.pkg.dev/graffiticode/services/broker-c5d-drive@sha256:d2279a136228b7d986377e5ea5dee4f0f644b3207c5662bb1f50bbd6f2561710",
+    "logUrl": "https://console.cloud.google.com/logs/viewer?project=graffiticode&resource=cloud_run_revision/service_name/broker-c5d-drive/revision_name/broker-c5d-drive-00004-pxp&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22broker-c5d-drive%22%0Aresource.labels.revision_name%3D%22broker-c5d-drive-00004-pxp%22",
+    "observedGeneration": 1
+  }
+}

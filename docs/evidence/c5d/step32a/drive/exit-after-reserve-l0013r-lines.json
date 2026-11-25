@@ -1,0 +1,25 @@
+[
+  {
+    "insertId": "6b0508a7000edab7b30ea08c",
+    "labels": {
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtr1q6y-99884e",
+      "instanceId": "00e8a408bd7a3ecde11539c5c6f7c6eb9c61a33f90ab4aef96ef22032315bdbac0a771534e0deb9b6c94f5a3981f9c9fef76c7e4b2a368c2f51b2e71bbeaee3c6846e8a7d0fca8c8f572456afc4c543f1e82492ad2ff3316cac5e18d"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T03:46:48.173325823Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "l0013r-c5d-drive",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+        "service_name": "l0013r-c5d-drive"
+      },
+      "type": "cloud_run_revision"
+    },
+    "textPayload": "\u001b[2m2026-11-24T03:46:47.973774Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2ml0013r\u001b[0m\u001b[2m:\u001b[0m capture fault exit-after-reserve command c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21",
+    "timestamp": "2026-11-24T03:46:47.973495Z"
+  }
+]

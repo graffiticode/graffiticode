@@ -1,0 +1,67 @@
+{
+  "runId": "d1ca6da0",
+  "phase": "rate-limit",
+  "at": "2026-11-24T18:52:56.451Z",
+  "allocated": [
+    "c:e27dc7d646352121e03ba2eb659eb8777c6ab023cba86e9eaf00330a65c0554c",
+    "c:cfe1d1c528e05158d980ffd2c72b87b9e6ac8f45dae3e7ba817332967ca22f2f",
+    "c:d7d3235f061ea061bc6f2204d7153b92a2eda24cab873894407da7ff3b73db91",
+    "c:7423694c7e7651634d29b370ad7cd84a13c1dc3e0a2edae3d585c94d2abf5808",
+    "c:3a84bcaa3dd73751873011628dc2e3f5a01af50594d3e0981a67415a737a51ec",
+    "c:0ffadf2d4739941439e57be7a6e744dcfb6c5d82e11432e2c7e65239d17958af",
+    "c:25e57cb9fd065afa533ebaff4e17a740600ce276dc1babff9a2f8ffee0968f9b",
+    "c:f1cf797de382c04507ace66adc17d7fda64cfa83d1728a76b6cbc69ade9e7cef",
+    "c:c908057d22bca06154482fbe75c6f0512ab1ddbeb825d59705ff248247aa5106",
+    "c:87cb7832bda3aff523d7496ee69cd7ed5d04449e32c4876a5803b17f9a0fe136",
+    "c:0bcaf9b28e1ca8cad66b0dddca71535fce7be4a60a845e29fc9063cd277098f5",
+    "c:e283f5be4e1ec9a5bda732662ebe7b97b41447c1d8ad34e049f9584f51b3573c",
+    "c:da62862cd97b17421373799bdcd0461225673a607d9dcfd327bc74189ec80ede"
+  ],
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "priorInWindow": 0,
+    "retired": {
+      "fixtures": [
+        "c:e27dc7d646352121e03ba2eb659eb8777c6ab023cba86e9eaf00330a65c0554c",
+        "c:cfe1d1c528e05158d980ffd2c72b87b9e6ac8f45dae3e7ba817332967ca22f2f",
+        "c:d7d3235f061ea061bc6f2204d7153b92a2eda24cab873894407da7ff3b73db91",
+        "c:7423694c7e7651634d29b370ad7cd84a13c1dc3e0a2edae3d585c94d2abf5808",
+        "c:3a84bcaa3dd73751873011628dc2e3f5a01af50594d3e0981a67415a737a51ec",
+        "c:0ffadf2d4739941439e57be7a6e744dcfb6c5d82e11432e2c7e65239d17958af",
+        "c:25e57cb9fd065afa533ebaff4e17a740600ce276dc1babff9a2f8ffee0968f9b",
+        "c:f1cf797de382c04507ace66adc17d7fda64cfa83d1728a76b6cbc69ade9e7cef",
+        "c:c908057d22bca06154482fbe75c6f0512ab1ddbeb825d59705ff248247aa5106",
+        "c:87cb7832bda3aff523d7496ee69cd7ed5d04449e32c4876a5803b17f9a0fe136",
+        "c:0bcaf9b28e1ca8cad66b0dddca71535fce7be4a60a845e29fc9063cd277098f5",
+        "c:e283f5be4e1ec9a5bda732662ebe7b97b41447c1d8ad34e049f9584f51b3573c",
+        "c:da62862cd97b17421373799bdcd0461225673a607d9dcfd327bc74189ec80ede"
+      ],
+      "statuses": {
+        "c:e27dc7d646352121e03ba2eb659eb8777c6ab023cba86e9eaf00330a65c0554c": "completed",
+        "c:cfe1d1c528e05158d980ffd2c72b87b9e6ac8f45dae3e7ba817332967ca22f2f": "completed",
+        "c:d7d3235f061ea061bc6f2204d7153b92a2eda24cab873894407da7ff3b73db91": "completed",
+        "c:7423694c7e7651634d29b370ad7cd84a13c1dc3e0a2edae3d585c94d2abf5808": "completed",
+        "c:3a84bcaa3dd73751873011628dc2e3f5a01af50594d3e0981a67415a737a51ec": "completed",
+        "c:0ffadf2d4739941439e57be7a6e744dcfb6c5d82e11432e2c7e65239d17958af": "completed",
+        "c:25e57cb9fd065afa533ebaff4e17a740600ce276dc1babff9a2f8ffee0968f9b": "completed",
+        "c:f1cf797de382c04507ace66adc17d7fda64cfa83d1728a76b6cbc69ade9e7cef": "completed",
+        "c:c908057d22bca06154482fbe75c6f0512ab1ddbeb825d59705ff248247aa5106": "completed",
+        "c:87cb7832bda3aff523d7496ee69cd7ed5d04449e32c4876a5803b17f9a0fe136": "completed",
+        "c:0bcaf9b28e1ca8cad66b0dddca71535fce7be4a60a845e29fc9063cd277098f5": "completed",
+        "c:e283f5be4e1ec9a5bda732662ebe7b97b41447c1d8ad34e049f9584f51b3573c": "completed",
+        "c:da62862cd97b17421373799bdcd0461225673a607d9dcfd327bc74189ec80ede": "failed"
+      },
+      "listedAfter": []
+    },
+    "attempted": 13,
+    "quota": {
+      "allowed": 12,
+      "refused": 1,
+      "refusedAfterQuota": true
+    },
+    "allowed": 12,
+    "refused": 1,
+    "refusedAfterQuota": true
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "status": 200,
+  "body": {
+    "documents": [
+      {
+        "name": "projects/graffiticode/databases/broker/documents/receipts/1a01024fac1d279dc5c9ca7fe8cfd1b3d5ede747a437f1436200426115f73782/reconciliation-attempts/5a276564-a24c-47d9-b108-556e93e12153",
+        "fields": {
+          "readAt": {
+            "stringValue": "2026-11-20T19:35:13.505Z"
+          },
+          "at": {
+            "stringValue": "2026-11-20T19:35:13.626Z"
+          },
+          "decisionId": {
+            "stringValue": "722fd401-9b26-482c-9868-0d9921bfb77a"
+          },
+          "observation": {
+            "mapValue": {
+              "fields": {
+                "found": {
+                  "booleanValue": true
+                },
+                "captureSequence": {
+                  "integerValue": "10"
+                }
+              }
+            }
+          },
+          "verdict": {
+            "stringValue": "applied"
+          }
+        },
+        "createTime": "2026-11-20T19:35:13.700681Z",
+        "updateTime": "2026-11-20T19:35:13.700681Z"
+      }
+    ]
+  }
+}

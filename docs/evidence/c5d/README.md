@@ -2,6 +2,8 @@
 
 [Step 32](../../capability-policy-iam-review.md) of the C5d plan ([`docs/c5d-snapshot-commands-plan.md`](../../c5d-snapshot-commands-plan.md)): an isolated drive of snapshot commands through production Policy, publishing only to `gs://graffiticode-c5d-drive`.
 
+> **Step 32a (2026-11-24): the fresh drive, run `d1ca6da0`, passed** (18 phases, 82 checks, `older-after-newer` by an owner-approved supplement) and was torn down. See [`step32a/README.md`](step32a/README.md); the record below is Step 32's.
+
 **Verdict: the drive has not passed.** It stopped at `staging-gone` on a blocking product finding (below), and `cleanup` stays failed. Teardown is complete. The legacy command remains pending under the durable hold applied on 2026-11-23; the refusal fix and hold rollout are recorded below. A successful fresh drive and activation remain held.
 
 The operator's address is redacted throughout as `<operator>` ([`REDACTIONS.txt`](REDACTIONS.txt)). No production credential, and no token or key, is in this evidence; two local-test JWT fixtures in the build logs are redacted ([`REDACTIONS.txt`](REDACTIONS.txt)).

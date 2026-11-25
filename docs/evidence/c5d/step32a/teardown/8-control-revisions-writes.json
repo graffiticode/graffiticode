@@ -1,0 +1,1058 @@
+[
+  {
+    "insertId": "ofs89ke4rhke",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-c5d-drive-rmwtrvx68-fd9659"
+        ],
+        "processingDuration": "0.047863s",
+        "transactionId": "-777105741804584589_2540307073237561244"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "EZyvvPDS+0AjIlkAwnkIZnpeibc+27iLUw61ZamrjeQHum8KjYSI8Cez2/wELmmEIe3DelZdxrkO4XazFGWpYSwALKD6pSrhLGPKiwG/sM1JAdEcQxUSLgP6sEcUFbrEaCHHOg==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-c5d-drive-rmwtrvx68-fd9659"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T21:00:28.058926Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T21:00:28.150473200Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T21:00:28.011364Z"
+  },
+  {
+    "insertId": "-n0ly85e1ba9c",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-c5d-drive-rmwtrvx68-fd9659"
+        ],
+        "processingDuration": "0.036957s",
+        "transactionId": "-4656098105092987856_-2210374210074414838"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "EQpx1PNdLFPhIlkAwnkIZl85KqeEaxHXZriPHWhhepfT0hqyexozrtz2O5b3TzagCHtFhXv0KkVCsMfT5Z0Oj/icb5AohYi2H2HI9DTVAx3P1Z4+T+/ZATe8erAOrfHeWX4ewA==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-c5d-drive-rmwtrvx68-fd9659"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T21:00:24.044260Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T21:00:24.100459787Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T21:00:24.007759Z"
+  },
+  {
+    "insertId": "higws2f7x79iq",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-c5d-drive-rmwtrvx68-fd9659"
+        ],
+        "processingDuration": "0.028501s",
+        "transactionId": "236777188471116290_-2619776600312747329"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "Eb9qeusPr6TbIlkAwnkIZqtAm96Pym4fOjhTdHxUYVw/NWASCWk34zNelU9OJsbe1QpYoxhx2FBq/HIbedv0XWICeVzk1EBdorFgkvQd+qZA16qHlyogG3g5OviAk9UgRcmGPA==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-c5d-drive-rmwtrvx68-fd9659"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T20:45:23.706959Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T20:45:23.844041920Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T20:45:23.678990Z"
+  },
+  {
+    "insertId": "-zgc20ae3730s",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-c5d-drive-rmwtrvx68-fd9659"
+        ],
+        "processingDuration": "0.030433s",
+        "transactionId": "820467431334380273_-5965884240320297055"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "EaGHm1zk6zStIlkAwnkIZnvdJUuT01Z5iozO9uOLpsGae2U0p6eLnnSJw7Ok4iq9rhhxGxBm5TAFXWSMB9EM3swGBhYb4NCyRZ4r6goZxyRYN0DZaVPGd9foXf7JdJ435ukmXQ==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0176/revisions/l0176r-c5d-drive-rmwtrvx68-fd9659"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T20:45:21.974949Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T20:45:22.165352590Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T20:45:21.945346Z"
+  },
+  {
+    "insertId": "-xuj8itf7lqk8e",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+        ],
+        "processingDuration": "0.036575s",
+        "transactionId": "-1924687648476909708_8866797506599461064"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "EcggLpxaMQ17IlkAwnkIZtzsE1vRR5NYmhGZv/EQF6+xpGZ2ld8zNByC74glmYV9RD4SXGYC8lH9kA8Rh72i5qQMSC+BzkJgTWMTPbeu0fXZDFTl6x9UMor+ROAk66j6OJGJAA==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T20:44:32.091956Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T20:44:32.127619661Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T20:44:32.055939Z"
+  },
+  {
+    "insertId": "83iyf4f7c50te",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+        ],
+        "processingDuration": "0.017554s",
+        "transactionId": "-4126124994191786131_-8806260769773870071"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "EQmkK8p84MmFIlkAwnkIZkwzNTk0FVLELxNFan94Sl6smc889/zXarS3SXGas9LYFiz4OgettBhsZtwmVA4pyPnzvhaTXdgtAzsUqhfZ0B2UIqMFEbysZVGS2Zs9UTNBo6r1zA==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T20:44:28.409618Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T20:44:28.453725585Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T20:44:28.392293Z"
+  },
+  {
+    "insertId": "4he72qet2cle",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+        ],
+        "processingDuration": "0.028587s",
+        "transactionId": "3795317480708262766_-8081280550639416087"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "EelM3dgnhtmPIlkAwnkIZuPIqfRILFExrA9+lFCzeoFCTIHPjWByYowCfFitcMhzGOv0jzNVXPiSswxBNYf6m4wKqTaLMxPiBMMMq53PyoUXyKsc+rZNU5DzCqiRxymE2/f96Q==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T20:29:28.288805Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T20:29:28.380964768Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T20:29:28.260598Z"
+  },
+  {
+    "insertId": "-w5ouznerksvo",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+        ],
+        "processingDuration": "0.043917s",
+        "transactionId": "1432634317905572710_-621045561227790285"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "ETM4rz1ammH3IlkAwnkIZuDxPqwmCbgcgEljIASjn+3DTI3BMP5jQH3RBTaMqQLDGeJWjjH9ojkE8QOEyBa4UY0HliVVyCy0MdKQOlc/z+7o43gDieIdL/oQwlfbstEX7XJDcw==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T20:29:16.596276Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T20:29:17.098788337Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T20:29:16.552938Z"
+  },
+  {
+    "insertId": "65tlnvedeycq",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+        ],
+        "processingDuration": "0.035756s",
+        "transactionId": "-5006553882989574703_1838648767568425538"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "EUIyoAFQMYQZIlkAwnkIZmd+FlUcHuAsRjlU9jVY0Vj2Msj8KC4aJ+GjoiXvIbIrPWgEOlyY3wOphkD7qDSXr0NBcwZn+y4TqfuGcTKTyk1t2XJG+CUQBZrA1sYzzjzwP+L8dQ==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T20:29:08.924341Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T20:29:09.045916941Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T20:29:08.889046Z"
+  },
+  {
+    "insertId": "-4onpk6el4bus",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+        ],
+        "processingDuration": "0.037270s",
+        "transactionId": "-5951461507461342801_2054293825514182058"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "EaoVDaZZUYIcIlkAwnkIZvCYzKZJR2cdPs1o5N+oeVot0iIMPVB8H7IdsIw93W+vA6uNt75amdcY/d0Fa3/rXcsw+aQKjj5tsrKwO36pawjLag4lcsa12VzYOIVJxk+NuBN3bg==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T20:28:56.513880Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T20:28:56.741454907Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T20:28:56.477356Z"
+  },
+  {
+    "insertId": "6drzx9f6g4bpf",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+        ],
+        "processingDuration": "0.035665s",
+        "transactionId": "3424560316247594334_2358596353130394669"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "ES103gTjarsgIlkAwnkIZragsud8UyHR4neAklyGIuRDK2l2bByPS00aAkJZGeNuael3MYILH+XGpycRIo8i22R9hC8gbpSGiSFEC72eztLQs/PIjm47g2gIp05Es57ZbK9HSw==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T20:03:34.779383Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T20:03:35.137166660Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T20:03:34.744175Z"
+  },
+  {
+    "insertId": "-nkmuxqf8whes0",
+    "logName": "projects/graffiticode/logs/cloudaudit.googleapis.com%2Fdata_access",
+    "protoPayload": {
+      "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+      "authenticationInfo": {
+        "oauthInfo": {
+          "oauthClientId": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+        },
+        "principalEmail": "<operator>",
+        "principalSubject": "user:<operator>"
+      },
+      "authorizationInfo": [
+        {
+          "granted": true,
+          "permission": "datastore.entities.create",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        },
+        {
+          "granted": true,
+          "permission": "datastore.entities.update",
+          "permissionType": "DATA_WRITE",
+          "resource": "projects/graffiticode/databases/revisions",
+          "resourceAttributes": {
+            "name": "projects/graffiticode/databases/revisions",
+            "service": "firestore.googleapis.com",
+            "type": "firestore.googleapis.com/Database"
+          }
+        }
+      ],
+      "metadata": {
+        "@type": "type.googleapis.com/google.cloud.audit.DatastoreServiceData",
+        "keyCount": "1",
+        "keys": [
+          "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+        ],
+        "processingDuration": "0.052580s",
+        "transactionId": "-8324764375470438543_3784375256764689179"
+      },
+      "methodName": "google.firestore.v1.Firestore.Commit",
+      "request": {
+        "@type": "type.googleapis.com/google.firestore.v1.CommitRequest",
+        "database": "projects/graffiticode/databases/revisions",
+        "transaction": "ERurPNw+zYQ0IlkAwnkIZn2pH37reSQv3A6WYY8z6FMGEEPxaCuSfMte8EvTIKlWAyMRehFH8zRzT9wB/O7EB8kppMGOcSREu8IVYMWp1/DE0CnfFiovEi1UMVRTjwIbhT0ZVg==",
+        "writes": [
+          {
+            "update": {
+              "name": "projects/graffiticode/databases/revisions/documents/languages/0013/revisions/l0013r-c5d-drive-rmwtr1q6y-99884e"
+            }
+          }
+        ]
+      },
+      "requestMetadata": {
+        "callerIp": "<operator-ip>",
+        "callerSuppliedUserAgent": "grpc-node-js/1.8.21,gzip(gfe)",
+        "destinationAttributes": {},
+        "requestAttributes": {
+          "auth": {},
+          "time": "2026-11-24T20:03:21.930185Z"
+        }
+      },
+      "resourceLocation": {
+        "currentLocations": [
+          "nam5"
+        ]
+      },
+      "resourceName": "projects/graffiticode/databases/revisions",
+      "serviceName": "firestore.googleapis.com",
+      "status": {}
+    },
+    "receiveTimestamp": "2026-11-24T20:03:22.076941375Z",
+    "resource": {
+      "labels": {
+        "method": "google.firestore.v1.Firestore.Commit",
+        "project_id": "graffiticode",
+        "service": "firestore.googleapis.com"
+      },
+      "type": "audited_resource"
+    },
+    "severity": "INFO",
+    "timestamp": "2026-11-24T20:03:21.878112Z"
+  }
+]

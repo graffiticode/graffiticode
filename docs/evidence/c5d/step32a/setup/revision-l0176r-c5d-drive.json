@@ -1,0 +1,185 @@
+{
+  "apiVersion": "serving.knative.dev/v1",
+  "kind": "Revision",
+  "metadata": {
+    "annotations": {
+      "run.googleapis.com/client-name": "gcloud",
+      "run.googleapis.com/client-version": "586.0.0",
+      "run.googleapis.com/network-interfaces": "[{\"network\": \"compilers\", \"subnetwork\": \"compilers-l0176\", \"tags\": [\"compiler\"]}]",
+      "run.googleapis.com/operation-id": "65dcaef9-d8a1-4286-b6fa-60ee325e197c",
+      "run.googleapis.com/startup-cpu-boost": "true",
+      "run.googleapis.com/vpc-access-egress": "all-traffic",
+      "serving.knative.dev/creator": "<operator>"
+    },
+    "creationTimestamp": "2026-11-23T21:32:18.820459Z",
+    "generation": 1,
+    "labels": {
+      "cloud.googleapis.com/location": "us-central1",
+      "commit-sha": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+      "gc-dirty": "false",
+      "gc-release": "rmwtrvx68-fd9659",
+      "run.googleapis.com/startupProbeType": "Default",
+      "serving.knative.dev/configuration": "l0176r-c5d-drive",
+      "serving.knative.dev/configurationGeneration": "2",
+      "serving.knative.dev/route": "l0176r-c5d-drive",
+      "serving.knative.dev/service": "l0176r-c5d-drive",
+      "serving.knative.dev/serviceUid": "057baf13-f14d-488c-af50-739dbe588163"
+    },
+    "name": "l0176r-c5d-drive-rmwtrvx68-fd9659",
+    "namespace": "656973052505",
+    "ownerReferences": [
+      {
+        "apiVersion": "serving.knative.dev/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Configuration",
+        "name": "l0176r-c5d-drive",
+        "uid": "a459e518-cfc5-43a7-8659-78382582afb2"
+      }
+    ],
+    "resourceVersion": "AAZg+FTj4b0",
+    "selfLink": "/apis/serving.knative.dev/v1/namespaces/656973052505/revisions/l0176r-c5d-drive-rmwtrvx68-fd9659",
+    "uid": "74249d83-80df-482a-905f-28d275eff701"
+  },
+  "spec": {
+    "containerConcurrency": 80,
+    "containers": [
+      {
+        "env": [
+          {
+            "name": "AUTH_URL",
+            "value": "https://auth.graffiticode.org"
+          },
+          {
+            "name": "POLICY_URL",
+            "value": "https://policy-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "BROKER_URL",
+            "value": "https://broker-c5d-drive-sja7fatcta-uc.a.run.app"
+          },
+          {
+            "name": "PREFLIGHT_GATEWAYS",
+            "value": "api-run@graffiticode.iam.gserviceaccount.com"
+          },
+          {
+            "name": "GC_RELEASE",
+            "value": "rmwtrvx68-fd9659"
+          },
+          {
+            "name": "GC_IMAGE_DIGEST",
+            "value": "sha256:d889b10584d2089f98082f3f9910ba83094d2c13d148c28a3f5114e64ec4ad00"
+          },
+          {
+            "name": "HTTPS_PROXY",
+            "value": "http://10.8.0.2:3128"
+          },
+          {
+            "name": "HTTP_PROXY",
+            "value": "http://10.8.0.2:3128"
+          },
+          {
+            "name": "NO_PROXY",
+            "value": "169.254.169.254,metadata.google.internal"
+          },
+          {
+            "name": "NODE_EXTRA_CA_CERTS",
+            "value": "/etc/egress-ca/ca.pem"
+          },
+          {
+            "name": "NODE_USE_ENV_PROXY",
+            "value": "1"
+          }
+        ],
+        "image": "us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive@sha256:d889b10584d2089f98082f3f9910ba83094d2c13d148c28a3f5114e64ec4ad00",
+        "name": "l0176r-c5d-drive-1",
+        "ports": [
+          {
+            "containerPort": 8080,
+            "name": "http1"
+          }
+        ],
+        "resources": {
+          "limits": {
+            "cpu": "1000m",
+            "memory": "512Mi"
+          }
+        },
+        "startupProbe": {
+          "failureThreshold": 1,
+          "periodSeconds": 240,
+          "tcpSocket": {
+            "port": 8080
+          },
+          "timeoutSeconds": 240
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/etc/egress-ca",
+            "name": "egress-proxy-ca-bundle-zah-nus"
+          }
+        ]
+      }
+    ],
+    "sandboxes": {},
+    "serviceAccountName": "l0176r-run@graffiticode.iam.gserviceaccount.com",
+    "timeoutSeconds": 300,
+    "volumes": [
+      {
+        "name": "egress-proxy-ca-bundle-zah-nus",
+        "secret": {
+          "items": [
+            {
+              "key": "1",
+              "path": "ca.pem"
+            }
+          ],
+          "secretName": "egress-proxy-ca-bundle"
+        }
+      }
+    ]
+  },
+  "status": {
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-11-23T21:32:31.349872Z",
+        "message": "Updating revision scaling succeeded.",
+        "status": "True",
+        "type": "Ready"
+      },
+      {
+        "lastTransitionTime": "2026-11-23T21:32:23.407796Z",
+        "severity": "Info",
+        "status": "True",
+        "type": "Active"
+      },
+      {
+        "lastTransitionTime": "2026-11-23T21:32:23.272786Z",
+        "message": "Containers became healthy.",
+        "status": "True",
+        "type": "ContainerHealthy"
+      },
+      {
+        "lastTransitionTime": "2026-11-23T21:32:20.844870Z",
+        "message": "Container image import completed in 1.3s.",
+        "status": "True",
+        "type": "ContainerReady"
+      },
+      {
+        "lastTransitionTime": "2026-11-23T21:32:22.527555Z",
+        "message": "Provisioning imported containers completed in 1.69s. Checking container health. This will wait for up to 4m for the configured startup probe, including an initial delay of 0s.",
+        "status": "True",
+        "type": "ResourcesAvailable"
+      }
+    ],
+    "containerStatuses": [
+      {
+        "imageDigest": "us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive@sha256:d889b10584d2089f98082f3f9910ba83094d2c13d148c28a3f5114e64ec4ad00",
+        "name": "l0176r-c5d-drive-1"
+      }
+    ],
+    "imageDigest": "us-central1-docker.pkg.dev/graffiticode/services/l0176r-c5d-drive@sha256:d889b10584d2089f98082f3f9910ba83094d2c13d148c28a3f5114e64ec4ad00",
+    "logUrl": "https://console.cloud.google.com/logs/viewer?project=graffiticode&resource=cloud_run_revision/service_name/l0176r-c5d-drive/revision_name/l0176r-c5d-drive-rmwtrvx68-fd9659&advancedFilter=resource.type%3D%22cloud_run_revision%22%0Aresource.labels.service_name%3D%22l0176r-c5d-drive%22%0Aresource.labels.revision_name%3D%22l0176r-c5d-drive-rmwtrvx68-fd9659%22",
+    "observedGeneration": 1
+  }
+}

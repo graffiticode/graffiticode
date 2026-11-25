@@ -1,0 +1,325 @@
+{
+  "status": 200,
+  "body": {
+    "name": "projects/graffiticode/databases/policy/documents/commands/c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f",
+    "fields": {
+      "counts": {
+        "mapValue": {
+          "fields": {
+            "partial": {
+              "integerValue": "0"
+            },
+            "uncertain": {
+              "integerValue": "0"
+            },
+            "bound": {
+              "integerValue": "1"
+            },
+            "failed": {
+              "integerValue": "0"
+            },
+            "completed": {
+              "integerValue": "0"
+            },
+            "byIntent": {
+              "mapValue": {
+                "fields": {
+                  "s0/snap:0": {
+                    "integerValue": "1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "binding": {
+        "mapValue": {
+          "fields": {
+            "taskId": {
+              "stringValue": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19"
+            },
+            "inputDigest": {
+              "stringValue": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+            },
+            "connectionId": {
+              "nullValue": null
+            }
+          }
+        }
+      },
+      "updatedAt": {
+        "stringValue": "2026-11-20T19:54:17.462Z"
+      },
+      "taskId": {
+        "stringValue": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19"
+      },
+      "createdAt": {
+        "stringValue": "2026-11-20T19:37:47.547Z"
+      },
+      "idempotencyKey": {
+        "stringValue": "c5d-drive:ad49c0ac:staging-gone"
+      },
+      "lang": {
+        "stringValue": "0013"
+      },
+      "commandId": {
+        "stringValue": "c:f54ea9f1fc642d8d6007c75bf9945ad118eef093a2a209b0af4adc6b5407133f"
+      },
+      "hold": {
+        "mapValue": {
+          "fields": {
+            "readTime": {
+              "integerValue": "1795397130970"
+            },
+            "generation": {
+              "integerValue": "11"
+            },
+            "note": {
+              "stringValue": "Quarantine the legacy staging-gone command after C5d rollout steps 0–3. Preserve its pending/admitted generation 11 and unsettled records. No lift is authorized."
+            },
+            "reason": {
+              "stringValue": "definite-refusal-unsettled"
+            },
+            "n": {
+              "integerValue": "1"
+            },
+            "decision": {
+              "stringValue": "docs/evidence/c5d/hold/step-4-approval.json"
+            },
+            "decidedBy": {
+              "stringValue": "owner"
+            },
+            "leaseExpiresAt": {
+              "integerValue": "1795204514178"
+            },
+            "appliedBy": {
+              "mapValue": {
+                "fields": {
+                  "azp": {
+                    "stringValue": "764086051850-6qr4p6gpi6hn506pt8ejuq83di341hur.apps.googleusercontent.com"
+                  },
+                  "verifiedVia": {
+                    "stringValue": "tokeninfo"
+                  },
+                  "email": {
+                    "stringValue": "<operator>"
+                  }
+                }
+              }
+            },
+            "at": {
+              "stringValue": "2026-11-23T01:25:30.970Z"
+            },
+            "actId": {
+              "stringValue": "ae946e64-dadc-4479-a38a-fc023fad0b97"
+            }
+          }
+        }
+      },
+      "result": {
+        "mapValue": {
+          "fields": {
+            "digest": {
+              "nullValue": null
+            },
+            "state": {
+              "stringValue": "none"
+            }
+          }
+        }
+      },
+      "publication": {
+        "mapValue": {
+          "fields": {
+            "state": {
+              "stringValue": "none"
+            },
+            "resultDigest": {
+              "nullValue": null
+            }
+          }
+        }
+      },
+      "status": {
+        "stringValue": "pending"
+      },
+      "scopes": {
+        "integerValue": "1"
+      },
+      "schema": {
+        "integerValue": "1"
+      },
+      "revisions": {
+        "nullValue": null
+      },
+      "seq": {
+        "integerValue": "10"
+      },
+      "owner": {
+        "mapValue": {
+          "fields": {
+            "scopes": {
+              "integerValue": "1"
+            },
+            "worker": {
+              "stringValue": "api-c5d-drive-rmwo9rmds-75d10c:f358de67-0666-4f46-a7fc-b2e919aa5e61"
+            },
+            "generation": {
+              "integerValue": "11"
+            },
+            "leaseExpiresAt": {
+              "integerValue": "1795204514178"
+            }
+          }
+        }
+      },
+      "runRef": {
+        "nullValue": null
+      },
+      "uid": {
+        "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+      },
+      "connectionId": {
+        "nullValue": null
+      },
+      "stages": {
+        "mapValue": {
+          "fields": {
+            "s0": {
+              "mapValue": {
+                "fields": {
+                  "pinnedInput": {
+                    "stringValue": "8212689cc2ce47a994fb37118d94e1cce57457efbff82a88ff262cfc59c9a2a3"
+                  },
+                  "expansion": {
+                    "stringValue": "closed"
+                  },
+                  "state": {
+                    "stringValue": "ran"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "protocol": {
+        "stringValue": "command"
+      },
+      "kind": {
+        "stringValue": "command"
+      },
+      "invocationId": {
+        "stringValue": "inv-078ca8f4-b88f-4fe3-8e04-1cc853b71aa3"
+      },
+      "phase": {
+        "stringValue": "admitted"
+      },
+      "admission": {
+        "mapValue": {
+          "fields": {
+            "items": {
+              "mapValue": {
+                "fields": {
+                  "7vwaCAIyMNCJEzgIfyYY": {
+                    "mapValue": {
+                      "fields": {
+                        "publicCapture": {
+                          "booleanValue": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "recording": {
+              "integerValue": "1"
+            },
+            "stages": {
+              "mapValue": {
+                "fields": {
+                  "s0": {
+                    "mapValue": {
+                      "fields": {
+                        "modelDigest": {
+                          "stringValue": "35ef5f2a647b5751b4916b2c54a2b8e48ac5e71682cfbe94d27de584d67cb4be"
+                        },
+                        "tagUrl": {
+                          "stringValue": "https://rmwo9rmhz-e7abb8---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+                        },
+                        "lang": {
+                          "stringValue": "0013"
+                        },
+                        "replay": {
+                          "integerValue": "0"
+                        },
+                        "revision": {
+                          "stringValue": "l0013r-c5d-drive-rmwo9rmhz-e7abb8"
+                        },
+                        "intents": {
+                          "arrayValue": {
+                            "values": [
+                              {
+                                "mapValue": {
+                                  "fields": {
+                                    "id": {
+                                      "stringValue": "snap:0"
+                                    },
+                                    "fn": {
+                                      "stringValue": "snap"
+                                    },
+                                    "op": {
+                                      "stringValue": "gcs.put-thumbnail"
+                                    },
+                                    "runtime": {
+                                      "booleanValue": true
+                                    },
+                                    "bounds": {
+                                      "mapValue": {
+                                        "fields": {
+                                          "maxOccurrences": {
+                                            "integerValue": "16"
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "scope": {
+                                      "mapValue": {
+                                        "fields": {
+                                          "kind": {
+                                            "stringValue": "item"
+                                          },
+                                          "id": {
+                                            "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "planDigest": {
+              "stringValue": "5db5e929b56bf9e69edc6a379fe72157df640bda62e50cfc750e0cfe7c0587c6"
+            },
+            "contractVersion": {
+              "integerValue": "3"
+            }
+          }
+        }
+      }
+    },
+    "createTime": "2026-11-20T19:37:47.648292Z",
+    "updateTime": "2026-11-23T01:25:31.527479Z"
+  }
+}

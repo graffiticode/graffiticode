@@ -1,0 +1,161 @@
+{
+  "runId": "d1ca6da0",
+  "phase": "exit-after-stage",
+  "at": "2026-11-24T03:59:12.495Z",
+  "answered": {
+    "status": 200,
+    "commandId": "c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0",
+    "outcome": "pending",
+    "reason": null
+  },
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "faultLines": [
+      {
+        "at": "2026-11-24T03:52:41.893587Z",
+        "text": "\u001b[2m2026-11-24T03:52:41.894808Z\u001b[0m \u001b[33m WARN\u001b[0m \u001b[2ml0013r\u001b[0m\u001b[2m:\u001b[0m capture fault exit-after-stage command c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0"
+      }
+    ],
+    "stagedAtExit": {
+      "expansionKey": "0#0",
+      "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+      "stagedAt": "2026-11-24T03:52:41.852Z",
+      "intentId": "snap:0",
+      "size": 18516,
+      "captureSequence": 15,
+      "state": "staged",
+      "reservedAt": "2026-11-24T03:52:37.880Z",
+      "item": "7vwaCAIyMNCJEzgIfyYY",
+      "renderTask": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+      "generation": 1,
+      "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+      "object": "c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+      "stage": "s0",
+      "stagedGeneration": 1,
+      "renderGrants": [
+        {
+          "jti": "8b4c750d-d8e9-442a-86bd-74c033157b2e",
+          "exp": 1795492657,
+          "generation": 1,
+          "at": "2026-11-24T03:52:38.071Z"
+        }
+      ],
+      "publicCapture": false
+    },
+    "capture": {
+      "commandId": "c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0",
+      "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+      "status": "completed",
+      "ownerGeneration": 2,
+      "invocationId": "inv-8bed3291-f5c7-4a7b-83eb-34bb0a2d6cb1",
+      "admission": {
+        "contractVersion": 3,
+        "recording": 1,
+        "planDigest": "7dc20ac422860e54cd1d147cc76d07712d8e78bccb5f88589b80af4cd30f32d0",
+        "items": {
+          "7vwaCAIyMNCJEzgIfyYY": {
+            "publicCapture": false
+          }
+        },
+        "stages": {
+          "s0": {
+            "revision": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+            "tagUrl": "https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app",
+            "replay": 0,
+            "lang": "0013",
+            "intents": [
+              {
+                "id": "snap:0",
+                "fn": "snap",
+                "op": "gcs.put-thumbnail",
+                "runtime": true,
+                "bounds": {
+                  "maxOccurrences": 16
+                },
+                "scope": {
+                  "kind": "item",
+                  "id": "7vwaCAIyMNCJEzgIfyYY"
+                }
+              }
+            ],
+            "modelDigest": "35ef5f2a647b5751b4916b2c54a2b8e48ac5e71682cfbe94d27de584d67cb4be"
+          }
+        }
+      },
+      "publication": {
+        "resultDigest": "b9613f88c865768a7e35aefe07270c70fecb08a800607947d436e20307015881",
+        "state": "published"
+      },
+      "result": {
+        "url": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5",
+        "item": "7vwaCAIyMNCJEzgIfyYY"
+      },
+      "reservations": [
+        {
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "stagedAt": "2026-11-24T03:52:41.852Z",
+          "renderTask": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+          "stagedGeneration": 1,
+          "expansionKey": "0#0",
+          "intentId": "snap:0",
+          "generation": 1,
+          "size": 18516,
+          "publicCapture": false,
+          "object": "c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+          "reservedAt": "2026-11-24T03:52:37.880Z",
+          "stage": "s0",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "captureSequence": 15,
+          "state": "staged",
+          "renderGrants": [
+            {
+              "jti": "8b4c750d-d8e9-442a-86bd-74c033157b2e",
+              "exp": 1795492657,
+              "generation": 1,
+              "at": "2026-11-24T03:52:38.071Z"
+            }
+          ],
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+        }
+      ],
+      "claim": {
+        "claimedAt": "2026-11-24T03:54:04.618Z",
+        "operationId": "inv-8bed3291-f5c7-4a7b-83eb-34bb0a2d6cb1/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "evidence": {
+          "commandId": "c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0",
+          "captureSequence": 15,
+          "bucket": "graffiticode-c5d-drive",
+          "staged": "c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+          "format": "gcs-thumbnail-1",
+          "object": "7vwaCAIyMNCJEzgIfyYY.png",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "item": "7vwaCAIyMNCJEzgIfyYY"
+        },
+        "binding": {
+          "scope": {
+            "id": "7vwaCAIyMNCJEzgIfyYY",
+            "kind": "item"
+          },
+          "principal": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "op": "gcs.put-thumbnail",
+          "fn": "snap",
+          "lang": "0013",
+          "argsDigest": "965f607fc69eefb3a6b068a41a29fbd36468ff06548f5abbf7a7d23b696a748b",
+          "registryVersion": 10
+        },
+        "pld": "7dc20ac422860e54cd1d147cc76d07712d8e78bccb5f88589b80af4cd30f32d0"
+      },
+      "object": {
+        "generation": "1795492445241842",
+        "metadata": {
+          "captureSequence": "15",
+          "commandId": "c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+        }
+      }
+    },
+    "renders": 1
+  }
+}

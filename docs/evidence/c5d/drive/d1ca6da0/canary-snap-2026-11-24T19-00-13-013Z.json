@@ -1,0 +1,34 @@
+{
+  "runId": "d1ca6da0",
+  "phase": "canary-snap",
+  "at": "2026-11-24T19:00:13.013Z",
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "exitCode": 0,
+    "results": [
+      {
+        "name": "snap command",
+        "ok": true
+      },
+      {
+        "name": "snap url",
+        "ok": true
+      },
+      {
+        "name": "snap sequence",
+        "ok": true
+      },
+      {
+        "name": "snap command id",
+        "ok": true
+      },
+      {
+        "name": "snap retry",
+        "ok": true
+      }
+    ],
+    "commandId": "c:601a0bb57fba27467c5cad6b8bdf1bca211b7bc70bee8714a99cf5cac05758e6",
+    "expectedCommandId": "c:601a0bb57fba27467c5cad6b8bdf1bca211b7bc70bee8714a99cf5cac05758e6"
+  }
+}

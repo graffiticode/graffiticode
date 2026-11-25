@@ -1,0 +1,43 @@
+{
+  "name": "projects/graffiticode/databases/broker/documents/controls/protected-execution",
+  "fields": {
+    "enabled": {
+      "booleanValue": true
+    },
+    "canary": {
+      "mapValue": {
+        "fields": {
+          "uid": {
+            "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+          },
+          "connectionId": {
+            "stringValue": "conn-686c62bc-b447-4dd8-bba8-60fd2b7a3cfd"
+          }
+        }
+      }
+    },
+    "reason": {
+      "stringValue": "registry v8 verified (AT-10)"
+    },
+    "canaryUpdatedAt": {
+      "stringValue": "2026-10-05T19:56:29.965Z"
+    },
+    "updatedBy": {
+      "stringValue": "<operator>"
+    },
+    "canaryUpdatedBy": {
+      "stringValue": "<operator>"
+    },
+    "updatedAt": {
+      "stringValue": "2026-10-18T21:37:05.696Z"
+    },
+    "canaryReason": {
+      "stringValue": "W0 canary"
+    },
+    "releaseCheckSkipped": {
+      "booleanValue": false
+    }
+  },
+  "createTime": "2026-10-03T21:13:51.995466Z",
+  "updateTime": "2026-10-18T21:37:06.271554Z"
+}

@@ -1,0 +1,4 @@
+release-api-c5d-drive.log: Cloud Build test-step JWT(s) replaced with <test-jwt>
+
+window/*.json: the operator email appears in the c5d2 binding members; redact to <operator> before any publication.
+window/*-revoke.json: operator email in the c5d2 binding members; redact to <operator> before publication.

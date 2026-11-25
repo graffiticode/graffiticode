@@ -1,0 +1,9 @@
+{
+  "default_storage_class": "STANDARD",
+  "location": "US-CENTRAL1",
+  "public_access_prevention": "enforced",
+  "soft_delete_policy": {
+    "retentionDurationSeconds": "0"
+  },
+  "uniform_bucket_level_access": true
+}

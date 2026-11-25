@@ -1,0 +1,8 @@
+ok     observations-read: ok
+ok     fault-fired: ok
+ok     refusal-recorded: ok
+ok     refusal-outcome: ok
+ok     nothing-run: ok
+ok     failed-nothing-published: ok
+ok     fresh-capture: ok
+staging-gone PASSED

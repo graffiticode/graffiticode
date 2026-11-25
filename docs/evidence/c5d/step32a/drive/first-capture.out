@@ -1,0 +1,10 @@
+file://<runner-checkout>/scripts/c5d-drive.js:408
+  if (!v) throw new Error(`${name} is required for --phase ${phase}`);
+                ^
+
+Error: --private-task is required for --phase first-capture
+    at need (file://<runner-checkout>/scripts/c5d-drive.js:408:17)
+    at file://<runner-checkout>/scripts/c5d-drive.js:654:62
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+
+Node.js v22.22.3

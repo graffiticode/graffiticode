@@ -1,0 +1,7 @@
+ok     observations-read: ok
+ok     fault-scoped: ok
+ok     dropped: ok
+ok     staging-deleted: ok
+ok     replayed: ok
+ok     reconciled: ok
+drop-outcome PASSED

@@ -1,0 +1,14 @@
+{
+  "at": "2026-11-24T18:42:18.546Z",
+  "uid": "a35c2c8948de39fd03bb60d9d44259612dc56470",
+  "taskDoc": "zjy8eEXLUna2vdLNh97v",
+  "taskAclUids": [
+    "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "a35c2c8948de39fd03bb60d9d44259612dc56470"
+  ],
+  "taskPublic": false,
+  "taskReadStatus": 200,
+  "taskReadLang": "0013",
+  "itemCanary": 200,
+  "itemVerify": 404
+}

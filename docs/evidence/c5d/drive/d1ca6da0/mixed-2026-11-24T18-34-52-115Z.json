@@ -1,0 +1,155 @@
+{
+  "runId": "d1ca6da0",
+  "phase": "mixed",
+  "at": "2026-11-24T18:34:52.115Z",
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "capture": {
+      "commandId": "c:d4e8b1dae4110f3fa109b80db5158a11fdc360a979fada34ead946051855511a",
+      "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+      "status": "completed",
+      "ownerGeneration": 1,
+      "invocationId": "inv-e6dba3e2-16cc-4dd3-b26b-ec2725c0a054",
+      "admission": {
+        "planDigest": "bd314dbb672c539bc3f1df73167dad04c918c379181e7bf499c93151b06c821f",
+        "recording": 1,
+        "contractVersion": 3,
+        "items": {
+          "7vwaCAIyMNCJEzgIfyYY": {
+            "publicCapture": false
+          }
+        },
+        "stages": {
+          "s0": {
+            "modelDigest": "35ef5f2a647b5751b4916b2c54a2b8e48ac5e71682cfbe94d27de584d67cb4be",
+            "revision": "l0013r-c5d-drive-rmwtr1q6y-99884e",
+            "replay": 0,
+            "intents": [
+              {
+                "id": "snap:0",
+                "fn": "snap",
+                "op": "gcs.put-thumbnail",
+                "runtime": true,
+                "bounds": {
+                  "maxOccurrences": 16
+                },
+                "scope": {
+                  "kind": "item",
+                  "id": "7vwaCAIyMNCJEzgIfyYY"
+                }
+              }
+            ],
+            "lang": "0013",
+            "tagUrl": "https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+          },
+          "s1": {
+            "replay": 1,
+            "modelDigest": "04ea3e7dd6eac26db376d5fbe38c58c18a9434302cabd80ff70df510f0232a37",
+            "tagUrl": "https://rmwtrvx68-fd9659---l0176r-c5d-drive-sja7fatcta-uc.a.run.app",
+            "revision": "l0176r-c5d-drive-rmwtrvx68-fd9659",
+            "lang": "0176",
+            "intents": [
+              {
+                "id": "save:42",
+                "fn": "save-to-itembank",
+                "op": "learnosity.write-items",
+                "runtime": true,
+                "bounds": {
+                  "maxOccurrences": 1000
+                }
+              }
+            ]
+          }
+        }
+      },
+      "publication": {
+        "state": "published",
+        "resultDigest": "b9613f88c865768a7e35aefe07270c70fecb08a800607947d436e20307015881"
+      },
+      "result": {
+        "url": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5",
+        "item": "7vwaCAIyMNCJEzgIfyYY"
+      },
+      "reservations": [
+        {
+          "publicCapture": false,
+          "stage": "s0",
+          "generation": 1,
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "object": "c:d4e8b1dae4110f3fa109b80db5158a11fdc360a979fada34ead946051855511a/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+          "captureSequence": 25,
+          "size": 18516,
+          "occurrenceId": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "intentId": "snap:0",
+          "renderTask": "eyJ0YXNrSWRzIjpbIndGbW1LekNOYnNFcG1XdUJ2YU95Il19",
+          "renderGrants": [
+            {
+              "jti": "f5a74c11-9a9f-40ab-a209-3280345404ad",
+              "exp": 1795545563,
+              "generation": 1,
+              "at": "2026-11-24T18:34:23.402Z"
+            }
+          ],
+          "stagedGeneration": 1,
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "reservedAt": "2026-11-24T18:34:23.219Z",
+          "stagedAt": "2026-11-24T18:34:33.818Z",
+          "state": "staged",
+          "expansionKey": "0#0"
+        }
+      ],
+      "claim": {
+        "evidence": {
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+          "commandId": "c:d4e8b1dae4110f3fa109b80db5158a11fdc360a979fada34ead946051855511a",
+          "staged": "c:d4e8b1dae4110f3fa109b80db5158a11fdc360a979fada34ead946051855511a/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515.png",
+          "format": "gcs-thumbnail-1",
+          "object": "7vwaCAIyMNCJEzgIfyYY.png",
+          "captureSequence": 25,
+          "bucket": "graffiticode-c5d-drive"
+        },
+        "operationId": "inv-e6dba3e2-16cc-4dd3-b26b-ec2725c0a054/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "pld": "bd314dbb672c539bc3f1df73167dad04c918c379181e7bf499c93151b06c821f",
+        "binding": {
+          "argsDigest": "71b8bcada541f6889eb32936812d5d2be4b7ce4903a02a7dea9e2483126e12a5",
+          "registryVersion": 10,
+          "principal": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "fn": "snap",
+          "lang": "0013",
+          "scope": {
+            "kind": "item",
+            "id": "7vwaCAIyMNCJEzgIfyYY"
+          },
+          "op": "gcs.put-thumbnail"
+        },
+        "claimedAt": "2026-11-24T18:34:35.400Z"
+      },
+      "object": {
+        "generation": "1795545276218999",
+        "metadata": {
+          "captureSequence": "25",
+          "commandId": "c:d4e8b1dae4110f3fa109b80db5158a11fdc360a979fada34ead946051855511a",
+          "item": "7vwaCAIyMNCJEzgIfyYY",
+          "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+        }
+      }
+    },
+    "tokens": [
+      {
+        "fn": "save-to-itembank",
+        "scopeKinds": [
+          "connection"
+        ]
+      },
+      {
+        "fn": "snap",
+        "scopeKinds": [
+          "item"
+        ]
+      }
+    ],
+    "invocations": 1
+  }
+}

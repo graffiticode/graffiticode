@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": 404,
+    "message": "Document \"projects/graffiticode/databases/broker/documents/active-executions/dd9f03688f70d51136a238b121b9fb324a06cb74e62b35724712edd0b466cc16\" not found.",
+    "status": "NOT_FOUND"
+  }
+}

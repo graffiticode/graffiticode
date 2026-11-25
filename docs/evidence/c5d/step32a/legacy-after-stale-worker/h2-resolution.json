@@ -1,0 +1,43 @@
+{
+  "status": 200,
+  "body": {
+    "name": "projects/graffiticode/databases/broker/documents/receipts/1a01024fac1d279dc5c9ca7fe8cfd1b3d5ede747a437f1436200426115f73782/resolution/final",
+    "fields": {
+      "decisionId": {
+        "stringValue": "722fd401-9b26-482c-9868-0d9921bfb77a"
+      },
+      "at": {
+        "stringValue": "2026-11-20T19:35:13.765Z"
+      },
+      "attemptId": {
+        "stringValue": "5a276564-a24c-47d9-b108-556e93e12153"
+      },
+      "resultSource": {
+        "stringValue": "evidence"
+      },
+      "verdict": {
+        "stringValue": "applied"
+      },
+      "result": {
+        "mapValue": {
+          "fields": {
+            "sha256": {
+              "stringValue": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+            },
+            "url": {
+              "stringValue": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5"
+            },
+            "captureSequence": {
+              "integerValue": "10"
+            },
+            "item": {
+              "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+            }
+          }
+        }
+      }
+    },
+    "createTime": "2026-11-20T19:35:13.822790Z",
+    "updateTime": "2026-11-20T19:35:13.822790Z"
+  }
+}

@@ -1,0 +1,510 @@
+[
+  {
+    "insertId": "6b05dcc5000bc1f83819b766",
+    "jsonPayload": {
+      "at": "2026-11-24T18:51:49.771Z",
+      "callerRole": "compiler",
+      "category": "unavailable",
+      "commandId": "c:da62862cd97b17421373799bdcd0461225673a607d9dcfd327bc74189ec80ede",
+      "event": "command-reserve",
+      "invocationId": "inv-fdc7707c-f0c3-4d67-b8d5-dcd658f2f18b",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "denied",
+      "publicCapture": true,
+      "reason": "rate-limited",
+      "requestId": "558c78e4-04e4-487f-88ef-2aa8c8a36a40",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:51:50.018480874Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:51:49.770552Z"
+  },
+  {
+    "insertId": "6b05dcbd0003b5d9a21b253c",
+    "jsonPayload": {
+      "at": "2026-11-24T18:51:41.244Z",
+      "callerRole": "compiler",
+      "commandId": "c:e283f5be4e1ec9a5bda732662ebe7b97b41447c1d8ad34e049f9584f51b3573c",
+      "event": "command-reserve",
+      "invocationId": "inv-44fa16e5-bb77-40c8-aeee-804ecba28514",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "2b8e3696-e42a-427e-bfbf-b66875ae5bf4",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:51:41.363565730Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:51:41.243161Z"
+  },
+  {
+    "insertId": "6b05dcb4000449ce8c94772b",
+    "jsonPayload": {
+      "at": "2026-11-24T18:51:32.282Z",
+      "callerRole": "compiler",
+      "commandId": "c:0bcaf9b28e1ca8cad66b0dddca71535fce7be4a60a845e29fc9063cd277098f5",
+      "event": "command-reserve",
+      "invocationId": "inv-b9219562-6204-4192-85a7-9c5342bfecf5",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "e1317107-c8ce-4c37-8768-6f004b5ba1af",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:51:32.363749841Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:51:32.281038Z"
+  },
+  {
+    "insertId": "6b05dcab0007b39b304802d3",
+    "jsonPayload": {
+      "at": "2026-11-24T18:51:23.506Z",
+      "callerRole": "compiler",
+      "commandId": "c:87cb7832bda3aff523d7496ee69cd7ed5d04449e32c4876a5803b17f9a0fe136",
+      "event": "command-reserve",
+      "invocationId": "inv-a7b5c186-0d97-4d28-ae6f-6ce9ff701c9d",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "883fd006-70ba-4b66-bbec-0b29d28eafa0",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:51:23.704695902Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:51:23.504731Z"
+  },
+  {
+    "insertId": "6b05dca20009d24016bf3854",
+    "jsonPayload": {
+      "at": "2026-11-24T18:51:14.645Z",
+      "callerRole": "compiler",
+      "commandId": "c:c908057d22bca06154482fbe75c6f0512ab1ddbeb825d59705ff248247aa5106",
+      "event": "command-reserve",
+      "invocationId": "inv-a3145de6-85c1-4eff-98a5-04326cf6e23a",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "92c70665-69d6-418d-96c1-4a0866e37bd6",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:51:14.715694249Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:51:14.643648Z"
+  },
+  {
+    "insertId": "6b05dc99000aa0954fe26e65",
+    "jsonPayload": {
+      "at": "2026-11-24T18:51:05.697Z",
+      "callerRole": "compiler",
+      "commandId": "c:f1cf797de382c04507ace66adc17d7fda64cfa83d1728a76b6cbc69ade9e7cef",
+      "event": "command-reserve",
+      "invocationId": "inv-d8b48603-6454-45b7-921a-a1a8582f6e44",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "d71987fe-0e9e-42b5-ab0b-f44e4c6f15c2",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:51:05.721470965Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:51:05.696469Z"
+  },
+  {
+    "insertId": "6b05dc8f000dcde0f7d7e3c5",
+    "jsonPayload": {
+      "at": "2026-11-24T18:50:55.905Z",
+      "callerRole": "compiler",
+      "commandId": "c:25e57cb9fd065afa533ebaff4e17a740600ce276dc1babff9a2f8ffee0968f9b",
+      "event": "command-reserve",
+      "invocationId": "inv-b7982d87-3069-4077-8c6d-23d2821ab407",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "6cf72854-973e-4d8e-8a80-7bd4d5cbd3b2",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:50:56.063920374Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:50:55.904672Z"
+  },
+  {
+    "insertId": "6b05dc86000273bd95d1c3bc",
+    "jsonPayload": {
+      "at": "2026-11-24T18:50:46.162Z",
+      "callerRole": "compiler",
+      "commandId": "c:0ffadf2d4739941439e57be7a6e744dcfb6c5d82e11432e2c7e65239d17958af",
+      "event": "command-reserve",
+      "invocationId": "inv-01c1fa93-4389-442c-a075-508bbe43b5f0",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "a1dcda12-8df8-4436-98b8-12b87060fe77",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:50:46.401085252Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:50:46.160701Z"
+  },
+  {
+    "insertId": "6b05dc7c0000b44b3d671753",
+    "jsonPayload": {
+      "at": "2026-11-24T18:50:36.046Z",
+      "callerRole": "compiler",
+      "commandId": "c:3a84bcaa3dd73751873011628dc2e3f5a01af50594d3e0981a67415a737a51ec",
+      "event": "command-reserve",
+      "invocationId": "inv-9c328a7e-89a2-49fc-9734-cf7c39e4af48",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "5724c344-da89-480c-bffd-6e3841807966",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:50:36.080185831Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:50:36.046155Z"
+  },
+  {
+    "insertId": "6b05dc720003baac797b6644",
+    "jsonPayload": {
+      "at": "2026-11-24T18:50:26.245Z",
+      "callerRole": "compiler",
+      "commandId": "c:7423694c7e7651634d29b370ad7cd84a13c1dc3e0a2edae3d585c94d2abf5808",
+      "event": "command-reserve",
+      "invocationId": "inv-d9c8a9c6-d4f2-41a9-b255-5339ceca0040",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "4c5018c7-1d42-485d-abf7-8dc3ca90173b",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:50:26.424519245Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:50:26.244396Z"
+  },
+  {
+    "insertId": "6b05dc67000dfaf56459e2ae",
+    "jsonPayload": {
+      "at": "2026-11-24T18:50:15.916Z",
+      "callerRole": "compiler",
+      "commandId": "c:d7d3235f061ea061bc6f2204d7153b92a2eda24cab873894407da7ff3b73db91",
+      "event": "command-reserve",
+      "invocationId": "inv-f2910d6c-3c3a-46bb-9707-d0d6ab4dc661",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "c6b784c5-8501-4ac2-b750-fc676ad249eb",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:50:16.099978275Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:50:15.916213Z"
+  },
+  {
+    "insertId": "6b05dc5d000cd83e9cae1f83",
+    "jsonPayload": {
+      "at": "2026-11-24T18:50:05.842Z",
+      "callerRole": "compiler",
+      "commandId": "c:cfe1d1c528e05158d980ffd2c72b87b9e6ac8f45dae3e7ba817332967ca22f2f",
+      "event": "command-reserve",
+      "invocationId": "inv-453f9ee2-fa89-4dbb-83f6-6b2dc180ac3b",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "7686b713-08f0-4d8e-b09c-2698b7c9546e",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:50:06.108605429Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:50:05.841790Z"
+  },
+  {
+    "insertId": "6b05dc4d00078b2855b0f537",
+    "jsonPayload": {
+      "at": "2026-11-24T18:49:49.495Z",
+      "callerRole": "compiler",
+      "commandId": "c:e27dc7d646352121e03ba2eb659eb8777c6ab023cba86e9eaf00330a65c0554c",
+      "event": "command-reserve",
+      "invocationId": "inv-9197850a-51c6-4aa7-8cd6-2bf76f7c5e22",
+      "itemId": "wbyfys3akpc4yEGFrnuu",
+      "lang": "0013",
+      "logName": "security_audit",
+      "outcome": "allowed",
+      "provenance": "anonymous",
+      "publicCapture": true,
+      "requestId": "ad806cd7-b28d-48b8-94df-6a99587ae71d",
+      "stage": "s0",
+      "user": "e61aa4d0dc6d2e49440bf81a"
+    },
+    "labels": {
+      "commit-sha": "d6847011b30c40e81585773e05016fa418168e37",
+      "gc-dirty": "false",
+      "gc-release": "rmwtnnr0q-702a88",
+      "gcb-build-id": "be399a1b-47cb-458d-a559-58817b21f752",
+      "instanceId": "00e8a408bd655a1495b76c3d5152e10b5b53faa213857f810efcb3fd026deee4edfd0152a1d341c006c024547a62a8f30a7b7e81572f155f314be99f0a44bf9895b6f2185979280347f317c81eec0401b89a64c678ede56d03"
+    },
+    "logName": "projects/graffiticode/logs/run.googleapis.com%2Fstdout",
+    "receiveTimestamp": "2026-11-24T18:49:49.787770752Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "policy",
+        "location": "us-central1",
+        "project_id": "graffiticode",
+        "revision_name": "policy-rmwtnnr0q-702a88",
+        "service_name": "policy"
+      },
+      "type": "cloud_run_revision"
+    },
+    "timestamp": "2026-11-24T18:49:49.494376Z"
+  }
+]

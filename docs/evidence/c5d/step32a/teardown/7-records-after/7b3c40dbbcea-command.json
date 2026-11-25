@@ -1,0 +1,271 @@
+{
+  "name": "projects/graffiticode/databases/policy/documents/commands/c:7b3c40dbbcea880f85754ef2fec09da8f760dd61db0d3357be865c7c9c3d27c0",
+  "fields": {
+    "revisions": {
+      "nullValue": null
+    },
+    "idempotencyKey": {
+      "stringValue": "c5d-drive:d1ca6da0:drop-outcome"
+    },
+    "scopes": {
+      "integerValue": "1"
+    },
+    "invocationId": {
+      "stringValue": "inv-712ad3e1-156f-48c0-a3ea-817170062d8b"
+    },
+    "lang": {
+      "stringValue": "0013"
+    },
+    "owner": {
+      "mapValue": {
+        "fields": {
+          "leaseExpiresAt": {
+            "integerValue": "1795493440716"
+          },
+          "generation": {
+            "integerValue": "1"
+          },
+          "scopes": {
+            "integerValue": "1"
+          },
+          "worker": {
+            "stringValue": "api-c5d-drive-rmwts8195-165448:d4e51c2f-71ad-4795-ad9f-aea0b003de04"
+          }
+        }
+      }
+    },
+    "publication": {
+      "mapValue": {
+        "fields": {
+          "state": {
+            "stringValue": "none"
+          },
+          "resultDigest": {
+            "nullValue": null
+          }
+        }
+      }
+    },
+    "binding": {
+      "mapValue": {
+        "fields": {
+          "taskId": {
+            "stringValue": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19"
+          },
+          "connectionId": {
+            "nullValue": null
+          },
+          "inputDigest": {
+            "stringValue": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+          }
+        }
+      }
+    },
+    "protocol": {
+      "stringValue": "command"
+    },
+    "counts": {
+      "mapValue": {
+        "fields": {
+          "byIntent": {
+            "mapValue": {
+              "fields": {
+                "s0/snap:0": {
+                  "integerValue": "1"
+                }
+              }
+            }
+          },
+          "completed": {
+            "integerValue": "0"
+          },
+          "partial": {
+            "integerValue": "0"
+          },
+          "bound": {
+            "integerValue": "1"
+          },
+          "failed": {
+            "integerValue": "0"
+          },
+          "uncertain": {
+            "integerValue": "1"
+          }
+        }
+      }
+    },
+    "connectionId": {
+      "nullValue": null
+    },
+    "uid": {
+      "stringValue": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+    },
+    "stages": {
+      "mapValue": {
+        "fields": {
+          "s0": {
+            "mapValue": {
+              "fields": {
+                "expansion": {
+                  "stringValue": "closed"
+                },
+                "pinnedInput": {
+                  "stringValue": "8212689cc2ce47a994fb37118d94e1cce57457efbff82a88ff262cfc59c9a2a3"
+                },
+                "state": {
+                  "stringValue": "ran"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "kind": {
+      "stringValue": "command"
+    },
+    "phase": {
+      "stringValue": "admitted"
+    },
+    "seq": {
+      "integerValue": "14"
+    },
+    "schema": {
+      "integerValue": "1"
+    },
+    "commandId": {
+      "stringValue": "c:7b3c40dbbcea880f85754ef2fec09da8f760dd61db0d3357be865c7c9c3d27c0"
+    },
+    "updatedAt": {
+      "stringValue": "2026-11-24T04:09:56.824Z"
+    },
+    "result": {
+      "mapValue": {
+        "fields": {
+          "state": {
+            "stringValue": "unavailable"
+          },
+          "digest": {
+            "nullValue": null
+          }
+        }
+      }
+    },
+    "taskId": {
+      "stringValue": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19"
+    },
+    "runRef": {
+      "nullValue": null
+    },
+    "status": {
+      "stringValue": "uncertain"
+    },
+    "createdAt": {
+      "stringValue": "2026-11-24T04:09:40.716Z"
+    },
+    "admission": {
+      "mapValue": {
+        "fields": {
+          "planDigest": {
+            "stringValue": "32f54d6b83c8c826b9e609c55e96a076ee88e04149de910b2b1a0394885b03a6"
+          },
+          "stages": {
+            "mapValue": {
+              "fields": {
+                "s0": {
+                  "mapValue": {
+                    "fields": {
+                      "intents": {
+                        "arrayValue": {
+                          "values": [
+                            {
+                              "mapValue": {
+                                "fields": {
+                                  "id": {
+                                    "stringValue": "snap:0"
+                                  },
+                                  "fn": {
+                                    "stringValue": "snap"
+                                  },
+                                  "op": {
+                                    "stringValue": "gcs.put-thumbnail"
+                                  },
+                                  "runtime": {
+                                    "booleanValue": true
+                                  },
+                                  "bounds": {
+                                    "mapValue": {
+                                      "fields": {
+                                        "maxOccurrences": {
+                                          "integerValue": "16"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "scope": {
+                                    "mapValue": {
+                                      "fields": {
+                                        "kind": {
+                                          "stringValue": "item"
+                                        },
+                                        "id": {
+                                          "stringValue": "7vwaCAIyMNCJEzgIfyYY"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "tagUrl": {
+                        "stringValue": "https://rmwtr1q6y-99884e---l0013r-c5d-drive-sja7fatcta-uc.a.run.app"
+                      },
+                      "lang": {
+                        "stringValue": "0013"
+                      },
+                      "modelDigest": {
+                        "stringValue": "35ef5f2a647b5751b4916b2c54a2b8e48ac5e71682cfbe94d27de584d67cb4be"
+                      },
+                      "replay": {
+                        "integerValue": "0"
+                      },
+                      "revision": {
+                        "stringValue": "l0013r-c5d-drive-rmwtr1q6y-99884e"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "recording": {
+            "integerValue": "1"
+          },
+          "items": {
+            "mapValue": {
+              "fields": {
+                "7vwaCAIyMNCJEzgIfyYY": {
+                  "mapValue": {
+                    "fields": {
+                      "publicCapture": {
+                        "booleanValue": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "contractVersion": {
+            "integerValue": "3"
+          }
+        }
+      }
+    }
+  },
+  "createTime": "2026-11-24T04:09:40.893228Z",
+  "updateTime": "2026-11-24T04:09:56.859151Z"
+}

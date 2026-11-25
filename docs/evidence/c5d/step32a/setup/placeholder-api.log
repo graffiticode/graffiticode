@@ -1,0 +1,8 @@
+Deploying container to Cloud Run service [[1mapi-c5d-drive[m] in project [[1mgraffiticode[m] region [[1mus-central1[m]
+Deploying new service...
+Creating Revision............................................................................done
+Routing traffic.....done
+Done.
+Service [[1mapi-c5d-drive[m] revision [[1mapi-c5d-drive-00001-dv8[m] has been deployed and is serving [1m100[m percent of traffic.
+Service URL: [1mhttps://api-c5d-drive-656973052505.us-central1.run.app[m
+Proxy locally with: gcloud run services proxy api-c5d-drive --region us-central1 --project graffiticode

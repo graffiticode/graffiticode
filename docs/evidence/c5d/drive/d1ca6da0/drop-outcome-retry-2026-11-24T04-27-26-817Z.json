@@ -1,0 +1,110 @@
+{
+  "runId": "d1ca6da0",
+  "phase": "drop-outcome-retry",
+  "at": "2026-11-24T04:27:26.817Z",
+  "dropped": "drop-outcome-2026-11-24T04-10-00-268Z.json",
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "stagedAfterDelete": {
+      "absent": true
+    },
+    "stagedDeletedAt": "2026-11-24T04:27:17.286Z",
+    "retry": {
+      "status": 200,
+      "commandId": "c:7b3c40dbbcea880f85754ef2fec09da8f760dd61db0d3357be865c7c9c3d27c0",
+      "outcome": "uncertain"
+    },
+    "reconcile": {
+      "status": 200,
+      "operations": [
+        {
+          "operationId": "inv-712ad3e1-156f-48c0-a3ea-817170062d8b/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+          "verdict": "applied",
+          "final": true,
+          "observation": {
+            "found": true,
+            "captureSequence": 16
+          },
+          "result": {
+            "item": "7vwaCAIyMNCJEzgIfyYY",
+            "captureSequence": 16,
+            "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba",
+            "url": "https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5"
+          },
+          "resultSource": "evidence"
+        }
+      ],
+      "attempts": [
+        {
+          "at": "2026-11-24T04:27:25.579Z",
+          "status": 200,
+          "verdict": "applied"
+        }
+      ],
+      "timedOut": false
+    },
+    "objectAfterRetry": {
+      "generation": "1795493395582812",
+      "metadata": {
+        "captureSequence": "16",
+        "commandId": "c:7b3c40dbbcea880f85754ef2fec09da8f760dd61db0d3357be865c7c9c3d27c0",
+        "item": "7vwaCAIyMNCJEzgIfyYY",
+        "sha256": "fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba"
+      }
+    },
+    "executeSteps": [
+      {
+        "at": "2026-11-24T04:09:55.507Z",
+        "service": "broker-c5d-drive",
+        "attempt": 1,
+        "callerRole": "compiler",
+        "decisionId": "66f06aa1-c879-4f93-9446-40201cbe48b6",
+        "event": "execute-step",
+        "fn": "snap",
+        "invocationId": "inv-712ad3e1-156f-48c0-a3ea-817170062d8b",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "jti": "1897c9c9-77e7-47d3-9923-22e292bdc29b",
+        "lang": "0013",
+        "logName": "security_audit",
+        "op": "gcs.put-thumbnail",
+        "opid": "inv-712ad3e1-156f-48c0-a3ea-817170062d8b/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "outcome": "allowed",
+        "planDigest": "32f54d6b83c8c826b9e609c55e96a076ee88e04149de910b2b1a0394885b03a6",
+        "provenance": "user",
+        "purpose": "dispatch",
+        "registryVersion": 10,
+        "requestId": "6060b62f-e850-4d43-bfab-9fcecd9e299e",
+        "stage": "s0",
+        "step": "publish",
+        "user": "f70edb9f82429f72ac89b1ca"
+      },
+      {
+        "at": "2026-11-24T04:09:55.768Z",
+        "service": "broker-c5d-drive",
+        "callerRole": "compiler",
+        "category": "invalid",
+        "event": "execute",
+        "fn": "snap",
+        "invocationId": "inv-712ad3e1-156f-48c0-a3ea-817170062d8b",
+        "itemId": "7vwaCAIyMNCJEzgIfyYY",
+        "jti": "1897c9c9-77e7-47d3-9923-22e292bdc29b",
+        "lang": "0013",
+        "logName": "security_audit",
+        "op": "gcs.put-thumbnail",
+        "opid": "inv-712ad3e1-156f-48c0-a3ea-817170062d8b/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "outcome": "uncertain",
+        "planDigest": "32f54d6b83c8c826b9e609c55e96a076ee88e04149de910b2b1a0394885b03a6",
+        "provenance": "user",
+        "reason": "outcome-not-recorded",
+        "registryVersion": 10,
+        "requestId": "6060b62f-e850-4d43-bfab-9fcecd9e299e",
+        "stage": "s0",
+        "steps": [
+          "publish"
+        ],
+        "user": "f70edb9f82429f72ac89b1ca"
+      }
+    ]
+  }
+}

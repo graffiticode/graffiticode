@@ -1,0 +1,25 @@
+{
+  "name": "projects/graffiticode/databases/broker/documents/receipts/9dd7db05b17ba789fa0f681838a68463deae5b10aab8a04563b75fb8b102b913/outcome/final",
+  "fields": {
+    "reason": {
+      "stringValue": "staging-unavailable"
+    },
+    "category": {
+      "stringValue": "conflict"
+    },
+    "result": {
+      "nullValue": null
+    },
+    "status": {
+      "stringValue": "failed"
+    },
+    "at": {
+      "stringValue": "2026-11-24T16:39:20.918Z"
+    },
+    "steps": {
+      "arrayValue": {}
+    }
+  },
+  "createTime": "2026-11-24T16:39:21.010028Z",
+  "updateTime": "2026-11-24T16:39:21.010028Z"
+}

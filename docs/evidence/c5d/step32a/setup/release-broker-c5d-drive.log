@@ -1,0 +1,1946 @@
+
+> deploy
+> node packages/deploy/src/cli.js broker-c5d-drive
+
+{
+  "action": "deploy",
+  "target": "graffiticode/us-central1/broker-c5d-drive",
+  "environment": "production",
+  "commit": "62d8198c3243f22c2b384ffb74866e4c3cf90dc5",
+  "dirty": false,
+  "sourceHash": "72b9960c52baec37cef00295cac43e0e1ba1db766ad043e31fac89026c9c3242",
+  "files": 717,
+  "configHash": "0da486bebde9088087d6a8d4509eb5def11039087eba27ad750e2de7e74eed75",
+  "config": {
+    "project": "graffiticode",
+    "region": "us-central1",
+    "buildServiceAccount": "deploy-build@graffiticode.iam.gserviceaccount.com",
+    "exclude": [
+      "docs",
+      "server.cert",
+      "server.key",
+      "languages"
+    ],
+    "protectedExecution": {
+      "policyUrl": "https://policy-sja7fatcta-uc.a.run.app",
+      "brokerUrl": "https://broker-sja7fatcta-uc.a.run.app"
+    },
+    "image": "us-central1-docker.pkg.dev/graffiticode/services/broker-c5d-drive",
+    "dockerfile": "configs/Dockerfile.broker.yaml",
+    "port": 8080,
+    "access": "private",
+    "runtimeServiceAccount": "broker-run@graffiticode.iam.gserviceaccount.com",
+    "steps": [
+      {
+        "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+        "entrypoint": "npm",
+        "args": [
+          "ci"
+        ]
+      },
+      {
+        "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+        "entrypoint": "npm",
+        "args": [
+          "run",
+          "build"
+        ]
+      },
+      {
+        "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+        "entrypoint": "npm",
+        "args": [
+          "test",
+          "-w",
+          "packages/common",
+          "--",
+          "--runInBand"
+        ]
+      },
+      {
+        "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+        "entrypoint": "npm",
+        "args": [
+          "test",
+          "-w",
+          "packages/deploy"
+        ]
+      },
+      {
+        "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+        "entrypoint": "npm",
+        "args": [
+          "test",
+          "-w",
+          "packages/policy"
+        ]
+      },
+      {
+        "name": "node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7",
+        "entrypoint": "npm",
+        "args": [
+          "test",
+          "-w",
+          "packages/broker"
+        ]
+      }
+    ],
+    "env": {
+      "BROKER_FIRESTORE_DB": "broker",
+      "POLICY_KMS_KEY_VERSION": "projects/graffiticode/locations/us-central1/keyRings/policy/cryptoKeys/token-signing/cryptoKeyVersions/1",
+      "POLICY_KMS_KID": "policy-1",
+      "LEARNOSITY_DOMAIN": "l0176.graffiticode.org",
+      "POLICY_URL": "https://policy-sja7fatcta-uc.a.run.app",
+      "BROKER_MIN_CONTRACT_VERSION": "2",
+      "SYSTEM_SESSION_MAX_SIGNINGS": "4",
+      "BROKER_PREVIEW_CONNECTIONS": "{\"learnosity\":\"conn-d9afcb13-cff3-43a6-8041-c44989bf689c\"}",
+      "THUMBNAIL_BUCKET": "graffiticode-c5d-drive",
+      "COMMAND_STAGING_BUCKET": "graffiticode-command-staging",
+      "BROKER_FAULT_PRINCIPALS": "995cc0bc98105563168b7fbee7b1e59a4256331c"
+    },
+    "smoke": [
+      {
+        "path": "/",
+        "status": 200
+      }
+    ],
+    "smokeServiceAccount": "deploy-smoke@graffiticode.iam.gserviceaccount.com",
+    "verify": {
+      "module": "verify/broker.js"
+    },
+    "secrets": {
+      "BROKER_CALLERS": "broker-callers:3",
+      "AUDIT_PSEUDONYM_SECRET": "audit-pseudonym-secret:1",
+      "BROKER_SECRET_KEY": "BROKER_SECRET_KEY:1"
+    },
+    "minInstances": 0,
+    "retireTags": true,
+    "enforcesSwitch": true,
+    "contractMinimum": {
+      "env": "BROKER_MIN_CONTRACT_VERSION",
+      "floor": 2
+    },
+    "removeEnv": [
+      "BROKER_FAULTS"
+    ],
+    "requires": [
+      {
+        "service": "policy",
+        "milestone": "sexp"
+      },
+      {
+        "service": "policy",
+        "milestone": "C5d-hold"
+      }
+    ],
+    "service": "broker-c5d-drive"
+  },
+  "requiredVariables": []
+}
+Checking existing service, identity, and secret versions…
+Building rmwtqs6gy-ea522e from snapshot 72b9960c52ba…
+Uploading local file [/var/folders/yc/3zb4lhls0kxd8wb7l89_vpsm0000gn/T/gc-deploy-tSQVdG/source.tar.gz] to [gs://graffiticode_cloudbuild/source/1795467148.950562-200b9b75a1dd4cce95bf5101ca5a479f.gz].
+Created [https://cloudbuild.googleapis.com/v1/projects/graffiticode/locations/us-central1/builds/48fd6861-d5ce-4837-b0bc-61cd0db626f7].
+Logs are available at [ https://console.cloud.google.com/cloud-build/builds;region=us-central1/48fd6861-d5ce-4837-b0bc-61cd0db626f7?project=656973052505 ].
+
+gcloud builds log --stream only displays logs from Cloud Storage. To view logs from Cloud Logging, run:
+gcloud beta builds log --stream
+
+Waiting for build to complete. Polling interval: 1 second(s).
+----------------------------- REMOTE BUILD OUTPUT ------------------------------
+starting build "48fd6861-d5ce-4837-b0bc-61cd0db626f7" using release legacy
+
+FETCHSOURCE
+Fetching storage object: gs://graffiticode_cloudbuild/source/1795467148.950562-200b9b75a1dd4cce95bf5101ca5a479f.gz#1795467150355980
+BUILD
+Starting Step #0
+Step #0: Pulling image: node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
+Step #0: docker.io/library/node@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7: Pulling from library/node
+Step #0: eaac70c68abd: Pulling fs layer
+Step #0: 7b2de2423ebd: Pulling fs layer
+Step #0: 81578410df16: Pulling fs layer
+Step #0: de9e8d0a0071: Pulling fs layer
+Step #0: b92563fa790f: Pulling fs layer
+Step #0: 0d48f423dff0: Pulling fs layer
+Step #0: 105754cf457c: Pulling fs layer
+Step #0: 0c06829c34ad: Pulling fs layer
+Step #0: 105754cf457c: Waiting
+Step #0: 0c06829c34ad: Waiting
+Step #0: b92563fa790f: Download complete
+Step #0: 105754cf457c: Verifying Checksum
+Step #0: 105754cf457c: Download complete
+Step #0: 0c06829c34ad: Verifying Checksum
+Step #0: 0c06829c34ad: Download complete
+Step #0: 7b2de2423ebd: Verifying Checksum
+Step #0: 7b2de2423ebd: Download complete
+Step #0: 81578410df16: Verifying Checksum
+Step #0: 81578410df16: Download complete
+Step #0: eaac70c68abd: Verifying Checksum
+Step #0: eaac70c68abd: Download complete
+Step #0: 0d48f423dff0: Verifying Checksum
+Step #0: 0d48f423dff0: Download complete
+Step #0: de9e8d0a0071: Verifying Checksum
+Step #0: de9e8d0a0071: Download complete
+Step #0: eaac70c68abd: Pull complete
+Step #0: 7b2de2423ebd: Pull complete
+Step #0: 81578410df16: Pull complete
+Step #0: de9e8d0a0071: Pull complete
+Step #0: b92563fa790f: Pull complete
+Step #0: 0d48f423dff0: Pull complete
+Step #0: 105754cf457c: Pull complete
+Step #0: 0c06829c34ad: Pull complete
+Step #0: Digest: sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
+Step #0: Status: Downloaded newer image for node@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
+Step #0: docker.io/library/node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
+Step #0: npm warn deprecated har-validator@5.1.5: this library is no longer supported
+Step #0: npm warn deprecated request@2.88.2: request has been deprecated, see https://github.com/request/request/issues/3142
+Step #0: npm warn deprecated @types/generic-pool@3.8.1: This is a stub types definition. generic-pool provides its own type definitions, so you do not need this installed.
+Step #0: npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+Step #0: npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+Step #0: npm warn deprecated uuid@3.4.0: Please upgrade  to version 7 or higher.  Older versions may use Math.random() in certain circumstances, which is known to be problematic.  See https://v8.dev/blog/math-random for details.
+Step #0: npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+Step #0: npm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+Step #0: npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+Step #0: 
+Step #0: added 1552 packages, and audited 1560 packages in 2m
+Step #0: 
+Step #0: 182 packages are looking for funding
+Step #0:   run `npm fund` for details
+Step #0: 
+Step #0: 143 vulnerabilities (6 low, 45 moderate, 84 high, 8 critical)
+Step #0: 
+Step #0: To address issues that do not require attention, run:
+Step #0:   npm audit fix
+Step #0: 
+Step #0: To address all issues possible (including breaking changes), run:
+Step #0:   npm audit fix --force
+Step #0: 
+Step #0: Some issues need review, and may require choosing
+Step #0: a different dependency.
+Step #0: 
+Step #0: Run `npm audit` for details.
+Finished Step #0
+Starting Step #1
+Step #1: Already have image (with digest): node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
+Step #1: 
+Step #1: > build
+Step #1: > tsc -b tsconfig.build.json && node scripts/fix-bin-modes.js
+Step #1:
+Finished Step #1
+Starting Step #2
+Step #2: Already have image (with digest): node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
+Step #2: 
+Step #2: > @graffiticode/common@2.2.0 test
+Step #2: > NODE_OPTIONS=--experimental-vm-modules jest --runInBand
+Step #2: 
+Step #2: (node:19) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+Step #2: (Use `node --trace-warnings ...` to show where the warning was created)
+Step #2: PASS src/protected-registry.spec.ts
+Step #2: PASS src/installations.spec.ts
+Step #2: PASS src/installation-auth.spec.ts
+Step #2: PASS src/interpreter-manifest.spec.ts
+Step #2: PASS src/contract.spec.ts
+Step #2: PASS src/act-as.spec.ts
+Step #2: PASS src/caller.spec.ts
+Step #2: PASS src/http.spec.ts
+Step #2: PASS src/failures.spec.ts
+Step #2: PASS src/verified-tokens.spec.ts
+Step #2: PASS src/chain.spec.ts
+Step #2: PASS src/canonical.spec.ts
+Step #2: PASS src/errors.spec.ts
+Step #2: PASS src/utils.spec.ts
+Step #2: 
+Step #2: Test Suites: 14 passed, 14 total
+Step #2: Tests:       190 passed, 190 total
+Step #2: Snapshots:   0 total
+Step #2: Time:        2.025 s
+Step #2: Ran all test suites.
+Finished Step #2
+Starting Step #3
+Step #3: Already have image (with digest): node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
+Step #3: 
+Step #3: > @graffiticode/deploy@0.1.0 test
+Step #3: > node --test
+Step #3: 
+Step #3: TAP version 13
+Step #3: # Subtest: argument parsing rejects ambiguity and missing values
+Step #3: ok 1 - argument parsing rejects ambiguity and missing values
+Step #3:   ---
+Step #3:   duration_ms: 2.931266
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: configuration resolves environment inputs and rejects latest secret versions
+Step #3: ok 2 - configuration resolves environment inputs and rejects latest secret versions
+Step #3:   ---
+Step #3:   duration_ms: 39.97898
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: build publishes with provenance and never deploys; deploy preserves unmanaged configuration
+Step #3: ok 3 - build publishes with provenance and never deploys; deploy preserves unmanaged configuration
+Step #3:   ---
+Step #3:   duration_ms: 1.003341
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: deploy removes listed secrets explicitly, and refuses a secret both mounted and removed
+Step #3: ok 4 - deploy removes listed secrets explicitly, and refuses a secret both mounted and removed
+Step #3:   ---
+Step #3:   duration_ms: 7.796386
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: successful release deploys the returned digest and promotes only after verification
+Step #3: ok 5 - successful release deploys the returned digest and promotes only after verification
+Step #3:   ---
+Step #3:   duration_ms: 10.354472
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: failed build never promotes traffic
+Step #3: ok 6 - failed build never promotes traffic
+Step #3:   ---
+Step #3:   duration_ms: 14.903477
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: failed smoke never promotes traffic
+Step #3: ok 7 - failed smoke never promotes traffic
+Step #3:   ---
+Step #3:   duration_ms: 4.049544
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: drift during build never promotes traffic
+Step #3: ok 8 - drift during build never promotes traffic
+Step #3:   ---
+Step #3:   duration_ms: 3.59539
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: drift during verification never promotes traffic
+Step #3: ok 9 - drift during verification never promotes traffic
+Step #3:   ---
+Step #3:   duration_ms: 3.394992
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: failed image tag never promotes traffic
+Step #3: ok 10 - failed image tag never promotes traffic
+Step #3:   ---
+Step #3:   duration_ms: 3.801764
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: ambiguous promotion failure retains a receipt with its revision and previous traffic
+Step #3: ok 11 - ambiguous promotion failure retains a receipt with its revision and previous traffic
+Step #3:   ---
+Step #3:   duration_ms: 5.524793
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: unresolved prerequisites fail before cloud calls
+Step #3: ok 12 - unresolved prerequisites fail before cloud calls
+Step #3:   ---
+Step #3:   duration_ms: 3.016493
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: rollback refuses other targets and newer traffic
+Step #3: ok 13 - rollback refuses other targets and newer traffic
+Step #3:   ---
+Step #3:   duration_ms: 3.576857
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: private smoke uses the service audience and candidate URL without following redirects
+Step #3: ok 14 - private smoke uses the service audience and candidate URL without following redirects
+Step #3:   ---
+Step #3:   duration_ms: 24.242927
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: smoke timeoutMs defaults to 30s, is per check, and is bounded
+Step #3: ok 15 - smoke timeoutMs defaults to 30s, is per check, and is bounded
+Step #3:   ---
+Step #3:   duration_ms: 15.170528
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: traffic merges tagged entries and rejects incomplete allocations
+Step #3: ok 16 - traffic merges tagged entries and rejects incomplete allocations
+Step #3:   ---
+Step #3:   duration_ms: 0.384551
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # hint: Using 'master' as the name for the initial branch. This default branch name
+Step #3: # hint: is subject to change. To configure the initial branch name to use in all
+Step #3: # hint: of your new repositories, which will suppress this warning, call:
+Step #3: # hint: 
+Step #3: # hint: \\tgit config --global init.defaultBranch <name>
+Step #3: # hint: 
+Step #3: # hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Step #3: # hint: 'development'. The just-created branch can be renamed via this command:
+Step #3: # hint: 
+Step #3: # hint: \\tgit branch -m <name>
+Step #3: # Subtest: snapshot excludes credentials, captures dirty files and executable bits, and rejects symlinks
+Step #3: ok 17 - snapshot excludes credentials, captures dirty files and executable bits, and rejects symlinks
+Step #3:   ---
+Step #3:   duration_ms: 132.999552
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: wrong runtime identity and public invocation on private services fail before building
+Step #3: ok 18 - wrong runtime identity and public invocation on private services fail before building
+Step #3:   ---
+Step #3:   duration_ms: 2.259461
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: disabled secret versions fail before source upload
+Step #3: ok 19 - disabled secret versions fail before source upload
+Step #3:   ---
+Step #3:   duration_ms: 1.834477
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: verify runs the snapshot's module against the candidate before promotion, and records its hash
+Step #3: ok 20 - verify runs the snapshot's module against the candidate before promotion, and records its hash
+Step #3:   ---
+Step #3:   duration_ms: 7.162706
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a failing verify never promotes traffic and leaves the receipt at candidate
+Step #3: ok 21 - a failing verify never promotes traffic and leaves the receipt at candidate
+Step #3:   ---
+Step #3:   duration_ms: 6.59512
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: verify modules must export a function and be in the snapshot
+Step #3: ok 22 - verify modules must export a function and be in the snapshot
+Step #3:   ---
+Step #3:   duration_ms: 7.866881
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: private verify gets the deployer's invocation header, not application credentials
+Step #3: ok 23 - private verify gets the deployer's invocation header, not application credentials
+Step #3:   ---
+Step #3:   duration_ms: 4.036695
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: verify.module must be a relative .js path
+Step #3: ok 24 - verify.module must be a relative .js path
+Step #3:   ---
+Step #3:   duration_ms: 10.799247
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a release with retireTags removes tags on non-serving revisions, keeps its own, and leaves traffic alone
+Step #3: ok 25 - a release with retireTags removes tags on non-serving revisions, keeps its own, and leaves traffic alone
+Step #3:   ---
+Step #3:   duration_ms: 3.921075
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a release without retireTags leaves tags alone
+Step #3: ok 26 - a release without retireTags leaves tags alone
+Step #3:   ---
+Step #3:   duration_ms: 6.385353
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a release stays released when tag retirement fails, and records why
+Step #3: ok 27 - a release stays released when tag retirement fails, and records why
+Step #3:   ---
+Step #3:   duration_ms: 6.566488
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: stale tags are those on revisions that serve nothing; retiring them is verified and idempotent
+Step #3: ok 28 - stale tags are those on revisions that serve nothing; retiring them is verified and idempotent
+Step #3:   ---
+Step #3:   duration_ms: 1.8727
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: retire-tags parses as a command, and retireTags must be a boolean
+Step #3: ok 29 - retire-tags parses as a command, and retireTags must be a boolean
+Step #3:   ---
+Step #3:   duration_ms: 3.289655
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: each release labels its revision with its commit and whether the workspace was dirty
+Step #3: ok 30 - each release labels its revision with its commit and whether the workspace was dirty
+Step #3:   ---
+Step #3:   duration_ms: 0.403442
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a revision meets a milestone only if built cleanly from its commit or a descendant
+Step #3: ok 31 - a revision meets a milestone only if built cleanly from its commit or a descendant
+Step #3:   ---
+Step #3:   duration_ms: 0.403182
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: rollback below the current milestone needs --below-baseline and a verified-off switch
+Step #3: ok 32 - rollback below the current milestone needs --below-baseline and a verified-off switch
+Step #3:   ---
+Step #3:   duration_ms: 6.958009
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: rollback below a floor is refused with no override
+Step #3: ok 33 - rollback below a floor is refused with no override
+Step #3:   ---
+Step #3:   duration_ms: 9.009283
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: the repository's deploy.json keeps Policy's B6 recording floor
+Step #3: ok 34 - the repository's deploy.json keeps Policy's B6 recording floor
+Step #3:   ---
+Step #3:   duration_ms: 2.564446
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: every api entry in the repository's deploy.json sets COMMAND_SCOPES or removes it, and L0013 commands need it
+Step #3: ok 35 - every api entry in the repository's deploy.json sets COMMAND_SCOPES or removes it, and L0013 commands need it
+Step #3:   ---
+Step #3:   duration_ms: 2.393402
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: Policy's floor is B6 slice 4's merge: a rollback to slice 3's or slice 2's Policy is refused
+Step #3: ok 36 - Policy's floor is B6 slice 4's merge: a rollback to slice 3's or slice 2's Policy is refused
+Step #3:   ---
+Step #3:   duration_ms: 15.000185
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: Policy's and Broker's floor is C5a slice 3's merge: rolling back, or releasing, below it is refused
+Step #3: ok 37 - Policy's and Broker's floor is C5a slice 3's merge: rolling back, or releasing, below it is refused
+Step #3:   ---
+Step #3:   duration_ms: 24.53119
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: C5d's floors: Broker's at the refusal's merge, Policy's at the hold's; releasing or rolling back below either is refused
+Step #3: ok 38 - C5d's floors: Broker's at the refusal's merge, Policy's at the hold's; releasing or rolling back below either is refused
+Step #3:   ---
+Step #3:   duration_ms: 28.933104
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: Policy requires Broker's C5d-refusal, resolved both ways from the repository's deploy.json
+Step #3: ok 39 - Policy requires Broker's C5d-refusal, resolved both ways from the repository's deploy.json
+Step #3:   ---
+Step #3:   duration_ms: 9.869372
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a candidate staged below a floor installed since is never promoted
+Step #3: ok 40 - a candidate staged below a floor installed since is never promoted
+Step #3:   ---
+Step #3:   duration_ms: 7.3473
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a floored service is released only from a clean commit, --allow-dirty or not
+Step #3: ok 41 - a floored service is released only from a clean commit, --allow-dirty or not
+Step #3:   ---
+Step #3:   duration_ms: 3.295274
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a release of a floored service needs the Git history to check the floor
+Step #3: ok 42 - a release of a floored service needs the Git history to check the floor
+Step #3:   ---
+Step #3:   duration_ms: 0.948616
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a service that enforces the switch never rolls back below its first milestone
+Step #3: ok 43 - a service that enforces the switch never rolls back below its first milestone
+Step #3:   ---
+Step #3:   duration_ms: 3.703007
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a switch-enforcing service may roll back between milestones, below-baseline and switched off
+Step #3: ok 44 - a switch-enforcing service may roll back between milestones, below-baseline and switched off
+Step #3:   ---
+Step #3:   duration_ms: 5.657074
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: release-check fails on stale tags and on old code redeployed under a new release id
+Step #3: ok 45 - release-check fails on stale tags and on old code redeployed under a new release id
+Step #3:   ---
+Step #3:   duration_ms: 5.212948
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: baselines, enforcesSwitch and protectedExecution are validated, and the new flags parse
+Step #3: ok 46 - baselines, enforcesSwitch and protectedExecution are validated, and the new flags parse
+Step #3:   ---
+Step #3:   duration_ms: 8.630273
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a build is done when Cloud Build says so, polling until then
+Step #3: ok 47 - a build is done when Cloud Build says so, polling until then
+Step #3:   ---
+Step #3:   duration_ms: 0.405042
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a log stream that never closes is stopped after the grace period, and holds nothing
+Step #3: ok 48 - a log stream that never closes is stopped after the grace period, and holds nothing
+Step #3:   ---
+Step #3:   duration_ms: 0.257641
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a log stream that ends lets the release go on at once; one that fails is only reported
+Step #3: ok 49 - a log stream that ends lets the release go on at once; one that fails is only reported
+Step #3:   ---
+Step #3:   duration_ms: 0.301034
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a failed build stops its stream and deploys nothing, however the stream behaves
+Step #3: ok 50 - a failed build stops its stream and deploys nothing, however the stream behaves
+Step #3:   ---
+Step #3:   duration_ms: 12.602872
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a release completes past a log stream that never closes
+Step #3: ok 51 - a release completes past a log stream that never closes
+Step #3:   ---
+Step #3:   duration_ms: 3.648513
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: streamOutput reports a stopped command as ended, and a failing one as failed
+Step #3: ok 52 - streamOutput reports a stopped command as ended, and a failing one as failed
+Step #3:   ---
+Step #3:   duration_ms: 30.680404
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a pinnable release is approved before it serves, with its tag, digest and commit
+Step #3: ok 53 - a pinnable release is approved before it serves, with its tag, digest and commit
+Step #3:   ---
+Step #3:   duration_ms: 5.176316
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a pinnable release whose approval fails is never promoted
+Step #3: ok 54 - a pinnable release whose approval fails is never promoted
+Step #3:   ---
+Step #3:   duration_ms: 18.489565
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: tag retirement keeps the tags retirement still owns, and removes the rest
+Step #3: ok 55 - tag retirement keeps the tags retirement still owns, and removes the rest
+Step #3:   ---
+Step #3:   duration_ms: 2.295805
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a release's own tag cleanup never cuts a retirement's wait short
+Step #3: ok 56 - a release's own tag cleanup never cuts a retirement's wait short
+Step #3:   ---
+Step #3:   duration_ms: 3.659414
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: release-check for a pinnable service covers every reachable revision
+Step #3: ok 57 - release-check for a pinnable service covers every reachable revision
+Step #3:   ---
+Step #3:   duration_ms: 4.148642
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a revision meets the contract floor with the floor or a later version
+Step #3: ok 58 - a revision meets the contract floor with the floor or a later version
+Step #3:   ---
+Step #3:   duration_ms: 2.144303
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: reachable problems and retained tags are judged per revision
+Step #3: ok 59 - reachable problems and retained tags are judged per revision
+Step #3:   ---
+Step #3:   duration_ms: 0.258151
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: approve records a revision released before its service was pinnable, once
+Step #3: ok 60 - approve records a revision released before its service was pinnable, once
+Step #3:   ---
+Step #3:   duration_ms: 4.250322
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: approve --staged records a staged revision, moves no traffic, and is never implied
+Step #3: ok 61 - approve --staged records a staged revision, moves no traffic, and is never implied
+Step #3:   ---
+Step #3:   duration_ms: 5.380692
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: the revisions client creates a record only if absent, and reads every page
+Step #3: ok 62 - the revisions client creates a record only if absent, and reads every page
+Step #3:   ---
+Step #3:   duration_ms: 1.152222
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: pinnable is validated, and approve needs a release
+Step #3: ok 63 - pinnable is validated, and approve needs a release
+Step #3:   ---
+Step #3:   duration_ms: 7.877913
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: contractMinimum is validated, and from the floor this file's own value must keep it
+Step #3: ok 64 - contractMinimum is validated, and from the floor this file's own value must keep it
+Step #3:   ---
+Step #3:   duration_ms: 7.98172
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: release-check reads the contract minimum of every reachable revision, retained tags included
+Step #3: ok 65 - release-check reads the contract minimum of every reachable revision, retained tags included
+Step #3:   ---
+Step #3:   duration_ms: 5.727
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a configuration rollback from the same commit can't lower the contract minimum unnoticed
+Step #3: ok 66 - a configuration rollback from the same commit can't lower the contract minimum unnoticed
+Step #3:   ---
+Step #3:   duration_ms: 6.396134
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: network is validated, and the proxy variables come only from it
+Step #3: ok 67 - network is validated, and the proxy variables come only from it
+Step #3:   ---
+Step #3:   duration_ms: 10.394655
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a networked release deploys on the compiler network, through the proxy, trusting its CA
+Step #3: ok 68 - a networked release deploys on the compiler network, through the proxy, trusting its CA
+Step #3:   ---
+Step #3:   duration_ms: 4.48058
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: release-check fails while any reachable revision lacks the network controls, retained tags included
+Step #3: ok 69 - release-check fails while any reachable revision lacks the network controls, retained tags included
+Step #3:   ---
+Step #3:   duration_ms: 3.918865
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: each control is checked: a revision missing any one of them is reported for it
+Step #3: ok 70 - each control is checked: a revision missing any one of them is reported for it
+Step #3:   ---
+Step #3:   duration_ms: 4.196017
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: rollback refuses a target without the network controls, before moving traffic, with no override
+Step #3: ok 71 - rollback refuses a target without the network controls, before moving traffic, with no override
+Step #3:   ---
+Step #3:   duration_ms: 4.263392
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: rollback to an earlier controlled revision is allowed
+Step #3: ok 72 - rollback to an earlier controlled revision is allowed
+Step #3:   ---
+Step #3:   duration_ms: 7.110791
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: removeEnv removes variables explicitly, and a name can't be both set and removed
+Step #3: ok 73 - removeEnv removes variables explicitly, and a name can't be both set and removed
+Step #3:   ---
+Step #3:   duration_ms: 11.142815
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a release with removeEnv deploys a revision without the variable
+Step #3: ok 74 - a release with removeEnv deploys a revision without the variable
+Step #3:   ---
+Step #3:   duration_ms: 6.693738
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: forbiddenEnv is validated, and this file can't set what it forbids
+Step #3: ok 75 - forbiddenEnv is validated, and this file can't set what it forbids
+Step #3:   ---
+Step #3:   duration_ms: 7.021634
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: release-check fails while any reachable revision carries a forbidden variable, tagged ones included
+Step #3: ok 76 - release-check fails while any reachable revision carries a forbidden variable, tagged ones included
+Step #3:   ---
+Step #3:   duration_ms: 6.049936
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: with a gateway-only milestone: old code fails on the milestone, new code with the variable on forbiddenEnv, new code without it passes
+Step #3: ok 77 - with a gateway-only milestone: old code fails on the milestone, new code with the variable on forbiddenEnv, new code without it passes
+Step #3:   ---
+Step #3:   duration_ms: 6.272294
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a candidate that inherits a forbidden variable is never promoted
+Step #3: ok 78 - a candidate that inherits a forbidden variable is never promoted
+Step #3:   ---
+Step #3:   duration_ms: 23.069933
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: rollback refuses a same-commit target carrying a forbidden variable, before moving traffic, with no override
+Step #3: ok 79 - rollback refuses a same-commit target carrying a forbidden variable, before moving traffic, with no override
+Step #3:   ---
+Step #3:   duration_ms: 5.334229
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: minInstances and maxInstances become deploy flags and are validated
+Step #3: ok 80 - minInstances and maxInstances become deploy flags and are validated
+Step #3:   ---
+Step #3:   duration_ms: 7.078258
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: concurrency becomes a deploy flag and is validated
+Step #3: ok 81 - concurrency becomes a deploy flag and is validated
+Step #3:   ---
+Step #3:   duration_ms: 5.302207
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: an unknown setting is refused, not silently dropped
+Step #3: ok 82 - an unknown setting is refused, not silently dropped
+Step #3:   ---
+Step #3:   duration_ms: 4.521693
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: every service in this repository's deploy.json loads
+Step #3: ok 83 - every service in this repository's deploy.json loads
+Step #3:   ---
+Step #3:   duration_ms: 73.95384
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a service that requires another's milestone isn't promoted while any reachable revision of it is below
+Step #3: ok 84 - a service that requires another's milestone isn't promoted while any reachable revision of it is below
+Step #3:   ---
+Step #3:   duration_ms: 8.682387
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: release-check reports a required service's reachable revisions below the milestone
+Step #3: ok 85 - release-check reports a required service's reachable revisions below the milestone
+Step #3:   ---
+Step #3:   duration_ms: 2.172684
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a required service is never released or rolled back below a milestone another requires, with no override
+Step #3: ok 86 - a required service is never released or rolled back below a milestone another requires, with no override
+Step #3:   ---
+Step #3:   duration_ms: 6.065917
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: requires is validated against deploy.json, and resolved both ways
+Step #3: ok 87 - requires is validated against deploy.json, and resolved both ways
+Step #3:   ---
+Step #3:   duration_ms: 12.44474
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: --stage and promote parse; promote needs --release and --evidence
+Step #3: ok 88 - --stage and promote parse; promote needs --release and --evidence
+Step #3:   ---
+Step #3:   duration_ms: 0.553144
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a staged release checks its candidate, then stops: no traffic update, traffic unchanged
+Step #3: ok 89 - a staged release checks its candidate, then stops: no traffic update, traffic unchanged
+Step #3:   ---
+Step #3:   duration_ms: 9.46443
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: networkHash is canonical: key order doesn't change it, any setting does
+Step #3: ok 90 - networkHash is canonical: key order doesn't change it, any setting does
+Step #3:   ---
+Step #3:   duration_ms: 0.328776
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: promote with valid evidence moves traffic to exactly the staged revision
+Step #3: ok 91 - promote with valid evidence moves traffic to exactly the staged revision
+Step #3:   ---
+Step #3:   duration_ms: 6.542546
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: promote refuses missing or mismatched evidence, and leaves the candidate staged with no traffic
+Step #3: ok 92 - promote refuses missing or mismatched evidence, and leaves the candidate staged with no traffic
+Step #3:   ---
+Step #3:   duration_ms: 4.522733
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: promote refuses a receipt that isn't staged, or another target's
+Step #3: ok 93 - promote refuses a receipt that isn't staged, or another target's
+Step #3:   ---
+Step #3:   duration_ms: 4.823778
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: promote refuses once the service changed since staging, or deploy.json's network did
+Step #3: ok 94 - promote refuses once the service changed since staging, or deploy.json's network did
+Step #3:   ---
+Step #3:   duration_ms: 7.246752
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: promote re-runs the candidate checks: a candidate now carrying a forbidden variable isn't promoted
+Step #3: ok 95 - promote re-runs the candidate checks: a candidate now carrying a forbidden variable isn't promoted
+Step #3:   ---
+Step #3:   duration_ms: 3.333048
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a candidate without the network controls is never promoted or staged
+Step #3: ok 96 - a candidate without the network controls is never promoted or staged
+Step #3:   ---
+Step #3:   duration_ms: 4.142332
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a pinnable staged candidate is approved only at promote, before it serves
+Step #3: ok 97 - a pinnable staged candidate is approved only at promote, before it serves
+Step #3:   ---
+Step #3:   duration_ms: 6.656405
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a promotion that fails after starting is recorded in the receipt
+Step #3: ok 98 - a promotion that fails after starting is recorded in the receipt
+Step #3:   ---
+Step #3:   duration_ms: 3.177935
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a networked candidate must report its egress bootstrap installed, with its proxy (ISOLATE-01)
+Step #3: ok 99 - a networked candidate must report its egress bootstrap installed, with its proxy (ISOLATE-01)
+Step #3:   ---
+Step #3:   duration_ms: 4.302526
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: NODE_USE_ENV_PROXY is CLI-managed for a networked service (ISOLATE-01 step 3)
+Step #3: ok 100 - NODE_USE_ENV_PROXY is CLI-managed for a networked service (ISOLATE-01 step 3)
+Step #3:   ---
+Step #3:   duration_ms: 0.098898
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a second CA volume left over from the template doesn't hide a correct mount (ISOLATE-01 step 3)
+Step #3: ok 101 - a second CA volume left over from the template doesn't hide a correct mount (ISOLATE-01 step 3)
+Step #3:   ---
+Step #3:   duration_ms: 7.84007
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: an interpreter flag never changes without its language's compile generation
+Step #3: ok 102 - an interpreter flag never changes without its language's compile generation
+Step #3:   ---
+Step #3:   duration_ms: 0.536404
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a release that turns an interpreter on without a new generation is refused before anything is built
+Step #3: ok 103 - a release that turns an interpreter on without a new generation is refused before anything is built
+Step #3:   ---
+Step #3:   duration_ms: 9.584529
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a flag the serving revision has but deploy.json doesn't name is refused: deleting it doesn't turn it off
+Step #3: ok 104 - a flag the serving revision has but deploy.json doesn't name is refused: deleting it doesn't turn it off
+Step #3:   ---
+Step #3:   duration_ms: 4.149884
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a rollback to other interpreter flags under the same generation is refused
+Step #3: ok 105 - a rollback to other interpreter flags under the same generation is refused
+Step #3:   ---
+Step #3:   duration_ms: 3.178605
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: the C5d drive's deploy.json entries are isolated from production and carry no run-specific value
+Step #3: ok 106 - the C5d drive's deploy.json entries are isolated from production and carry no run-specific value
+Step #3:   ---
+Step #3:   duration_ms: 2.671195
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: profile A, profile B, then no profile: each release binds its revision and its receipt to what it ran
+Step #3: ok 107 - profile A, profile B, then no profile: each release binds its revision and its receipt to what it ran
+Step #3:   ---
+Step #3:   duration_ms: 8.624033
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a candidate whose own receipt differs from its binding is never promoted
+Step #3: ok 108 - a candidate whose own receipt differs from its binding is never promoted
+Step #3:   ---
+Step #3:   duration_ms: 8.527655
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a release refuses a snapshot whose profile isn't the pinned one
+Step #3: ok 109 - a release refuses a snapshot whose profile isn't the pinned one
+Step #3:   ---
+Step #3:   duration_ms: 1.637742
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: promote checks the staged binding without fetching the profile: a changed pin is refused, the same one promotes
+Step #3: ok 110 - promote checks the staged binding without fetching the profile: a changed pin is refused, the same one promotes
+Step #3:   ---
+Step #3:   duration_ms: 3.754161
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: promote refuses a candidate whose revision no longer carries the staged binding
+Step #3: ok 111 - promote refuses a candidate whose revision no longer carries the staged binding
+Step #3:   ---
+Step #3:   duration_ms: 7.296046
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: rollback across profile changes keeps each target's own binding, whatever deploy.json pins now
+Step #3: ok 112 - rollback across profile changes keeps each target's own binding, whatever deploy.json pins now
+Step #3:   ---
+Step #3:   duration_ms: 7.047286
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: rollback refuses a target with a partial or unreadable profile binding, with no override
+Step #3: ok 113 - rollback refuses a target with a partial or unreadable profile binding, with no override
+Step #3:   ---
+Step #3:   duration_ms: 5.477799
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: release-check fails on a reachable revision with a partial binding
+Step #3: ok 114 - release-check fails on a reachable revision with a partial binding
+Step #3:   ---
+Step #3:   duration_ms: 2.953458
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: with profileHealth removed, rollback still refuses a partial binding
+Step #3: ok 115 - with profileHealth removed, rollback still refuses a partial binding
+Step #3:   ---
+Step #3:   duration_ms: 5.870121
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: with profileHealth removed, a rollback still records each target's own binding
+Step #3: ok 116 - with profileHealth removed, a rollback still records each target's own binding
+Step #3:   ---
+Step #3:   duration_ms: 11.871734
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: with profileHealth removed, release-check still fails on a reachable partial binding
+Step #3: ok 117 - with profileHealth removed, release-check still fails on a reachable partial binding
+Step #3:   ---
+Step #3:   duration_ms: 7.750722
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: promote keeps the staged receipt's profile check after profileHealth is removed
+Step #3: ok 118 - promote keeps the staged receipt's profile check after profileHealth is removed
+Step #3:   ---
+Step #3:   duration_ms: 3.412025
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a release that isn't profile-aware refuses a service whose template carries a binding
+Step #3: ok 119 - a release that isn't profile-aware refuses a service whose template carries a binding
+Step #3:   ---
+Step #3:   duration_ms: 5.675046
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: rollback refuses an unreadable profile-labelled target without current profile settings
+Step #3: ok 120 - rollback refuses an unreadable profile-labelled target without current profile settings
+Step #3:   ---
+Step #3:   duration_ms: 2.825727
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: release-check retains a profile marker when its revision's containers are unreadable
+Step #3: ok 121 - release-check retains a profile marker when its revision's containers are unreadable
+Step #3:   ---
+Step #3:   duration_ms: 1.404203
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a bound revision or template makes unreadable reachable peers fail release-check
+Step #3: ok 122 - a bound revision or template makes unreadable reachable peers fail release-check
+Step #3:   ---
+Step #3:   duration_ms: 3.479049
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a plain release refuses a labelled unreadable template before building
+Step #3: ok 123 - a plain release refuses a labelled unreadable template before building
+Step #3:   ---
+Step #3:   duration_ms: 1.797414
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a plain release refuses an unreadable template when a reachable revision carries a profile
+Step #3: ok 124 - a plain release refuses an unreadable template when a reachable revision carries a profile
+Step #3:   ---
+Step #3:   duration_ms: 1.638011
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: rollback scopes unreadable targets using the current revision and the complete target set
+Step #3: ok 125 - rollback scopes unreadable targets using the current revision and the complete target set
+Step #3:   ---
+Step #3:   duration_ms: 7.21071
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: legacy unreadable metadata keeps working when no profile evidence exists
+Step #3: ok 126 - legacy unreadable metadata keeps working when no profile evidence exists
+Step #3:   ---
+Step #3:   duration_ms: 2.901683
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: image names and release times
+Step #3: ok 127 - image names and release times
+Step #3:   ---
+Step #3:   duration_ms: 1.48311
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: tags follow reachable revisions; images still run keep theirs; in-flight releases keep theirs
+Step #3: ok 128 - tags follow reachable revisions; images still run keep theirs; in-flight releases keep theirs
+Step #3:   ---
+Step #3:   duration_ms: 2.098079
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: the digest matches core's over README, hidden, empty and binary files
+Step #3: ok 129 - the digest matches core's over README, hidden, empty and binary files
+Step #3:   ---
+Step #3:   duration_ms: 13.675809
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: read from Git's objects, a committed profile has the same digest, byte for byte
+Step #3: ok 130 - read from Git's objects, a committed profile has the same digest, byte for byte
+Step #3:   ---
+Step #3:   duration_ms: 87.124447
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: fetchProfile fetches the pinned commit and binds it; a different digest is refused
+Step #3: ok 131 - fetchProfile fetches the pinned commit and binds it; a different digest is refused
+Step #3:   ---
+Step #3:   duration_ms: 170.005203
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: fetchProfile refuses symlinks, non-ASCII paths, and a profile without a usable installation id
+Step #3: ok 132 - fetchProfile refuses symlinks, non-ASCII paths, and a profile without a usable installation id
+Step #3:   ---
+Step #3:   duration_ms: 374.190962
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: configuration: a profile is pinned by repo, commit and reviewed digest, and needs profileHealth
+Step #3: ok 133 - configuration: a profile is pinned by repo, commit and reviewed digest, and needs profileHealth
+Step #3:   ---
+Step #3:   duration_ms: 1.014931
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: configuration: the binding's variables belong to the CLI; a profile can be pinned per environment
+Step #3: ok 134 - configuration: the binding's variables belong to the CLI; a profile can be pinned per environment
+Step #3:   ---
+Step #3:   duration_ms: 15.767686
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: the snapshot carries every profile byte under the reserved path, outside the workspace's filters
+Step #3: ok 135 - the snapshot carries every profile byte under the reserved path, outside the workspace's filters
+Step #3:   ---
+Step #3:   duration_ms: 104.230121
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a workspace may not contain the reserved profile path, in any form
+Step #3: ok 136 - a workspace may not contain the reserved profile path, in any form
+Step #3:   ---
+Step #3:   duration_ms: 190.778202
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: deploy arguments bind the revision, or unbind a profile-aware one released without a profile
+Step #3: ok 137 - deploy arguments bind the revision, or unbind a profile-aware one released without a profile
+Step #3:   ---
+Step #3:   duration_ms: 1.200286
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: a revision's binding is read from its own environment: bound, none, partial or unreadable
+Step #3: ok 138 - a revision's binding is read from its own environment: bound, none, partial or unreadable
+Step #3:   ---
+Step #3:   duration_ms: 0.706017
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: the profile check reads the candidate's receipt with the smoke checks' safeguards
+Step #3: ok 139 - the profile check reads the candidate's receipt with the smoke checks' safeguards
+Step #3:   ---
+Step #3:   duration_ms: 25.340905
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: the profile check refuses any difference in the complete receipt
+Step #3: ok 140 - the profile check refuses any difference in the complete receipt
+Step #3:   ---
+Step #3:   duration_ms: 6.010263
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: # Subtest: an unreadable revision with a profile label remains a known partial binding
+Step #3: ok 141 - an unreadable revision with a profile label remains a known partial binding
+Step #3:   ---
+Step #3:   duration_ms: 0.642092
+Step #3:   type: 'test'
+Step #3:   ...
+Step #3: 1..141
+Step #3: # tests 141
+Step #3: # suites 0
+Step #3: # pass 141
+Step #3: # fail 0
+Step #3: # cancelled 0
+Step #3: # skipped 0
+Step #3: # todo 0
+Step #3: # duration_ms 2259.587612
+Finished Step #3
+Starting Step #4
+Step #4: Already have image (with digest): node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
+Step #4: 
+Step #4: > @graffiticode/policy@0.0.1 test
+Step #4: > NODE_OPTIONS=--experimental-vm-modules jest
+Step #4:
+Step #4: (node:18) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+Step #4: (Use `node --trace-warnings ...` to show where the warning was created)
+Step #4: PASS src/policy.spec.ts
+Step #4: PASS src/scopes.spec.ts
+Step #4: PASS src/repairs.spec.ts
+Step #4: [0mPOST /v1/invocations [32m200[0m 13.054 ms - 724[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.776 ms - 724[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.357 ms - 723[0m
+Step #4: [0mPOST /v1/invocations [33m403[0m 1.823 ms - 121[0m
+Step #4: [0mPOST /v1/invocations [33m403[0m 1.688 ms - 121[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.156 ms - 724[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.072 ms - 724[0m
+Step #4: [0mPOST /v1/invocations/plan [32m200[0m 2.652 ms - 67[0m
+Step #4: [0mPOST /v1/invocations/plan [33m403[0m 1.288 ms - 121[0m
+Step #4: [0mPOST /v1/admissions [33m403[0m 0.750 ms - 121[0m
+Step #4: [0mPOST /v1/admissions [33m403[0m 2.026 ms - 125[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.993 ms - 724[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.071 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m403[0m 1.823 ms - 124[0m
+Step #4: [0mPOST /v1/snapshot [33m403[0m 1.771 ms - 126[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.046 ms - 724[0m
+Step #4: [0mPOST /v1/connections/conn-1/grants [32m200[0m 8.856 ms - 284[0m
+Step #4: [0mGET /v1/connections/conn-1/grants [32m200[0m 0.768 ms - 286[0m
+Step #4: [0mGET /v1/shared [32m200[0m 0.956 ms - 219[0m
+Step #4: [0mPOST /v1/connections/conn-1/grants [33m403[0m 1.143 ms - 122[0m
+Step #4: [0mDELETE /v1/connections/conn-1/grants/3abe978829ca75c775253673e099327c952638b0b8dfbada5cb002456c5ce24b [32m200[0m 0.701 ms - 134[0m
+Step #4: [0mGET /v1/shared [32m200[0m 0.382 ms - 43[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.351 ms - 724[0m
+Step #4: [0mPOST /v1/connections/conn-1/grants [33m403[0m 0.563 ms - 121[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.064 ms - 724[0m
+Step #4: [0mPOST /v1/publications [32m200[0m 1.333 ms - 101[0m
+Step #4: [0mPOST /v1/publications/pub-51819893-2c0d-48d8-9d43-c7d7a89b25f3/view [32m200[0m 1.646 ms - 718[0m
+Step #4: [0mPOST /v1/snapshot [32m200[0m 2.634 ms - 735[0m
+Step #4: [0mDELETE /v1/publications/pub-51819893-2c0d-48d8-9d43-c7d7a89b25f3 [32m200[0m 0.582 ms - 116[0m
+Step #4: [0mPOST /v1/publications/pub-51819893-2c0d-48d8-9d43-c7d7a89b25f3/view [33m403[0m 0.475 ms - 134[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.060 ms - 724[0m
+Step #4: [0mPOST /v1/publications [33m403[0m 0.554 ms - 121[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.930 ms - 724[0m
+Step #4: [0mPOST /v1/preview-session [32m200[0m 1.309 ms - 701[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 2.763 ms - 991[0m
+Step #4: [0mPOST /v1/mint [33m403[0m 1.207 ms - 130[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.041 ms - 724[0m
+Step #4: [0mPOST /v1/preview-session [33m403[0m 0.738 ms - 121[0m
+Step #4: [0mPOST /v1/preview-session [33m403[0m 0.717 ms - 121[0m
+Step #4: [0mPOST /v1/preview-session [33m403[0m 0.687 ms - 137[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.938 ms - 724[0m
+Step #4: [0mPOST /v1/preview-session [33m401[0m 19.794 ms - 117[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.249 ms - 724[0m
+Step #4: [0mPOST /v1/preview-session [32m200[0m 1.271 ms - 701[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.878 ms - 991[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.635 ms - 991[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.423 ms - 991[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.388 ms - 991[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.403 ms - 991[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.420 ms - 991[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.322 ms - 991[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.588 ms - 991[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.356 ms - 991[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.196 ms - 991[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.155 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.810 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.756 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.435 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.356 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.332 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.612 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.477 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.285 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.281 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.184 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 4.974 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.502 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.466 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.354 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.360 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 2.356 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 4.683 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.492 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.568 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.367 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.411 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.911 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.399 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.245 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.205 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.211 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.286 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.290 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.312 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.249 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.187 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.943 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 2.714 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.198 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.150 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.805 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.397 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 4.955 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.422 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.310 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.251 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.270 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.289 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.635 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.593 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.281 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.205 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.314 ms - 993[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.194 ms - 993[0m
+Step #4: [0mPOST /v1/mint [33m429[0m 1.300 ms - 140[0m
+Step #4: [0mPOST /v1/snapshot [32m200[0m 1.712 ms - 711[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.503 ms - 935[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.817 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [32m200[0m 1.393 ms - 711[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.950 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m401[0m 1.734 ms - 117[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.151 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m401[0m 1.251 ms - 117[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.017 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m401[0m 1.190 ms - 117[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.068 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m403[0m 0.571 ms - 126[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.170 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m403[0m 0.571 ms - 102[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 3.652 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m403[0m 0.577 ms - 121[0m
+Step #4: [0mPOST /v1/mint [33m403[0m 0.533 ms - 121[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.001 ms - 724[0m
+Step #4: [0mPOST /v1/invocations [33m403[0m 0.573 ms - 121[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.100 ms - 724[0m
+Step #4: [0mPOST /v1/intents [33m404[0m 0.983 ms - 150[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.055 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m403[0m 1.528 ms - 137[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.547 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [32m200[0m 1.765 ms - 711[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.561 ms - 936[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.941 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [32m200[0m 1.437 ms - 711[0m
+Step #4: [0mPOST /v1/mint [32m200[0m 1.285 ms - 929[0m
+Step #4: [0mPOST /v1/authorize-execution [32m200[0m 2.449 ms - 94[0m
+Step #4: [0mPOST /v1/authorize-execution [33m403[0m 0.684 ms - 121[0m
+Step #4: [0mPOST /v1/authorize-execution [33m403[0m 0.666 ms - 121[0m
+Step #4: [0mPOST /v1/authorize-execution [33m403[0m 0.511 ms - 121[0m
+Step #4: [0mPOST /v1/mint [33m403[0m 0.470 ms - 121[0m
+Step #4: [0mGET /v1/connections [33m403[0m 0.357 ms - 121[0m
+Step #4: [0mPOST /v1/authorize-execution [33m403[0m 1.669 ms - 125[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.136 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m401[0m 1.100 ms - 110[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.429 ms - 724[0m
+Step #4: [0mGET /v1/jwks [32m200[0m 1.040 ms - 174[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.063 ms - 724[0m
+Step #4: [0mPOST /v1/connections [32m200[0m 0.887 ms - 181[0m
+Step #4: [0mGET /v1/connections [32m200[0m 0.814 ms - 304[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.949 ms - 771[0m
+Step #4: [0mPOST /v1/snapshot [32m200[0m 1.516 ms - 758[0m
+Step #4: [0mPOST /v1/connections/conn-80431d21-5302-4956-9ee0-87953f6472f1/disable [32m200[0m 0.630 ms - 121[0m
+Step #4: [0mPOST /v1/snapshot [33m403[0m 3.388 ms - 132[0m
+Step #4: [0mDELETE /v1/connections/conn-80431d21-5302-4956-9ee0-87953f6472f1 [32m200[0m 0.853 ms - 116[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.032 ms - 724[0m
+Step #4: [0mPOST /v1/connections [33m403[0m 0.604 ms - 121[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.901 ms - 724[0m
+Step #4: [0mPOST /v1/connections/conn-1/rotate [33m403[0m 0.743 ms - 122[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.861 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m403[0m 0.704 ms - 137[0m
+Step #4: [0mPOST /v1/snapshot [33m401[0m 1.382 ms - 117[0m
+Step #4: [0mPOST /v1/invocations [33m403[0m 0.538 ms - 121[0m
+Step #4: [0mPOST /v1/snapshot [33m401[0m 0.742 ms - 110[0m
+Step #4: [0mPOST /v1/preview-session [31m503[0m 0.629 ms - 141[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.850 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [31m500[0m 1.659 ms - 156[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.870 ms - 724[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.797 ms - 724[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.774 ms - 724[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.050 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m401[0m 1.157 ms - 117[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.014 ms - 724[0m
+Step #4: [0mGET /v1/protected-execution [32m200[0m 0.493 ms - 32[0m
+Step #4: [0mPOST /v1/preview-session [31m503[0m 0.552 ms - 141[0m
+Step #4: [0mPOST /v1/snapshot [31m503[0m 0.730 ms - 141[0m
+Step #4: [0mGET /v1/protected-execution [32m200[0m 0.252 ms - 33[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.883 ms - 724[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.846 ms - 724[0m
+Step #4: [0mPOST /v1/receipts/reconcile [32m200[0m 0.932 ms - 116[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.850 ms - 724[0m
+Step #4: [0mPOST /v1/receipts/reconcile [33m403[0m 0.540 ms - 121[0m
+Step #4: [0mPOST /v1/receipts/reconcile [33m403[0m 0.449 ms - 121[0m
+Step #4: [0mPOST /v1/receipts/reconcile [33m403[0m 0.415 ms - 121[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 1.024 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [32m200[0m 0.770 ms - 57[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.866 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [31m503[0m 0.600 ms - 132[0m
+Step #4: [0mPOST /v1/snapshot [31m503[0m 0.549 ms - 132[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.834 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [33m401[0m 0.717 ms - 110[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.920 ms - 724[0m
+Step #4: [0mPOST /v1/snapshot [31m503[0m 41.280 ms - 132[0m
+Step #4: PASS src/app.spec.ts
+Step #4:   ● Console
+Step #4: 
+Step #4:     console.warn
+Step #4:       {"event":"caller-identity","outcome":"refused","reason":"missing","invoker":null}
+Step #4: 
+Step #4:       46 |     }
+Step #4:       47 | };
+Step #4:     > 48 | export const createCallerIdentity = ({ verifyIdToken, audience, callers, requireServerlessMatch = true, log = line => console.warn(line) }) => async (req) => {
+Step #4:          |                                                                                                                               ^
+Step #4:       49 |     const forwardedEmail = () => decodeUnverifiedEmail(req.get("X-Serverless-Authorization"));
+Step #4:       50 |     const token = req.get("X-Caller-Identity");
+Step #4:       51 |     if (!token) {
+Step #4: 
+Step #4:       at warn (../common/dist/caller.js:48:127)
+Step #4:       at log (../common/dist/caller.js:35:37)
+Step #4:       at logRefusal (../common/dist/caller.js:52:9)
+Step #4:       at identifyCaller (src/app.ts:134:22)
+Step #4:       at src/app.ts:361:36
+Step #4:       at handler (../common/dist/http.js:57:15)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at next (../../node_modules/express/lib/router/route.js:149:13)
+Step #4:       at Route.dispatch (../../node_modules/express/lib/router/route.js:119:3)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at ../../node_modules/express/lib/router/index.js:284:15
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at Function.handle (../../node_modules/express/lib/router/index.js:175:3)
+Step #4:       at router (../../node_modules/express/lib/router/index.js:47:12)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at trim_prefix (../../node_modules/express/lib/router/index.js:328:13)
+Step #4:       at ../../node_modules/express/lib/router/index.js:286:9
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at run (src/audit.ts:36:78)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at trim_prefix (../../node_modules/express/lib/router/index.js:328:13)
+Step #4:       at ../../node_modules/express/lib/router/index.js:286:9
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at ../../node_modules/body-parser/lib/read.js:137:5
+Step #4:       at invokeCallback (../../node_modules/raw-body/index.js:238:16)
+Step #4:       at done (../../node_modules/raw-body/index.js:227:7)
+Step #4:       at IncomingMessage.onEnd (../../node_modules/raw-body/index.js:287:7)
+Step #4: 
+Step #4:     console.warn
+Step #4:       {"event":"caller-identity","outcome":"refused","reason":"missing","invoker":null}
+Step #4: 
+Step #4:       46 |     }
+Step #4:       47 | };
+Step #4:     > 48 | export const createCallerIdentity = ({ verifyIdToken, audience, callers, requireServerlessMatch = true, log = line => console.warn(line) }) => async (req) => {
+Step #4:          |                                                                                                                               ^
+Step #4:       49 |     const forwardedEmail = () => decodeUnverifiedEmail(req.get("X-Serverless-Authorization"));
+Step #4:       50 |     const token = req.get("X-Caller-Identity");
+Step #4:       51 |     if (!token) {
+Step #4: 
+Step #4:       at warn (../common/dist/caller.js:48:127)
+Step #4:       at log (../common/dist/caller.js:35:37)
+Step #4:       at logRefusal (../common/dist/caller.js:52:9)
+Step #4:       at identifyCaller (src/app.ts:134:22)
+Step #4:       at src/app.ts:354:36
+Step #4:       at handler (../common/dist/http.js:57:15)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at next (../../node_modules/express/lib/router/route.js:149:13)
+Step #4:       at Route.dispatch (../../node_modules/express/lib/router/route.js:119:3)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at ../../node_modules/express/lib/router/index.js:284:15
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at Function.handle (../../node_modules/express/lib/router/index.js:175:3)
+Step #4:       at router (../../node_modules/express/lib/router/index.js:47:12)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at trim_prefix (../../node_modules/express/lib/router/index.js:328:13)
+Step #4:       at ../../node_modules/express/lib/router/index.js:286:9
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at run (src/audit.ts:36:78)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at trim_prefix (../../node_modules/express/lib/router/index.js:328:13)
+Step #4:       at ../../node_modules/express/lib/router/index.js:286:9
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at ../../node_modules/body-parser/lib/read.js:137:5
+Step #4:       at invokeCallback (../../node_modules/raw-body/index.js:238:16)
+Step #4:       at done (../../node_modules/raw-body/index.js:227:7)
+Step #4:       at IncomingMessage.onEnd (../../node_modules/raw-body/index.js:287:7)
+Step #4: 
+Step #4:     console.warn
+Step #4:       {"event":"caller-identity","outcome":"refused","reason":"invalid","detail":"bad token","invoker":"l0176-run@graffiticode.iam.gserviceaccount.com"}
+Step #4: 
+Step #4:       46 |     }
+Step #4:       47 | };
+Step #4:     > 48 | export const createCallerIdentity = ({ verifyIdToken, audience, callers, requireServerlessMatch = true, log = line => console.warn(line) }) => async (req) => {
+Step #4:          |                                                                                                                               ^
+Step #4:       49 |     const forwardedEmail = () => decodeUnverifiedEmail(req.get("X-Serverless-Authorization"));
+Step #4:       50 |     const token = req.get("X-Caller-Identity");
+Step #4:       51 |     if (!token) {
+Step #4: 
+Step #4:       at warn (../common/dist/caller.js:48:127)
+Step #4:       at log (../common/dist/caller.js:35:37)
+Step #4:       at logRefusal (../common/dist/caller.js:61:9)
+Step #4:       at src/app.ts:134:16
+Step #4:       at src/app.ts:354:20
+Step #4:       at ../common/dist/http.js:57:9
+Step #4: 
+Step #4:     console.warn
+Step #4:       {"event":"caller-identity","outcome":"refused","reason":"invalid","detail":"bad token","invoker":"l0176-run@graffiticode.iam.gserviceaccount.com"}
+Step #4: 
+Step #4:       46 |     }
+Step #4:       47 | };
+Step #4:     > 48 | export const createCallerIdentity = ({ verifyIdToken, audience, callers, requireServerlessMatch = true, log = line => console.warn(line) }) => async (req) => {
+Step #4:          |                                                                                                                               ^
+Step #4:       49 |     const forwardedEmail = () => decodeUnverifiedEmail(req.get("X-Serverless-Authorization"));
+Step #4:       50 |     const token = req.get("X-Caller-Identity");
+Step #4:       51 |     if (!token) {
+Step #4: 
+Step #4:       at warn (../common/dist/caller.js:48:127)
+Step #4:       at log (../common/dist/caller.js:35:37)
+Step #4:       at logRefusal (../common/dist/caller.js:61:9)
+Step #4:       at src/app.ts:134:16
+Step #4:       at src/app.ts:354:20
+Step #4:       at ../common/dist/http.js:57:9
+Step #4: 
+Step #4:     console.warn
+Step #4:       {"event":"user-token","outcome":"refused","reason":"invalid","detail":""}
+Step #4: 
+Step #4:       128 | };
+Step #4:       129 |
+Step #4:     > 130 | export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, publicJwks, audit, log = line => console.warn(line) }) => {
+Step #4:           |                                                                                                                         ^
+Step #4:       131 |   const authorize = route => async req => {
+Step #4:       132 |     let caller;
+Step #4:       133 |     try {
+Step #4: 
+Step #4:       at warn (src/app.ts:130:121)
+Step #4:       at log (src/app.ts:156:7)
+Step #4: 
+Step #4:     console.warn
+Step #4:       {"event":"caller-identity","outcome":"refused","reason":"missing","invoker":null}
+Step #4: 
+Step #4:       46 |     }
+Step #4:       47 | };
+Step #4:     > 48 | export const createCallerIdentity = ({ verifyIdToken, audience, callers, requireServerlessMatch = true, log = line => console.warn(line) }) => async (req) => {
+Step #4:          |                                                                                                                               ^
+Step #4:       49 |     const forwardedEmail = () => decodeUnverifiedEmail(req.get("X-Serverless-Authorization"));
+Step #4:       50 |     const token = req.get("X-Caller-Identity");
+Step #4:       51 |     if (!token) {
+Step #4: 
+Step #4:       at warn (../common/dist/caller.js:48:127)
+Step #4:       at log (../common/dist/caller.js:35:37)
+Step #4:       at logRefusal (../common/dist/caller.js:52:9)
+Step #4:       at identifyCaller (src/app.ts:134:22)
+Step #4:       at src/app.ts:354:36
+Step #4:       at handler (../common/dist/http.js:57:15)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at next (../../node_modules/express/lib/router/route.js:149:13)
+Step #4:       at Route.dispatch (../../node_modules/express/lib/router/route.js:119:3)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at ../../node_modules/express/lib/router/index.js:284:15
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at Function.handle (../../node_modules/express/lib/router/index.js:175:3)
+Step #4:       at router (../../node_modules/express/lib/router/index.js:47:12)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at trim_prefix (../../node_modules/express/lib/router/index.js:328:13)
+Step #4:       at ../../node_modules/express/lib/router/index.js:286:9
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at run (src/audit.ts:36:78)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at trim_prefix (../../node_modules/express/lib/router/index.js:328:13)
+Step #4:       at ../../node_modules/express/lib/router/index.js:286:9
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at ../../node_modules/body-parser/lib/read.js:137:5
+Step #4:       at invokeCallback (../../node_modules/raw-body/index.js:238:16)
+Step #4:       at done (../../node_modules/raw-body/index.js:227:7)
+Step #4:       at IncomingMessage.onEnd (../../node_modules/raw-body/index.js:287:7)
+Step #4: 
+Step #4:     console.warn
+Step #4:       {"event":"user-token","outcome":"refused","reason":"invalid","detail":""}
+Step #4: 
+Step #4:       128 | };
+Step #4:       129 |
+Step #4:     > 130 | export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, publicJwks, audit, log = line => console.warn(line) }) => {
+Step #4:           |                                                                                                                         ^
+Step #4:       131 |   const authorize = route => async req => {
+Step #4:       132 |     let caller;
+Step #4:       133 |     try {
+Step #4: 
+Step #4:       at warn (src/app.ts:130:121)
+Step #4:       at log (src/app.ts:156:7)
+Step #4: 
+Step #4:     console.warn
+Step #4:       {"event":"caller-identity","outcome":"refused","reason":"missing","invoker":null}
+Step #4: 
+Step #4:       46 |     }
+Step #4:       47 | };
+Step #4:     > 48 | export const createCallerIdentity = ({ verifyIdToken, audience, callers, requireServerlessMatch = true, log = line => console.warn(line) }) => async (req) => {
+Step #4:          |                                                                                                                               ^
+Step #4:       49 |     const forwardedEmail = () => decodeUnverifiedEmail(req.get("X-Serverless-Authorization"));
+Step #4:       50 |     const token = req.get("X-Caller-Identity");
+Step #4:       51 |     if (!token) {
+Step #4: 
+Step #4:       at warn (../common/dist/caller.js:48:127)
+Step #4:       at log (../common/dist/caller.js:35:37)
+Step #4:       at logRefusal (../common/dist/caller.js:52:9)
+Step #4:       at identifyCaller (src/app.ts:134:22)
+Step #4:       at src/app.ts:354:36
+Step #4:       at handler (../common/dist/http.js:57:15)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at next (../../node_modules/express/lib/router/route.js:149:13)
+Step #4:       at Route.dispatch (../../node_modules/express/lib/router/route.js:119:3)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at ../../node_modules/express/lib/router/index.js:284:15
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at Function.handle (../../node_modules/express/lib/router/index.js:175:3)
+Step #4:       at router (../../node_modules/express/lib/router/index.js:47:12)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at trim_prefix (../../node_modules/express/lib/router/index.js:328:13)
+Step #4:       at ../../node_modules/express/lib/router/index.js:286:9
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at run (src/audit.ts:36:78)
+Step #4:       at Layer.handle [as handle_request] (../../node_modules/express/lib/router/layer.js:95:5)
+Step #4:       at trim_prefix (../../node_modules/express/lib/router/index.js:328:13)
+Step #4:       at ../../node_modules/express/lib/router/index.js:286:9
+Step #4:       at Function.process_params (../../node_modules/express/lib/router/index.js:346:12)
+Step #4:       at next (../../node_modules/express/lib/router/index.js:280:10)
+Step #4:       at ../../node_modules/body-parser/lib/read.js:137:5
+Step #4:       at invokeCallback (../../node_modules/raw-body/index.js:238:16)
+Step #4:       at done (../../node_modules/raw-body/index.js:227:7)
+Step #4:       at IncomingMessage.onEnd (../../node_modules/raw-body/index.js:287:7)
+Step #4: 
+Step #4:     console.warn
+Step #4:       {"event":"user-token","outcome":"refused","reason":"invalid","detail":""}
+Step #4: 
+Step #4:       128 | };
+Step #4:       129 |
+Step #4:     > 130 | export const createPolicyApp = ({ policy, manager, identifyCaller, verifyUser, publicJwks, audit, log = line => console.warn(line) }) => {
+Step #4:           |                                                                                                                         ^
+Step #4:       131 |   const authorize = route => async req => {
+Step #4:       132 |     let caller;
+Step #4:       133 |     try {
+Step #4: 
+Step #4:       at warn (src/app.ts:130:121)
+Step #4:       at log (src/app.ts:156:7)
+Step #4: 
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.945 ms - 724[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.837 ms - 724[0m
+Step #4: [0mPOST /v1/commands [32m200[0m 0.550 ms - 52[0m
+Step #4: [0mPOST /v1/commands [33m401[0m 0.441 ms - 110[0m
+Step #4: [0mPOST /v1/commands [33m401[0m 0.764 ms - 110[0m
+Step #4: [0mPOST /v1/commands [32m200[0m 0.384 ms - 52[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.874 ms - 724[0m
+Step #4: [0mPOST /v1/commands/c:x/lease [32m200[0m 0.510 ms - 52[0m
+Step #4: [0mGET /v1/commands-due?scopes=1 [32m200[0m 0.410 ms - 52[0m
+Step #4: [0mPOST /v1/commands/c:x/admit [32m200[0m 0.507 ms - 52[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.980 ms - 724[0m
+Step #4: [0mPOST /v1/commands/c:x/admit [31m503[0m 0.512 ms - 167[0m
+Step #4: [0mPOST /v1/commands/c:x/admit [33m403[0m 0.542 ms - 122[0m
+Step #4: [0mPOST /v1/invocations [32m200[0m 0.907 ms - 724[0m
+Step #4: [0mPOST /v1/command-reservations [32m200[0m 0.564 ms - 62[0m
+Step #4: [0mPOST /v1/command-stagings [32m200[0m 0.507 ms - 55[0m
+Step #4: [0mPOST /v1/command-reservations [33m403[0m 0.749 ms - 121[0m
+Step #4: [0mPOST /v1/command-reservations [33m429[0m 0.687 ms - 141[0m
+Step #4: PASS src/admissions.spec.ts
+Step #4: PASS src/captures.spec.ts
+Step #4: PASS src/commands.spec.ts
+Step #4: PASS src/command-records.spec.ts
+Step #4: PASS src/command-authority.spec.ts
+Step #4: PASS src/delegation.spec.ts
+Step #4: PASS src/live.spec.ts
+Step #4: PASS src/authorize.spec.ts
+Step #4: PASS src/bind-http.spec.ts
+Step #4: [0mPUT /v1/commands/c:3033a722b49ebd677c21ce026a2b70bc5b800318d79a0ff5bbb3e80844ea8e8e/occurrences/s0/n0.0 [32m200[0m 8.695 ms - 170[0m
+Step #4: [0mPUT /v1/commands/c:594e1860381861066e5f364188bd54f1c4db56f20f259190b9b93850129a848b/occurrences/s0/n0.0 [33m403[0m 1.313 ms - 127[0m
+Step #4: [0mPUT /v1/commands/c:13c829d8b7f5b9b7b02d2d4f461c6972c4247c12d5e36848ee2c3c1ef7ae155d/occurrences/s0/n0.0 [33m403[0m 1.073 ms - 127[0m
+Step #4: [0mPUT /v1/commands/c:c46fdf8ee45714e65f57fe93326757e185b70c3ae1fba29b667b682a4159c90c/occurrences/s0/n0.0 [33m403[0m 2.404 ms - 127[0m
+Step #4: [0mPUT /v1/commands/c:c46fdf8ee45714e65f57fe93326757e185b70c3ae1fba29b667b682a4159c90c/occurrences/s0/n0.0 [33m403[0m 1.103 ms - 127[0m
+Step #4: [0mPUT /v1/commands/c:97f762af08816b19d81ae83de34b73914243c7eca172ccfef5c326e195a03d6b/occurrences/s0/n0.0 [33m403[0m 1.233 ms - 127[0m
+Step #4: [0mPUT /v1/commands/c:97f762af08816b19d81ae83de34b73914243c7eca172ccfef5c326e195a03d6b/occurrences/s0/n0.0 [33m403[0m 0.964 ms - 127[0m
+Step #4: PASS src/manage.spec.ts
+Step #4: PASS src/registry-window.spec.ts
+Step #4: PASS src/correlation.spec.ts
+Step #4: PASS src/tokens.spec.ts
+Step #4: PASS src/audit.spec.ts
+Step #4: PASS src/provenance.spec.ts
+Step #4: PASS src/reconcile.spec.ts
+Step #4: PASS src/config.spec.ts
+Step #4: PASS src/kms.spec.ts
+Step #4: PASS src/maintenance.spec.ts
+Step #4: PASS src/client.spec.ts
+Step #4: 
+Step #4: Test Suites: 2 skipped, 24 passed, 24 of 26 total
+Step #4: Tests:       43 skipped, 644 passed, 687 total
+Step #4: Snapshots:   0 total
+Step #4: Time:        9.608 s
+Step #4: Ran all test suites.
+Finished Step #4
+Starting Step #5
+Step #5: Already have image (with digest): node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7
+Step #5: 
+Step #5: > @graffiticode/broker@0.0.1 test
+Step #5: > NODE_OPTIONS=--experimental-vm-modules jest
+Step #5:
+Step #5: (node:18) ExperimentalWarning: VM Modules is an experimental feature and might change at any time
+Step #5: (Use `node --trace-warnings ...` to show where the warning was created)
+Step #5: PASS src/broker.spec.ts
+Step #5: PASS src/gcs.spec.ts
+Step #5: PASS src/live.spec.ts
+Step #5: PASS src/reconcile.spec.ts
+Step #5: [0mPOST /v1/execute [32m200[0m 14.562 ms - 108[0m
+Step #5: [0mPOST /v1/execute [33m403[0m 2.030 ms - 138[0m
+Step #5: [0mPOST /v1/execute [33m401[0m 14.919 ms - 117[0m
+Step #5: [0mPOST /v1/execute [33m403[0m 1.009 ms - 126[0m
+Step #5: [0mPOST /v1/execute [32m200[0m 8.153 ms - 108[0m
+Step #5: [0mPOST /v1/execute [33m401[0m 0.707 ms - 115[0m
+Step #5: [0mPOST /v1/execute [32m200[0m 2.661 ms - 108[0m
+Step #5: [0mPOST /v1/execute [33m409[0m 1.534 ms - 126[0m
+Step #5: [0mPOST /v1/execute [33m403[0m 6.974 ms - 138[0m
+Step #5: [0mPOST /v1/execute [32m200[0m 2.302 ms - 108[0m
+Step #5: [0mPOST /v1/execute [33m409[0m 1.229 ms - 126[0m
+Step #5: [0mPOST /v1/execute [33m401[0m 1.277 ms - 117[0m
+Step #5: [0mPOST /v1/execute [33m401[0m 0.480 ms - 115[0m
+Step #5: [0mPOST /v1/execute [31m500[0m 2.241 ms - 156[0m
+Step #5: [0mPOST /v1/execute [33m403[0m 3.201 ms - 147[0m
+Step #5: [0mPOST /v1/execute [33m403[0m 1.262 ms - 152[0m
+Step #5: [0mPOST /v1/execute [33m403[0m 1.345 ms - 146[0m
+Step #5: [0mPOST /v1/execute [33m403[0m 1.136 ms - 149[0m
+Step #5: [0mPOST /v1/secrets/conn-9 [32m200[0m 0.923 ms - 66[0m
+Step #5: [0mPUT /v1/secrets/conn-9 [32m200[0m 0.635 ms - 66[0m
+Step #5: [0mDELETE /v1/secrets/conn-9 [32m200[0m 0.466 ms - 66[0m
+Step #5: [0mPOST /v1/secrets/conn-9 [32m200[0m 0.533 ms - 66[0m
+Step #5: [0mPOST /v1/secrets/conn-9 [33m409[0m 0.582 ms - 112[0m
+Step #5: [0mPUT /v1/secrets/conn-9 [33m409[0m 0.510 ms - 128[0m
+Step #5: [0mPUT /v1/secrets/conn-9 [33m409[0m 0.659 ms - 128[0m
+Step #5: [0mPUT /v1/secrets/conn-9 [33m409[0m 0.473 ms - 154[0m
+Step #5: [0mDELETE /v1/secrets/conn-9 [32m200[0m 0.326 ms - 66[0m
+Step #5: [0mPOST /v1/secrets/conn-9 [33m409[0m 0.493 ms - 112[0m
+Step #5: [0mPUT /v1/secrets/conn-9 [33m404[0m 0.669 ms - 120[0m
+Step #5: PASS src/app.spec.ts
+Step #5:   ● Console
+Step #5: 
+Step #5:     console.warn
+Step #5:       {"event":"caller-identity","outcome":"refused","reason":"invalid","detail":"bad token","invoker":"l0176-run@x.iam.gserviceaccount.com"}
+Step #5: 
+Step #5:       46 |     }
+Step #5:       47 | };
+Step #5:     > 48 | export const createCallerIdentity = ({ verifyIdToken, audience, callers, requireServerlessMatch = true, log = line => console.warn(line) }) => async (req) => {
+Step #5:          |                                                                                                                               ^
+Step #5:       49 |     const forwardedEmail = () => decodeUnverifiedEmail(req.get("X-Serverless-Authorization"));
+Step #5:       50 |     const token = req.get("X-Caller-Identity");
+Step #5:       51 |     if (!token) {
+Step #5: 
+Step #5:       at warn (../common/dist/caller.js:48:127)
+Step #5:       at log (../common/dist/caller.js:35:37)
+Step #5:       at logRefusal (../common/dist/caller.js:61:9)
+Step #5:       at src/app.ts:69:16
+Step #5:       at ../common/dist/http.js:57:9
+Step #5: 
+Step #5:     console.warn
+Step #5:       {"event":"caller-identity","outcome":"refused","reason":"invalid","detail":"bad token","invoker":"l0176-run@x.iam.gserviceaccount.com"}
+Step #5: 
+Step #5:       46 |     }
+Step #5:       47 | };
+Step #5:     > 48 | export const createCallerIdentity = ({ verifyIdToken, audience, callers, requireServerlessMatch = true, log = line => console.warn(line) }) => async (req) => {
+Step #5:          |                                                                                                                               ^
+Step #5:       49 |     const forwardedEmail = () => decodeUnverifiedEmail(req.get("X-Serverless-Authorization"));
+Step #5:       50 |     const token = req.get("X-Caller-Identity");
+Step #5:       51 |     if (!token) {
+Step #5: 
+Step #5:       at warn (../common/dist/caller.js:48:127)
+Step #5:       at log (../common/dist/caller.js:35:37)
+Step #5:       at logRefusal (../common/dist/caller.js:61:9)
+Step #5:       at src/app.ts:69:16
+Step #5:       at ../common/dist/http.js:57:9
+Step #5: 
+Step #5: [0mPUT /v1/secrets/conn-1 [33m403[0m 0.762 ms - 121[0m
+Step #5: [0mPOST /v1/execute [33m403[0m 1.381 ms - 138[0m
+Step #5: [0mPOST /v1/reconcile [32m200[0m 0.680 ms - 84[0m
+Step #5: [0mPOST /v1/reconcile [33m403[0m 0.557 ms - 121[0m
+Step #5: [0mPOST /v1/reconcile [33m400[0m 0.474 ms - 141[0m
+Step #5: [0mPOST /v1/reconcile [32m200[0m 0.801 ms - 84[0m
+Step #5: [0mPOST /v1/reconcile [33m400[0m 0.492 ms - 139[0m
+Step #5: [0mPOST /v1/reconcile [33m400[0m 0.451 ms - 139[0m
+Step #5: [0mPOST /v1/reconcile [33m400[0m 0.498 ms - 139[0m
+Step #5: [0mPOST /v1/reconcile [33m400[0m 0.448 ms - 139[0m
+Step #5: [0mPOST /v1/reconcile [33m400[0m 0.498 ms - 139[0m
+Step #5: [0mPOST /v1/reconcile [33m400[0m 0.444 ms - 141[0m
+Step #5: [0mPOST /v1/receipts [32m200[0m 0.728 ms - 138[0m
+Step #5: [0mPOST /v1/receipts [33m403[0m 0.695 ms - 121[0m
+Step #5: [0mPOST /v1/receipts [33m400[0m 0.536 ms - 114[0m
+Step #5: [0mPOST /v1/receipts [33m400[0m 0.599 ms - 136[0m
+Step #5: PASS src/authorize-http.spec.ts
+Step #5: [0mPOST /v1/authorize-execution [32m200[0m 9.412 ms - 94[0m
+Step #5: [0mPOST /v1/authorize-execution [32m200[0m 2.618 ms - 94[0m
+Step #5: PASS src/staging-refusal.spec.ts
+Step #5: PASS src/reopen.spec.ts
+Step #5: PASS src/receipts-read.spec.ts
+Step #5: PASS src/limits.spec.ts
+Step #5: PASS src/learnosity.spec.ts
+Step #5: PASS src/secret-box.spec.ts
+Step #5: PASS src/canonical.spec.ts
+Step #5: 
+Step #5: Test Suites: 2 skipped, 13 passed, 13 of 15 total
+Step #5: Tests:       27 skipped, 292 passed, 319 total
+Step #5: Snapshots:   0 total
+Step #5: Time:        6.385 s
+Step #5: Ran all test suites.
+Finished Step #5
+Starting Step #6
+Step #6: Already have image (with digest): gcr.io/cloud-builders/docker
+Step #6: Sending build context to Docker daemon  10.46MB
+Step #6: Step 1/15 : FROM node:22.23.3@sha256:363e1587494626837fa7f9a23bdb453d13b0ff3c67c705c2805cfc69c2d2fad7 AS build
+Step #6:  ---> b37a4d56eedb
+Step #6: Step 2/15 : WORKDIR /usr/src/app
+Step #6:  ---> Running in 4fa2266bd469
+Step #6: Removing intermediate container 4fa2266bd469
+Step #6:  ---> c9de795531bc
+Step #6: Step 3/15 : COPY . .
+Step #6:  ---> 0d74f167f997
+Step #6: Step 4/15 : RUN npm ci && npm run build
+Step #6:  ---> Running in 25b21938cdf0
+Step #6: [91mnpm warn deprecated har-validator@5.1.5: this library is no longer supported
+Step #6: [0m[91mnpm warn deprecated request@2.88.2: request has been deprecated, see https://github.com/request/request/issues/3142
+Step #6: [0m[91mnpm warn deprecated @types/generic-pool@3.8.1: This is a stub types definition. generic-pool provides its own type definitions, so you do not need this installed.
+Step #6: [0m[91mnpm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+Step #6: [0m[91mnpm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+Step #6: [0m[91mnpm warn deprecated uuid@3.4.0: Please upgrade  to version 7 or higher.  Older versions may use Math.random() in certain circumstances, which is known to be problematic.  See https://v8.dev/blog/math-random for details.
+Step #6: [0m[91mnpm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+Step #6: [0m[91mnpm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+Step #6: [0m[91mnpm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+Step #6: [0m
+Step #6: added 1552 packages, and audited 1560 packages in 2m
+Step #6: 
+Step #6: 182 packages are looking for funding
+Step #6:   run `npm fund` for details
+Step #6: 
+Step #6: 143 vulnerabilities (6 low, 45 moderate, 84 high, 8 critical)
+Step #6: 
+Step #6: To address issues that do not require attention, run:
+Step #6:   npm audit fix
+Step #6: 
+Step #6: To address all issues possible (including breaking changes), run:
+Step #6:   npm audit fix --force
+Step #6: 
+Step #6: Some issues need review, and may require choosing
+Step #6: a different dependency.
+Step #6: 
+Step #6: Run `npm audit` for details.
+Step #6: [91mnpm notice
+Step #6: npm notice New major version of npm available! 10.9.9 -> 12.2.3
+Step #6: npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.3
+Step #6: npm notice To update run: npm install -g npm@12.2.3
+Step #6: npm notice
+Step #6: [0m
+Step #6: > build
+Step #6: > tsc -b tsconfig.build.json && node scripts/fix-bin-modes.js
+Step #6:
+Step #6: Removing intermediate container 25b21938cdf0
+Step #6:  ---> 8bf981876c9d
+Step #6: Step 5/15 : FROM node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 AS runtime
+Step #6: docker.io/library/node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402: Pulling from library/node
+Step #6: e2de96513ba9: Pulling fs layer
+Step #6: f7f2d304681a: Pulling fs layer
+Step #6: e554276b05e6: Pulling fs layer
+Step #6: d39db1cf9caa: Pulling fs layer
+Step #6: d39db1cf9caa: Verifying Checksum
+Step #6: d39db1cf9caa: Download complete
+Step #6: e2de96513ba9: Verifying Checksum
+Step #6: e2de96513ba9: Download complete
+Step #6: e554276b05e6: Verifying Checksum
+Step #6: e554276b05e6: Download complete
+Step #6: e2de96513ba9: Pull complete
+Step #6: f7f2d304681a: Verifying Checksum
+Step #6: f7f2d304681a: Download complete
+Step #6: f7f2d304681a: Pull complete
+Step #6: e554276b05e6: Pull complete
+Step #6: d39db1cf9caa: Pull complete
+Step #6: Digest: sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+Step #6: Status: Downloaded newer image for node:22.23.3-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+Step #6:  ---> 7c3b093add7c
+Step #6: Step 6/15 : WORKDIR /usr/src/app
+Step #6:  ---> Running in e25dc5990994
+Step #6: Removing intermediate container e25dc5990994
+Step #6:  ---> 8861fe27b871
+Step #6: Step 7/15 : ENV NODE_ENV=production
+Step #6:  ---> Running in eb91919b20b5
+Step #6: Removing intermediate container eb91919b20b5
+Step #6:  ---> 5d20168ea2a0
+Step #6: Step 8/15 : RUN apk add --no-cache git
+Step #6:  ---> Running in a7ef72929320
+Step #6: ( 1/12) Installing brotli-libs (1.2.1-r0)
+Step #6: ( 2/12) Installing c-ares (1.34.9-r0)
+Step #6: ( 3/12) Installing libunistring (1.4.2-r0)
+Step #6: ( 4/12) Installing libidn2 (2.3.8-r0)
+Step #6: ( 5/12) Installing nghttp2-libs (1.70.0-r0)
+Step #6: ( 6/12) Installing libpsl (0.21.5-r3)
+Step #6: ( 7/12) Installing zstd-libs (1.5.7-r2)
+Step #6: ( 8/12) Installing libcurl (8.23.0-r0)
+Step #6: ( 9/12) Installing libexpat (2.10.0-r0)
+Step #6: (10/12) Installing pcre2 (10.49-r0)
+Step #6: (11/12) Installing git (2.54.1-r0)
+Step #6: (12/12) Installing git-init-template (2.54.1-r0)
+Step #6: Executing busybox-1.37.0-r31.trigger
+Step #6: OK: 23.3 MiB in 30 packages
+Step #6: Removing intermediate container a7ef72929320
+Step #6:  ---> c49e8ef9d116
+Step #6: Step 9/15 : COPY . .
+Step #6:  ---> b66940702a52
+Step #6: Step 10/15 : COPY --from=build /usr/src/app/packages/common/dist packages/common/dist
+Step #6:  ---> 159f805741bc
+Step #6: Step 11/15 : COPY --from=build /usr/src/app/packages/policy/dist packages/policy/dist
+Step #6:  ---> 9b2b43f1e148
+Step #6: Step 12/15 : COPY --from=build /usr/src/app/packages/broker/dist packages/broker/dist
+Step #6:  ---> 04cb0969a6c5
+Step #6: Step 13/15 : RUN npm ci --omit=dev
+Step #6:  ---> Running in 763b8bdbd959
+Step #6: [91mnpm warn deprecated @types/generic-pool@3.8.1: This is a stub types definition. generic-pool provides its own type definitions, so you do not need this installed.
+Step #6: [0m[91mnpm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+Step #6: [0m[91mnpm warn deprecated uuid@9.0.1: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
+Step #6: [0m
+Step #6: added 713 packages, and audited 721 packages in 20s
+Step #6: 
+Step #6: 45 packages are looking for funding
+Step #6:   run `npm fund` for details
+Step #6: 
+Step #6: 95 vulnerabilities (2 low, 31 moderate, 57 high, 5 critical)
+Step #6: 
+Step #6: To address issues that do not require attention, run:
+Step #6:   npm audit fix
+Step #6: 
+Step #6: To address all issues possible (including breaking changes), run:
+Step #6:   npm audit fix --force
+Step #6: 
+Step #6: Some issues need review, and may require choosing
+Step #6: a different dependency.
+Step #6: 
+Step #6: Run `npm audit` for details.
+Step #6: [91mnpm notice
+Step #6: npm notice New major version of npm available! 10.9.9 -> 12.2.3
+Step #6: npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.3
+Step #6: npm notice To update run: npm install -g npm@12.2.3
+Step #6: npm notice
+Step #6: [0mRemoving intermediate container 763b8bdbd959
+Step #6:  ---> 1823894815f2
+Step #6: Step 14/15 : EXPOSE 8080
+Step #6:  ---> Running in 46975328fcab
+Step #6: Removing intermediate container 46975328fcab
+Step #6:  ---> bf2690ff84af
+Step #6: Step 15/15 : CMD [ "node", "packages/broker/dist/main.js" ]
+Step #6:  ---> Running in b2d3fa2333f4
+Step #6: Removing intermediate container b2d3fa2333f4
+Step #6:  ---> 461688e70ec8
+Step #6: Successfully built 461688e70ec8
+Step #6: Successfully tagged us-central1-docker.pkg.dev/graffiticode/services/broker-c5d-drive:rmwtqs6gy-ea522e
+Finished Step #6
+PUSH
+Pushing us-central1-docker.pkg.dev/graffiticode/services/broker-c5d-drive:rmwtqs6gy-ea522e
+The push refers to repository [us-central1-docker.pkg.dev/graffiticode/services/broker-c5d-drive]
+b36f6b219604: Preparing
+04caa26b0da8: Preparing
+10f25806810f: Preparing
+0effe35d9746: Preparing
+0c36f8761fe8: Preparing
+09151d12dbca: Preparing
+f4a871741395: Preparing
+ff5db628aec4: Preparing
+50a35fcbb91b: Preparing
+ba3263475f99: Preparing
+74d97c428c51: Preparing
+74d97c428c51: Waiting
+50a35fcbb91b: Layer already exists
+ff5db628aec4: Layer already exists
+ba3263475f99: Layer already exists
+74d97c428c51: Layer already exists
+f4a871741395: Pushed
+10f25806810f: Pushed
+04caa26b0da8: Pushed
+0effe35d9746: Pushed
+09151d12dbca: Pushed
+0c36f8761fe8: Pushed
+b36f6b219604: Pushed
+rmwtqs6gy-ea522e: digest: sha256:d2279a136228b7d986377e5ea5dee4f0f644b3207c5662bb1f50bbd6f2561710 size: 2627
+DONE
+--------------------------------------------------------------------------------
+Added tag [us-central1-docker.pkg.dev/graffiticode/services/broker-c5d-drive:serving-broker-c5d-drive-rmwtqs6gy-ea522e] to image [us-central1-docker.pkg.dev/graffiticode/services/broker-c5d-drive@sha256:d2279a136228b7d986377e5ea5dee4f0f644b3207c5662bb1f50bbd6f2561710].
+Deploying us-central1-docker.pkg.dev/graffiticode/services/broker-c5d-drive@sha256:d2279a136228b7d986377e5ea5dee4f0f644b3207c5662bb1f50bbd6f2561710 with no traffic…
+Deploying container to Cloud Run service [[1mbroker-c5d-drive[m] in project [[1mgraffiticode[m] region [[1mus-central1[m]
+Deploying...
+Creating Revision.....................................................................................................................................................................................................................................................................................................................done
+Routing traffic.....done
+Done.
+Service [[1mbroker-c5d-drive[m] revision [[1mbroker-c5d-drive-rmwtqs6gy-ea522e[m] has been deployed and is serving [1m0[m percent of traffic.
+The revision can be reached directly at https://rmwtqs6gy-ea522e---broker-c5d-drive-sja7fatcta-uc.a.run.app
+Proxy locally with: gcloud run services proxy broker-c5d-drive --region us-central1 --project graffiticode
+Checking the candidate revision…
+WARNING: This command is using service account impersonation. All API calls will be executed as [deploy-smoke@graffiticode.iam.gserviceaccount.com].
+WARNING: This command is using service account impersonation. All API calls will be executed as [deploy-smoke@graffiticode.iam.gserviceaccount.com].
+Verifying the candidate with verify/broker.js (5d1d45f6f654)…
+  /v1/protected-execution: on (flag)
+WARNING: This command is using service account impersonation. All API calls will be executed as [deploy-smoke@graffiticode.iam.gserviceaccount.com].
+  /v1/execute: 401 without caller identity, 403 for an unregistered caller
+Promoting broker-c5d-drive-rmwtqs6gy-ea522e…
+Updating traffic...
+Routing traffic.....................done
+Done.
+No stale tags.
+Released broker-c5d-drive-rmwtqs6gy-ea522e: https://broker-c5d-drive-sja7fatcta-uc.a.run.app
+Receipt: <release-checkout>/.gc-deploy/releases/rmwtqs6gy-ea522e.json
+Rollback: npm run rollback -- broker-c5d-drive --env production --release rmwtqs6gy-ea522e

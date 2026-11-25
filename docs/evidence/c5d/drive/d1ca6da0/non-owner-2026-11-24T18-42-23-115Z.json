@@ -1,0 +1,13 @@
+{
+  "runId": "d1ca6da0",
+  "phase": "non-owner",
+  "at": "2026-11-24T18:42:23.115Z",
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "status": 200,
+    "outcome": "failed",
+    "reason": "not-owner",
+    "reservations": []
+  }
+}

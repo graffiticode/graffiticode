@@ -1,0 +1,2 @@
+egress-proxy-mf0x	egress-proxy-ce42b3628a5a	HEALTHY
+egress-proxy-d873	egress-proxy-ce42b3628a5a	HEALTHY

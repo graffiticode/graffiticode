@@ -1,0 +1,53 @@
+{
+  "status": 200,
+  "body": {
+    "documents": [
+      {
+        "name": "projects/graffiticode/databases/policy/documents/commands/c:db80a736f58318fe6f9cb1141bd60fc7c575d922cefe6374fe35496eeeff009b/ledger/s0:x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515",
+        "fields": {
+          "source": {
+            "stringValue": "reconciliation"
+          },
+          "status": {
+            "stringValue": "completed"
+          },
+          "stage": {
+            "stringValue": "s0"
+          },
+          "attempts": {
+            "arrayValue": {}
+          },
+          "commandId": {
+            "stringValue": "c:db80a736f58318fe6f9cb1141bd60fc7c575d922cefe6374fe35496eeeff009b"
+          },
+          "receipt": {
+            "stringValue": "inv-b8878442-06cb-4517-9a10-fbee816c5f42/s0/x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+          },
+          "output": {
+            "mapValue": {
+              "fields": {
+                "digest": {
+                  "stringValue": "ac8449683fbd246a5008110ad368677c26fd8e021a27d6d5241068ffb2774b9b"
+                },
+                "text": {
+                  "stringValue": "{\"item\":\"7vwaCAIyMNCJEzgIfyYY\",\"captureSequence\":10,\"sha256\":\"fa3bbbd8cb299ee58b769594f7e6f3c66eb6a51229ede24e84cba26ea9c5c3ba\",\"url\":\"https://storage.googleapis.com/graffiticode-c5d-drive/7vwaCAIyMNCJEzgIfyYY.png?v=fa3bbbd8cb299ee5\"}"
+                }
+              }
+            }
+          },
+          "repairId": {
+            "nullValue": null
+          },
+          "occurrenceId": {
+            "stringValue": "x:9eb94a78cb3e9aff42a8cb34cda835fe4ec7d204459a12080dd421919c60e515"
+          },
+          "settledAt": {
+            "stringValue": "2026-11-20T19:35:14.092Z"
+          }
+        },
+        "createTime": "2026-11-20T19:35:14.137377Z",
+        "updateTime": "2026-11-20T19:35:14.137377Z"
+      }
+    ]
+  }
+}

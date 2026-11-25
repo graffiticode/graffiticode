@@ -1,0 +1,412 @@
+{
+  "runId": "d1ca6da0",
+  "phase": "cleanup",
+  "at": "2026-11-24T19:07:59.123Z",
+  "observations": {
+    "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+    "errors": {},
+    "unresolvedIntents": [],
+    "commands": [
+      {
+        "commandId": "c:0bcaf9b28e1ca8cad66b0dddca71535fce7be4a60a845e29fc9063cd277098f5",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:0ffadf2d4739941439e57be7a6e744dcfb6c5d82e11432e2c7e65239d17958af",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:1fd0b95487ce12bf1b1c5b535a4ec3360655070ebbb8646f73fb57ee2a76c33d",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:25e57cb9fd065afa533ebaff4e17a740600ce276dc1babff9a2f8ffee0968f9b",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:3a84bcaa3dd73751873011628dc2e3f5a01af50594d3e0981a67415a737a51ec",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:40bade426ed725afb0da796104817676487ae4ed0654cfb56f08de3904be610f",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:601a0bb57fba27467c5cad6b8bdf1bca211b7bc70bee8714a99cf5cac05758e6",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:6434b382416463c8d4dc79fbbe9c4a3661ea8ab1223bc09252b448d7e9ed58b1",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:694290115e5ca58a12cee5e906bcd4a4831b1b3c666f9298d428ba05459cebe5",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:6f00381099a42ba7e48f1707770d37e03a26bd050fb2a0f3b59dbd5bfcaadc44",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:7423694c7e7651634d29b370ad7cd84a13c1dc3e0a2edae3d585c94d2abf5808",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf",
+        "status": "failed"
+      },
+      {
+        "commandId": "c:7b3c40dbbcea880f85754ef2fec09da8f760dd61db0d3357be865c7c9c3d27c0",
+        "status": "uncertain"
+      },
+      {
+        "commandId": "c:87cb7832bda3aff523d7496ee69cd7ed5d04449e32c4876a5803b17f9a0fe136",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:a7ca8a26432f0de1e71758dca113e23fb0a6697f57256b3194fbfbb90308b286",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:b89c7e6a722bc70c97aa72190729044f8502892ffa3ddba84ed565af2d94ef54",
+        "status": "failed"
+      },
+      {
+        "commandId": "c:c897eb6bc84fe499615ac0d0a611d24ce92ad79f2d5c9c8f8d5ddca8564e4b72",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:c908057d22bca06154482fbe75c6f0512ab1ddbeb825d59705ff248247aa5106",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:cfe1d1c528e05158d980ffd2c72b87b9e6ac8f45dae3e7ba817332967ca22f2f",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:d4e8b1dae4110f3fa109b80db5158a11fdc360a979fada34ead946051855511a",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:d7d3235f061ea061bc6f2204d7153b92a2eda24cab873894407da7ff3b73db91",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:da62862cd97b17421373799bdcd0461225673a607d9dcfd327bc74189ec80ede",
+        "status": "failed"
+      },
+      {
+        "commandId": "c:e27dc7d646352121e03ba2eb659eb8777c6ab023cba86e9eaf00330a65c0554c",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:e283f5be4e1ec9a5bda732662ebe7b97b41447c1d8ad34e049f9584f51b3573c",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+        "status": "completed"
+      },
+      {
+        "commandId": "c:f1cf797de382c04507ace66adc17d7fda64cfa83d1728a76b6cbc69ade9e7cef",
+        "status": "completed"
+      }
+    ],
+    "due": [],
+    "policyEnumeration": {
+      "since": "2026-11-23T20:42:18.279Z",
+      "tasks": [
+        "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+        "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+        "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19+eyJ0YXNrSWRzIjpbImhFa0hKTTcwZ3c3bzFVOUt6NHBLIl19",
+        "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19+eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+        "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19+eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+        "eyJ0YXNrSWRzIjpbIlF6RU90VWY3NW5raWpBNWNlbHFlIl19"
+      ],
+      "queries": [
+        {
+          "query": "policy commands where taskId == eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "pages": 1,
+          "count": 22,
+          "complete": true
+        },
+        {
+          "query": "policy commands where taskId == eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "pages": 1,
+          "count": 41,
+          "complete": true
+        },
+        {
+          "query": "policy commands where taskId == eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19+eyJ0YXNrSWRzIjpbImhFa0hKTTcwZ3c3bzFVOUt6NHBLIl19",
+          "pages": 1,
+          "count": 3,
+          "complete": true
+        },
+        {
+          "query": "policy commands where taskId == eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19+eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "pages": 1,
+          "count": 1,
+          "complete": true
+        },
+        {
+          "query": "policy commands where taskId == eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19+eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "pages": 1,
+          "count": 1,
+          "complete": true
+        },
+        {
+          "query": "policy commands where taskId == eyJ0YXNrSWRzIjpbIlF6RU90VWY3NW5raWpBNWNlbHFlIl19",
+          "pages": 1,
+          "count": 1,
+          "complete": true
+        },
+        {
+          "query": "policy commands where uid == 995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "pages": 3,
+          "count": 651,
+          "complete": true
+        },
+        {
+          "query": "policy commands where uid == a35c2c8948de39fd03bb60d9d44259612dc56470",
+          "pages": 1,
+          "count": 3,
+          "complete": true
+        }
+      ],
+      "commands": [
+        {
+          "commandId": "c:0bcaf9b28e1ca8cad66b0dddca71535fce7be4a60a845e29fc9063cd277098f5",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:51:30.664Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:0ffadf2d4739941439e57be7a6e744dcfb6c5d82e11432e2c7e65239d17958af",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:50:44.538Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:1cd43a9c1b92c314a0adae4ace3824aca70eb0d403d41aa11702b0a389dd9ab0",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T03:52:35.474Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:1fd0b95487ce12bf1b1c5b535a4ec3360655070ebbb8646f73fb57ee2a76c33d",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19+eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T17:32:13.268Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:25e57cb9fd065afa533ebaff4e17a740600ce276dc1babff9a2f8ffee0968f9b",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:50:53.982Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:3a84bcaa3dd73751873011628dc2e3f5a01af50594d3e0981a67415a737a51ec",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:50:34.369Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:40bade426ed725afb0da796104817676487ae4ed0654cfb56f08de3904be610f",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T16:52:48.554Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:5f51aadf45374055d855dd2d6c375915bfa9e8e869e81aab4c69e3929e8e9f21",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T03:46:44.761Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:601a0bb57fba27467c5cad6b8bdf1bca211b7bc70bee8714a99cf5cac05758e6",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbIlF6RU90VWY3NW5raWpBNWNlbHFlIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:59:56.549Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:6434b382416463c8d4dc79fbbe9c4a3661ea8ab1223bc09252b448d7e9ed58b1",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19+eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T17:32:42.008Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:694290115e5ca58a12cee5e906bcd4a4831b1b3c666f9298d428ba05459cebe5",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T01:56:01.711Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:6f00381099a42ba7e48f1707770d37e03a26bd050fb2a0f3b59dbd5bfcaadc44",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T01:55:37.677Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:7423694c7e7651634d29b370ad7cd84a13c1dc3e0a2edae3d585c94d2abf5808",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:50:24.492Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:7a078d25577af6015ab111158167ef0f6d256b7ba0040cb7888b2e8e6b394fcf",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T16:38:04.537Z",
+          "status": "failed"
+        },
+        {
+          "commandId": "c:7b3c40dbbcea880f85754ef2fec09da8f760dd61db0d3357be865c7c9c3d27c0",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T04:09:40.716Z",
+          "status": "uncertain"
+        },
+        {
+          "commandId": "c:87cb7832bda3aff523d7496ee69cd7ed5d04449e32c4876a5803b17f9a0fe136",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:51:21.873Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:a7ca8a26432f0de1e71758dca113e23fb0a6697f57256b3194fbfbb90308b286",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T16:53:09.984Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:b89c7e6a722bc70c97aa72190729044f8502892ffa3ddba84ed565af2d94ef54",
+          "uid": "a35c2c8948de39fd03bb60d9d44259612dc56470",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:42:20.498Z",
+          "status": "failed"
+        },
+        {
+          "commandId": "c:c897eb6bc84fe499615ac0d0a611d24ce92ad79f2d5c9c8f8d5ddca8564e4b72",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T16:45:00.212Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:c908057d22bca06154482fbe75c6f0512ab1ddbeb825d59705ff248247aa5106",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:51:13.105Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:cfe1d1c528e05158d980ffd2c72b87b9e6ac8f45dae3e7ba817332967ca22f2f",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:50:03.556Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:d4e8b1dae4110f3fa109b80db5158a11fdc360a979fada34ead946051855511a",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19+eyJ0YXNrSWRzIjpbImhFa0hKTTcwZ3c3bzFVOUt6NHBLIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:34:08.241Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:d7d3235f061ea061bc6f2204d7153b92a2eda24cab873894407da7ff3b73db91",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:50:13.880Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:da62862cd97b17421373799bdcd0461225673a607d9dcfd327bc74189ec80ede",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:51:48.432Z",
+          "status": "failed"
+        },
+        {
+          "commandId": "c:e27dc7d646352121e03ba2eb659eb8777c6ab023cba86e9eaf00330a65c0554c",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:49:46.525Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:e283f5be4e1ec9a5bda732662ebe7b97b41447c1d8ad34e049f9584f51b3573c",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:51:39.774Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:e757d3c07ca60ffef6c076f5137fdca9dddba9bc4fce467d68d8af880227e62d",
+          "uid": "995cc0bc98105563168b7fbee7b1e59a4256331c",
+          "taskId": "eyJ0YXNrSWRzIjpbInpqeThlRVhMVW5hMnZkTE5oOTd2Il19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T04:38:38.905Z",
+          "status": "completed"
+        },
+        {
+          "commandId": "c:f1cf797de382c04507ace66adc17d7fda64cfa83d1728a76b6cbc69ade9e7cef",
+          "uid": "anonymous",
+          "taskId": "eyJ0YXNrSWRzIjpbIlRhNFh5ZFd1eUZiVFdhUVdmRGFOIl19",
+          "lang": "0013",
+          "createdAt": "2026-11-24T18:51:04.195Z",
+          "status": "completed"
+        }
+      ]
+    }
+  }
+}
