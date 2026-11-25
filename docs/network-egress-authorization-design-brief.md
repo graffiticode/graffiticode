@@ -111,23 +111,21 @@ An operation is permitted through the public path when:
 - The destination satisfies network safety checks.
 - The applicable language and execution policy permit public retrieval.
 
-Example policy:
+The allowlist belongs to the **account**, not to a language. One allowlist applies to every language the account runs, so a destination approved once is reachable from any open language, and no language carries its own list. Section 8 describes how the allowlist is composed and edited.
+
+Example of an account's effective allowlist:
 
 ```yaml
 network:
   public_egress:
-    enabled: true
     methods:
       - GET
       - HEAD
-    hosts:
-      - "*.gov"
-      - "*.edu"
-      - "*.wikipedia.org"
-      - "*.worldbank.org"
+    hosts:              # resolved for one account, across all languages
+      - "*.gov"           # shared destination, opted in
+      - "*.wikipedia.org" # shared destination, opted in
+      - "data.example.org" # account-added destination
 ```
-
-Host allowlists may be defined by language and constrained further by deployment-wide policy.
 
 This configuration is illustrative; the precise policy schema remains to be designed.
 
@@ -268,9 +266,9 @@ A capability must authorize the actual destination and operation. Possession of 
 
 ### 7.1 Language configuration
 
-Each language declares the network operations it needs.
+Each language declares whether it may use the public path at all (open egress) and which registered capabilities it may invoke.
 
-For example, a public data-retrieval language may request access to selected public domain patterns.
+A language does not declare public destinations. Destinations come from the account's allowlist (Section 8), which applies across all languages.
 
 Language configuration is subject to platform policy. A compiler cannot expand its own permissions at runtime.
 
@@ -322,7 +320,53 @@ MCP, A2A, and REST requests must converge on the same backend authorization mech
 
 No agent-facing protocol should provide an alternative route around Policy, Broker, or egress enforcement.
 
-## 8. Host Allowlist Semantics
+## 8. Account Allowlist
+
+### 8.1 Scope: across languages
+
+There is one public allowlist per account, applied to every open language the account runs. Languages do not keep separate host lists, and the same request from two languages gets the same decision.
+
+The allowlist governs the public path only. Capability-authorized operations (Section 4.2) are unaffected by it.
+
+### 8.2 Shared destinations
+
+Graffiticode maintains a catalog of **shared destinations**: domains and domain patterns (for example `*.gov`, `*.edu`, `*.wikipedia.org`, `*.worldbank.org`) offered to all accounts.
+
+- Graffiticode curates the catalog. Adding or broadening a shared destination is a platform policy change and is reviewed as one.
+- Each account opts in or out of each shared destination individually.
+- A shared destination is **off until the account opts in**.
+- Removing a destination from the catalog removes it from every account's effective allowlist.
+
+An account may also add its own destinations, which apply only to that account. Account-added entries are subject to the same hostname rules as shared ones (Section 8.5).
+
+An account's effective allowlist is the shared destinations it has opted into plus its own destinations.
+
+### 8.3 Settings UX
+
+The console settings page shows the allowlist as a list of domains, each with an opt-in checkbox:
+
+```text
+Network destinations                          (applies to all languages)
+
+  [x] *.gov              Shared · US government data
+  [ ] *.edu              Shared · Educational institutions
+  [x] *.wikipedia.org    Shared · Wikipedia
+  [ ] *.worldbank.org    Shared · World Bank open data
+  [x] data.example.org   Added by you                    [Remove]
+
+  [ Add domain… ]
+```
+
+- Shared destinations always appear in the list, checked or unchecked. Account-added destinations appear checked and can be removed.
+- Changing a checkbox takes effect for the account's next outbound request. Compiled results already cached are not invalidated.
+
+### 8.4 Who may change the allowlist
+
+Only a signed-in person, through the console, may change the account's allowlist.
+
+Compilers, interpreters, and agent-facing protocols (MCP, A2A, REST) may read the effective allowlist but must not change it. Otherwise an agent acting for the account could open the destination it wants to exfiltrate to, defeating the allowlist.
+
+### 8.5 Host matching
 
 Wildcard rules should use explicitly defined hostname matching.
 
@@ -403,7 +447,8 @@ The platform should describe these operations as read-oriented or retrieval oper
 
 **Phase 1 — Public destination enforcement**
 
-- Define public allowlist policy configuration.
+- Define the shared-destination catalog and per-account allowlist storage.
+- Build the console settings list (domains with opt-in checkboxes, add/remove own domains).
 - Support exact hosts and explicitly approved wildcard domains.
 - Enforce network restrictions in the egress layer.
 - Prevent direct network bypass.
@@ -435,13 +480,15 @@ The platform should describe these operations as read-oriented or retrieval oper
 
 The following details require resolution before implementation:
 
-1. **Allowlist ownership:** Should public host patterns be maintained globally, per language, or through an intersection of global and language-specific policy?
-2. **Wildcard policy:** Which broad namespaces, such as `*.gov` and `*.edu`, should be approved by default?
-3. **Capability routing:** How will outbound requests be reliably associated with registered capabilities so compilers cannot impersonate authorized operations?
-4. **Granularity:** Which restrictions belong in the egress proxy versus Policy and Broker?
-5. **Administrative control:** Can enterprise deployments impose stricter policies than the shared Graffiticode service?
-6. **Audit:** What metadata should be recorded to explain why each outbound operation was permitted or denied?
-7. **Existing D2 languages:** How should currently deployed open-egress languages transition to allowlisted access?
+1. **Allowlist ownership:** *Decided:* one allowlist per account, across all languages, made of opted-in shared destinations plus account-added destinations (Section 8).
+2. **Shared catalog:** Which namespaces, such as `*.gov` and `*.edu`, go in the initial shared catalog? Shared destinations are off until an account opts in.
+3. **Accounts without settings:** What allowlist applies to requests with no signed-in account, such as free-plan MCP use?
+4. **Account-added domains:** Should anything limit which domains an account may add (for example, refusing IP literals or bare top-level-domain wildcards)?
+5. **Capability routing:** How will outbound requests be reliably associated with registered capabilities so compilers cannot impersonate authorized operations?
+6. **Granularity:** Which restrictions belong in the egress proxy versus Policy and Broker?
+7. **Administrative control:** Can enterprise deployments impose stricter policies than the shared Graffiticode service?
+8. **Audit:** What metadata should be recorded to explain why each outbound operation was permitted or denied?
+9. **Existing D2 languages:** How should currently deployed open-egress languages transition to allowlisted access, given that every account starts with no shared destinations opted in?
 
 These are implementation questions rather than reasons to defer the core policy decision.
 
