@@ -46,7 +46,7 @@ Expected config digest: `8b637609894234b408fe960590380b518927a79fb82491813741569
 - [ ] Create the alert channel: email to <alert-recipient> (decided 2026-10-18; channels exist only in
   `gcloud beta`, which may ask to install the component once):
   ```bash
-  gcloud beta monitoring channels create --project=graffiticode --display-name="ISOLATE-01 egress proxy" --type=email --channel-labels=email_address=<alert-recipient> --format="value(name)"
+  gcloud beta monitoring channels create --project=graffiticode --display-name="ISOLATE-01 egress proxy" --type=email --channel-labels='email_address=<alert-recipient>' --format="value(name)"
   ```
   Put the printed `projects/.../notificationChannels/<id>` in `proxy.alerts.notificationChannels` in
   `deploy/egress-proxy/classes.json`, and regenerate. Only the alert files change: the template and its digest don't.

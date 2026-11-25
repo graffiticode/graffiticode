@@ -91,6 +91,9 @@ function checks(model) {
 // The roles the committed checklist names, and the private values that may fill them.
 export const ROLES = Object.freeze({ alertRecipient: "<alert-recipient>", orgAdmin: "<org-admin>", operator: "<operator>", secondOwner: "<second-owner>" });
 const EMAIL = /^[^\s@<>"'`]+@[^\s@<>"'`]+\.[A-Za-z]{2,}$/;
+// One POSIX shell word, whatever it holds: a value pasted into a generated
+// command must never be expanded ($(...), `...`, ${...}) or split.
+export const shellQuote = x => `'${String(x).replace(/'/g, `'\\''`)}'`;
 export function privateValues(raw) {
   const v = typeof raw === "string" ? JSON.parse(raw) : raw;
   const owners = v?.approvedOwners;
@@ -151,7 +154,7 @@ export function checklist(model, people = ROLES) {
     `- [ ] Create the alert channel: email to ${people.alertRecipient} (decided 2026-10-18; channels exist only in`,
     "  `gcloud beta`, which may ask to install the component once):",
     "  ```bash",
-    `  gcloud beta monitoring channels create ${p} --display-name="ISOLATE-01 egress proxy" --type=email --channel-labels=email_address=${people.alertRecipient} --format="value(name)"`,
+    `  gcloud beta monitoring channels create ${p} --display-name="ISOLATE-01 egress proxy" --type=email --channel-labels=${shellQuote(`email_address=${people.alertRecipient}`)} --format="value(name)"`,
     "  ```",
     "  Put the printed `projects/.../notificationChannels/<id>` in `proxy.alerts.notificationChannels` in",
     "  `deploy/egress-proxy/classes.json`, and regenerate. Only the alert files change: the template and its digest don't.",
