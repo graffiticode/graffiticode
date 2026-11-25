@@ -1,6 +1,6 @@
 # C4: L0182 on the interpreter, with a durable survey assignment
 
-**Status:** draft, revised after the owner's third review (2026-11-25). Nothing in it is implemented or live. The owner accepted the api as where assignment runs and `(survey, session)` as its identity. The other decisions in §2 are proposals, and each one marked **open** needs the owner's choice before its slice starts. Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 4 ("the durable get-or-create assignment (atomic, stable across revisions, frozen on submission), plus keeping the survey model that answers were given against"). Design: `docs/graffiticode-interpreter-design.md` §12 Phase 3 (the "L0182 version draws" bullets), §12 test 7, and open question 7 in §13.
+**Status:** draft, revised after the owner's fourth review (2026-11-25). Nothing in it is implemented or live. The owner accepted the api as where assignment runs and `(survey, session)` as its identity. The other decisions in §2 are proposals, and each one marked **open** needs the owner's choice before its slice starts. Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 4 ("the durable get-or-create assignment (atomic, stable across revisions, frozen on submission), plus keeping the survey model that answers were given against"). Design: `docs/graffiticode-interpreter-design.md` §12 Phase 3 (the "L0182 version draws" bullets), §12 test 7, and open question 7 in §13.
 
 **What the review changed:**
 1. Submission is acknowledged only after its freeze commits, and an unavailable authority check or a lost freeze is a temporary error (decision 7).
@@ -20,6 +20,8 @@
 **What the third review changed:**
 1. Evidence whose identity can't be recovered quarantines its **task**. The api checks the quarantine before assignment resolution, answers `assignment-under-review`, and creates nothing until the task is resolved or migrated (decision 10).
 2. Suspension also covers variables a suspended subtree could have set, and success requires that nothing was left unresolved anywhere in the run, even in a value a sequence discards (decision 1, §3).
+
+**What the fourth review changed:** quarantined tasks and unresolved records can be resolved after activation through an audited resolution transaction that is valid in `done`, with no global window (decision 10).
 
 ## 1. Where we start
 
@@ -122,10 +124,22 @@
     - **When the identity itself can't be recovered, the task is quarantined.** For a computed `session-id`, or an `id` whose survey is absent from the saved output, the extractor can't name a `(survey, session)` key at all. An assignment-level record can't block that: at run time the api would find no record under the key the program computes, and draw afresh. So the backfill writes `l0182-task-quarantine/<taskId>`, with the reasons and the evidence it did find.
       - **Checked first.** `resolve` reads the quarantine for the stage's task in the same transaction, **before** any record lookup or creation. A quarantined task answers `assignment-under-review`, writes nothing, and makes no request to the language beyond the first discovery call. Submission checks it too.
       - **Until it is lifted:** by `scripts/c4-resolve-assignment.js --task <id>`, which records the owner's decision. Either supply the identities and versions it should have (written as resolved records, frozen or not), or mark it migrated: the owner accepts that it will draw fresh.
+    - **Resolving after activation: an audited resolution transaction.** Quarantined tasks and unresolved records can outlive activation, so their resolution can't depend on reopening a reconciling window, which would fence every L0182 write in production. Instead, `c4-resolve-assignment.js` resolves **one** task or identity in a single transaction that is safe alongside live traffic in `done` (and equally before it):
+      - **Its preconditions,** all read inside the transaction:
+        - the quarantine document, or the unresolved record, still exists with exactly the content the owner reviewed (its hash is part of the decision);
+        - for every identity the decision writes, the key has **no live record**, or the record is the unresolved one being resolved. A live record means the api already created or froze one, for example for another task computing the same key. The transaction then refuses, reports it, and the owner decides again, either adopting the live record or quarantining further. It never overwrites a live record;
+        - for a frozen decision, the content of the chosen version is retained under its digest, byte-identical if it already exists.
+      - **Its writes, all or nothing:**
+        - the resolved records, marked `resolvedBy: owner`;
+        - the quarantine document deleted, or the unresolved record replaced;
+        - an audit entry in `l0182-resolutions/<id>`: the operator, the decision, the reviewed hash, the before and after state of every document touched, and the time.
+      - **Why it is safe in `done`:** the api's `resolve` and `submit` read the quarantine and records inside their own transactions, so they see either the state before the resolution or the state after it, never a mix. A request that overlaps the resolution is retried by Firestore and then sees the new state. Until the resolution commits, the task keeps answering `assignment-under-review` and nothing is created.
+      - **Migrate** is the same transaction with no records written: the quarantine is deleted and audited, and the task's next run draws as any new identity would.
+      - The backfill and catch-up stay forbidden in `done`. The audited resolution is the only post-activation path, and each run handles one owner-reviewed decision.
       - The quarantine is task-level because nothing finer is knowable. A new task for the same item (a later revision) isn't quarantined: its identities come from its own program at run time. If its identities can be recovered from its own saved output, they are backfilled normally.
     - **Unresolved records never fall through to a draw.** An interpret that reaches one fails with the permanent `assignment-under-review`. The owner resolves each one with `scripts/c4-resolve-assignment.js`, choosing its version and frozen state, or leaves it blocked.
     - **Two writers, never at once.** The control document `l0182-cutover/state` is `backfill` (the initial state), `reconciling` or `done`.
-      - **Every write transaction reads it inside the transaction.** The backfill and resolve scripts write only while it is `backfill` or `reconciling`. The api writes (creation, reassignment, a draw-cycle update, a freeze) only while it is `done`. A state change commits through a transaction too, so a writer whose transaction overlaps the change is retried by Firestore and then sees the new state. No cached copy of the state ever authorizes a write.
+      - **Every write transaction reads it inside the transaction.** The backfill and catch-up write only while it is `backfill` or `reconciling`, never in `done`. The api writes (creation, reassignment, a draw-cycle update, a freeze) only while it is `done`. The one other writer is the owner's **audited resolution** (below), which is valid in any state. A state change commits through a transaction too, so a writer whose transaction overlaps the change is retried by Firestore and then sees the new state. No cached copy of the state ever authorizes a write.
       - Before `done`, backfill records stay mutable, and each pass upserts by identity.
     - **Catch-up.** `--catchup` re-reads every `compiles/` document whose `lastCompile` has moved since the previous pass, and every version-history entry created since then. That selects new results, refreshed results and reused ones alike; a reused one simply yields the same evidence. It re-extracts the evidence (above) and re-applies the rules per affected identity:
       - an unfrozen record follows the evidence;
@@ -207,6 +221,13 @@
   - changed content under the same name follows decision 6;
   - an unresolved record fails `assignment-under-review` and never draws;
   - **task quarantine:** a task whose program computes its `session-id`, and whose survey is absent from the saved output, is quarantined by the backfill. At run time it answers `assignment-under-review` and creates no record and no draw-cycle entry, though the computed key has no record. Lifting it (resolve or migrate) lets it run; another task for the same item isn't affected;
+  - **resolution after activation (state `done`):**
+    - a quarantined task blocked after activation is resolved by the audited transaction, after which it runs with the supplied versions, and the audit entry records the before and after state;
+    - a `resolve` racing the resolution sees the before state (under review, nothing created) or the after state, never a mix;
+    - the resolution refuses, and writes nothing, when a target key already has a live record, or when the quarantine changed since the owner's review;
+    - migrate deletes the quarantine, and the next run draws fresh;
+    - the same for an unresolved record;
+    - the backfill and catch-up are refused in `done`;
   - **the write barrier:** while `reconciling`, creation, reassignment and every submission are refused, and reads of existing records are served; a state change racing a write transaction makes the write retry and then refuse; the scripts can't write once the state is `done`;
   - **the canary namespace:** canary sessions read and write only the canary collections, under their own state; no other session reaches them; a program can't choose the namespace;
   - no stage-cache entry is written for L0182;
@@ -250,7 +271,7 @@ Every step is a separate approval. Nothing below is approved by this plan.
 1. **Kernel:** the assignment table, `needsAssignment`, `pending` and suspension, and the evaluation-order and suspension tests (§3).
 2. **L0182:** `Assigned`, the stateless pick, the backfill extractor, `interpret.rs` (with branching and zero-candidate cases), the list of deliberate differences, the CLAUDE.md fix (§4).
 3. **api:** manifest v11, `assignments.js` with the in-transaction write barrier and the canary namespace, `interpret.js`, rules, the parity tool, tests (§5).
-4. **Backfill and resolve scripts,** with emulator tests for every rule in decision 10: evidence extraction and unrecoverable cases, task quarantine and its lifting, authority, chronology from version history, catch-up, unresolved, the state machine (`backfill` → `reconciling` → `done`), and `--final` refusing to run before the drain is confirmed.
+4. **Backfill and resolve scripts,** with emulator tests for every rule in decision 10: evidence extraction and unrecoverable cases, task quarantine and its lifting before and after activation, authority, chronology from version history, catch-up, unresolved, the state machine (`backfill` → `reconciling` → `done`), and `--final` refusing to run before the drain is confirmed.
 5. **Evidence:** the inventory, backfill and catch-up reports, owner decisions on unresolved records, the gates and canaries, in `docs/evidence/interpreter-c4-l0182/`.
 
 Slices 1 to 4 are code PRs. Each live step in §6 is a separate approval.
