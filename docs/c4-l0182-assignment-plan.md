@@ -199,7 +199,20 @@ Every step is a separate approval. Nothing below is approved by this plan.
 
 Slices 1 to 4 are code PRs. Each live step in §6 is a separate approval.
 
-## 8. Out of scope
+## 8. Boundary with network authorization
+
+The network-authorization workstream (`docs/network-authorization-plan.md`, proposed in its own PR, from the proposed brief `docs/network-egress-authorization-design-brief.md`) is separate, and C4 neither waits for it nor absorbs it.
+
+- **L0182 makes no public fetch.** Its surveys are embedded in the binary (`crates/core/build.rs`), and interpreting, the exchange included, reads nothing from the network. `l0182r` stays in the strict `compilers-default` class, whose only names are `api.graffiticode.org` and `auth.graffiticode.org` (token verification; `deploy/egress-proxy/production/network.json`). C4 adds no name, and needs no account allowlist entry and no capability.
+- **The api's assignment calls are platform operations,** made under the api's own runtime identity:
+  - Firestore reads and writes of the four `l0182-*` collections;
+  - Policy's item-authority lookup (decision 3), which reaches the console's internal route as Policy's identity.
+
+  Their authority comes from the api's and Policy's service accounts, the Firestore rules (server-only) and the item-authority route's audience check. It is **not** account-controlled retrieval: no account's allowlist governs them, and no account setting can widen or narrow them. They belong in the network plan's inventory of platform endpoints, so that its enforcement keeps them reachable and never routes them through public retrieval.
+- **No compiler decides them.** `l0182r` never chooses an account, never calls Firestore or Policy, and claims no capability. It only reports what it needs (`needsAssignment`), and the api decides.
+- **If the network work changes the api's egress or Policy's route to the console,** the C4 tests in §5 (item authority unavailable is a temporary error, never a freeze) are the regression checks for that change.
+
+## 9. Out of scope
 
 - Aggregating responses, an interactive flow, survey authoring, or enforcing one response per person (all L0182 "Not built yet", unchanged).
 - Reading surveys from anywhere but the embedded files. `SurveySource` stays the seam.
@@ -207,7 +220,7 @@ Slices 1 to 4 are code PRs. Each live step in §6 is a separate approval.
 - A private stage cache (decision 8).
 - The MCP server's deleted-proxy tools (`open_survey`, `answer_survey`).
 
-## 9. Risks
+## 10. Risks
 
 - **An answering path without the owner's uid** can't submit until it's fixed (decision 3). Slice 0 finds such paths before activation.
 - **Gaps in the console's version history** turn real historical answers into draws, which are not frozen. Slice 0 measures them. A gap the owner can't accept needs another source of authority before backfill.
