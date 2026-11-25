@@ -164,7 +164,7 @@ impl Js {
     /// their kinds), a tag is `{tag}`, a function value is `{lambda: {params}}`.
     pub fn from_value(value: &Value) -> Js {
         match value {
-            Value::Undefined => Js::Undefined,
+            Value::Undefined | Value::Pending => Js::Undefined,
             Value::Null => Js::Null,
             Value::Bool(b) => Js::Bool(*b),
             Value::Num(Number::Float(n)) => Js::Num(*n),

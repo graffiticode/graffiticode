@@ -35,7 +35,7 @@ impl Plain {
     /// `{lambda: {params}}`, a record a plain object (an assignment to `__proto__` sets no key).
     pub fn from_value(value: &Value) -> Plain {
         match value {
-            Value::Undefined => Plain::Undefined,
+            Value::Undefined | Value::Pending => Plain::Undefined,
             Value::Null => Plain::Null,
             Value::Bool(flag) => Plain::Bool(*flag),
             Value::Num(n @ Number::Exact(_)) => Plain::Decimal(n.clone()),

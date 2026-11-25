@@ -175,6 +175,25 @@ pub trait Dialect: Send + Sync {
         None
     }
 
+    /// [`interpret`](Self::interpret) with the assignment table the api passed
+    /// (docs/c4-l0182-assignment-plan.md, decision 1 and §3): identity to assigned
+    /// `{ instance, digest, content? }`, opaque to the kernel, and the empty object when the
+    /// request had none. A language that resolves occurrences from it may answer
+    /// [`Interpretation::NeedsAssignment`] instead of a result. The default is
+    /// [`interpret`](Self::interpret), ignoring the table. A language that declines here and lets
+    /// the kernel evaluate its plan reads the same table from
+    /// [`Evaluator::assignments`](crate::Evaluator::assignments) and asks through
+    /// [`Evaluator::request_assignment`](crate::Evaluator::request_assignment).
+    async fn interpret_assigned(
+        &self,
+        model: &Model,
+        input: &Json,
+        mode: Mode,
+        _assignments: &Json,
+    ) -> Option<Result<Interpretation, Vec<Diagnostic>>> {
+        self.interpret(model, input, mode).await.map(|result| result.map(Interpretation::Data))
+    }
+
     /// Whether a command stage of this language can be rebuilt from its records (B6,
     /// docs/b6-command-repair-plan.md decision 6): its model replayed on its pinned input in
     /// [`Mode::Replay`], each effect answered from its recorded result
@@ -189,6 +208,16 @@ pub trait Dialect: Send + Sync {
     fn materializes(&self) -> bool {
         false
     }
+}
+
+/// What a language's own interpretation answers (C4 decision 1).
+#[derive(Clone, Debug, PartialEq)]
+pub enum Interpretation {
+    /// The result.
+    Data(Json),
+    /// No result: requests for the occurrences the assignment table doesn't hold, opaque to the
+    /// kernel and in evaluation order. The server answers `{ status: 200, needsAssignment }`.
+    NeedsAssignment(Vec<Json>),
 }
 
 /// L0000 itself: the kernel with nothing added.

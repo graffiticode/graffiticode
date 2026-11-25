@@ -161,7 +161,7 @@ fn plain(cx: &mut Evaluator<'_>, value: &Value) -> Js {
         return state.to_js();
     }
     match value {
-        Value::Undefined => Js::Undef,
+        Value::Undefined | Value::Pending => Js::Undef,
         Value::Null => Js::Null,
         Value::Bool(b) => Js::Bool(*b),
         Value::Num(n) => Js::Num(n.to_f64()),
