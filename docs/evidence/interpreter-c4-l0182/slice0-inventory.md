@@ -110,3 +110,55 @@ Other counts:
 - **`you-can-choose`** (57 identities, none answered): it is no longer installed, so these fail today and would fail interpreted. Nothing needs retaining.
 - **Dependency ceiling:** no production program exceeds depth 1, so the 16-call ceiling refuses nothing that works today.
 - **Sessionless programs (decision 4):** 1 current-vocabulary occurrence.
+
+## 6. Follow-up: migration manifest and code paths (2026-11-25)
+
+Direct reads and code-path auditing only. No production instrumentation.
+
+**The private manifest.**
+- It is a JSON file outside Git, in the owner-only backup. For each of the 360 keyed identities, it lists every referencing task and every item that holds one, either as the item's current task or in any user's version history. Version history was scanned across all 11 users with version records (12,338 records, names only). It also records the owner of the item the session names, with roles.
+- Classes:
+  - **unattributed:** at least one referencing task is held by no item;
+  - **verified eval-only:** every task is held only by eval-owned items, and the session names exactly one eval-owned item;
+  - **personal-only** and **other-only:** likewise, for those accounts;
+  - **shared:** more than one role.
+
+| Class | Identities | Referencing tasks | Answered tasks | Identities with answered conflicts |
+|---|---|---|---|---|
+| verified eval-only | **10** | 10 | 0 | 0 |
+| eval holders, session item missing or shared | 1 | 1 | 1 | 0 |
+| personal-only | 44 | 54 | 1 | 0 |
+| other-only | 9 | 9 | 0 | 0 |
+| shared | 0 | 0 | 0 | 0 |
+| unattributed | **296** | 1,461 | 1,085 | 7 |
+
+Unattributed, by the item the session names:
+
+| Session item | Some referencing task held? | Identities | Tasks (unheld) |
+|---|---|---|---|
+| none | no | 18 | 472 (472) |
+| eval | no | 120 | 510 (510) |
+| eval | yes | 102 | 279 (165) |
+| under several users (eval and personal) | yes | 55 | 199 (126) |
+| personal | no | 1 | 1 (1) |
+
+A session naming an eval-owned item doesn't make its referencing tasks eval's: most of them are held by no item, so who created or answered them can't be shown. Only the **10 verified eval-only identities** (no answered task among them) qualify as reset candidates on this evidence. Any fresh draw needs the owner's explicit decision on a concrete set.
+
+**How a program comes to carry another item's session** (`graffiticode-app`):
+
+| Path | Session written | Evidence |
+|---|---|---|
+| Console chat generation | the item's own id, folded at parse | `packages/core/src/lib/code-generation/generate-for-request.ts:523` |
+| MCP `create_item` / `update_item` | the reserved or existing item's own id | `packages/core/src/generation.ts` (`reserveGeneration` before generating) |
+| Free-plan claim | **the free-plan item's id**: the new item has a new id, and the program is copied verbatim, so it posts to the same content-addressed task | `packages/core/src/claims.ts` (`claimFreePlanSession`) |
+| Sharing an item | **the sender's item id**: the recipient's item has a new id, and the program is copied | `packages/core/src/items.ts:901` (`shareItem`) |
+| Eval item creation | **the corpus example's fixed id**, reused on every run, and created under whichever account runs the script | `packages/console/scripts/create-items-from-prompts.ts:437` |
+
+The last three explain findings 2 to 4: shared sessions, sessions naming no item, and the same item id under several users. They match the owner's proposed console rules:
+- a new respondent's copy (share, claim, eval run) gets a fresh session;
+- revisions keep it;
+- a claim or transfer of the same response rebinds ownership explicitly, keeping the assignment and answers.
+
+Historical sessions are not rewritten.
+
+**Limitations, restated.** Historical caller identity can't be established from stored compiles, so these classes describe who **holds** a task, never who **answered** it. L0182 below another chain head isn't covered.
