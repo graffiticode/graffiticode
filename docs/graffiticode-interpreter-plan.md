@@ -599,6 +599,19 @@ Durable execution was deferred until a concrete language needed it. [L0188](l018
     - revocation during a wait;
     - a rollback with a live run.
 
+## Track N — Network authorization (separate workstream)
+The proposed brief [network-egress-authorization-design-brief.md](network-egress-authorization-design-brief.md) changes what authorizes an outbound request: a language's network class is no longer enough. Each public request would need the account's allowlist, and each protected one a registered, granted capability. It is planned separately in [network-authorization-plan.md](network-authorization-plan.md) (draft, 2026-11-25), and is not part of any Track C upgrade.
+- **Not in force.** The brief is proposed. Today's enforcement (ISOLATE-01's class-by-subnet proxy, with the open class tunnelling to any public name outside its denied suffixes) does not provide its guarantees. Track N adds no production gate to any track until its own steps are approved.
+- **Depends on interpreter execution:**
+  - fetches run in `/interpret` since C3, so authorization is per stage;
+  - Track E's durable runs re-authorize each new request on resumption (E3);
+  - replayed observations (B5, B6) make no request.
+- **Leaves Track C's gates as they are:**
+  - C4 (L0182) makes no public fetch, and documents its platform calls separately;
+  - C5d keeps its own release gates and stays held, and its Broker-mediated, item-scoped snapshot capability never acquires a public-domain opt-in;
+  - C7 stays last within Track C.
+- **Keeps this plan's compatibility invariant:** the open-class languages (L0185, and the legacy L0137 and L0170) are inventoried, and every affected chain is named and migrated, before any enforcement refuses one.
+
 ## Rollback procedures
 **Track A (switch to Rust):**
 - Roll back the API release that set `BASE_URL_LNNNN` and `COMPILE_GENERATION_LNNNN` (`npm run deploy -- rollback --release <id>`), or release a forward one without them.
