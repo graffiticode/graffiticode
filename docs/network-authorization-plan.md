@@ -68,11 +68,20 @@ Every decision is **open** until the owner chooses. Each says what is proposed a
    - **Where each claim comes from:**
      - **`sub`** comes from the **caller's verified user token**, which the api passes. An anonymous call gets `sub: anonymous`.
      - **`ins`** follows the installation plan's I-2, never the user token. The frontend's own service identity (`X-Caller-Identity`, verified by the api against the installation registry) names the installation. The api passes it to Policy as an **attested field on its `gateway` call**, and Policy accepts that field only from the `gateway` role. Nothing in a body, a prompt, a compiler's request or a user's token names it. Until I-2 ships, `ins` is `graffiticode` (I-3: absent means Graffiticode).
-     - Neither the api nor a compiler can supply any other claim's value.
+     - **The gateway supplies the execution fields, and Policy validates them:**
+       - `task`: Policy checks that the task exists and that its language is declared to fetch;
+       - `stg`: the stage id's format (`s0`, `s1`, …);
+       - `mode`: `evaluate` or `present`;
+       - `max`: at most the language's declared request budget;
+       - `inv`, `cmd`, `run`: when present, each must name a record Policy holds that belongs to the same `sub` and `ins`.
+
+       A value that fails validation refuses the mint.
+     - **A compiler supplies nothing.** It only receives the signed context and forwards it.
+     - **Policy alone sets** `iat`, `nbf`, `exp`, `jti` and the key, and neither the gateway nor a compiler can set `sub` or `ins` except as described above.
    - **Signing: a separate retrieval key.** A new Cloud KMS key (`EC_SIGN_P256_SHA256`, JWS ES256) used only for this profile. The private key never leaves KMS, and only Policy's service account may sign with it. Policy's existing key keeps signing every existing profile, unchanged.
      - **Why separate:** the existing key signs 30-minute `invocation` tokens and 15-minute `session` tokens, among others. Broker loads exactly one verification key at startup (`packages/broker/src/main.ts:95`). Sharing a key would tie retrieval rotation to every existing verifier, and would need an overlap covering the longest existing lifetime, with a coordinated Broker change. A separate key leaves Broker, Policy's own verification and every existing profile untouched.
      - **Separation in both directions:** the retrieval key's `kid` and `typ` are distinct. The fetch service accepts only retrieval-key `kid`s and the `gc-retrieval+jwt` type. Broker and Policy keep pinning their existing key, so a retrieval token is refused there, and an existing-key token is refused by the fetch service.
-   - **Verifier:** the fetch service. It checks the signature against Policy's JWKS (`GET /v1/jwks`), and checks `typ`, audience, `nbf` and `exp` with at most 5 s of skew, plus every required claim. It counts requests per `jti` against `max`. A context is reusable within its life for that stage's fetches, and only for them.
+   - **Verifier:** the fetch service. It checks the signature against the retrieval key's JWKS (`GET /v1/jwks/retrieval`), never today's `/v1/jwks`, and checks `typ`, audience, `nbf` and `exp` with at most 5 s of skew, plus every required claim. It counts requests per `jti` against `max`. A context is reusable within its life for that stage's fetches, and only for them.
    - **Rotation, of the retrieval key only:**
      - Policy publishes the retrieval key's current and next versions by `kid` on a JWKS of their own (`GET /v1/jwks/retrieval`), separate from today's `/v1/jwks`, so no existing consumer sees a new key.
      - A new version is published at least the retrieval TTL (120 s) plus the fetch service's JWKS cache lifetime before Policy signs with it. The old version is removed only after the same interval past its last signature.
