@@ -15,7 +15,7 @@
 1. **Historical caller identity can't be established.** Stored compiles record no caller, so this inventory can't say who wrote or answered any program. **Eligible-submitter coverage is therefore unknown** for every historical answer. Item ownership and version history show who **holds** an item or task, not who answered.
 2. **Saved-output coverage excludes L0182 below another chain's head.** Compiles were found by the L0182 task's own chain id, as the head of its chain. A compile in which L0182 sat below another task's head wasn't read.
 
-Neither limitation can be removed by direct reads. Production instrumentation isn't authorized.
+Neither limitation is resolved by this inventory. Production instrumentation isn't authorized.
 
 **Owner's reading (2026-11-25):**
 - A copied literal session isn't reliable evidence of respondent identity or ownership.
@@ -85,7 +85,7 @@ Other counts:
 
 ## 4. Findings
 
-1. **Production L0182 use is overwhelmingly the eval account.** It owns 799 of the 841 keyed tasks whose session names exactly one item, with 536 of them answered. Your personal account owns 33, and one other account owns 9. No respondent outside these accounts was found.
+1. **Most uniquely matched session targets are eval-owned items.** Of the 841 keyed tasks whose session names exactly one owned item, 799 name an eval-owned item (536 have answered outputs), 33 name a personal-owned item, and 9 name an other-account item. These are session-target counts, not task ownership or respondent counts. The referencing-task manifest in §6 supersedes any account-attribution inference from these counts; historical callers remain unknown.
 2. **The session is not reliably the id of the item that holds the program.**
    - Only 135 of the 667 version records that name an L0182 task have that task's `session-id` equal to the record's item. The other 532 hold programs whose session names a **different** item: another item of the same owner (64), or an item id held by several users (188). The rest (280) are programs that fail today.
    - Program text, `session-id` included, is copied between items and accounts.
@@ -93,7 +93,7 @@ Other counts:
 3. **Sessions naming no item:** 495 keyed tasks (459 answered) carry 14 distinct sessions that match no console item in either location (`users/*/items` or the top-level `items`).
 4. **Ambiguous items:** 199 keyed tasks have a session whose item id exists under more than one user.
 5. **The console's version history doesn't establish authority for historical answers.** Of 537 answered keyed tasks whose session names exactly one owned item, **1** is in that owner's version history. The owners' 671 L0182 version records (2026-09-06 … 2026-11-16) mostly pair items with programs carrying another item's session (finding 2).
-6. **Today's process-local loss is visible:** 7 multi-version identities have answered, error-free outputs showing different versions (6 eval, 1 no item), and 6 identities have a task whose own compiles drew different versions.
+6. **Today's process-local loss is visible:** 7 multi-version identities have answered, error-free outputs showing different versions (6 sessions name eval-owned items, 1 names no item), and 6 identities have a task whose own compiles drew different versions. These session targets don't establish who answered.
 7. **Chronology:** no ordering is usable beyond the 1 version-history match. `lastCompile` moves on reads, and `firstCompile` survives refreshes. Every multi-version identity whose evidence disagrees is therefore unresolved under the plan's rules.
 8. **Answering paths** (code inspection, not data):
    - `session-id` is folded in by the console at parse time (`graffiticode-app` `packages/console/src/pages/api/index.ts:532`, `packages/core/src/lib/code-generation/generate-for-request.ts:523`);
@@ -103,12 +103,12 @@ Other counts:
 
 ## 5. What this means for the open decisions
 
-- **Decision 3 (who submits).** "The owner of the item the session names" is often not the person answering. A copied program names someone else's item, an ambiguous one, or none. Under the rule as written, most historical answers have no eligible submitter, and copies of a program share one assignment.
-  - The owner should decide whether identity stays `(survey, literal session)` with copies sharing, or whether the console should re-fold `session-id` to the new item on copy. The latter is a console change and outside C4's code.
-- **Decision 10 (backfill).** By the plan's rules, almost nothing would be frozen (authority evidence exists for 1 task), and the 7 conflicts plus about 14 other disagreeing identities would be unresolved or quarantined. Since the population is eval and personal testing, an alternative for the owner is to **migrate** all eval-owned identities (accept fresh draws), and backfill only personal and other-account identities. That is a scope decision, not a technical one.
+- **Decision 3 (who submits).** A copied program can name a different holder's item, an ambiguous one, or none. Historical callers aren't recorded, so eligible-submitter coverage is unknown; the inventory establishes only 1 owner-version-history match. Copies with the same literal session share an assignment under the current identity proposal.
+  - The separate console proposal must distinguish a new respondent's copy (fresh session) from a claim or transfer of the same response (preserve the assignment and answers through explicit ownership rebinding). Revisions preserve the session, and historical sessions aren't rewritten automatically. This console change remains outside C4's code.
+- **Decision 10 (backfill).** The plan's authority-evidence rule would freeze at most the 1 task with an owner-version-history match; the 7 conflicts plus about 14 other disagreeing identities would be unresolved or quarantined. The follow-up manifest in §6 leaves 296 identities unattributed and identifies only 10 verified eval-only, unanswered reset candidates. It doesn't establish that the population is eval or personal testing. Any fresh draws require an explicit decision on a concrete set; no bulk reset is approved.
 - **Decisions 5 and 6:** only 2 installed surveys have more than one version, so balancing affects about 29 identities.
-- **`you-can-choose`** (57 identities, none answered): it is no longer installed, so these fail today and would fail interpreted. Nothing needs retaining.
-- **Dependency ceiling:** no production program exceeds depth 1, so the 16-call ceiling refuses nothing that works today.
+- **`you-can-choose`** (57 identities, none answered in the inspected outputs): it is no longer installed, so these fail today and would fail interpreted. The retention decision must respect the saved-output coverage limit above.
+- **Dependency ceiling:** every inspected working program has depth 1, so the scan found none that the 16-call ceiling would newly refuse. L0182 below another chain's head remains outside this inventory.
 - **Sessionless programs (decision 4):** 1 current-vocabulary occurrence.
 
 ## 6. Follow-up: migration manifest and code paths (2026-11-25)
@@ -142,7 +142,7 @@ Unattributed, by the item the session names:
 | under several users (eval and personal) | yes | 55 | 199 (126) |
 | personal | no | 1 | 1 (1) |
 
-A session naming an eval-owned item doesn't make its referencing tasks eval's: most of them are held by no item, so who created or answered them can't be shown. Only the **10 verified eval-only identities** (no answered task among them) qualify as reset candidates on this evidence. Any fresh draw needs the owner's explicit decision on a concrete set.
+Of the 1,461 referencing tasks in the unattributed class, 1,274 are held by no item; the other 187 share an identity with at least one unheld task. A session naming an eval-owned item doesn't make its referencing tasks eval's, and who created or answered them can't be shown. Only the **10 verified eval-only identities** (no answered task among them) qualify as reset candidates on this evidence. Any fresh draw needs the owner's explicit decision on a concrete set.
 
 **How a program comes to carry another item's session** (`graffiticode-app`):
 
@@ -154,8 +154,8 @@ A session naming an eval-owned item doesn't make its referencing tasks eval's: m
 | Sharing an item | **the sender's item id**: the recipient's item has a new id, and the program is copied | `packages/core/src/items.ts:901` (`shareItem`) |
 | Eval item creation | **the corpus example's fixed id**, reused on every run, and created under whichever account runs the script | `packages/console/scripts/create-items-from-prompts.ts:437` |
 
-The last three explain findings 2 to 4: shared sessions, sessions naming no item, and the same item id under several users. They match the owner's proposed console rules:
-- a new respondent's copy (share, claim, eval run) gets a fresh session;
+The last three provide paths for findings 2 to 4: shared sessions, sessions naming no item, and the same item id under several users. They don't attribute individual historical tasks. They match the owner's proposed console rules:
+- a new respondent's copy gets a fresh session, including a share, claim or eval run that starts a new response;
 - revisions keep it;
 - a claim or transfer of the same response rebinds ownership explicitly, keeping the assignment and answers.
 
