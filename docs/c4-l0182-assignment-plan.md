@@ -1,6 +1,6 @@
 # C4: L0182 on the interpreter, with a durable survey assignment
 
-**Status:** draft, revised after the owner's first review (2026-11-25). Nothing in it is implemented or live. The owner accepted the api as where assignment runs and `(survey, session)` as its identity. The other decisions in §2 are proposals, and each one marked **open** needs the owner's choice before its slice starts. Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 4 ("the durable get-or-create assignment (atomic, stable across revisions, frozen on submission), plus keeping the survey model that answers were given against"). Design: `docs/graffiticode-interpreter-design.md` §12 Phase 3 (the "L0182 version draws" bullets), §12 test 7, and open question 7 in §13.
+**Status:** draft, revised after the owner's second review (2026-11-25). Nothing in it is implemented or live. The owner accepted the api as where assignment runs and `(survey, session)` as its identity. The other decisions in §2 are proposals, and each one marked **open** needs the owner's choice before its slice starts. Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 4 ("the durable get-or-create assignment (atomic, stable across revisions, frozen on submission), plus keeping the survey model that answers were given against"). Design: `docs/graffiticode-interpreter-design.md` §12 Phase 3 (the "L0182 version draws" bullets), §12 test 7, and open question 7 in §13.
 
 **What the review changed:**
 1. Submission is acknowledged only after its freeze commits, and an unavailable authority check or a lost freeze is a temporary error (decision 7).
@@ -9,6 +9,13 @@
 4. Assignment is resolved per occurrence at run time, so several surveys and sessions in one program work, and an input-dependent session keeps a durable record (decisions 1 and 2).
 5. Named versions get a submission record and retained content (decision 2).
 6. L0182 results stay uncached: no stage-cache hit is expected (decision 8).
+
+**What the second review changed:**
+1. Reconciling is a write barrier. Every live write transaction reads the cutover state and refuses unless it is `done`, so no creation, reassignment or submission happens while reconciliation can still rewrite records. Old api revisions are drained and retired before the final catch-up (decision 10).
+2. The backfill uses only recorded evidence: the saved output's survey records, and the console's version history for order and authority. It never re-runs a draw. Anything it can't demonstrate is unresolved, and `lastCompile` is used only to find changed documents, never as a time (decision 10).
+3. During discovery an unassigned survey is an explicit **pending** value, not `{}`. Anything that depends on it is suspended, so no request is made for a survey the resolved program never reaches. Exchanges are bounded by progress, not by a fixed four calls (decision 1, §3).
+4. An identity is reported even with zero current candidates, so a removed named version still finds its frozen content (decision 2).
+5. An isolated canary namespace exercises creation, owner submission and non-owner refusal on the staged revision while production stays fenced (decision 12).
 
 ## 1. Where we start
 
@@ -36,9 +43,11 @@
 1. **The api assigns, per occurrence, at run time.** *(Placement accepted by the owner; protocol proposed.)*
    - `l0182r` stays credential-free, and the model stays the plain plan it is today.
    - **Interpret is a short exchange.** On `/interpret`, the language evaluates the program. Each `survey` occurrence is resolved from an **assignment table** the api passed in, keyed by identity (decision 2).
-     - **An identity missing from the table** doesn't draw. The language records a **request**: the identity, the occurrence's ordinal and every candidate version as `{ instance, digest, content }`, where the digest is the SHA-256 of the file's exact bytes. It finishes evaluating, so one pass finds every identity that doesn't depend on survey content, and answers `needsAssignment: [requests]` with no result.
-     - The api resolves every request (decision 5), then calls `/interpret` again with the fuller table.
-     - The exchange is bounded: at most 4 calls, then the stage fails `assignment-unresolved`. Only a program whose `id` or `session-id` depends on another survey's content needs more than 2.
+     - **An identity missing from the table** doesn't draw. The language records a **request**: the identity, the occurrence's ordinal, and every current candidate version as `{ instance, digest, content }`, possibly none (decision 2). The digest is the SHA-256 of the file's exact bytes.
+     - **The occurrence evaluates to `pending`, never to a stand-in value.** `pending` may be placed in a list or record, but anything that inspects it is **suspended**, not evaluated: a condition, a filter or map predicate, an arithmetic or string operation, a lookup, or computing another survey's `id` or `session-id` (§3). A suspended expression is itself `pending`, so neither branch of a conditional on it runs, and no survey inside it is reached or requested.
+     - Every request is therefore for a survey that the resolved program reaches too. The control decisions that led to it depended only on resolved values, which are the same in the final call.
+     - When evaluation finishes with anything `pending`, the language answers `needsAssignment: [requests]` and no result. The api resolves every request (decision 5), then calls `/interpret` again with the fuller table.
+     - **Bounded by progress, not by a fixed count.** Each call must add at least one identity to the table, or the stage fails `assignment-stalled`. There is a ceiling of 16 calls, past which it fails `assignment-depth`. A program that compiles today with a dependency chain deeper than the ceiling would newly be refused. That is a compatibility question for the plan's invariant, not a limit to accept silently: slice 0 measures the deepest chain in production programs, slice 2 in the corpus, and any program over the ceiling is named and handled before activation (raising the ceiling for it, or migrating it).
    - **Why this shape:**
      - Identities computed at run time (an input-dependent `session-id`, several surveys, surveys inside `map`) get durable records like literal ones.
      - The language never draws, so interpretation is a pure function of model, input and table.
@@ -46,7 +55,12 @@
 2. **Identity, shared where it matches.** *(Identity accepted by the owner; the forms below proposed.)*
    - **With a session:** `(survey ref, session)`, where the survey ref is the id as written: a bare id (`civic-priorities`) or a named version (`civic-priorities-7`). Every occurrence with the same identity, in one program or across programs and revisions, shares one record.
    - **Without a session:** `(survey ref, model digest, ordinal)`, where the ordinal counts that survey ref's sessionless occurrences in evaluation order. It is private to the program (decision 4).
-   - **Named versions** don't draw: the version is the ref. They still have identities, so a submission creates a record with its digest and retained content (decision 7). A later interpret of a frozen named record gets the retained content whenever the current file's digest differs or the file is gone. With no frozen record, a missing named version is today's "no survey" error.
+   - **Named versions** don't draw: the version is the ref. They still have identities, so a submission creates a record with its digest and retained content (decision 7).
+   - **An identity is reported even with zero current candidates:** a named version whose file is gone, or a bare id whose every version is gone. The request carries the identity and an empty candidate list, and the api answers from the record:
+     - a frozen record → its retained content, so the response still renders and validates;
+     - otherwise (no record, or an unfrozen record with nothing to draw from) → today's "no survey" error, with today's wording. Only an identity without retained content gets it.
+
+     A frozen named record whose file still exists but whose digest differs gets the retained content too.
    - **The kernel must evaluate deterministically,** so ordinals are stable. The Rust kernel evaluates a list, a record and a sequence one element at a time, in order (`languages/l0000/crates/core/src/eval.rs:246`, `:518`, `:563`). Slice 1 adds a test that pins it.
    - **Deliberate differences from today,** each pinned by its own test and listed in the gate:
      - one record per `(survey, session)`, not one slot per session: in `[civic "a", workplace "a", civic "a"]` both `civic` occurrences get the same version;
@@ -84,52 +98,75 @@
 9. **A new generation: `COMPILE_GENERATION_L0182=interp-1`.** Legacy `compiles/` entries under `rust-1` are never served under `interp-1`. The backfill carries what they recorded into the store first.
 10. **Backfill, with a cutover boundary.** *(Open: the rules below are proposed.)*
     - **Why it is needed.** Once `interp-1` is active, an item answered under `rust-1` is interpreted afresh. With no record its identity would draw anew, and its response could fail against the new version.
-    - **Source.** Each `tasks/<id>` with `lang` 0182 and its `compiles/<id>` under `rust-1`, re-evaluated offline with the legacy compiler's own record (`instance` per occurrence). From those: identity, version, whether there is an error-free response, and `lastCompile`.
+    - **Evidence, never reconstruction.** A stored compile holds the final output, not a trace of every occurrence, and a `refresh` can overwrite it (`packages/api/src/storage/compile.js`, `overwrite`). Re-running `Files` can't recreate the original random choices or process memory. So the backfill only **extracts** what the saved output demonstrates:
+      - each survey record in the output carries `instance`, `sessionId` (when there was one) and its own `response`. The identity is `(survey ref, session)`: the survey ref is the program's literal `id` for that occurrence. A bare ref is confirmed by `instance` being `<ref>-<n>`, a named one by `instance` equalling the ref;
+      - an output record is matched to a program occurrence only when the match is unique (the literal `id` and `session-id` of exactly one occurrence fit it);
+      - **unrecoverable:** an occurrence whose survey doesn't appear in the output (consumed by a computation, or dropped by `PROG` taking the last expression), whose `id` or `session-id` isn't a literal, or whose match is ambiguous. Such an identity is **unresolved**, never guessed.
+    - **Chronology from records that keep it.** `lastCompile` moves on every cache read (`compileGet`) and `firstCompile` survives a refresh, so neither says when the stored output was produced. The backfill orders evidence only by the console's version history `createdAt` (when the owner saved that task to the item). Where several pieces of evidence for one identity disagree and the history can't order them, the identity is unresolved. `lastCompile` is used only to **find** documents that may have changed since a pass (the catch-up's selector), never as a time.
     - **Authority before submission.** A historical response counts as a **submission** only if:
       - item authority names the session's item with an owner, `ownerUid`;
       - and the console recorded that task in the owner's own history: `users/<ownerUid>/versions/<session>__<taskId>` exists.
 
       Otherwise it is a draw, not a submission. Sessionless responses have no item, so they are draws. Slice 0 measures how much history the version records cover.
     - **Rule per identity:**
-      - **one version across its authorized submissions:** that version, **frozen**, with content retained from the current data (unchanged since 2026-09-22; an older compile is listed for review instead);
-      - **no authorized submission:** the latest compile's version, **not frozen**, so what the respondent saw last doesn't change at cutover;
-      - **authorized submissions that drew different versions** (today's process-local loss): **unresolved**.
+      - **every authorized submission shows one version:** that version, **frozen**, with content retained from the current data (unchanged since 2026-09-22; evidence that may predate it is listed for review instead);
+      - **no authorized submission, and every demonstrated draw shows one version:** that version, **not frozen**, so what the respondent saw doesn't change at cutover;
+      - **no authorized submission, and draws that disagree:** the version of the latest **owner-saved** task by version history, not frozen; if the history can't order them, unresolved;
+      - **authorized submissions that show different versions** (today's process-local loss): **unresolved**;
+      - **any unrecoverable occurrence** for the identity: **unresolved**.
     - **Unresolved records never fall through to a draw.** An interpret that reaches one fails with the permanent `assignment-under-review`. The owner resolves each one with `scripts/c4-resolve-assignment.js`, choosing its version and frozen state, or leaves it blocked.
-    - **Who writes the store, and when.** Until activation, only the backfill writes it, since the flag-off api never touches it. So backfill records stay mutable until then. Each pass upserts by identity and records its watermark: the latest `lastCompile` it covered.
-    - **Catch-up.** `--catchup` processes the compiles whose `lastCompile` is past the last watermark (`compiles/` is append-once per task, and a reused compile moves `lastCompile`). It applies the same rules to the existing records:
-      - an unfrozen record moves to a later draw, or freezes on a later authorized submission;
-      - a frozen record with a later authorized submission of another version becomes unresolved.
+    - **Two writers, never at once.** The control document `l0182-cutover/state` is `backfill` (the initial state), `reconciling` or `done`.
+      - **Every write transaction reads it inside the transaction.** The backfill and resolve scripts write only while it is `backfill` or `reconciling`. The api writes (creation, reassignment, a draw-cycle update, a freeze) only while it is `done`. A state change commits through a transaction too, so a writer whose transaction overlaps the change is retried by Firestore and then sees the new state. No cached copy of the state ever authorizes a write.
+      - Before `done`, backfill records stay mutable, and each pass upserts by identity.
+    - **Catch-up.** `--catchup` re-reads every `compiles/` document whose `lastCompile` has moved since the previous pass, and every version-history entry created since then. That selects new results, refreshed results and reused ones alike; a reused one simply yields the same evidence. It re-extracts the evidence (above) and re-applies the rules per affected identity:
+      - an unfrozen record follows the evidence;
+      - a frozen record that the evidence now contradicts becomes unresolved.
 
       Run it as often as needed until the delta is small.
-    - **The cutover window.** Legacy draws continue until promotion, so the last window, from the last catch-up to promotion, is closed in two steps:
-      - the api reads a control document, `l0182-cutover/state`, re-read at most every 10 s. While it says `reconciling`, an identity with **no record** fails with the temporary `assignment-reconciling` instead of drawing. Identities with records, and frozen ones, are served normally;
-      - after promotion, `rust-1` compiles stop. A final `--catchup --final` covers the window, then sets the document to `done`. New identities then draw.
+    - **The cutover is a write barrier, not just a refusal of new draws.** From the moment the state is `reconciling` until it is `done`, the api in production:
+      - **reads** existing records (frozen ones serve their version; unfrozen ones serve theirs as a read);
+      - **refuses every write** with the temporary `assignment-reconciling`: creating an identity, reassigning one, and **every submission**. A response from the owner is not acknowledged, because the final catch-up could still rewrite or unresolve the record it would freeze.
+      - Refusals are enforced by the transaction's own read of the state (above), not by a cached flag, so no write can slip in at the boundary.
+    - **Draining legacy writers before the final catch-up.** Promotion moves traffic, but in-flight requests on older api revisions, and any revision still reachable by tag, can keep writing `rust-1` compiles. So after promotion:
+      1. retire every older api revision's tag and traffic (`npm run deploy -- retire`), leaving only the promoted revision reachable;
+      2. wait at least the api's request timeout (300 s) plus a margin after the last older revision stopped receiving traffic;
+      3. confirm from the api's logs that no `rust-1` L0182 compile has completed after that point;
+      4. run `--catchup --final`. It covers every document changed up to the confirmed drain time, then sets the state to `done` in the same transaction as its last write.
 
-      So no live draw can race a legacy one. The cost is that brand-new sessions get a retryable error for the minutes between promotion and the end of the final catch-up.
-    - **The activation gate:** before staging, zero unresolved records, or each remaining one decided by the owner (resolved, or kept blocked). The final catch-up's report must be reviewed. A record it newly marks unresolved stays blocked until decided.
-    - **Mechanics.** `scripts/c4-backfill-assignments.js` is `--dry-run` by default and writes a report: counts, unresolved, authority misses, and pre-2026-09-22 compiles. Its writes carry the script's attribution. It reads the console's item store and versions read-only. It is a live production write, run only with the owner's approval.
+      `l0182r`'s own `/compile` writes nothing to `compiles/`, since only the api stores compiles, so it needs no drain.
+    - **The activation gate:** before staging, zero unresolved records, or each remaining one decided by the owner (resolved, or kept blocked). The final catch-up's report is reviewed **before** the state is set to `done`. A record it newly marks unresolved stays blocked until decided; it never falls through to a draw.
+    - **Mechanics.** `scripts/c4-backfill-assignments.js` is `--dry-run` by default and writes a report: counts, unresolved and unrecoverable identities with reasons, authority misses, and evidence that may predate 2026-09-22. Its writes carry the script's attribution. It reads the console's item store and versions read-only. It is a live production write, run only with the owner's approval.
 11. **Rollback restores today's semantics, defect included.** *(Owner to accept.)*
     - With `INTERPRETER_L0182` off, `/compile` draws per process again and ignores the store. Records are kept.
     - Turning the flag back on needs a new catch-up over the legacy window since rollback, with the same reconciling step, because answers given under `rust-2` aren't in the store.
+12. **An isolated canary namespace.** *(Proposed.)*
+    - **Why:** while production is fenced in `reconciling`, the staged revision can't create or submit there. Yet creation, owner submission and non-owner refusal must be exercised on that revision **before** it is promoted.
+    - **How:** the api routes a fixed set of identities to separate collections (`l0182-canary-assignments`, `-draw-cycles`, `-survey-models`, `-cutover`), with their own cutover state, set to `done` from the start. The set is the sessions named in `L0182_CANARY_SESSIONS`, api configuration in `deploy.json`: test items owned by the canary account, one private and one public. A program's text can't choose a namespace. A stranger naming a canary session only reaches the isolated canary records, where the owner-only freeze still applies.
+    - **Non-owner checks** use the verify account (a second signed-in account with no connections).
+    - The canary sessions stay in the canary namespace after promotion, so the scheduled canary never writes production records.
 
 ## 3. The kernel (`languages/l0000/crates`)
 
 - **`/interpret` accepts an optional `assignments` table** (identity → assigned `{ instance, digest, content? }`), which reaches `Dialect::interpret` as a new argument.
 - **A dialect may answer `needsAssignment`** instead of a result: a `Compilation` variant carrying the requests, written by the server as `{ status: 200, needsAssignment: [...] }`. A dialect that never uses it produces byte-identical envelopes.
+- **A `pending` value, and suspension** (decision 1). The evaluator gains `Value::Pending`, produced only by a dialect. Structural operations (building a list or record, binding a name) carry it unchanged. Every other operation that receives it, including `if`, `case`, `map`, `filter`, `reduce`, comparisons, arithmetic, string and record lookups, and a dialect's own words, returns `pending` without running its body or branches. A result containing `pending` is never written as data: the server answers `needsAssignment`, or, if the dialect raised no request, an internal error, which a test forbids.
 - **`/compile` is untouched.**
 - **Tests:**
   - dialects that don't use either are byte-identical (L0000 corpus);
   - a fake dialect's two-call exchange round-trips;
-  - evaluation order is deterministic: the same program gives the same ordinals in repeated runs and inside `map` and `filter`.
+  - evaluation order is deterministic: the same program gives the same ordinals in repeated runs and inside `map` and `filter`;
+  - **suspension:** a conditional, `case`, `filter` and `map` on a `pending` value run neither branch nor body; a value computed from `pending` is `pending`; `pending` inside a list survives to the end and yields `needsAssignment`.
 - **Release:** only `l0182r` needs the new kernel.
 
 ## 4. L0182 (`languages/l0182/crates`)
 
-- **A new `SurveySource`, `Assigned`,** used only by `interpret`. It looks each occurrence's identity up in the table. A hit serves that content: from the candidates by digest, or the retained content the api passed. A miss records a request with every candidate, and the occurrence stands in `{}` so evaluation goes on. A named version is a request with one candidate. A sessionless occurrence uses the stateless pick (decision 4) and is reported only so it can be submitted.
+- **A new `SurveySource`, `Assigned`,** used only by `interpret`. It looks each occurrence's identity up in the table. A hit serves that content: from the candidates by digest, or the retained content the api passed. A miss records a request with every current candidate (possibly none) and evaluates to `pending`. A named version is a request with its one candidate, or none if its file is gone. A sessionless occurrence uses the stateless pick (decision 4) and is reported only so it can be submitted. An `id` or `session-id` that is itself `pending` suspends the occurrence (no request yet).
 - **`/compile` is unchanged**, process-local draw included: the legacy and rollback path.
-- **The backfill's evaluator:** a library function that re-runs a stored program with `Files`'s legacy semantics and reports `instance` per occurrence and identity. The backfill script calls it through a small CLI.
+- **The backfill's extractor:** a library function that takes a stored program and its saved output, lists the program's literal survey occurrences, matches output survey records to them uniquely (decision 10), and reports per identity: demonstrated version, response present and error-free, or unrecoverable with the reason. It never draws and never evaluates a survey. The backfill script calls it through a small CLI.
 - **`crates/core/tests/interpret.rs`, the correctness gate,** over every conformance case:
-  - the exchange ends in at most 2 calls for every case;
+  - the exchange ends, with progress on every call, for every case, and the deepest chain is reported;
+  - **branching:** a survey under a condition on another survey's content is requested only once that content is assigned, and only on the branch taken; a `filter` over surveys and a `session-id` computed from a survey suspend as specified; a survey in an untaken branch is never requested;
+  - **zero candidates:** a removed named version and a removed bare id each produce a request with no candidates; with retained content they render and validate, and without it they give today's "no survey" message;
   - interpreting with the table that `Files::installed(|_| 0)` would have produced equals the compile, in both modes, except the listed deliberate differences (decision 2), each with its own test;
   - with the version removed from the candidates, a retained copy validates a response exactly as the original did, for a bare id and a named version;
   - an input-dependent `session-id` produces a request with the runtime identity.
@@ -139,8 +176,9 @@
 
 - **The manifest (v11):** declare `0182` (decision 8). It stays inert until the flag is on.
 - **`packages/api/src/assignments.js`** (new), used by `interpret.js` for any declaration with `getOrCreate`, never by language number:
-  - **`resolve(requests, { authority })`:** one transaction over the identities' records and the draw cycles they touch. A frozen record is returned with retained content when needed. A valid unfrozen one is returned or updated (decision 6). An unresolved one fails `assignment-under-review`. A missing one is created, unless the cutover document says `reconciling`.
-  - **`submit(identities, { taskId, submitter, used })`:** the freeze of decision 7, one transaction, all or nothing.
+  - **`resolve(requests, { authority })`:** one transaction over the namespace's cutover state, the identities' records and the draw cycles they touch. A frozen record is returned with retained content when needed. A valid unfrozen one is returned, or updated if the state is `done` (decision 6). An unresolved one fails `assignment-under-review`. A missing one is created only if the state is `done`; otherwise `assignment-reconciling`. An identity with zero candidates follows decision 2.
+  - **`submit(identities, { taskId, submitter, used })`:** the freeze of decision 7, one transaction, all or nothing, which also reads the cutover state and refuses unless it is `done`.
+  - **The namespace** (production or canary, decision 12) is chosen from the identity's session and the api's configuration, before any read.
   - **`retained(digest)`.**
 - **`interpret.js`:** for an L0182 stage, run the exchange (decision 1); after an error-free result carrying responses from a caller allowed to submit (item authority, decision 3), submit before returning, with the retry and temporary errors of decision 7. No stage-cache read or write (decision 8).
 - **`firestore.rules`:** `l0182-assignments`, `l0182-draw-cycles`, `l0182-survey-models` and `l0182-cutover` are server-only. Every access is a get by id, so no composite index is needed. Releases don't deploy `firestore.indexes.json`, so slice 3 confirms that with a read-only check.
@@ -156,7 +194,8 @@
   - a removed version reassigns when unfrozen and serves retained content when frozen, for a bare id and a named version;
   - changed content under the same name follows decision 6;
   - an unresolved record fails `assignment-under-review` and never draws;
-  - `reconciling` refuses only identities with no record;
+  - **the write barrier:** while `reconciling`, creation, reassignment and every submission are refused, and reads of existing records are served; a state change racing a write transaction makes the write retry and then refuse; the scripts can't write once the state is `done`;
+  - **the canary namespace:** canary sessions read and write only the canary collections, under their own state; no other session reaches them; a program can't choose the namespace;
   - no stage-cache entry is written for L0182;
   - with the flag off, nothing reads or writes the store.
 
@@ -166,23 +205,27 @@ Every step is a separate approval. Nothing below is approved by this plan.
 
 0. **Inventory** (read-only, production):
    - L0182 tasks, identities, multi-survey and sessionless programs, named versions, answered identities and conflicting draws;
+   - how many identities the saved outputs can't demonstrate (unrecoverable), and the deepest survey-dependency chain in any production program;
    - how far the console's version history covers answered tasks;
    - which answering paths carry the owner's uid (decision 3).
 1. **The kernel and `l0182r`** (slices 1 and 2) released together. `/compile` is unchanged, so this needs no api floor. Canary: legacy L0182 output identical.
 2. **The api with the flag off** (slice 3): inert.
 3. **The floor.** Add an api milestone `c4-assignments` to `deploy.json`'s baselines, and `requires` on `l0182r`. While `INTERPRETER_L0182` is on, neither can roll back below the exchange support.
-4. **Backfill:** `--dry-run`, owner review; `--apply`; catch-up passes until the delta is small. Unresolved records go to the owner. Reports go to `docs/evidence/interpreter-c4-l0182/`.
+4. **Backfill** (state `backfill`): `--dry-run`, owner review; `--apply`; catch-up passes until the delta is small. Unresolved and unrecoverable identities go to the owner. Reports go to `docs/evidence/interpreter-c4-l0182/`.
 5. **The activation gate:** unresolved records decided (decision 10), and the interpreted gate: `cargo test` on `interpret.rs`, and live `lang-parity.js --lang 0182 --interpreted --rust <l0182r>` with no difference beyond the listed deliberate ones.
-6. **Stage.** Set `l0182-cutover/state` to `reconciling`, then stage an api with `INTERPRETER_L0182=on` and `COMPILE_GENERATION_L0182=interp-1`. Canary through the tag, with the canary account as owner of a test item:
-   - a backfilled frozen item still compiles without errors, with its version;
-   - an identity with no record gets `assignment-reconciling`;
-   - nothing is served from `rust-1` entries, no stage-cache entry is written, and `/data` is `no-store`.
-7. **Promote,** then run the final catch-up (`--final`), review its report, and set the document to `done`. Canary again:
-   - two concurrent first reads of a new identity get one version, and a re-read returns it;
-   - a program with two surveys and two sessions gets one record per identity;
-   - the owner's response (a new task, same item) freezes before the answer returns, and the record shows it;
-   - a non-owner's response on a public test item freezes nothing;
-   - a named-version submission creates a frozen record with its retained model.
+6. **Stage.** Set the production state to `reconciling` (production is now fenced), then stage an api with `INTERPRETER_L0182=on` and `COMPILE_GENERATION_L0182=interp-1`. Canary through the tag.
+   - **In the canary namespace** (state `done`, decision 12), the paths that write:
+     - two concurrent first reads of a new identity get one version, and a re-read returns it;
+     - a program with two surveys and two sessions gets one record per identity;
+     - the owner's response (a new task, same item) freezes before the answer returns, and the record shows it;
+     - a non-owner's response, on the private and on the public test item, is served and freezes nothing;
+     - a named-version submission creates a frozen record with its retained model;
+     - a conditional on a survey's content requests only the branch taken.
+   - **In production** (fenced):
+     - a backfilled frozen item still compiles without errors, with its version;
+     - an identity with no record, and an owner's submission, each get `assignment-reconciling`, and nothing is written.
+   - **Everywhere:** nothing is served from `rust-1` entries, no stage-cache entry is written, and `/data` is `no-store`.
+7. **Promote,** then drain and retire the older api revisions (decision 10), run the final catch-up (`--final`), and review its report. The owner decides any newly unresolved record. Only then does the final catch-up set the state to `done`. Canary again in production: a new identity is created, and the canary namespace's checks still pass.
 
 **Rollback:**
 - **Activation:** set `INTERPRETER_L0182="off"` (by value) with a new generation (`rust-2`), as a forward release, or roll the api back to before activation, at or above the floor. Records are kept, and re-activation repeats the catch-up and reconciling steps for the legacy window (decision 11).
@@ -191,10 +234,10 @@ Every step is a separate approval. Nothing below is approved by this plan.
 
 ## 7. Slices
 
-1. **Kernel:** the assignment table, `needsAssignment`, and the evaluation-order test (§3).
-2. **L0182:** `Assigned`, the stateless pick, the backfill evaluator, `interpret.rs`, the list of deliberate differences, the CLAUDE.md fix (§4).
-3. **api:** manifest v11, `assignments.js`, `interpret.js`, rules, the parity tool, tests (§5).
-4. **Backfill and resolve scripts,** with emulator tests for every rule in decision 10: authority, catch-up, unresolved, reconciling, `--final`.
+1. **Kernel:** the assignment table, `needsAssignment`, `pending` and suspension, and the evaluation-order and suspension tests (§3).
+2. **L0182:** `Assigned`, the stateless pick, the backfill extractor, `interpret.rs` (with branching and zero-candidate cases), the list of deliberate differences, the CLAUDE.md fix (§4).
+3. **api:** manifest v11, `assignments.js` with the in-transaction write barrier and the canary namespace, `interpret.js`, rules, the parity tool, tests (§5).
+4. **Backfill and resolve scripts,** with emulator tests for every rule in decision 10: evidence extraction and unrecoverable cases, authority, chronology from version history, catch-up, unresolved, the state machine (`backfill` → `reconciling` → `done`), and `--final` refusing to run before the drain is confirmed.
 5. **Evidence:** the inventory, backfill and catch-up reports, owner decisions on unresolved records, the gates and canaries, in `docs/evidence/interpreter-c4-l0182/`.
 
 Slices 1 to 4 are code PRs. Each live step in §6 is a separate approval.
@@ -203,9 +246,10 @@ Slices 1 to 4 are code PRs. Each live step in §6 is a separate approval.
 
 The network-authorization workstream (`docs/network-authorization-plan.md`, proposed in its own PR, from the proposed brief `docs/network-egress-authorization-design-brief.md`) is separate, and C4 neither waits for it nor absorbs it.
 
-- **L0182 makes no public fetch.** Its surveys are embedded in the binary (`crates/core/build.rs`), and interpreting, the exchange included, reads nothing from the network. `l0182r` stays in the strict `compilers-default` class, whose only names are `api.graffiticode.org` and `auth.graffiticode.org` (token verification; `deploy/egress-proxy/production/network.json`). C4 adds no name, and needs no account allowlist entry and no capability.
-- **The api's assignment calls are platform operations,** made under the api's own runtime identity:
-  - Firestore reads and writes of the four `l0182-*` collections;
+- **Embedded survey content.** The surveys are compiled into the binary (`crates/core/build.rs`). Interpreting, the exchange included, reads nothing from the network.
+- **No public-fetch permission.** `l0182r` stays in the strict `compilers-default` class, whose only names are `api.graffiticode.org` and `auth.graffiticode.org` (token verification; `deploy/egress-proxy/production/network.json`). C4 adds no name, and needs no account allowlist entry and no capability.
+- **Trusted platform storage and authority calls.** The api's assignment calls are platform operations, made under the api's own runtime identity:
+  - Firestore reads and writes of the `l0182-*` collections, and of their canary counterparts;
   - Policy's item-authority lookup (decision 3), which reaches the console's internal route as Policy's identity.
 
   Their authority comes from the api's and Policy's service accounts, the Firestore rules (server-only) and the item-authority route's audience check. It is **not** account-controlled retrieval: no account's allowlist governs them, and no account setting can widen or narrow them. They belong in the network plan's inventory of platform endpoints, so that its enforcement keeps them reachable and never routes them through public retrieval.
@@ -225,7 +269,9 @@ The network-authorization workstream (`docs/network-authorization-plan.md`, prop
 - **An answering path without the owner's uid** can't submit until it's fixed (decision 3). Slice 0 finds such paths before activation.
 - **Gaps in the console's version history** turn real historical answers into draws, which are not frozen. Slice 0 measures them. A gap the owner can't accept needs another source of authority before backfill.
 - **Unresolved records** block their items with `assignment-under-review` until the owner decides them.
-- **The reconciling window** gives brand-new sessions a retryable error for minutes after promotion.
+- **The reconciling window** refuses every L0182 write, new sessions and submissions alike, with a retryable error from staging until the final catch-up after the drain: at least the 300 s drain plus the catch-up and its review. Staging and promotion should be close together, and announced if the window will be long.
+- **Unrecoverable history.** Programs whose surveys don't appear in their saved output, or whose occurrences can't be matched uniquely, become unresolved and block until the owner decides. Slice 0 measures how many.
+- **Dependency depth.** A program deeper than the call ceiling would be newly refused. Slice 0 and slice 2 measure it before activation.
 - **The hot draw-cycle document,** if traffic grows (decision 5).
 - **Firestore or item authority outages** now fail L0182 reads or submissions that today succeed with a local draw. That is the price of durability, and each error is temporary and names it.
 - **Rollback re-exposes today's defect** for items answered while the flag is off, and re-activation needs another catch-up (decision 11).
