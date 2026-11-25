@@ -228,7 +228,7 @@
     - migrate deletes the quarantine, and the next run draws fresh;
     - the same for an unresolved record;
     - the backfill and catch-up are refused in `done`;
-  - **the write barrier:** while `reconciling`, creation, reassignment and every submission are refused, and reads of existing records are served; a state change racing a write transaction makes the write retry and then refuse; the scripts can't write once the state is `done`;
+  - **the write barrier:** while `reconciling`, creation, reassignment and every submission are refused, and reads of existing records are served; a state change racing a write transaction makes the write retry and then refuse; the backfill and catch-up can't write once the state is `done` (the audited resolution is the one script write allowed then, tested below);
   - **the canary namespace:** canary sessions read and write only the canary collections, under their own state; no other session reaches them; a program can't choose the namespace;
   - no stage-cache entry is written for L0182;
   - with the flag off, nothing reads or writes the store.
