@@ -4,11 +4,19 @@
 // procedure: README.md, "Rollout step 1".
 //
 //   node deploy/egress-proxy/checklist.js [--deploy production/network.json] [--classes classes.json] > step1-checklist.md
+//   node deploy/egress-proxy/checklist.js --private-values <private JSON> > <a local, uncommitted checklist>
+//
+// The committed checklist names people by role: <alert-recipient> and the
+// approved owners <org-admin>, <operator> and <second-owner>. An operator who
+// needs the real addresses supplies them from a private file kept outside the
+// repository, { "alertRecipient": "...", "approvedOwners": { "orgAdmin": "...",
+// "operator": "...", "secondOwner": "..." } }, and keeps that output local.
 //
 // Steps 1–10 of `infra.js --plan`, each followed by read-only checks and what they should
 // show. Step 11 (the rolling update) is for later patches, not step 1.
 
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import { load, terminatedHosts, compilerAccounts, envoyConfig, heartbeatThreshold, slug } from "./generate.js";
 import { commands } from "./infra.js";
 
@@ -80,7 +88,21 @@ function checks(model) {
   };
 }
 
-export function checklist(model) {
+// The roles the committed checklist names, and the private values that may fill them.
+export const ROLES = Object.freeze({ alertRecipient: "<alert-recipient>", orgAdmin: "<org-admin>", operator: "<operator>", secondOwner: "<second-owner>" });
+const EMAIL = /^[^\s@<>"'`]+@[^\s@<>"'`]+\.[A-Za-z]{2,}$/;
+// One POSIX shell word, whatever it holds: a value pasted into a generated
+// command must never be expanded ($(...), `...`, ${...}) or split.
+export const shellQuote = x => `'${String(x).replace(/'/g, "'\\''")}'`;
+export function privateValues(raw) {
+  const v = typeof raw === "string" ? JSON.parse(raw) : raw;
+  const owners = v?.approvedOwners;
+  const out = { alertRecipient: v?.alertRecipient, orgAdmin: owners?.orgAdmin, operator: owners?.operator, secondOwner: owners?.secondOwner };
+  for (const [k, x] of Object.entries(out)) if (typeof x !== "string" || !EMAIL.test(x)) throw new Error(`--private-values: ${k} must be an email address`);
+  return Object.freeze(out);
+}
+
+export function checklist(model, people = ROLES) {
   const steps = commands(model);
   const expect = checks(model);
   const p = `--project=${model.project}`;
@@ -101,7 +123,7 @@ export function checklist(model) {
     "  Engine account held Editor (removed there). List them, and decide what to remove or accept *before* step 7",
     "  stores the keys. Checked 2026-10-18: Editor is held only by the Google APIs service agent",
     "  (`<number>@cloudservices.gserviceaccount.com`, which instance groups need), and the default Compute Engine",
-    "  account holds none. Owners admin@ and jeff@artcompiler.com and kevin.m.dyer@gmail.com are accepted (Jeff).",
+    `  account holds none. The approved owners ${people.orgAdmin}, ${people.operator} and ${people.secondOwner} are accepted (the owner's decision).`,
     "  Re-run it, and stop if anything else appears:",
     "  ```",
     `  gcloud projects get-iam-policy ${model.project} --flatten=bindings --filter="bindings.role:(roles/editor OR roles/owner OR roles/iam.serviceAccountUser OR roles/iam.serviceAccountTokenCreator)" --format="table(bindings.role,bindings.members)"`,
@@ -129,10 +151,10 @@ export function checklist(model) {
     `  and check its first line says \`config_sha256 ${digest}\`, and \`<workdir>/out/cloud-init.yaml\` is non-empty.`,
     "- [ ] Validate on the pinned Envoy (`deploy/egress-proxy/validate/cloudbuild.yaml`, run in graffiticode as",
     "  `deploy-build`; see its header): `configuration 'envoy.json' OK`, no deprecation warning.",
-    "- [ ] Create the alert channel: email to jeff@artcompiler.com (decided 2026-10-18; channels exist only in",
+    `- [ ] Create the alert channel: email to ${people.alertRecipient} (decided 2026-10-18; channels exist only in`,
     "  `gcloud beta`, which may ask to install the component once):",
     "  ```bash",
-    `  gcloud beta monitoring channels create ${p} --display-name="ISOLATE-01 egress proxy" --type=email --channel-labels=email_address=jeff@artcompiler.com --format="value(name)"`,
+    `  gcloud beta monitoring channels create ${p} --display-name="ISOLATE-01 egress proxy" --type=email --channel-labels=${shellQuote(`email_address=${people.alertRecipient}`)} --format="value(name)"`,
     "  ```",
     "  Put the printed `projects/.../notificationChannels/<id>` in `proxy.alerts.notificationChannels` in",
     "  `deploy/egress-proxy/classes.json`, and regenerate. Only the alert files change: the template and its digest don't.",
@@ -178,14 +200,16 @@ export function checklist(model) {
 }
 
 function parseArgs(argv) {
-  const opts = { deploy: path.join(HERE, "production/network.json"), classes: undefined };
+  const opts = { deploy: path.join(HERE, "production/network.json"), classes: undefined, "private-values": undefined };
   for (let i = 0; i < argv.length; i++) {
-    if (["--deploy", "--classes"].includes(argv[i]) && argv[i + 1]) opts[argv[i].slice(2)] = argv[++i];
-    else throw new Error("usage: checklist.js [--deploy production/network.json] [--classes classes.json]");
+    if (["--deploy", "--classes", "--private-values"].includes(argv[i]) && argv[i + 1]) opts[argv[i].slice(2)] = argv[++i];
+    else throw new Error("usage: checklist.js [--deploy production/network.json] [--classes classes.json] [--private-values <private JSON>]");
   }
   return opts;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  load(parseArgs(process.argv.slice(2))).then(m => process.stdout.write(checklist(m))).catch(e => { console.error(e.message); process.exit(1); });
+  const opts = parseArgs(process.argv.slice(2));
+  const people = opts["private-values"] ? privateValues(readFileSync(opts["private-values"], "utf8")) : ROLES;
+  load(opts).then(m => process.stdout.write(checklist(m, people))).catch(e => { console.error(e.message); process.exit(1); });
 }

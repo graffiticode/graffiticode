@@ -11,7 +11,7 @@ repo file (path given). **[UNVERIFIED]** = inferred or a GCP default. Needs conf
 §1.4 commands before any step in §3 runs.
 
 **Live read status:** read 2026-09-27, 2026-09-28 and 2026-09-30 with the §1.4 commands (as
-`jeff@artcompiler.com`). **§1.0c (2026-09-30) is the current state and supersedes §1.0b and
+`<operator>`). **§1.0c (2026-09-30) is the current state and supersedes §1.0b and
 §1.0; all three supersede every [UNVERIFIED] below that they cover.**
 
 ---
@@ -94,7 +94,7 @@ exposure without waiting for Steps 6–9.
   `auth` moved first; no compiler on the compute SA uses Firestore (verified by the sweep below
   for the 40 live compilers, not by source for 16 of them).
 - Creating them required `roles/iam.denyAdmin`, which can only be granted on the organization:
-  granted to `jeff@artcompiler.com` on org `496958484376` (artcompiler.com).
+  granted to `<operator>` on org `496958484376` (artcompiler.com).
 - **Both deny policies are removed at Step 9**, once Editor is gone; revisit the org
   `denyAdmin` grant then.
 - **GitHub service accounts disabled:** `github-actions@` (project `run.admin`,
@@ -1067,7 +1067,7 @@ evidence that nothing else but the operators can write.
 
           | Authority path | Evidence | Proposed disposition |
           |---|---|---|
-          | Owners: `user:admin@artcompiler.com`, `user:jeff@artcompiler.com`, `user:kevin.m.dyer@gmail.com` (write `revisions`) | writers; Jeff's confirmation, 2026-10-08 | **Accepted as authorized operators.** Jeff confirmed that all three remain current. |
+          | Owners: `user:<org-admin>`, `user:<operator>`, `user:<second-owner>` (write `revisions`) | writers; the owner's confirmation, 2026-10-08 | **Accepted as authorized operators.** The owner confirmed that all three remain current. |
           | `service-PN@containerregistry` agent, project Editor (wrote `revisions`, could replace W4 code) | writers; deployment paths; dependency check | **Removed, 2026-10-12.** **Dependency check** (read-only): `gcr.io` here is served by Artifact Registry (`REDIRECTION_FROM_GCR_IO_ENABLED`), and the images in use resolve there: `gcr.io/graffiticode/l0158@sha256:822cf90a…` and the release pipeline's pinned `gcr.io/graffiticode/firebase@sha256:8b553694…` both resolve to `us-docker.pkg.dev/graffiticode/gcr.io/…`. 26 of the 48 Cloud Run services pull from `gcr.io`, all served that way. Neither the agent nor the Container Registry API had any audit activity in 90 days. The legacy buckets (`artifacts.graffiticode.appspot.com`, `us.artifacts.…`) remain but aren't used. Jeff then **removed its Editor binding**. **Verified:** build `47aa0528-dbaa-4d5f-8e64-e545700aab70` redeployed `l0158` from its `gcr.io` image afterwards (`test-build-20261012T171501Z.json`), and the Troubleshooter (live) answers `ALLOW_ACCESS_STATE_NOT_GRANTED` for it updating `policy`, `broker` and `l0000`, acting as `policy-run`, and writing Firestore at project level. Restore, if a build or pull needs it: re-add the binding |
           | `PN@cloudservices` (Google APIs service agent), project Editor (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accepted by Jeff, 2026-10-12, as a platform-trust exception covering all three of its authorities:** writing `revisions`; **replacing the five W4 services' code** (Editor gives it the deployment path below); and an impersonation boundary that can't be verified from this project. Function: Google uses it to run internal operations on the project's behalf (for example, managed instance groups and Deployment Manager), and removing its Editor role can break them. Residual risk accepted: Google's internal use of those authorities, and that who can act as it is unanalyzable from here |
           | `service-PN@firebase-rules` agent, `roles/firebaserules.system` (writes `revisions`) | writers; act-as `INCOMPLETE` | **Accepted by Jeff, 2026-10-12, as a platform-trust exception covering** its Firestore write authority (including `revisions`) and an impersonation boundary that can't be verified from this project. Function: Firebase Security Rules, which Firestore uses. Residual risk accepted: Google's internal use of that write authority, and that who can act as it is unanalyzable from here |
@@ -1445,8 +1445,8 @@ each one holds a value that is now revoked or about to be.
     it. `questioncompiler`, unused, is deleted.
   - The unused user-managed key `53ea457b` on `firebase-adminsdk-5zize` is deleted. Key
     `9259e1c0` remains, for the operator's local tooling (last used 2026-10-13).
-- **People:** the owners (the operator, plus `kevin.m.dyer@gmail.com` on both projects and
-  `admin@artcompiler.com` on graffiticode) are kept, by decision.
+- **People:** the owners (the operator, plus `<second-owner>` on both projects and
+  `<org-admin>` on graffiticode) are kept, by decision.
 - **Secret Manager:** no human or service holds a project-level Secret Manager role. Grants are
   per secret.
 
@@ -1646,12 +1646,12 @@ After the 2026-11-10 incident: at 16:55Z a test cleanup (`clearFirestore`, run w
   - It exempts `api-run`, `auth-run`, `broker-run` and `policy-run`, the only identities that delete as part of normal work. The nightly `auth-refresh-token-cleanup` job deletes through auth's API, so as `auth-run`.
   - It doesn't affect creates or updates, Firestore's own TTL expiry (`stage-results`), or point-in-time recovery reads.
   - The one operator script that deleted documents, `lang-overrides clear`, now writes an empty `bindings` document instead, and the api treats that as no override (#344).
-  - **Managing it needs `roles/iam.denyAdmin`.** That role can only be granted on the organization (`artcompiler.com`, `496958484376`). It was granted to `jeff@artcompiler.com` to create the policy and removed afterwards (2026-11-11); an organization admin grants it again to change the policy.
+  - **Managing it needs `roles/iam.denyAdmin`.** That role can only be granted on the organization (`artcompiler.com`, `496958484376`). It was granted to `<operator>` to create the policy and removed afterwards (2026-11-11); an organization admin grants it again to change the policy.
   - **A deliberate owner delete:** remove the policy (`gcloud iam policies delete firestore-no-deletes --attachment-point=cloudresourcemanager.googleapis.com%2Fprojects%2Fgraffiticode --kind=denypolicies`), then recreate it from the file.
 - **Firestore data-access audit logs (`DATA_WRITE`)** are on for `datastore.googleapis.com`, through the project IAM policy's `auditConfigs`, since 2026-11-10.
   - Entries carry document names, never field values.
   - **The `_Default` sink exclusion `firestore-token-index-names`** drops entries naming auth's lookup-index documents (`*/-indexes-/*`). Those names contained the token itself: API keys, refresh tokens, OAuth access and refresh tokens. New entries are named by the token's hash (`packages/auth/src/storage/token-index.js`), and legacy ones move as they're used. Keep the exclusion while legacy entries remain. About 21 such entries were stored between 18:00 and 23:15Z on 11-10, before the exclusion. They are readable by owners only and age out with the bucket's retention.
-- **Alerts**, on the operator SMS and `jeff@artcompiler.com` email channels:
+- **Alerts**, on the operator SMS and `<alert-recipient>` email channels:
   - **"Firestore: deletes by a person"**: any delete request whose caller isn't a service account. Log metric `firestore_deletes_by_person`.
   - **"Firestore: delete burst"**: more than 100 delete requests in 10 minutes. Log metric `firestore_delete_requests`; normal is about 18 an hour.
 - **Check:**
