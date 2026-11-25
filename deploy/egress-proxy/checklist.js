@@ -93,7 +93,7 @@ export const ROLES = Object.freeze({ alertRecipient: "<alert-recipient>", orgAdm
 const EMAIL = /^[^\s@<>"'`]+@[^\s@<>"'`]+\.[A-Za-z]{2,}$/;
 // One POSIX shell word, whatever it holds: a value pasted into a generated
 // command must never be expanded ($(...), `...`, ${...}) or split.
-export const shellQuote = x => `'${String(x).replace(/'/g, `'\\''`)}'`;
+export const shellQuote = x => `'${String(x).replace(/'/g, "'\\''")}'`;
 export function privateValues(raw) {
   const v = typeof raw === "string" ? JSON.parse(raw) : raw;
   const owners = v?.approvedOwners;

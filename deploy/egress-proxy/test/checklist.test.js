@@ -86,6 +86,8 @@ test("private values fill the roles, and only well-formed addresses are accepted
 test("a private address is one literal word in the generated alert command", async () => {
   const model = await production();
   const owners = { orgAdmin: "b@example.com", operator: "c@example.com", secondOwner: "d@example.com" };
+  // These are shell syntax on purpose (${IFS} is the shell's, not a template).
+  // eslint-disable-next-line no-template-curly-in-string
   for (const alertRecipient of ["alerts$(printf${IFS}PROBE)@example.com", "a${IFS}b;printf${IFS}PROBE;@example.com", "a|printf&@example.com"]) {
     const values = privateValues({ alertRecipient, approvedOwners: owners });
     const line = checklist(model, values).split("\n").find(l => l.includes("monitoring channels create"));
@@ -95,5 +97,5 @@ test("a private address is one literal word in the generated alert command", asy
     assert.ok(words.includes(`--channel-labels=email_address=${alertRecipient}`), `the label is passed literally: ${alertRecipient}`);
     assert.ok(!words.some(w => w.includes("PROBE") && !w.includes("printf")), "no substitution ran");
   }
-  assert.equal(shellQuote("it's"), `'it'\\''s'`);
+  assert.equal(shellQuote("it's"), "'it'\\''s'");
 });
