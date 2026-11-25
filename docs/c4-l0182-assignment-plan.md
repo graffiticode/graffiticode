@@ -1,6 +1,6 @@
 # C4: L0182 on the interpreter, with a durable survey assignment
 
-**Status:** draft, revised after the owner's second review (2026-11-25). Nothing in it is implemented or live. The owner accepted the api as where assignment runs and `(survey, session)` as its identity. The other decisions in §2 are proposals, and each one marked **open** needs the owner's choice before its slice starts. Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 4 ("the durable get-or-create assignment (atomic, stable across revisions, frozen on submission), plus keeping the survey model that answers were given against"). Design: `docs/graffiticode-interpreter-design.md` §12 Phase 3 (the "L0182 version draws" bullets), §12 test 7, and open question 7 in §13.
+**Status:** draft, revised after the owner's third review (2026-11-25). Nothing in it is implemented or live. The owner accepted the api as where assignment runs and `(survey, session)` as its identity. The other decisions in §2 are proposals, and each one marked **open** needs the owner's choice before its slice starts. Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 4 ("the durable get-or-create assignment (atomic, stable across revisions, frozen on submission), plus keeping the survey model that answers were given against"). Design: `docs/graffiticode-interpreter-design.md` §12 Phase 3 (the "L0182 version draws" bullets), §12 test 7, and open question 7 in §13.
 
 **What the review changed:**
 1. Submission is acknowledged only after its freeze commits, and an unavailable authority check or a lost freeze is a temporary error (decision 7).
@@ -16,6 +16,10 @@
 3. During discovery an unassigned survey is an explicit **pending** value, not `{}`. Anything that depends on it is suspended, so no request is made for a survey the resolved program never reaches. Exchanges are bounded by progress, not by a fixed four calls (decision 1, §3).
 4. An identity is reported even with zero current candidates, so a removed named version still finds its frozen content (decision 2).
 5. An isolated canary namespace exercises creation, owner submission and non-owner refusal on the staged revision while production stays fenced (decision 12).
+
+**What the third review changed:**
+1. Evidence whose identity can't be recovered quarantines its **task**. The api checks the quarantine before assignment resolution, answers `assignment-under-review`, and creates nothing until the task is resolved or migrated (decision 10).
+2. Suspension also covers variables a suspended subtree could have set, and success requires that nothing was left unresolved anywhere in the run, even in a value a sequence discards (decision 1, §3).
 
 ## 1. Where we start
 
@@ -46,7 +50,8 @@
      - **An identity missing from the table** doesn't draw. The language records a **request**: the identity, the occurrence's ordinal, and every current candidate version as `{ instance, digest, content }`, possibly none (decision 2). The digest is the SHA-256 of the file's exact bytes.
      - **The occurrence evaluates to `pending`, never to a stand-in value.** `pending` may be placed in a list or record, but anything that inspects it is **suspended**, not evaluated: a condition, a filter or map predicate, an arithmetic or string operation, a lookup, or computing another survey's `id` or `session-id` (§3). A suspended expression is itself `pending`, so neither branch of a conditional on it runs, and no survey inside it is reached or requested.
      - Every request is therefore for a survey that the resolved program reaches too. The control decisions that led to it depended only on resolved values, which are the same in the final call.
-     - When evaluation finishes with anything `pending`, the language answers `needsAssignment: [requests]` and no result. The api resolves every request (decision 5), then calls `/interpret` again with the fuller table.
+     - **Suspension covers variables too.** A suspended subtree may hold a `set-var` that would have run. So every variable it could assign reads as `pending` afterwards: the literal names of its `set-var`s, or **every** variable if any of its `set-var` names is computed or it applies a user-defined function. A later `get-var` of such a variable is `pending`, and anything depending on it is suspended in turn. That prevents a request built from a value the resolved program would have overwritten.
+     - **Success means nothing was left unresolved anywhere.** The run counts every miss and every suspension, including ones whose value a sequence discards (`pending` followed by another expression) or a record drops. If either count is non-zero the language answers `needsAssignment: [requests]` with no result, whatever the final value is. The api resolves every request (decision 5), then calls `/interpret` again with the fuller table.
      - **Bounded by progress, not by a fixed count.** Each call must add at least one identity to the table, or the stage fails `assignment-stalled`. There is a ceiling of 16 calls, past which it fails `assignment-depth`. A program that compiles today with a dependency chain deeper than the ceiling would newly be refused. That is a compatibility question for the plan's invariant, not a limit to accept silently: slice 0 measures the deepest chain in production programs, slice 2 in the corpus, and any program over the ceiling is named and handled before activation (raising the ceiling for it, or migrating it).
    - **Why this shape:**
      - Identities computed at run time (an input-dependent `session-id`, several surveys, surveys inside `map`) get durable records like literal ones.
@@ -114,6 +119,10 @@
       - **no authorized submission, and draws that disagree:** the version of the latest **owner-saved** task by version history, not frozen; if the history can't order them, unresolved;
       - **authorized submissions that show different versions** (today's process-local loss): **unresolved**;
       - **any unrecoverable occurrence** for the identity: **unresolved**.
+    - **When the identity itself can't be recovered, the task is quarantined.** For a computed `session-id`, or an `id` whose survey is absent from the saved output, the extractor can't name a `(survey, session)` key at all. An assignment-level record can't block that: at run time the api would find no record under the key the program computes, and draw afresh. So the backfill writes `l0182-task-quarantine/<taskId>`, with the reasons and the evidence it did find.
+      - **Checked first.** `resolve` reads the quarantine for the stage's task in the same transaction, **before** any record lookup or creation. A quarantined task answers `assignment-under-review`, writes nothing, and makes no request to the language beyond the first discovery call. Submission checks it too.
+      - **Until it is lifted:** by `scripts/c4-resolve-assignment.js --task <id>`, which records the owner's decision. Either supply the identities and versions it should have (written as resolved records, frozen or not), or mark it migrated: the owner accepts that it will draw fresh.
+      - The quarantine is task-level because nothing finer is knowable. A new task for the same item (a later revision) isn't quarantined: its identities come from its own program at run time. If its identities can be recovered from its own saved output, they are backfilled normally.
     - **Unresolved records never fall through to a draw.** An interpret that reaches one fails with the permanent `assignment-under-review`. The owner resolves each one with `scripts/c4-resolve-assignment.js`, choosing its version and frozen state, or leaves it blocked.
     - **Two writers, never at once.** The control document `l0182-cutover/state` is `backfill` (the initial state), `reconciling` or `done`.
       - **Every write transaction reads it inside the transaction.** The backfill and resolve scripts write only while it is `backfill` or `reconciling`. The api writes (creation, reassignment, a draw-cycle update, a freeze) only while it is `done`. A state change commits through a transaction too, so a writer whose transaction overlaps the change is retried by Firestore and then sees the new state. No cached copy of the state ever authorizes a write.
@@ -155,7 +164,10 @@
   - dialects that don't use either are byte-identical (L0000 corpus);
   - a fake dialect's two-call exchange round-trips;
   - evaluation order is deterministic: the same program gives the same ordinals in repeated runs and inside `map` and `filter`;
-  - **suspension:** a conditional, `case`, `filter` and `map` on a `pending` value run neither branch nor body; a value computed from `pending` is `pending`; `pending` inside a list survives to the end and yields `needsAssignment`.
+  - **suspension:** a conditional, `case`, `filter` and `map` on a `pending` value run neither branch nor body; a value computed from `pending` is `pending`; `pending` inside a list survives to the end and yields `needsAssignment`;
+  - **a suspended conditional that would set a variable used later:** `if <pending> then set-var "s" "a" else set-var "s" "b"`, then a survey whose `session-id` is `get-var "s"`. The later survey is suspended, not requested with a stale or undefined session. The same with a computed `set-var` name, and with a user function that sets a variable;
+  - **a discarded `pending`:** a sequence whose first expression is `pending` and whose last is a plain value yields `needsAssignment`, never success;
+  - in every one of these, the requests raised are only for reached, unsuspended occurrences, so no speculative assignment can be created from them.
 - **Release:** only `l0182r` needs the new kernel.
 
 ## 4. L0182 (`languages/l0182/crates`)
@@ -176,7 +188,7 @@
 
 - **The manifest (v11):** declare `0182` (decision 8). It stays inert until the flag is on.
 - **`packages/api/src/assignments.js`** (new), used by `interpret.js` for any declaration with `getOrCreate`, never by language number:
-  - **`resolve(requests, { authority })`:** one transaction over the namespace's cutover state, the identities' records and the draw cycles they touch. A frozen record is returned with retained content when needed. A valid unfrozen one is returned, or updated if the state is `done` (decision 6). An unresolved one fails `assignment-under-review`. A missing one is created only if the state is `done`; otherwise `assignment-reconciling`. An identity with zero candidates follows decision 2.
+  - **`resolve(requests, { authority, taskId })`:** one transaction over the namespace's cutover state, the task's quarantine, the identities' records and the draw cycles they touch. A quarantined task fails `assignment-under-review` before anything else is read or written. A frozen record is returned with retained content when needed. A valid unfrozen one is returned, or updated if the state is `done` (decision 6). An unresolved one fails `assignment-under-review`. A missing one is created only if the state is `done`; otherwise `assignment-reconciling`. An identity with zero candidates follows decision 2.
   - **`submit(identities, { taskId, submitter, used })`:** the freeze of decision 7, one transaction, all or nothing, which also reads the cutover state and refuses unless it is `done`.
   - **The namespace** (production or canary, decision 12) is chosen from the identity's session and the api's configuration, before any read.
   - **`retained(digest)`.**
@@ -194,6 +206,7 @@
   - a removed version reassigns when unfrozen and serves retained content when frozen, for a bare id and a named version;
   - changed content under the same name follows decision 6;
   - an unresolved record fails `assignment-under-review` and never draws;
+  - **task quarantine:** a task whose program computes its `session-id`, and whose survey is absent from the saved output, is quarantined by the backfill. At run time it answers `assignment-under-review` and creates no record and no draw-cycle entry, though the computed key has no record. Lifting it (resolve or migrate) lets it run; another task for the same item isn't affected;
   - **the write barrier:** while `reconciling`, creation, reassignment and every submission are refused, and reads of existing records are served; a state change racing a write transaction makes the write retry and then refuse; the scripts can't write once the state is `done`;
   - **the canary namespace:** canary sessions read and write only the canary collections, under their own state; no other session reaches them; a program can't choose the namespace;
   - no stage-cache entry is written for L0182;
@@ -237,7 +250,7 @@ Every step is a separate approval. Nothing below is approved by this plan.
 1. **Kernel:** the assignment table, `needsAssignment`, `pending` and suspension, and the evaluation-order and suspension tests (§3).
 2. **L0182:** `Assigned`, the stateless pick, the backfill extractor, `interpret.rs` (with branching and zero-candidate cases), the list of deliberate differences, the CLAUDE.md fix (§4).
 3. **api:** manifest v11, `assignments.js` with the in-transaction write barrier and the canary namespace, `interpret.js`, rules, the parity tool, tests (§5).
-4. **Backfill and resolve scripts,** with emulator tests for every rule in decision 10: evidence extraction and unrecoverable cases, authority, chronology from version history, catch-up, unresolved, the state machine (`backfill` → `reconciling` → `done`), and `--final` refusing to run before the drain is confirmed.
+4. **Backfill and resolve scripts,** with emulator tests for every rule in decision 10: evidence extraction and unrecoverable cases, task quarantine and its lifting, authority, chronology from version history, catch-up, unresolved, the state machine (`backfill` → `reconciling` → `done`), and `--final` refusing to run before the drain is confirmed.
 5. **Evidence:** the inventory, backfill and catch-up reports, owner decisions on unresolved records, the gates and canaries, in `docs/evidence/interpreter-c4-l0182/`.
 
 Slices 1 to 4 are code PRs. Each live step in §6 is a separate approval.
@@ -270,7 +283,7 @@ The network-authorization workstream (`docs/network-authorization-plan.md`, prop
 - **Gaps in the console's version history** turn real historical answers into draws, which are not frozen. Slice 0 measures them. A gap the owner can't accept needs another source of authority before backfill.
 - **Unresolved records** block their items with `assignment-under-review` until the owner decides them.
 - **The reconciling window** refuses every L0182 write, new sessions and submissions alike, with a retryable error from staging until the final catch-up after the drain: at least the 300 s drain plus the catch-up and its review. Staging and promotion should be close together, and announced if the window will be long.
-- **Unrecoverable history.** Programs whose surveys don't appear in their saved output, or whose occurrences can't be matched uniquely, become unresolved and block until the owner decides. Slice 0 measures how many.
+- **Unrecoverable history.** Programs whose surveys don't appear in their saved output, or whose occurrences can't be matched uniquely, become unresolved, or quarantine their task when no identity can be named. Either way they block until the owner decides. Slice 0 measures how many.
 - **Dependency depth.** A program deeper than the call ceiling would be newly refused. Slice 0 and slice 2 measure it before activation.
 - **The hot draw-cycle document,** if traffic grows (decision 5).
 - **Firestore or item authority outages** now fail L0182 reads or submissions that today succeed with a local draw. That is the price of durability, and each error is temporary and names it.
