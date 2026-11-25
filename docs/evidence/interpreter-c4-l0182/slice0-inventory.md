@@ -1,0 +1,164 @@
+# C4 slice 0: L0182 production inventory (redacted)
+
+**Date:** 2026-11-25. **Scope:** read-only, approved by the owner. **Plan:** `docs/c4-l0182-assignment-plan.md` §6 step 0.
+
+**Method.**
+- Firestore REST `runQuery` and `batchGet` only, in `graffiticode` (tasks, compiles) and `graffiticode-app` (items, versions).
+- The api's compile-read helpers weren't used: `compileGet` moves `count` and `lastCompile`.
+- No index was created. The console has no collection-group index on `items.lang`, so `items` was scanned with a field projection instead.
+- Nothing was written in either project.
+
+**Redaction.** This report contains no item, task, session or user ids, no survey content and no responses. Accounts are named by role. Raw extracts stay private, outside Git, in a durable owner-only backup.
+
+## Limitations (read these first)
+
+1. **Historical caller identity can't be established.** Stored compiles record no caller, so this inventory can't say who wrote or answered any program. **Eligible-submitter coverage is therefore unknown** for every historical answer. Item ownership and version history show who **holds** an item or task, not who answered.
+2. **Saved-output coverage excludes L0182 below another chain's head.** Compiles were found by the L0182 task's own chain id, as the head of its chain. A compile in which L0182 sat below another task's head wasn't read.
+
+Neither limitation is resolved by this inventory. Production instrumentation isn't authorized.
+
+**Owner's reading (2026-11-25):**
+- A copied literal session isn't reliable evidence of respondent identity or ownership.
+- The identity decision is revised: a separate console proposal will give a new respondent's copy a fresh session, preserve it across revisions, and preserve the assignment and answers through explicit ownership rebinding on claim or transfer. Historical sessions are not rewritten automatically.
+- A bulk reset of eval-owned identities is **not** approved. A private migration manifest will group referencing tasks and items, and fresh draws need an explicit decision on a concrete set.
+- The program scan supports the 16-call ceiling for the inspected working programs.
+
+## 1. Programs (all 2,022 L0182 tasks, created 2026-09-06 … 2026-11-25)
+
+| | Count |
+|---|---|
+| Tasks with **no** survey | 2 |
+| Tasks with exactly one survey | 2,020 |
+| Tasks with **more than one** survey | **0** |
+| Programs using deleted vocabulary (`FETCH`, `IDEAS`, `SELECTION`, …); they fail to compile today | 485 tasks (483 occurrences classified here; their 168 surveys without `id` are among them) |
+| `id` not a string literal (a number, `5`); fails today as "not a survey id" | 1 |
+| Current-vocabulary surveys **without** `session-id` | 1 |
+| Current-vocabulary surveys with a literal `id` **and** literal session ("keyed") | **1,535** |
+| Computed `id` or `session-id` (variables, conditionals, functions) | **0** |
+
+No program uses `get-var`, `set-var`, a conditional, `map`/`filter` or a user function.
+
+**Dependency depth:**
+- **1** for every keyed program: one discovery call and one final call;
+- **not established** for the 486 programs that fail to compile today (485 with deleted vocabulary, 1 non-string id). They draw nothing in either regime, so they need no assignment.
+
+Scope limit: L0182 below the head of a chain isn't measured (compiles were found by the head task's chain id).
+
+## 2. Stored compiles
+
+| | Count |
+|---|---|
+| Compile documents found for L0182 tasks | 2,630, for 1,808 of 2,022 tasks |
+| …stored before generation suffixes existed (key without `@…`) | 1,041 |
+| …under `@L0182=rust-1` | 940 |
+| …chains with an L0182 head (`id+…`) | 649 |
+| Outputs with more than one survey record | 0 |
+| Outputs with errors | 328 |
+
+`response` is lifted to the top of the output, and the survey record (`instance`, `sessionId`) sits beneath it.
+
+## 3. Identities (keyed: 360 distinct `(survey, session)`)
+
+Survey kinds:
+- **single-version** surveys, whose draw is fully determined;
+- **multi-version** surveys: `civic-priorities` (12 versions) and `workplace-pulse` (3);
+- **named** versions;
+- surveys **no longer installed** (`you-can-choose`, multi-version when it was installed).
+
+| Survey kind | Evidence in saved outputs | Who holds the item the session names | Identities |
+|---|---|---|---|
+| multi | answered, **conflicting versions** | eval | 6 |
+| multi | answered, conflicting versions | no item | 1 |
+| multi | answered, one version | eval | 12 |
+| multi | answered, one version | no item | 1 |
+| multi | draws only, >1 version | eval | 1 |
+| multi | draws only, one version | eval 7, ambiguous 1 | 8 |
+| named | answered, one version | eval 6, no item 6, ambiguous 1 | 13 |
+| named | draws only | eval 8, no item 1, ambiguous 1 | 10 |
+| not installed | draws only (17 with >1 version) | personal 30, other 9, no item 14, ambiguous 2, eval 2 (no shown version) | 57 |
+| single | answered, one version | eval 169, ambiguous 45, no item 8, personal 1 | 223 |
+| single | draws only, or nothing shown | eval 21, ambiguous 5, personal 2 | 28 |
+
+Other counts:
+- identities with at least one task whose compiles show no survey record: 106;
+- identities with a task whose own compiles show more than one version: 6.
+
+## 4. Findings
+
+1. **Most uniquely matched session targets are eval-owned items.** Of the 841 keyed tasks whose session names exactly one owned item, 799 name an eval-owned item (536 have answered outputs), 33 name a personal-owned item, and 9 name an other-account item. These are session-target counts, not task ownership or respondent counts. The referencing-task manifest in §6 supersedes any account-attribution inference from these counts; historical callers remain unknown.
+2. **The session is not reliably the id of the item that holds the program.**
+   - Only 135 of the 667 version records that name an L0182 task have that task's `session-id` equal to the record's item. The other 532 hold programs whose session names a **different** item: another item of the same owner (64), or an item id held by several users (188). The rest (280) are programs that fail today.
+   - Program text, `session-id` included, is copied between items and accounts.
+   - 281 of 307 distinct sessions are used by more than one task; the largest by 596.
+3. **Sessions naming no item:** 495 keyed tasks (459 answered) carry 14 distinct sessions that match no console item in either location (`users/*/items` or the top-level `items`).
+4. **Ambiguous items:** 199 keyed tasks have a session whose item id exists under more than one user.
+5. **The console's version history doesn't establish authority for historical answers.** Of 537 answered keyed tasks whose session names exactly one owned item, **1** is in that owner's version history. The owners' 671 L0182 version records (2026-09-06 … 2026-11-16) mostly pair items with programs carrying another item's session (finding 2).
+6. **Today's process-local loss is visible:** 7 multi-version identities have answered, error-free outputs showing different versions (6 sessions name eval-owned items, 1 names no item), and 6 identities have a task whose own compiles drew different versions. These session targets don't establish who answered.
+7. **Chronology:** no ordering is usable beyond the 1 version-history match. `lastCompile` moves on reads, and `firstCompile` survives refreshes. Every multi-version identity whose evidence disagrees is therefore unresolved under the plan's rules.
+8. **Answering paths** (code inspection, not data):
+   - `session-id` is folded in by the console at parse time (`graffiticode-app` `packages/console/src/pages/api/index.ts:532`, `packages/core/src/lib/code-generation/generate-for-request.ts:523`);
+   - copying an item's code (duplication, claim, eval sweeps reusing prompts and programs) carries the source item's session unchanged (finding 2).
+
+   Whether each path's caller uid equals the item owner can't be read from stored compiles, which record no caller. It needs the instrumentation the plan's submission check implies.
+
+## 5. What this means for the open decisions
+
+- **Decision 3 (who submits).** A copied program can name a different holder's item, an ambiguous one, or none. Historical callers aren't recorded, so eligible-submitter coverage is unknown; the inventory establishes only 1 owner-version-history match. Copies with the same literal session share an assignment under the current identity proposal.
+  - The separate console proposal must distinguish a new respondent's copy (fresh session) from a claim or transfer of the same response (preserve the assignment and answers through explicit ownership rebinding). Revisions preserve the session, and historical sessions aren't rewritten automatically. This console change remains outside C4's code.
+- **Decision 10 (backfill).** The plan's authority-evidence rule would freeze at most the 1 task with an owner-version-history match; the 7 conflicts plus about 14 other disagreeing identities would be unresolved or quarantined. The follow-up manifest in §6 leaves 296 identities unattributed and identifies only 10 verified eval-only, unanswered reset candidates. It doesn't establish that the population is eval or personal testing. Any fresh draws require an explicit decision on a concrete set; no bulk reset is approved.
+- **Decisions 5 and 6:** only 2 installed surveys have more than one version, so balancing affects about 29 identities.
+- **`you-can-choose`** (57 identities, none answered in the inspected outputs): it is no longer installed, so these fail today and would fail interpreted. The retention decision must respect the saved-output coverage limit above.
+- **Dependency ceiling:** every inspected working program has depth 1, so the scan found none that the 16-call ceiling would newly refuse. L0182 below another chain's head remains outside this inventory.
+- **Sessionless programs (decision 4):** 1 current-vocabulary occurrence.
+
+## 6. Follow-up: migration manifest and code paths (2026-11-25)
+
+Direct reads and code-path auditing only. No production instrumentation.
+
+**The private manifest.**
+- It is a JSON file outside Git, in the owner-only backup. For each of the 360 keyed identities, it lists every referencing task and every item that holds one, either as the item's current task or in any user's version history. Version history was scanned across all 11 users with version records (12,338 records, names only). It also records the owner of the item the session names, with roles.
+- Classes:
+  - **unattributed:** at least one referencing task is held by no item;
+  - **verified eval-only:** every task is held only by eval-owned items, and the session names exactly one eval-owned item;
+  - **personal-only** and **other-only:** likewise, for those accounts;
+  - **shared:** more than one role.
+
+| Class | Identities | Referencing tasks | Answered tasks | Identities with answered conflicts |
+|---|---|---|---|---|
+| verified eval-only | **10** | 10 | 0 | 0 |
+| eval holders, session item missing or shared | 1 | 1 | 1 | 0 |
+| personal-only | 44 | 54 | 1 | 0 |
+| other-only | 9 | 9 | 0 | 0 |
+| shared | 0 | 0 | 0 | 0 |
+| unattributed | **296** | 1,461 | 1,085 | 7 |
+
+Unattributed, by the item the session names:
+
+| Session item | Some referencing task held? | Identities | Tasks (unheld) |
+|---|---|---|---|
+| none | no | 18 | 472 (472) |
+| eval | no | 120 | 510 (510) |
+| eval | yes | 102 | 279 (165) |
+| under several users (eval and personal) | yes | 55 | 199 (126) |
+| personal | no | 1 | 1 (1) |
+
+Of the 1,461 referencing tasks in the unattributed class, 1,274 are held by no item; the other 187 share an identity with at least one unheld task. A session naming an eval-owned item doesn't make its referencing tasks eval's, and who created or answered them can't be shown. Only the **10 verified eval-only identities** (no answered task among them) qualify as reset candidates on this evidence. Any fresh draw needs the owner's explicit decision on a concrete set.
+
+**How a program comes to carry another item's session** (`graffiticode-app`):
+
+| Path | Session written | Evidence |
+|---|---|---|
+| Console chat generation | the item's own id, folded at parse | `packages/core/src/lib/code-generation/generate-for-request.ts:523` |
+| MCP `create_item` / `update_item` | the reserved or existing item's own id | `packages/core/src/generation.ts` (`reserveGeneration` before generating) |
+| Free-plan claim | **the free-plan item's id**: the new item has a new id, and the program is copied verbatim, so it posts to the same content-addressed task | `packages/core/src/claims.ts` (`claimFreePlanSession`) |
+| Sharing an item | **the sender's item id**: the recipient's item has a new id, and the program is copied | `packages/core/src/items.ts:901` (`shareItem`) |
+| Eval item creation | **the corpus example's fixed id**, reused on every run, and created under whichever account runs the script | `packages/console/scripts/create-items-from-prompts.ts:437` |
+
+The last three provide paths for findings 2 to 4: shared sessions, sessions naming no item, and the same item id under several users. They don't attribute individual historical tasks. They match the owner's proposed console rules:
+- a new respondent's copy gets a fresh session, including a share, claim or eval run that starts a new response;
+- revisions keep it;
+- a claim or transfer of the same response rebinds ownership explicitly, keeping the assignment and answers.
+
+Historical sessions are not rewritten.
+
+**Limitations, restated.** Historical caller identity can't be established from stored compiles, so these classes describe who **holds** a task, never who **answered** it. L0182 below another chain head isn't covered.
