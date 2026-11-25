@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use graffiticode_l0000::{
-    Compilation, Compiler, Diagnostic, Dialect, Evaluator, Identity, Interpretation, L0000, LanguageSchema, Mode,
+    Compilation, Compiler, Diagnostic, Dialect, Evaluator, Identity, Interpretation, Key, L0000, LanguageSchema, Mode,
     Model, NodeId, Op, SchemaError, SchemaSource, Value, json_text,
 };
 use serde::Deserialize;
@@ -23,7 +23,8 @@ struct Ordinals(usize);
 /// table it is resolved from it (its `instance` and its ordinal, `"<instance>#<ordinal>"`) or,
 /// when the table doesn't hold it, asks for it and is pending. Without one (a compile) it is
 /// `"compiled <name>"`, as a language's legacy path would be. `LOST` is a bug: pending without a
-/// request. `STUCK` suspends on nothing pending, without a request.
+/// request, including inside the containers returned by `LOST_LIST` and `LOST_RECORD`.
+/// `STUCK` suspends on nothing pending, without a request.
 struct Fake;
 
 #[async_trait]
@@ -58,6 +59,8 @@ impl Dialect for Fake {
                 })
             }
             "LOST" => Some(Value::Pending),
+            "LOST_LIST" => Some(Value::List(vec![Value::Pending])),
+            "LOST_RECORD" => Some(Value::Record([(Key::tag("k"), Value::Pending)].into_iter().collect())),
             "STUCK" => Some(cx.suspend(&[])),
             _ => None,
         }
@@ -624,6 +627,33 @@ async fn a_dropped_pending_still_asks() {
     let code = p.program(&[len, one]);
     let (_, envelope) = interpret(&code, None).await;
     assert_eq!(requested(&envelope), ["c"]);
+}
+
+/// A dialect's nested pending value must be remembered before a consumer or sequence can
+/// discard it. With no request, each run is an internal error rather than successful data.
+#[tokio::test]
+async fn nested_pending_without_a_request_cannot_be_consumed_or_discarded() {
+    for tag in ["LOST_LIST", "LOST_RECORD"] {
+        for consume in [false, true] {
+            let mut p = Prog::default();
+            let lost = p.form(tag, &[]);
+            let one = p.num(1.0);
+            let code = if consume {
+                let count = p.form("LENGTH", &[lost]);
+                p.program(&[count])
+            } else {
+                p.program(&[lost, one])
+            };
+            let (compiled, envelope) = interpret(&code, Some(json!({}))).await;
+            assert_eq!(compiled.needs_assignment, None, "{tag}, consume={consume}");
+            assert_eq!(envelope["data"], Json::Null, "{tag}, consume={consume}");
+            assert_eq!(
+                envelope["errors"][0]["code"],
+                json!("assignment-unresolved"),
+                "{tag}, consume={consume}: {envelope}"
+            );
+        }
+    }
 }
 
 /// Pending with nothing asked can't happen silently: it is an internal error, never data,

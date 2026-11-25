@@ -214,8 +214,9 @@ impl<'e> Evaluator<'e> {
         Value::Pending
     }
 
-    /// Whether any of `values` is or holds a pending value. Free while nothing in the run has
-    /// been pending, which for a dialect that never asks for an assignment is always.
+    /// Whether any of `values` is or holds a pending value. Kernel argument checks skip the
+    /// recursive walk until a pending value has been observed; dialect results are checked at
+    /// the boundary where they can introduce one.
     fn holds_pending(&self, values: &[&Value]) -> bool {
         self.unresolved > 0 && values.iter().any(|value| value.contains_pending())
     }
@@ -279,7 +280,15 @@ impl<'e> Evaluator<'e> {
                 _ => None,
             };
             let value = match offered {
-                Some(value) => value,
+                Some(value) => {
+                    // A dialect can return pending inside a container without having asked
+                    // for an assignment. Remember it before a consumer or sequence can drop
+                    // it, so even that malformed run fails closed rather than returning data.
+                    if self.unresolved == 0 && value.contains_pending() {
+                        self.unresolved += 1;
+                    }
+                    value
+                }
                 None => self.kernel(id, node, args).await,
             };
             if value.is_pending() {
