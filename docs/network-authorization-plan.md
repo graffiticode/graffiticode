@@ -1,6 +1,13 @@
 # Network authorization: implementation plan (workstream N)
 
-**Status:** draft for the owner's review (2026-11-25). Nothing in it is implemented, and it adds no production gate. The brief it implements, [network-egress-authorization-design-brief.md](network-egress-authorization-design-brief.md), is **proposed**, not approved. Today's enforcement (§1) does **not** provide the brief's guarantees, and nothing in this plan should be read as saying it does. Each step in §6 that changes enforcement or production state needs its own approval, as releases do in the interpreter plan.
+**Status:** draft, revised after the owner's first review (2026-11-25); the fetch-service direction is the owner's preference. Nothing in it is implemented, and it adds no production gate. The brief it implements, [network-egress-authorization-design-brief.md](network-egress-authorization-design-brief.md), is **proposed**, not approved. Today's enforcement (§1) does **not** provide the brief's guarantees, and nothing in this plan should be read as saying it does. Each step in §6 that changes enforcement or production state needs its own approval, as releases do in the interpreter plan.
+
+**What the first review changed:**
+1. Execution contexts are a Policy token profile, signed by Policy's KMS key, with a defined verifier, rotation and fail-closed behavior (decision 4).
+2. Settings writes need a console browser session, a same-origin check and a recent re-authentication carried through refresh. The guarantee is stated as "interactive-session credentials required", not "agents cannot change settings" (decision 6).
+3. No cross-account sharing of fetched results at first, across every cache layer, CDN and browser included. Destination evidence comes only from the fetch service, and old entries are never shared (decision 7).
+4. The inventory no longer joins logs by time. Unattributed traffic is reported as such, and attribution waits for trusted correlation and a second observation period (§4).
+5. Enforcement is declared per language, only once its reachable revisions have lost open egress and are drained, with a deploy guard against rollback and no fallback to open egress when the fetch service fails (§6).
 
 **Relation to the interpreter plan.** This is a separate workstream (Track N in [graffiticode-interpreter-plan.md](graffiticode-interpreter-plan.md)). It depends on interpreter execution, because fetches move into `/interpret` (C3) and durable runs (Track E) resume across deployments. It doesn't redesign any Track C upgrade:
 - C4 (L0182) makes no public fetch, and documents its platform calls separately (`docs/c4-l0182-assignment-plan.md` §8).
@@ -51,11 +58,21 @@ Every decision is **open** until the owner chooses. Each says what is proposed a
 3. **What anonymous requests receive** (brief question 3). *Proposed:* no public retrieval by default. A small, curated **anonymous set**, reviewed like the shared catalog, can be enabled by the owner. Free-plan MCP use is anonymous unless it carries a signed-in account.
    - **Alternatives:** deny always, or treat the platform's own system account as the anonymous account.
    - The inventory (§4) measures how much anonymous use exists before this is chosen.
-4. **How identity reaches enforcement.**
-   - **Compilers never choose an account or claim a capability.** The **api** mints an **execution context** for each stage it runs: a short-lived token, signed by the api's identity, binding installation, account (or `anonymous`), task, stage, mode, command and run (when there is one), and an expiry.
-   - The compiler receives it opaquely and can only forward it with a fetch. The enforcement point verifies the signature and audience, and decides from the context. It never decides from anything the compiler asserts.
-   - A compiler that replays its own context gets only that execution's authority, until expiry. Nothing in the context names a capability: capability operations keep going through Policy and the Broker (decision 8).
-   - **Reuse:** Policy's verified-token checks (`packages/common/src/verified-tokens.ts`) and the installation context from I-8 carry the identity. The api's existing ID-token minting (`caller-identity.js`) is the mechanism.
+4. **How identity reaches enforcement: a signed execution context.** Compilers never choose an account or claim a capability. `caller-identity.js` only proves the api's service identity to an audience; it signs no account, task or stage, and controls no expiry. So it is **not** the mechanism.
+   - **Issuer: Policy,** as a new token profile beside `invocation`, `session` and `execution` (`packages/policy/src/tokens.ts` `PROFILES`):
+     - `typ: gc-retrieval+jwt`, audience `urn:graffiticode:fetch`;
+     - required claims: `sub` (the account's uid, or `anonymous`), `ins` (the installation; `graffiticode` until I-8), `task`, `stg` (stage id), `mode`;
+     - optional claims: `inv`, `cmd`, `run` (when the stage belongs to one), and `max` (the request budget, today L0185's 10);
+     - `iat`, `nbf`, `exp` and `jti` from the profile's TTL: at most the stage's deadline, capped at 120 s. A durable run's resumption mints a fresh one (Track E's E3); a context is never extended.
+   - **Who asks:** the api, per stage of a language declared to fetch, before calling `/interpret` or `/compile`. It calls Policy as its own service identity and passes the **caller's verified user token**. Policy derives `sub` and `ins` from that token and its own installation check, never from a claim the api or a compiler supplies. An anonymous call gets `sub: anonymous`.
+   - **Signing:** Policy's existing Cloud KMS signer (`packages/policy/src/kms.ts`, `EC_SIGN_P256_SHA256`, JWS ES256). The private key never leaves KMS.
+   - **Verifier:** the fetch service. It checks the signature against Policy's JWKS (`GET /v1/jwks`), and checks `typ`, audience, `nbf` and `exp` with at most 5 s of skew, plus every required claim. It counts requests per `jti` against `max`. A context is reusable within its life for that stage's fetches, and only for them.
+   - **Rotation:** the JWKS publishes one key today (`packages/policy/src/main.ts:83`). N3 makes it publish the current and next key versions by `kid`. A new KMS key version is published at least the longest TTL (120 s) plus the verifier's JWKS cache lifetime before Policy signs with it, and the old one is removed only after the same interval.
+   - **Fail closed, everywhere:**
+     - **minting:** Policy unreachable, or the caller's token invalid → the stage gets no context, and fails with a temporary `retrieval-context-unavailable`;
+     - **verifying:** no context, a bad signature, an unknown `kid` after one JWKS refresh, the JWKS unavailable with no cached key, expired, not yet valid, the wrong audience or `typ`, or over budget → the fetch is **refused** (temporary where the cause is), never allowed;
+     - there is no unauthenticated mode.
+   - **What a compiler can do with it:** only forward it. Replaying it gets that stage's account, budget and expiry, nothing more. Nothing in it names a capability: capability operations keep going through Policy and the Broker (decision 8).
 5. **Where public retrieval is enforced.** Two designs, to be compared in a spike (§6, N2) before choosing.
    - **A. A trusted public-fetch service** *(the owner's preferred direction)*:
      - A new service, not a compiler, performs every public retrieval. Compilers lose the open class: they reach only the fetch service and their platform endpoints, through strict classes.
@@ -67,18 +84,38 @@ Every decision is **open** until the owner chooses. Each says what is proposed a
      - **Gains:** no new data path, and compilers change little.
      - **Costs:** inside a tunnel the proxy still sees nothing, so methods, paths and redirects can't be checked. Doing so needs terminating TLS for arbitrary public hosts (a dynamically minted certificate per name, with the private CA trusted by compilers), a much larger attack surface. Authorization is per connection, not per request: a kept-alive tunnel carries many requests on one decision.
    - **Proposed:** A, subject to the spike confirming latency and payload limits. B meets the brief's destination rule but not its method rule (§7.4), so choosing B means amending the brief.
-6. **Allowlist changes are human-only, enforced on the server** (brief §8.4).
-   - **Storage:** server-only Firestore documents (rules deny every client), written by one route.
-   - **The route** accepts only a token from an **interactive sign-in**. Auth adds a claim recording how a token was issued (`amr`-style: `siwe`, `api-key`, `oauth`, …). The route refuses `api-key` and `oauth` tokens, so MCP, A2A and REST agents acting for an account can't change it, and it requires a recent sign-in.
+6. **Allowlist changes need interactive-session credentials, enforced on the server** (brief §8.4).
+   - **The honest guarantee.** A bearer token from an interactive sign-in can still be used by a program, and a person can script their own browser. So the server can't prove a human acted. What it can enforce, and what this plan promises, is that **interactive-session credentials, and a recent re-authentication, are required**. Programmatic credentials (API keys, OAuth grants for MCP, A2A and REST) can't change the allowlist. The brief's "agents cannot change it" is restated in those terms.
+   - **Storage:** server-only Firestore documents (rules deny every client), written only by the backend's settings route.
+   - **The boundary:**
+     - **A console browser session.** The console's settings page posts to a console server route that requires the console's own session cookie (`HttpOnly`, `Secure`, `SameSite=Strict`), set only by the interactive sign-in flow, never by an API-key or OAuth exchange. It also requires a same-origin check (`Origin` equal to the console) and a CSRF token.
+     - **Confirmation by re-authentication** for any change that **widens** authority (opting in, adding a domain). A fresh SIWE signature (or the sign-in method's equivalent) within 5 minutes, with the change summarized in what is signed. Narrowing changes (opting out, removing) need only the session.
+     - **The backend route** accepts a write only from the console's service identity (its ID token, audience the settings route), carrying the user's token. That token must have `amr` `interactive` and an `auth_time` within the confirmation window for a widening change.
+   - **Auth changes (N3):**
+     - access tokens gain `amr` (`interactive`, `api-key`, `oauth`, …) and `auth_time`;
+     - a refresh copies **both** from the original sign-in and never resets them;
+     - a re-authentication issues a token with a new `auth_time`;
+     - API-key and OAuth exchanges can never produce `amr: interactive`.
    - **The shared catalog** is platform configuration in this repository (reviewed like the protected registry). Accounts only opt in or out.
    - **Reads** of the effective allowlist are open to the account's own tokens of any kind.
    - **Hostname rules** (brief §8.5) are enforced on write and on match: parsed, normalized and IDNA-mapped names; refusal of IP literals and bare TLD wildcards; label-boundary wildcard matching, never substrings.
 7. **Retained data is not permission to request again** (brief §8.3).
    - **Kept:** a result computed before an allowlist change stays readable. Nothing is invalidated by a setting change.
    - **Checked:** every **new** outbound request is authorized against the account's **current** allowlist: each redirect hop, each page of pagination, each retry, and each request a durable run makes on resumption (Track E's E3 continuation re-checks authority at each resume). A recorded observation that is **replayed** (B5 pinned inputs, B6 materialization) makes no request, so it needs no new authorization.
-   - **Across accounts:** *proposed rule:* a cached result records the destinations its fetches used. Another account may read it only if its own current policy authorizes every one of them. Otherwise it is a miss, and the request runs under the reader's authority, which may refuse. Cached authorization never confers another account's authority.
-   - **What the rule touches:** L0185's interpreted results (keyed by authority today, so already per account); the fetch service's own cache (it replaces L0185's in-process cache, per URL, checked per request before a hit is served); and the legacy `compiles/` entries of `l0137` and `l0170` (keyed by task and served to every caller), which must become per-account or carry their destinations.
-   - **Alternative:** no cross-account sharing of fetched results at all. Simpler, but at a higher fetch volume.
+   - **Across accounts: no sharing at first** (the owner's recommendation). A result that fetched anything is never served from a cache to a different account `(installation, uid)`, or from an authenticated account to anonymous, or the reverse. Sharing can be designed later, on destination evidence, as its own decision.
+   - **Every cache layer and trust boundary:**
+     - **The fetch service's cache** (replacing L0185's per-instance cache): keyed by account and URL, and re-authorized against the account's current allowlist before a hit is served.
+     - **The stage cache:** its authority today is `user:<uid>` or `anonymous` (`packages/api/src/interpret.js:108`), which is **not** account-isolated under decision 1's definition. N3 makes it `(installation, uid)`. Until I-8, the only installation is Graffiticode, which is what makes today's keys safe in the meantime.
+     - **The legacy `compiles/` store** (keyed by task, served to every caller): an open-language stage is never read from or written to it once that language is enforced (§6).
+     - **HTTP, CDN and browser:** today a `shared` interpreted result goes out `max-age` and `public` to anonymous callers (C3 decision 6), so a CDN could serve one anonymous request's fetched result to another, or to another installation. From enforcement, a result whose chain fetched is `private, no-store` for an authenticated request and `no-store` for an anonymous one. Never `public`.
+     - **Publications and artifacts** are retained data deliberately shared by their owner. They are served without a fetch, as today.
+   - **Destination evidence comes only from the fetch service.** It records, per context (`jti`), every request it made, **every redirect hop included**, with the decision and the resolved destination. It returns a signed receipt for them to the api with the stage. Nothing a compiler reports about its own fetches is evidence. With no sharing, the receipt serves audit (brief question 8). A later sharing design would rest on it.
+   - **Old entries without evidence** (stage-cache entries under the old key, legacy `compiles/` results, CDN copies) are never shared across accounts:
+     - stage-cache entries become unreachable when the key changes;
+     - a new generation for each language at its enforcement leaves its legacy `compiles/` entries unserved;
+     - a Cloudflare purge after each language's enforcement removes edge copies.
+
+     An account's own retained results stay readable through its own publications and artifacts.
 8. **The capability path is preserved, not re-gated.**
    - Capability-authorized operations keep going through Policy and the Broker: L0176's Learnosity operations, and L0013's item-scoped snapshot with the Broker's service credential (C5a/C5b/C5d). They never consult an account's public allowlist.
    - C5d keeps its existing release gates and stays held. Nothing in this workstream adds a public-domain opt-in to its snapshot capability.
@@ -95,15 +132,23 @@ Every decision is **open** until the owner chooses. Each says what is proposed a
 | Track E (E1–E3) | durable runs resume across deployments | each resume re-authorizes new requests (decision 7); E3's Policy continuation carries the context |
 | B5/B6 (done) | pinned inputs and recorded observations | replay makes no request and needs no authorization; a new observation is a new request |
 | Installation boundary (I-8) | authenticated installation context | the account's installation (decision 1); before I-8, Graffiticode only |
-| Auth | token provenance claim | human-only allowlist writes (decision 6) |
-| graffiticode-app (console) | settings UI and the human-only route's client | brief §8.3 |
+| Auth | `amr` and `auth_time`, kept through refresh | interactive-session settings writes (decision 6) |
+| Policy | the `retrieval` token profile and a multi-key JWKS | execution contexts and their rotation (decision 4) |
+| graffiticode-app (console) | the settings page, its session-cookie route, CSRF and re-authentication | brief §8.3, decision 6 |
 | `l0137`, `l0170` repositories | legacy open compilers | they move to the fetch service, or stay on a named legacy class until migrated (§4) |
 
 The interpreter plan's compatibility invariant applies: **no chain that works today is newly refused until a step names the affected chains and migrates them first.**
 
 ## 4. Migrating the existing open languages
 
-- **Inventory (read-only):** the proxy's open-class log over at least 14 days (names, counts, refusals), joined to the api's stage logs by time and service to attribute each fetch to a caller (account or anonymous), task and chain (for example L0184 over L0185). Also the corpus programs' hosts, and the legacy languages' traffic.
+- **Inventory in two phases, never joined by time.** Concurrent requests share an instance, and a kept-alive tunnel carries many requests, so matching `CONNECT` log lines to stage log lines by time and service would attribute fetches to the wrong caller. The plan doesn't do it.
+  - **N1a, from existing logs (read-only):**
+    - destinations by name, with counts and refusals, from the open-class log, reported as **unattributed**;
+    - which accounts (and anonymous callers) run open-language stages, and in which chains (for example L0184 over L0185), from the api's own stage logs;
+    - the corpus programs' hosts, and the legacy languages' code paths.
+
+    Nothing connects the two lists, and the report says so.
+  - **N1b, attributed, after instrumentation:** once N3 mints execution contexts, the open-class path logs each context's `jti`, `sub` and `ins` beside the destination (observe-only: nothing is refused yet, and the context is verified, not trusted blindly). After a further observation period of at least 14 days, the inventory reports per-account destinations. Traffic without a valid context stays **unattributed**, in its own line.
 - **Account setup.** Every account starts with no shared destinations opted in, so enforcing on day one would break every working fetch. *Options (owner):*
   - **(a)** Accounts with observed use get a **proposed** opt-in set, shown in settings for the account's person to confirm. Nothing is enforced for them until they confirm or the notice period ends.
   - **(b)** A platform-applied migration opt-in, recorded as such and revocable by the account's person (a platform action, not an agent's).
@@ -122,10 +167,19 @@ The interpreter plan's compatibility invariant applies: **no chain that works to
 - **Hostname matching:** exact, wildcard on label boundaries, IDN and normalization, trailing dots, IP literals, bare-TLD wildcards refused.
 - **Network safety, on both paths:** DNS rebinding (an approved name resolving to a private address), redirects to unapproved hosts (each hop authorized), direct-connection bypass, other ports and protocols, the metadata service.
 - **Methods:** only GET and HEAD on the public path (A enforces them; B can't, which the spike records).
-- **Identity:** a compiler can't choose an account, can't alter or extend a context, and can't present a capability. An expired or foreign-audience context is refused.
-- **Settings:** a write with an `api-key` or `oauth` token is refused, from MCP, A2A and REST alike. An interactive sign-in can write. Agents can read.
-- **Cache:** a result fetched for account X is not served to account Y whose allowlist doesn't cover its destinations; it is, when Y's does. An allowlist change leaves stored results readable and refuses the next new request.
-- **Interpreter and durable coverage:** a redirect, a retry and a durable resumption each re-check current authorization. A replayed observation makes no request.
+- **Identity:** a compiler can't choose an account, can't alter or extend a context, and can't present a capability. Each fail-closed case of decision 4 refuses: expired, not yet valid, foreign audience or `typ`, bad signature, unknown `kid` after refresh, JWKS unavailable, over budget. Rotation with overlapping keys verifies throughout.
+- **Settings:**
+  - a write with an `api-key` or `oauth` token is refused, from MCP, A2A and REST alike, and so is a write without the console session, from another origin, or without the CSRF token;
+  - a widening change without a re-authentication in the window is refused, and a narrowing one is accepted with the session;
+  - a refreshed token keeps the original `amr` and `auth_time`;
+  - agents can read.
+- **Cache, at every layer:**
+  - a result fetched for account X is never served to account Y, or to anonymous, from the fetch service's cache, the stage cache, `compiles/`, or HTTP (no `public`, no CDN-cacheable headers);
+  - two installations' users with the same uid don't share;
+  - an allowlist change leaves stored results readable and refuses the next new request;
+  - the fetch service's receipt lists every redirect hop.
+- **Interpreter and durable coverage:** a redirect, a retry and a durable resumption each re-check current authorization (a resumption with a fresh context). A replayed observation makes no request.
+- **Enforcement and rollback:** the deploy guard refuses a release, promotion or rollback into an open class for an enforced language; a stopped fetch service fails the fetch and opens nothing.
 - **The capability path** (decision 8): an L0176 save and an L0013 snapshot with an empty allowlist; a public fetch can't reach a capability destination; no credential reaches the fetch service.
 - **Anonymous:** the anonymous set, and nothing else.
 
@@ -134,14 +188,34 @@ The interpreter plan's compatibility invariant applies: **no chain that works to
 Every step after N1 is a separate approval. None adds a production gate before its approval.
 
 - **N0. Decisions:** the owner's choices on §2, and any amendment to the brief (for example if design B is chosen).
-- **N1. Inventory** (read-only): §4's inventory, the platform endpoints (decision 9), and the legacy compilers' fetch code.
+- **N1a. Inventory from existing logs** (read-only): §4's N1a, with unattributed traffic reported as such; the platform endpoints (decision 9); and the legacy compilers' fetch code.
 - **N2. Spike:** A against B on latency, payload limits, failure modes and what each can enforce. Then the choice.
-- **N3. Identity, inert:** the api mints execution contexts (nothing checks them); auth's provenance claim; storage for catalogs and allowlists; the console's settings, behind a flag.
-- **N4. Enforcement point, observe-only:** decisions logged, nothing refused.
+- **N3. Identity, inert:**
+  - Policy's `retrieval` profile and the multi-key JWKS; the api requests a context per fetching stage and forwards it (nothing enforces it yet);
+  - auth's `amr` and `auth_time`;
+  - the stage cache's authority becomes `(installation, uid)`;
+  - storage for catalogs and allowlists;
+  - the console's settings page and route, behind a flag.
+- **N4. Enforcement point, observe-only:** decisions logged, nothing refused. **N1b** runs here: attributed inventory from verified contexts, over at least 14 more days.
 - **N5. Account setup and migration:** per §4, chain by chain.
-- **N6. Canaried enforcement,** per language.
-- **N7. Remove the open class.**
+- **N6. Canaried enforcement, per language** (below).
+- **N7. Remove the shared open class:** cleanup, after no language uses it.
 - **N8. Coverage audit:** every outbound path (compile, interpret, command, durable run; MCP, A2A, REST) goes through the enforcement point or the capability path, and is recorded with its authorization path.
+
+### Enforcing one language, and rolling it back
+
+A language counts as **enforced** only when every one of these holds:
+1. **Its new revision has no open egress.** It moves from `compilers-l0185` to a strict class of its own (for example `compilers-l0185-fetch`), whose only names are the fetch service and its platform endpoints. The open class is shared by `l0185r`, `l0137` and `l0170`, and the proxy tells classes apart only by subnet, so a language leaves it for its own class rather than being narrowed in place.
+2. **No reachable revision of its services keeps open egress.** Every older revision's traffic and tags are retired (`npm run deploy -- retire`).
+3. **Old routes and connections are drained.** Wait at least the service's request timeout plus a margin after the last retirement, so in-flight requests and any kept-alive tunnels from old instances end with them. Then confirm from Cloud Run that no instance of a retired revision is running.
+4. **The proxy shows it.** For the open class, no `CONNECT` from the language's old revisions appears after the drain. Since the class is shared, this is checked from the language's own instance addresses, where the logs can show them, or by the language's new class being the only one its service uses.
+5. **The canary passes:** allowed fetches through the fetch service for a test account, a refused one with the setting named, the capability path (decision 8) unaffected, and caches per decision 7.
+
+**Rollback**, so a failure can never silently restore open access:
+- **A deploy guard.** When a language is declared enforced, its `deploy.json` entry is marked (for example `"egress": "enforced"`). From then on, the deploy CLI refuses to release, promote or roll back to any revision of that service whose network names an open class. Only removing the mark (an explicit, reviewed configuration change, with the owner's approval) re-allows it.
+- **A fetch-service failure fails closed.** An enforced compiler's network allows only the fetch service and platform endpoints, so when the fetch service is down, unreachable, or can't verify a context or read an allowlist, the compiler's fetches fail with a temporary error. No code path, flag or environment variable falls back to direct or open egress.
+- **Rolling back the fetch service** (a bad revision) moves to an earlier fetch-service revision. It never moves the language back to the open class.
+- **Rolling back enforcement itself** (moving a language back to the open class) is a deliberate step: the guard removed with approval, a release in the open class, and the inventory and settings untouched. It is never automatic.
 
 ## 7. Out of scope
 
