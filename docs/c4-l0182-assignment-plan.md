@@ -1,6 +1,6 @@
 # C4: L0182 on the interpreter, with a durable survey assignment
 
-**Status:** draft, revised after the owner's fourth review and aligned with respondent sessions (2026-11-25). Nothing in it is implemented or live. The owner accepted the api as where assignment runs and `(survey, session)` as its identity. The other decisions in §2 are proposals, and each one marked **open** needs the owner's choice before its slice starts. Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 4 ("the durable get-or-create assignment (atomic, stable across revisions, frozen on submission), plus keeping the survey model that answers were given against"). Design: `docs/graffiticode-interpreter-design.md` §12 Phase 3 (the "L0182 version draws" bullets), §12 test 7, and open question 7 in §13.
+**Status:** draft, aligned with respondent sessions (2026-11-25). Slice 0's evidence (#483) and the generic kernel exchange (#484) are merged. L0182 assignment, frontend attestation, API submission and migration work remain unimplemented and unapproved; this PR changes documents only. The owner accepted the api as where assignment runs and `(survey, session)` as the base identity shape. The other decisions in §2 are proposals, and each one marked **open** needs the owner's choice before its slice starts. No race option or migration classification is selected by this alignment. Plan item: `docs/graffiticode-interpreter-plan.md` Track C, item 4 ("the durable get-or-create assignment (atomic, stable across revisions, frozen on submission), plus keeping the survey model that answers were given against"). Design: `docs/graffiticode-interpreter-design.md` §12 Phase 3 (the "L0182 version draws" bullets), §12 test 7, and open question 7 in §13.
 
 **What the review changed:**
 1. Submission is acknowledged only after its freeze commits, and an unavailable authority check or a lost freeze is a temporary error (decision 7).
@@ -12,7 +12,7 @@
 
 **What the second review changed:**
 1. Reconciling is a write barrier. Every live write transaction reads the cutover state and refuses unless it is `done`, so no creation, reassignment or submission happens while reconciliation can still rewrite records. Old api revisions are drained and retired before the final catch-up (decision 10).
-2. The backfill uses only recorded evidence: the saved output's survey records, and the console's version history for order and authority. It never re-runs a draw. Anything it can't demonstrate is unresolved, and `lastCompile` is used only to find changed documents, never as a time (decision 10).
+2. The backfill uses only recorded evidence: saved-output survey records and version history for recorded save order and provenance, not proof of who called. Historical authority gaps need the decision described below. It never re-runs a draw, and `lastCompile` is used only to find changed documents, never as a time (decision 10).
 3. During discovery an unassigned survey is an explicit **pending** value, not `{}`. Anything that depends on it is suspended, so no request is made for a survey the resolved program never reaches. Exchanges are bounded by progress, not by a fixed four calls (decision 1, §3).
 4. An identity is reported even with zero current candidates, so a removed named version still finds its frozen content (decision 2).
 5. An isolated canary namespace exercises creation, owner submission and non-owner refusal on the staged revision while production stays fenced (decision 12).
@@ -23,7 +23,7 @@
 
 **What the fourth review changed:** quarantined tasks and unresolved records can be resolved after activation through an audited resolution transaction that is valid in `done`, with no global window (decision 10).
 
-**Aligned with respondent sessions** (`graffiticode-app` `docs/respondent-sessions-proposal.md`, merged as a draft at 2a58aaf9). The slice 0 inventory (`docs/evidence/interpreter-c4-l0182/slice0-inventory.md`) showed that a copied literal session isn't evidence of the respondent.
+**Aligned with [respondent sessions](https://github.com/graffiticode/graffiticode-app/blob/2a58aaf9d84c02f3deb9947b777e9e169849a7a3/docs/respondent-sessions-proposal.md)** (merged as a draft at 2a58aaf9). The [slice 0 inventory](evidence/interpreter-c4-l0182/slice0-inventory.md) showed that a copied literal session isn't evidence of the respondent.
 - **Submission compares full principals** (decision 3): the respondent principal comes from the console's `respondent-authority` lookup, which C4 alone consumes; the caller principal is built from the verified user token plus installation and workspace fields attested by a trusted frontend. Item authority is no longer the submission check, and stays as it is for C5.
 - **Attestation** reaches the submission check through trusted frontend calls, including before I-2 is available (decision 3).
 - **A claim or transfer racing a submission:** the authority revision that applies, and the semantics that remain unresolved, are stated (decision 7).
@@ -48,7 +48,7 @@
   - Nothing records a draw durably. The survey data hasn't changed since 2026-09-22 (`4f12559a`).
 - **The manifest is ready:** `packages/common/src/interpreter-manifest.ts` validates a `getOrCreate` declaration. No language declares it, and the api doesn't act on it.
 - **The stage cache never holds a `private` result:** `sharable` admits only `immutable` and `shared` (`packages/api/src/interpret.js:97`).
-- **The api calls `/interpret` with `{ model, input, mode, auth, options }`** (`packages/api/src/comp.js:38`). `Dialect::interpret(model, input, mode)` can't receive anything else, or ask for anything.
+- **The api calls `/interpret` with `{ model, input, mode, auth, options }`** (`packages/api/src/comp.js:38`), without an assignment table today. Generic kernel slice 1 now provides `interpret_assigned` and `needsAssignment`; the API exchange and L0182 integration remain unimplemented.
 - **`l0182r` has no store and no credentials** (`l0182r-run` holds no roles). Policy's item authority (`packages/policy/src/item-authority.ts`) can say who owns a console item.
 
 ## 2. Decisions
@@ -95,12 +95,14 @@
      - **`uid`** comes from the verified user token, as today.
      - **`installation` and `workspace`** come only as **attested fields** on the frontend's own service-authenticated call to the api. The frontend (console server, MCP server) proves its identity with `X-Caller-Identity`, a Google ID token for its service account, verified by the api. A free-plan workspace is attested only after the frontend has verified the caller's signed workspace token (`graffiticode-app` `packages/core/src/lib/free-plan-session-token.ts`).
      - The api accepts these fields only from a registered frontend identity, and never from a request body, a user token, the shared uid or the program.
-     - The api passes the resulting caller principal to `assignments.submit`, the one place it is compared.
+     - On both `/compile` and `/data`, ingress constructs an immutable caller context. The route passes it through `getData` and pipeline/stage interpretation to `assignments.submit`; it is not reconstructed from the language's request or result. The frontend strips client-supplied attestation metadata before constructing its outbound call. The transport field names/schema remain part of the API/frontend protocol review; no existing public body field is promoted to trusted metadata.
+     - The user token and frontend service identity are verified independently, with the service token's API audience checked as well as the frontend allowlist. The shared trial uid must match the configured free-plan account. A normal direct user-token-only request can identify its user within the existing Graffiticode boundary, but cannot attest a workspace. A supplied invalid service identity is refused rather than treated as absent.
    - **Before I-2 is available:**
      - the installation is `graffiticode` (I-3: absent means Graffiticode);
      - "registered frontend" means a fixed allowlist of the console's and the MCP server's service accounts in the api's configuration (`L0182_ATTESTING_FRONTENDS`);
      - the workspace attestation is still required: a free-plan caller with no attested workspace can't submit (temporary `respondent-unattested`), and is never matched by uid;
      - once I-2 ships, the allowlist is replaced by the installation registry, and the installation comes from it.
+     - C4 is Graffiticode-only until installation-specific respondent endpoints and assignment namespaces are reviewed. The identity pair `(survey, session)` does not authorize sharing records between installations. This attestation work does not require or activate Track N's public-fetch enforcement.
    - **A response from anyone else is a read, not a submission.** It is interpreted against the current assignment and served, and nothing is frozen.
    - **Answering paths:** slice 0 audited them in code, and the respondent-sessions proposal sets their session rules. Whether each path's frontend attests the workspace and installation is checked in the api slice's tests (§5), not assumed.
    - **Sessionless identities and historical copies:** their handling stays **proposed**, and isn't reclassified here.
@@ -121,17 +123,17 @@
    - **Outcomes:**
      - **Committed,** or every record already frozen with the same version and digest (an idempotent retry): the result is served.
      - **A record changed** after the interpret read it (a concurrent reassignment or freeze): the api runs the stage again from the get-or-create, at most 3 times, then fails it with the temporary `assignment-contended`. The result is not served.
-     - **Respondent authority unavailable,** an attestation that can't be verified, or Firestore unavailable: the temporary `respondent-authority-unavailable`, `respondent-unattested` or `assignment-unavailable`. The result is not served, and the caller retries. There is never an unfrozen success for an owner's submission.
+     - **Respondent authority unavailable,** required attestation unavailable, or Firestore unavailable: the temporary `respondent-authority-unavailable`, `respondent-unattested` or `assignment-unavailable`. The result is not served, and the caller retries. Invalid credentials or forged attestations are refused at ingress; verification-service outages remain temporary. There is never an unfrozen success for an authorized principal's submission.
      - **The caller may not submit:** served as a read (decision 3), with nothing frozen.
-   - **A claim or transfer racing a submission.** The respondent-authority answer carries the binding's `revision` (0 when there is no binding). The freeze records the revision it was checked against: `authority: { principal, revision }`.
-     - **What applies:** the revision read immediately before the freeze transaction, and only if it is still current. The check and the freeze are not atomic today: bindings live in the console's Firestore (`graffiticode-app`), and assignments in the api's (`graffiticode`), so no single transaction covers both.
+   - **A claim or transfer racing a submission.** An attempt captures the full principal, installation, session, source item and the binding's `revision` n. The freeze retains this authority evidence and the original submitter; a later claim does not rewrite that attribution or the retained model. An unbound lookup needs the unique source item's version and an observed absence of a binding. Calling that absence revision 0 is not a version of the derived item authority; its first-binding/source-change fence is an unresolved part of the route contract.
+     - **What applies is unresolved:** the selected option below must define when revision n authorizes the attempt. A pre-freeze lookup alone cannot promise that n is still current at commit. Bindings live in the console's Firestore (`graffiticode-app`), and assignments in the api's (`graffiticode`), so no single transaction covers both today. Two HTTP checks around the freeze do not create one.
      - **The window:** a rebinding that commits after the read and before the freeze could let the **previous** principal freeze. Because a continuation carries the same response, and the frozen record keeps the same assignment and survey model, the answers aren't lost. But authority over the freeze would be decided by a superseded revision.
      - **Unresolved; the owner decides before the api slice:**
-       - **(a) Authority as of the check.** Accept the window. Re-read after commit, and log and flag any freeze whose recorded revision was superseded before it committed. It is the smallest change, but it is not linearizable.
-       - **(b) A fence held by the api.** A rebinding first takes a short lease on session S in the api's store (submissions for S refused while held), commits the binding, then releases the lease. The freeze transaction reads the lease. This adds a cross-system protocol and a failure mode (an abandoned lease).
-       - **(c) Bindings stored where the freeze happens.** The console writes bindings through an api route into the api's Firestore, so the freeze transaction reads the binding and its revision atomically. This is linearizable, but it moves the proposal's storage.
+       - **(a) Authority as of the check.** Explicitly admit an attempt under n for a bounded lifetime, even if a later rebind precedes its freeze. Bind that admission to its principal, installation, session and task/input. A post-commit re-read can flag a changed revision; that observation alone does not establish which commit came first and does not undo a freeze. The audit's ordering evidence, deadline and retry semantics still need design. This option permits an old principal's admitted work after a transfer; the owner must accept that behavior explicitly.
+       - **(b) A fence held by the api.** A rebinding first takes a fence on S in the api's store, commits the binding, then releases it; the freeze reads the fence. The coordinated protocol must cover first binding, crashes, abandoned fences and late writers. Expiry cannot reopen submissions while a delayed rebinding can still commit. A short lease alone is not that proof.
+       - **(c) Bindings stored where the freeze happens.** An authenticated continuation route writes the binding in the api's Firestore, so a freeze reading that record can be atomic with a binding change. This addresses binding/freeze ordering, but does not make the entire claim atomic: the source's read-only state, destination item, immutable operation result and history are currently console-project writes. Specify their coordinated commit/recovery and replay behavior, which store is authoritative, how the console's respondent-authority route reads it without a stale mirror, and how unbound item-derived authority is versioned or registered. The merged console proposal must be aligned before implementation; moving only the binding is not a complete continuation protocol.
 
-       Proposed: (c), with (a)'s audit kept as a check. Until decided, the api slice isn't implemented.
+       Proposed: (c), retaining an audit, subject to that protocol review and the owner's choice. None is selected. Tests must cover freeze before rebind, rebind before freeze, first binding, multi-session authority changes, retries and crash recovery. Only the chosen semantics determine whether an overlapping old-principal attempt may complete. The api slice waits for the choice and the reviewed protocol.
    - **From then on,** a frozen record never changes. If the current candidates still include its digest, the language uses that content. If not, the api passes the retained content in the table.
    - **How long:** answers are task code, and tasks are kept forever, so retained models are kept forever. (Owner to confirm.)
 8. **L0182 results are never cached.** *(Follows from the review.)*
@@ -146,19 +148,21 @@
       - an output record is matched to a program occurrence only when the match is unique (the literal `id` and `session-id` of exactly one occurrence fit it);
       - **unrecoverable:** an occurrence whose survey doesn't appear in the output (consumed by a computation, or dropped by `PROG` taking the last expression), whose `id` or `session-id` isn't a literal, or whose match is ambiguous. Such an identity is **unresolved**, never guessed.
     - **Chronology from records that keep it.** `lastCompile` moves on every cache read (`compileGet`) and `firstCompile` survives a refresh, so neither says when the stored output was produced. The backfill orders evidence only by the console's version history `createdAt` (when the owner saved that task to the item). Where several pieces of evidence for one identity disagree and the history can't order them, the identity is unresolved. `lastCompile` is used only to **find** documents that may have changed since a pass (the catch-up's selector), never as a time.
-    - **Authority before submission: recorded evidence only.** Current respondent authority (a binding, or the item owner) says who may submit **now**. It does **not** prove who submitted a historical answer: stored compiles record no caller (slice 0, limitation 1). So a historical response counts as a **submission** only with **recorded evidence**, as before:
-      - the session's item has a single, unambiguous holder;
-      - the console recorded that task in that holder's own history: `users/<uid>/versions/<session>__<taskId>` exists;
-      - and the holder is consistent with current respondent authority. A binding made after the answer doesn't make it the binder's submission.
+    - **Authority before submission: recorded evidence only.** Current respondent authority (a binding, or the item owner) says who may submit **now**. It does **not** prove who submitted a historical answer: stored compiles record no caller (slice 0, limitation 1). Preserve these evidence checks and report their results separately:
+      - whether the session's item has a single, unambiguous holder;
+      - whether the console recorded that task in that holder's history: `users/<uid>/versions/<session>__<taskId>`;
+      - current respondent authority and any recorded continuation chain. A later claim can change the current principal without changing a previously demonstrated submitter; it does not make the earlier answer the claimant's submission.
 
-      Everything else is a draw, not a submission, or unresolved where the evidence disagrees:
+      These are provenance checks, **not sufficient proof of a historical caller or submission**, even when all three agree. A historical submission needs contemporaneous server evidence tying the error-free response's task/session to a verified principal and its then-valid authority, or an explicit audited migration decision that retains the operator's attribution separately. A workspace is required for a free-plan principal. No current binding or shared uid fills that gap.
+
+      Report authority gaps, including:
       - free-plan answers, since no workspace was ever recorded with an answer;
       - historical copies;
       - sessionless responses;
       - answers whose task isn't in any history.
 
-      These **gaps are left to the migration decision**: the plan doesn't fill them with present-day authority. Slice 0 found recorded evidence for 1 of 537 answered keyed tasks.
-    - **Rule per identity:**
+      These **gaps are left to the migration decision**. Do not automatically label missing caller evidence as an unauthorized draw, freeze it, reset its assignment, synthesize a session/binding, or quarantine an otherwise recoverable identity. Preserve saved-output/version evidence and the existing extraction classification for review. Technical unrecoverability still follows the proposed rules below. Slice 0 found an owner-version-history **match** for 1 of 537 answered keyed tasks; that is not a demonstrated historical submitter. Its exclusion of L0182 below another chain's head also remains a coverage limit.
+    - **Rule per identity, conditional on the owner's evidence/migration choice:** an unproven historical caller cannot silently enter the "no authorized submission" branch. The rules below apply only after that gap has been decided explicitly:
       - **every authorized submission shows one version:** that version, **frozen**, with content retained from the current data (unchanged since 2026-09-22; evidence that may predate it is listed for review instead);
       - **no authorized submission, and every demonstrated draw shows one version:** that version, **not frozen**, so what the respondent saw doesn't change at cutover;
       - **no authorized submission, and draws that disagree:** the version of the latest **owner-saved** task by version history, not frozen; if the history can't order them, unresolved;
@@ -207,14 +211,15 @@
     - Turning the flag back on needs a new catch-up over the legacy window since rollback, with the same reconciling step, because answers given under `rust-2` aren't in the store.
 12. **An isolated canary namespace.** *(Proposed.)*
     - **Why:** while production is fenced in `reconciling`, the staged revision can't create or submit there. Yet creation, owner submission and non-owner refusal must be exercised on that revision **before** it is promoted.
-    - **How:** the api routes a fixed set of identities to separate collections (`l0182-canary-assignments`, `-draw-cycles`, `-survey-models`, `-cutover`), with their own cutover state, set to `done` from the start. The set is the sessions named in `L0182_CANARY_SESSIONS`, api configuration in `deploy.json`: test items owned by the canary account, one private and one public. A program's text can't choose a namespace. A stranger naming a canary session only reaches the isolated canary records, where the owner-only freeze still applies.
-    - **Non-owner checks** use the verify account (a second signed-in account with no connections).
+    - **How:** the api routes a fixed set of identities to separate collections (`l0182-canary-assignments`, `-draw-cycles`, `-survey-models`, `-cutover`), with their own cutover state, set to `done` from the start. The set is the sessions named in `L0182_CANARY_SESSIONS`, api configuration in `deploy.json`: canary-owned private/public items and fixed test sessions for two isolated free-plan workspaces. A program's text can't choose a namespace. A stranger naming a canary session only reaches isolated records, where full-principal checks still apply.
+    - **Other-principal checks** use the verify account (a second signed-in account with no connections) and workspaces A/B with the same trial uid. Staged calls exercise real verified frontend attestations; mocks are emulator fixtures only.
+    - API canary collections do not automatically isolate the console's binding and operation records. Staged claim/transfer tests may touch only the configured canary-owned items/bindings, with a separately approved staged continuation path. No production user's response is claimed or transferred by a canary.
     - The canary sessions stay in the canary namespace after promotion, so the scheduled canary never writes production records.
 
 ## 3. The kernel (`languages/l0000/crates`)
 
-- **`/interpret` accepts an optional `assignments` table** (identity → assigned `{ instance, digest, content? }`), which reaches `Dialect::interpret` as a new argument.
-- **A dialect may answer `needsAssignment`** instead of a result: a `Compilation` variant carrying the requests, written by the server as `{ status: 200, needsAssignment: [...] }`. A dialect that never uses it produces byte-identical envelopes.
+- **Merged in generic kernel slice 1:** `/interpret` accepts an optional `assignments` table (identity → assigned `{ instance, digest, content? }`), which reaches `Dialect::interpret_assigned` and the evaluator. The API/L0182 integration remains proposed.
+- **A dialect may answer `needsAssignment`** instead of a result: `Compilation.needs_assignment` carries the requests, written by the server as `{ status: 200, needsAssignment: [...] }`. A dialect that never uses it produces byte-identical envelopes.
 - **A `pending` value, and suspension** (decision 1). The evaluator gains `Value::Pending`, produced only by a dialect. Structural operations (building a list or record, binding a name) carry it unchanged. Every other operation that receives it, including `if`, `case`, `map`, `filter`, `reduce`, comparisons, arithmetic, string and record lookups, and a dialect's own words, returns `pending` without running its body or branches. A result containing `pending` is never written as data: the server answers `needsAssignment`, or, if the dialect raised no request, an internal error, which a test forbids.
 - **`/compile` is untouched.**
 - **Tests:**
@@ -246,7 +251,7 @@
 - **The manifest (v11):** declare `0182` (decision 8). It stays inert until the flag is on.
 - **`packages/api/src/assignments.js`** (new), used by `interpret.js` for any declaration with `getOrCreate`, never by language number:
   - **`resolve(requests, { authority, taskId })`:** one transaction over the namespace's cutover state, the task's quarantine, the identities' records and the draw cycles they touch. A quarantined task fails `assignment-under-review` before anything else is read or written. A frozen record is returned with retained content when needed. A valid unfrozen one is returned, or updated if the state is `done` (decision 6). An unresolved one fails `assignment-under-review`. A missing one is created only if the state is `done`; otherwise `assignment-reconciling`. An identity with zero candidates follows decision 2.
-  - **`submit(identities, { taskId, caller, used })`:** the freeze of decision 7, one transaction, all or nothing, which also reads the cutover state and refuses unless it is `done`. `caller` is the full principal (decision 3); each identity's respondent principal and revision are read immediately before, and recorded in the freeze. The race semantics follow the owner's choice in decision 7.
+  - **`submit(identities, { taskId, caller, used })`:** the freeze of decision 7, one transaction, all or nothing, which also reads the cutover state and refuses unless it is `done`. `caller` is the full principal (decision 3); each identity's authority basis and revision are captured and recorded under the selected decision 7 protocol. In option (c), the binding/revision must also be read and checked inside the freeze transaction; an earlier HTTP lookup alone is insufficient. No option is implemented or selected here.
   - **`respondentAuthority(session)`:** the client for the console's `respondent-authority` route, called as the api's own identity (the route's caller allowlist names it), with a timeout; unavailable → temporary.
   - **The namespace** (production or canary, decision 12) is chosen from the identity's session and the api's configuration, before any read.
   - **`retained(digest)`.**
@@ -267,8 +272,12 @@
     - an attestation from a service account not in the allowlist is refused;
     - `unknown` and `ambiguous` respondent authority make the response a read;
     - item authority and C5 capture decisions are unchanged;
-  - **a claimed session keeps its submitter:** after a rebinding of S to principal P, P can submit for S, and the previous principal can't;
+  - **claim continuation:** after a rebinding of S to principal P, P can submit for S and the previous principal cannot begin a new authorized attempt. An already admitted overlapping attempt follows the still-open decision 7 semantics;
+  - a freeze made before a claim retains its original submitter, authority evidence and model after the claim; the new principal's eligibility does not rewrite history;
   - **a claim or transfer racing a submission:** under the chosen semantics (decision 7), the freeze records the revision it applied, and a rebinding committed between check and freeze is either excluded (c), fenced (b), or flagged in the audit (a);
+  - first binding after an unbound lookup, a source-item authority change, and a change between two sessions' checks obey the selected ordering; test its crashes, retries and expiry/recovery rather than assuming revision 0 or a short lease is sufficient;
+  - a holder/history match plus current authority, with no recorded historical caller, produces an authority-gap report, not an inferred submission or automatic draw classification; a later binding never fills it;
+  - historical copies and sessionless outputs retain their extraction evidence for the migration decision; this alignment adds no session, binding, fresh draw or automatic classification;
   - a record changed between interpret and freeze → retried, then `assignment-contended`; never a served, unfrozen submission;
   - a retained model that exists with different bytes fails the freeze;
   - a removed version reassigns when unfrozen and serves retained content when frozen, for a bare id and a named version;
@@ -305,8 +314,11 @@ Every step is a separate approval. Nothing below is approved by this plan.
    - **In the canary namespace** (state `done`, decision 12), the paths that write:
      - two concurrent first reads of a new identity get one version, and a re-read returns it;
      - a program with two surveys and two sessions gets one record per identity;
-     - the owner's response (a new task, same item) freezes before the answer returns, and the record shows it;
-     - a non-owner's response, on the private and on the public test item, is served and freezes nothing;
+     - the current respondent principal's response (a new task, same session) freezes before the answer returns, with its full principal, installation and selected authority evidence recorded;
+     - a different principal's response, on the private and on the public test item, is served and freezes nothing;
+     - attested workspace A can submit for A but not B, despite their common uid; missing attestation cannot submit, and forged metadata or an unlisted frontend is refused;
+     - a canary claim keeps S in destination item T; the new principal can submit, the previous one cannot begin another authorized attempt, and a prior freeze's attribution is unchanged;
+     - the separately approved staged continuation path exercises the chosen rebind/freeze ordering, including first binding. Until the choice and protocol are reviewed, this case and API activation remain unapproved;
      - a named-version submission creates a frozen record with its retained model;
      - a conditional on a survey's content requests only the branch taken.
    - **In production** (fenced):
@@ -357,8 +369,8 @@ The network-authorization workstream (`docs/network-authorization-plan.md`, prop
 
 - **An answering path whose frontend doesn't attest** the workspace or installation can't submit for free-plan or non-Graffiticode respondents until it does (decision 3).
 - **The race between a rebinding and a submission** stays open until the owner chooses (decision 7). The api slice waits for that choice.
-- **Historical answers without recorded evidence** stay draws or unresolved, and are left to the migration decision (decision 10).
-- **Gaps in the console's version history** turn real historical answers into draws, which are not frozen. Slice 0 measures them. A gap the owner can't accept needs another source of authority before backfill.
+- **Historical authority gaps** remain for the migration decision (decision 10). Holder/history matches are save provenance, not caller proof, and missing evidence does not automatically turn an answer into a draw or select a new classification.
+- **Gaps in the console's version history** need recorded evidence or an explicit audited decision before backfill can classify them. Current authority and later claims cannot repair missing historical caller identity.
 - **Unresolved records** block their items with `assignment-under-review` until the owner decides them.
 - **The reconciling window** refuses every L0182 write, new sessions and submissions alike, with a retryable error from staging until the final catch-up after the drain: at least the 300 s drain plus the catch-up and its review. Staging and promotion should be close together, and announced if the window will be long.
 - **Unrecoverable history.** Programs whose surveys don't appear in their saved output, or whose occurrences can't be matched uniquely, become unresolved, or quarantine their task when no identity can be named. Either way they block until the owner decides. Slice 0 measures how many.
