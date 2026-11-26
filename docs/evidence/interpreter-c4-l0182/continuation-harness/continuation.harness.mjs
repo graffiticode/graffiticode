@@ -410,17 +410,65 @@ describe("§9: multi-item claims", () => {
       { session: "x1", source: "x1", sourceVersion: 1, expectedRevision: 0 },
       { session: "x2", source: "x2", sourceVersion: 1, expectedRevision: 0 },
     ];
-    const claim = await startClaim(stores, { claimId: "c1", sources });
-    await expect(runClaim(stores, claim, { caller: WS_A, destPrincipal: P, crash: { "c1:x2": "C2" } })).rejects.toBeInstanceOf(Crash);
+    const claim = await startClaim(stores, { claimId: "c1", sources, caller: WS_A, destPrincipal: P });
+    await expect(runClaim(stores, claim, { crash: { "c1:x2": "C2" } })).rejects.toBeInstanceOf(Crash);
     await createItem(stores.console, { id: "x3", owner: WS_A });
-    const again = await startClaim(stores, { claimId: "c1", sources: [...sources, { session: "x3", source: "x3", sourceVersion: 1, expectedRevision: 0 }] });
+    const again = await startClaim(stores, {
+      claimId: "c1",
+      sources: [...sources, { session: "x3", source: "x3", sourceVersion: 1, expectedRevision: 0 }],
+      caller: WS_A,
+      destPrincipal: P,
+    });
     expect(again.children.map(c => c.opId)).toEqual(["c1:x1", "c1:x2"]);
-    const results = await runClaim(stores, again, { caller: WS_A, destPrincipal: P });
+    const results = await runClaim(stores, again);
     expect(results.map(r => r.opId)).toEqual(["c1:x1", "c1:x2"]);
     expect(await readHistory(stores.api, "x1")).toHaveLength(1);
     expect(await readHistory(stores.api, "x2")).toHaveLength(1);
     expect((await readItem(stores.console, "x3")).state).toBe("open");
     expect(await drainCounts(stores)).toEqual(zeroCounts);
+  });
+});
+
+describe("regression: claims bind their caller and destination, and record refused children", () => {
+  it("a replay naming a different caller or destination is refused", async () => {
+    const stores = await setup("claim-binding");
+    const sources = [{ session: "x1", source: "x1", sourceVersion: 1, expectedRevision: 0 }];
+    await startClaim(stores, { claimId: "c1", sources, caller: WS_A, destPrincipal: P });
+    await refusedWith(startClaim(stores, { claimId: "c1", sources, caller: WS_B, destPrincipal: P }), "claim-mismatch");
+    await refusedWith(startClaim(stores, { claimId: "c1", sources, caller: WS_A, destPrincipal: Q }), "claim-mismatch");
+    await startClaim(stores, { claimId: "c1", sources, caller: WS_A, destPrincipal: P });
+  });
+  it("a child that can't prove authority is cancelled and recorded; the others proceed, and a replay doesn't retry it", async () => {
+    const stores = await setup("claim-refused");
+    await createItem(stores.console, { id: "x2", owner: WS_B }); // not the claimer's
+    await createItem(stores.console, { id: "x3", owner: WS_A });
+    const sources = ["x1", "x2", "x3"].map(x => ({ session: x, source: x, sourceVersion: 1, expectedRevision: 0 }));
+    const claim = await startClaim(stores, { claimId: "c1", sources, caller: WS_A, destPrincipal: P });
+    const results = await runClaim(stores, claim);
+    expect(results.map(r => r.refused ?? "completed")).toEqual(["completed", "not-respondent", "completed"]);
+    expect((await readBinding(stores.api, "x1")).active.principal).toEqual(P);
+    expect((await readBinding(stores.api, "x3")).active.principal).toEqual(P);
+    expect(await readBinding(stores.api, "x2")).toBeNull();
+    expect((await readOp(stores.api, "c1:x2")).state).toBe("cancelled");
+    expect((await readItem(stores.console, "x2")).state).toBe("open");
+    const replay = await runClaim(stores, claim);
+    expect(replay.map(r => r.refused ?? "completed")).toEqual(["completed", "not-respondent", "completed"]);
+    expect(await readHistory(stores.api, "x1")).toHaveLength(1);
+    expect(await drainCounts(stores)).toEqual(zeroCounts);
+  });
+});
+
+describe("regression: the current respondent may submit an already-frozen assignment", () => {
+  it("after a transfer the new respondent submits, and the original attribution is kept", async () => {
+    const stores = await setup("frozen-transfer");
+    const a = await runChild(stores, claimRequest("op-a"));
+    await submit(stores.api, { sessions: ["x1"], caller: P, submitter: "p", taskId: "t1" });
+    const frozen = (await readAssignment(stores.api, "x1")).frozen;
+    expect(frozen).toEqual({ principal: P, revision: 1, submitter: "p", taskId: "t1" });
+    await runChild(stores, { opId: "op-b", session: "x1", source: a.T, sourceVersion: 1, expectedRevision: 1, caller: P, destPrincipal: Q });
+    await submit(stores.api, { sessions: ["x1"], caller: Q, submitter: "q", taskId: "t2" });
+    expect((await readAssignment(stores.api, "x1")).frozen).toEqual(frozen);
+    await refusedWith(submit(stores.api, { sessions: ["x1"], caller: P, submitter: "p", taskId: "t3" }), "not-respondent");
   });
 });
 

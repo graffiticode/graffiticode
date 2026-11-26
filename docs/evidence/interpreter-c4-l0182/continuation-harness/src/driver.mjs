@@ -7,6 +7,7 @@
 // store between transactions, as the real services would over an
 // authenticated call.
 
+import { FieldPath } from "@google-cloud/firestore";
 import {
   ProtocolError,
   activate,
@@ -18,6 +19,7 @@ import {
   finalize,
   readOp,
   register,
+  samePrincipal,
   unlock,
 } from "./protocol.mjs";
 
@@ -63,33 +65,75 @@ export async function cancelChild({ api, console: con }, opId) {
 // A multi-item claim. The parent record fixes the source set and the stable
 // child operation ids once; a retry resumes that same set, reuses completed
 // children, and never discovers newly added sources or mints different ids.
-export async function startClaim({ console: con }, { claimId, sources }) {
+// The parent also binds the claim's caller and destination principal at
+// creation: a replay naming a different caller or destination is refused.
+export async function startClaim({ console: con }, { claimId, sources, caller, destPrincipal }) {
   const ref = con.doc("claims", claimId);
   return con.run(async tx => {
     const snap = await tx.get(ref);
-    if (snap.exists) return snap.data();
+    if (snap.exists) {
+      const claim = snap.data();
+      if (!samePrincipal(claim.caller, caller) || !samePrincipal(claim.destPrincipal, destPrincipal)) {
+        throw new ProtocolError("claim-mismatch");
+      }
+      return claim;
+    }
     const claim = {
       claimId,
+      caller,
+      destPrincipal,
       children: sources.map(s => ({ ...s, opId: `${claimId}:${s.source}` })),
+      outcomes: {},
     };
     tx.create(ref, claim);
     return claim;
   });
 }
 
-export async function runClaim(stores, claim, { caller, destPrincipal, crash = {} } = {}) {
+// Records one child's terminal outcome on the parent, once.
+async function recordOutcome(con, claimId, opId, outcome) {
+  const ref = con.doc("claims", claimId);
+  return con.run(async tx => {
+    const claim = (await tx.get(ref)).data();
+    if (claim.outcomes?.[opId]) return claim.outcomes[opId];
+    tx.update(ref, new FieldPath("outcomes", opId), outcome);
+    return outcome;
+  });
+}
+
+// Runs every child of a claim with the caller and destination bound at its
+// creation. A child refused permanently (it can't prove authority over its
+// session, its source changed, ...) is cancelled, and its refusal recorded on
+// the parent, so the other children still proceed; a replay returns the
+// recorded refusal and never retries that child. Temporary refusals and
+// crashes propagate, so the claim can be resumed.
+export async function runClaim(stores, claim, { crash = {} } = {}) {
   const results = [];
   for (const child of claim.children) {
+    const recorded = (await stores.console.doc("claims", claim.claimId).get()).data().outcomes?.[child.opId];
+    if (recorded?.refused) {
+      results.push({ opId: child.opId, refused: recorded.refused });
+      continue;
+    }
     const request = {
       opId: child.opId,
       session: child.session,
       source: child.source,
       sourceVersion: child.sourceVersion,
       expectedRevision: child.expectedRevision,
-      caller,
-      destPrincipal,
+      caller: claim.caller,
+      destPrincipal: claim.destPrincipal,
     };
-    results.push(await runChild(stores, request, { crashAfter: crash[child.opId] }));
+    try {
+      results.push(await runChild(stores, request, { crashAfter: crash[child.opId] }));
+    } catch (err) {
+      if (!(err instanceof ProtocolError) || err.temporary) throw err;
+      const op = await readOp(stores.api, child.opId);
+      if (op && op.state !== "completed") await cancelChild(stores, child.opId);
+      if (op?.state === "completed") throw err; // past the point of no return: roll forward instead
+      await recordOutcome(stores.console, claim.claimId, child.opId, { refused: err.code });
+      results.push({ opId: child.opId, refused: err.code });
+    }
   }
   return results;
 }

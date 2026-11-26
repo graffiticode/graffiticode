@@ -147,7 +147,7 @@ export async function register(api, request) {
       if (op.digest !== digest) refuse("operation-mismatch");
       return op;
     }
-    if (barrier.data()?.state !== "open") refuse("barrier-closed");
+    if (barrier.data()?.state !== "open") refuse("barrier-closed", { temporary: true });
     const active = bindingSnap.data()?.active ?? null;
     if (active) {
       if (expectedRevision !== active.revision) refuse("revision-changed");
@@ -394,11 +394,10 @@ export async function submit(api, { sessions, caller, submitter, taskId, derived
       else if (derived[S]?.principal) authority = { principal: derived[S].principal, revision: 0 };
       else refuse("respondent-unknown", { detail: S });
       if (!samePrincipal(caller, authority.principal)) refuse("not-respondent", { detail: S });
-      const existing = assignments[i].data()?.frozen;
-      if (existing) {
-        if (existing.revision === authority.revision && samePrincipal(existing.principal, authority.principal)) return;
-        refuse("already-frozen", { detail: S });
-      }
+      // An assignment frozen earlier keeps its original attribution (I2). The
+      // CURRENT respondent (checked above) may still submit against it, for
+      // example after a transfer; nothing is rewritten.
+      if (assignments[i].data()?.frozen) return;
       freezes.push({ S, frozen: { principal: authority.principal, revision: authority.revision, submitter, taskId } });
     });
     for (const { S, frozen } of freezes) tx.set(API.assignment(api, S), { session: S, frozen });
