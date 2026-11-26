@@ -336,7 +336,10 @@ export async function unlock(con, apiOp) {
 // tombstone (created even if C1 never ran) and reverts only locks carrying
 // THIS opId, in one console transaction.
 
-export async function cancelApi(api, opId) {
+// `reason`, when given, is stored atomically with the cancellation, so a
+// replay or an overlapping resumption can recover WHY the operation was
+// cancelled. The first reason recorded wins; a later cancel never replaces it.
+export async function cancelApi(api, opId, { reason = null } = {}) {
   return api.run(async tx => {
     const opRef = API.op(api, opId);
     const op = (await tx.get(opRef)).data();
@@ -345,9 +348,9 @@ export async function cancelApi(api, opId) {
     const binding = (await tx.get(bRef)).data();
     if (op.state === "cancelled") return op;
     if (op.state === "completed") refuse("past-point-of-no-return");
-    tx.update(opRef, { state: "cancelled" });
+    tx.update(opRef, { state: "cancelled", cancelReason: reason });
     if (binding?.prepared?.opId === opId) tx.update(bRef, { prepared: null });
-    return { ...op, state: "cancelled" };
+    return { ...op, state: "cancelled", cancelReason: reason };
   });
 }
 

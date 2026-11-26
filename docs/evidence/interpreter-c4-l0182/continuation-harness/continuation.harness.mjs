@@ -33,7 +33,7 @@ import {
   submit,
   unlock,
 } from "./src/protocol.mjs";
-import { Crash, STEPS, cancelChild, runChild, runClaim, startClaim } from "./src/driver.mjs";
+import { Crash, STEPS, cancelChild, runChild, runClaim, settleRefusal, startClaim } from "./src/driver.mjs";
 
 afterAll(closeStores);
 
@@ -455,6 +455,39 @@ describe("regression: claims bind their caller and destination, and record refus
     expect(replay.map(r => r.refused ?? "completed")).toEqual(["completed", "not-respondent", "completed"]);
     expect(await readHistory(stores.api, "x1")).toHaveLength(1);
     expect(await drainCounts(stores)).toEqual(zeroCounts);
+  });
+});
+
+describe("regression: a refused child's reason survives crashes and overlapping resumptions", () => {
+  const sources = ["x1", "x2"].map(x => ({ session: x, source: x, sourceVersion: 1, expectedRevision: 0 }));
+  async function claimWithForeignChild(label) {
+    const stores = await setup(label);
+    await createItem(stores.console, { id: "x2", owner: WS_B });
+    const claim = await startClaim(stores, { claimId: "c1", sources, caller: WS_A, destPrincipal: P });
+    return { stores, claim };
+  }
+  it("a crash after the console tombstone, before the parent records the outcome, replays as not-respondent", async () => {
+    const { stores, claim } = await claimWithForeignChild("refusal-crash");
+    await expect(runClaim(stores, claim, { crashAfterTombstone: { "c1:x2": true } })).rejects.toBeInstanceOf(Crash);
+    expect((await readOp(stores.api, "c1:x2")).cancelReason).toBe("not-respondent");
+    const replay = await runClaim(stores, claim);
+    expect(replay.map(r => r.refused ?? "completed")).toEqual(["completed", "not-respondent"]);
+    expect(await drainCounts(stores)).toEqual(zeroCounts);
+  });
+  it("an overlapping resumption reports the outcome actually recorded, not its own", async () => {
+    const { stores, claim } = await claimWithForeignChild("refusal-overlap");
+    const first = await runClaim(stores, claim); // records not-respondent
+    expect(first[1].refused).toBe("not-respondent");
+    // A second resumption that met the child only as "cancelled".
+    const late = await settleRefusal(stores, claim, "c1:x2", "cancelled");
+    expect(late.refused).toBe("not-respondent");
+  });
+  it("two concurrent resumptions return the same outcome for the child", async () => {
+    const { stores, claim } = await claimWithForeignChild("refusal-concurrent");
+    const [a, b] = await Promise.all([runClaim(stores, claim), runClaim(stores, claim)]);
+    expect(a[1]).toEqual({ opId: "c1:x2", refused: "not-respondent" });
+    expect(b[1]).toEqual(a[1]);
+    expect(await readHistory(stores.api, "x1")).toHaveLength(1);
   });
 });
 

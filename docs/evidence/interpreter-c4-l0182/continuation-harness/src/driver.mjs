@@ -57,8 +57,8 @@ export async function runChild({ api, console: con }, request, { crashAfter } = 
 
 // Cancels a child: the api half (which loses to a committed C4), then the
 // console half with the api's terminal evidence.
-export async function cancelChild({ api, console: con }, opId) {
-  await cancelApi(api, opId);
+export async function cancelChild({ api, console: con }, opId, { reason } = {}) {
+  await cancelApi(api, opId, { reason });
   return cancelConsole(con, await readOp(api, opId));
 }
 
@@ -90,7 +90,9 @@ export async function startClaim({ console: con }, { claimId, sources, caller, d
   });
 }
 
-// Records one child's terminal outcome on the parent, once.
+// Records one child's terminal outcome on the parent, once, and returns the
+// outcome actually recorded: an overlapping resumption that recorded first
+// wins, and every caller then reports that same outcome.
 async function recordOutcome(con, claimId, opId, outcome) {
   const ref = con.doc("claims", claimId);
   return con.run(async tx => {
@@ -101,18 +103,39 @@ async function recordOutcome(con, claimId, opId, outcome) {
   });
 }
 
+// Settles a child the api has cancelled, or is about to: the reason is
+// stored with the api cancellation (first reason wins), the console tombstone
+// is written, and the parent records the outcome. Each step is idempotent, so
+// a crash anywhere in between is repaired by running this again, and the
+// reason survives because it lives on the api operation, not in memory.
+export async function settleRefusal(stores, claim, opId, reason, { crashAfterTombstone = false } = {}) {
+  await cancelApi(stores.api, opId, { reason });
+  const op = await readOp(stores.api, opId);
+  await cancelConsole(stores.console, op);
+  if (crashAfterTombstone) throw new Crash("tombstone");
+  const recorded = await recordOutcome(stores.console, claim.claimId, opId, { refused: op.cancelReason ?? reason });
+  return { opId, refused: recorded.refused };
+}
+
 // Runs every child of a claim with the caller and destination bound at its
 // creation. A child refused permanently (it can't prove authority over its
-// session, its source changed, ...) is cancelled, and its refusal recorded on
-// the parent, so the other children still proceed; a replay returns the
-// recorded refusal and never retries that child. Temporary refusals and
-// crashes propagate, so the claim can be resumed.
-export async function runClaim(stores, claim, { crash = {} } = {}) {
+// session, its source changed, ...) is cancelled with its reason, and the
+// refusal recorded on the parent, so the other children still proceed. A
+// replay returns the recorded refusal, or recovers it from the api
+// operation's stored reason, and never retries that child. Temporary
+// refusals and crashes propagate, so the claim can be resumed.
+export async function runClaim(stores, claim, { crash = {}, crashAfterTombstone = {} } = {}) {
   const results = [];
   for (const child of claim.children) {
     const recorded = (await stores.console.doc("claims", claim.claimId).get()).data().outcomes?.[child.opId];
     if (recorded?.refused) {
       results.push({ opId: child.opId, refused: recorded.refused });
+      continue;
+    }
+    const existing = await readOp(stores.api, child.opId);
+    if (existing?.state === "cancelled") {
+      // Cancelled by an earlier or overlapping run: recover its reason.
+      results.push(await settleRefusal(stores, claim, child.opId, existing.cancelReason ?? "cancelled"));
       continue;
     }
     const request = {
@@ -129,10 +152,16 @@ export async function runClaim(stores, claim, { crash = {} } = {}) {
     } catch (err) {
       if (!(err instanceof ProtocolError) || err.temporary) throw err;
       const op = await readOp(stores.api, child.opId);
-      if (op && op.state !== "completed") await cancelChild(stores, child.opId);
       if (op?.state === "completed") throw err; // past the point of no return: roll forward instead
-      await recordOutcome(stores.console, claim.claimId, child.opId, { refused: err.code });
-      results.push({ opId: child.opId, refused: err.code });
+      if (!op) {
+        // Refused before C0 created anything: nothing to cancel.
+        const outcome = await recordOutcome(stores.console, claim.claimId, child.opId, { refused: err.code });
+        results.push({ opId: child.opId, refused: outcome.refused });
+        continue;
+      }
+      results.push(
+        await settleRefusal(stores, claim, child.opId, err.code, { crashAfterTombstone: crashAfterTombstone[child.opId] }),
+      );
     }
   }
   return results;
