@@ -1,6 +1,6 @@
 # C4: continuation and submission race, protocol review
 
-**Status:** review, docs only, revised after the owner's second review (2026-11-25). It selects **no** option. It works through the three options that `docs/c4-l0182-assignment-plan.md` decision 7 leaves open, so that the owner can choose one, and it lists the decisions that remain. Nothing here is implemented or approved.
+**Status:** review, docs only, revised after the owner's third review (2026-11-25). It selects **no** option. It works through the three options that `docs/c4-l0182-assignment-plan.md` decision 7 leaves open, so that the owner can choose one, and it lists the decisions that remain. Nothing here is implemented or approved.
 
 **What the first review changed:**
 1. **(b)** no longer relies on clock skew for safety. The binding becomes effective only when an api transaction confirms it under a still-held fence, so expiry can't let a delayed binding take effect.
@@ -8,6 +8,10 @@
 3. **(c)** cancellation writes a durable terminal state that makes delayed binds fail before anything is deleted. The source is checked and locked before authority can move.
 4. **Rollback** accounts for in-flight work: there are floors for freeze readers and binding writers, and outstanding operations are drained or recovered before a rollback.
 5. **L** is defined against the freeze transaction's start, with the commit time recorded. **I7** is restated so that (a)'s permitted admission is consistent with it.
+
+**What the third review changed:**
+1. **No console-side resurrection.** Cancellation persists a console tombstone for the `opId`, even when nothing was allocated. B1 and C1 read it in their transactions, so a delayed allocation after the tombstone commits is impossible (§3).
+2. **Authority is published only after verified console readiness.** B2 needs the console's *prepared* acknowledgement, and B4 and C4 its *finalized* one. Each is bound to the `opId`, epoch or revision, and the destination. The doc now separates **ready** (finalized and locked; submissions allowed) from **unlocked** (console edits allowed), and I4 is restated to match (§1, §3–§5).
 
 **What the second review changed:**
 1. **(b)** separates the established authority from the current attempt. An abandoned attempt never undoes a confirmation, and the fallback never resurrects an earlier owner. No new continuation starts while a confirmation is unfinalized, and acknowledgements must match `opId`, epoch and revision (§4).
@@ -42,7 +46,7 @@ Today C2 to C5 can be one console transaction (all in `graffiticode-app`), and S
 - **I1 (one authority).** At any moment S has exactly one respondent principal, or `unknown`/`ambiguous`, and every reader agrees on it at the same version.
 - **I2 (attribution).** A freeze records the principal and authority version that admitted it, and the submitter. Neither is ever rewritten.
 - **I3 (binding ↔ history ↔ operations).** A binding at revision k has history entries 1…k, and exactly one operation record per rebinding, whose result names the revision it wrote and the destination item.
-- **I4 (binding ↔ items).** A binding that grants authority names an existing, **active** destination item with `respondentSession = S`.
+- **I4 (binding ↔ items).** A binding that grants authority names an existing destination item T with `respondentSession = S` that is at least **ready**: its console finalize committed, so its session and program are final, though it may still be locked (`finalizing`). **Unlocked** (`active`) additionally allows console edits. Submissions through the api need ready; console edits need unlocked. Whether to publish authority only at unlock instead is an owner decision (§8).
 - **I5 (source state).** A source item is read-only if and only if a continuation from it is in progress or committed.
 - **I6 (operation records are immutable)** once in a terminal state: `completed` or `cancelled`. A replay answers from them, regardless of later rebindings.
 - **I7 (fail closed).** An outage, or state the protocol can't verify, refuses temporarily. An operation succeeds only on authority the chosen option **defines as valid** at its decision point. In (a), that includes an admission under revision n within L after a later rebinding. In (b) and (c), it never does.
@@ -89,6 +93,18 @@ Today C2 to C5 can be one console transaction (all in `graffiticode-app`), and S
 | T | `active` | yes, with `respondentSession = S` | yes | yes |
 | T | `cancelled{opId}` | no | no | tombstone; optional deletion only after the operation is terminal in both stores |
 
+**Console tombstones: no resurrection.**
+- `continuation-ops/<opId>` in the console's store is the console's record of the operation. Cancellation always **creates or overwrites** it as `cancelled`, **whether or not anything was allocated**, in the same console transaction that reverts any locks carrying this `opId`.
+- **B1 and C1 read it in their own transaction,** and refuse if it is `cancelled`.
+- So a request that registered (C0) or acquired (B0) and paused before allocating can't recreate locks once the tombstone has committed.
+- If the delayed allocation commits **before** the tombstone, it creates locks under this `opId`, and the tombstone transaction finds and reverts them.
+- After the tombstone, late writes are impossible. The drain (§6) counts an api-cancelled operation as pending until its console tombstone exists.
+
+**Console readiness acknowledgements.** The api can't read the console's store inside its transactions, so the console reports each committed phase to the api.
+- **How:** an authenticated call, made as the console's service identity (verified as in decision 3), **after** the console transaction has committed. It carries `{ opId, phase: "prepared" | "finalized", epoch (b) or revision (c), destination T, source X }`.
+- **Recording:** a guarded api transaction (rows B1a, B3a, C3a below) writes it into the operation record only if every field matches what the record expects, and the operation isn't terminal.
+- **Why that is enough:** a console phase, once committed, can change only through cancellation cleanup. Cancellation cleanup runs only after the api's cancel transaction, which conflicts with the publishing transaction on the same operation record. So a recorded acknowledgement stays true until publication, or until cancel wins.
+
 **The creation barrier.**
 - `l0182-continuation-barrier` in the api's store holds `{ state: "open" | "closed", epoch }`.
 - **Every operation is created by an api transaction that reads the barrier** (step B0 or C0 below), and is refused when it is `closed`. The console creates no operation of its own: it may not allocate or prepare without the api's creation result for that `opId`.
@@ -115,17 +131,19 @@ Abandoning an attempt clears only `attempt`. **The established `authority` alway
 | Step | Transaction | Expected phase and guards | Atomic writes | Replay | Recovery |
 |---|---|---|---|---|---|
 | **B0 acquire** | api | barrier `open`; no operation record for `opId` (or one with the same request digest); `attempt` absent, or `abandoned`, or `held` past `heldUntil` (then abandoned in this transaction); `authority` absent or `finalized: true` (**no new continuation while one is confirmed but unfinalized**); `authority.revision` equals the request's expected revision | `attempt = { opId, epoch+1, held, heldUntil }`; the operation record `acquired{epoch+1, expectedRevision}` | an existing record with the same digest returns its state; if `acquired` and its attempt was abandoned, re-acquire with a new epoch only if `authority.revision` is still the expected one, otherwise cancel | none needed: nothing has moved |
-| **B1 prepare** | console | the console operation absent, or `prepared{opId}`; X `open` at the expected version, or `continuing{opId}`; T absent, or `pending{opId}`; the result of B0 for this `opId` and epoch | X `continuing{opId}`, T `pending{opId}`, a prepared binding entry `{opId, epoch, n+1}`, and the console operation `prepared{epoch}` | the same `opId` and epoch is a no-op; a newer epoch (after a re-acquire) updates the prepared epoch only | a prepared state with no confirm is cleaned up by C-cancel below |
-| **B2 confirm** — *point of no return* | api | the operation is `acquired{epoch}`; `attempt.opId == opId`, `attempt.epoch == epoch`, `attempt.state == held`; `authority.revision` equals the expected revision | `authority = { principal P′, revision n+1, opId, epoch, finalized: false }`; `attempt` cleared; the operation `confirmed` | `confirmed` returns; any guard failure → the operation becomes `cancel-required` | after B2, recovery only **rolls forward** (B3, B4, B5) |
+| **B1 prepare** | console | the console operation absent, or `prepared{opId}`, and **not** `cancelled` (the tombstone is read in this transaction); X `open` at the expected version, or `continuing{opId}`; T absent, or `pending{opId}`; the result of B0 for this `opId` and epoch | X `continuing{opId}`, T `pending{opId}`, a prepared binding entry `{opId, epoch, n+1}`, and the console operation `prepared{epoch}` | the same `opId` and epoch is a no-op; a newer epoch (after a re-acquire) updates the prepared epoch only | a prepared state with no confirm is cleaned up by C-cancel below |
+| **B1a prepared ack** | api | the operation `acquired{epoch}`; the acknowledgement's `opId`, epoch, revision n+1, T and X match the record | the operation records `ack.prepared = { epoch, revision, T }` | a no-op if already recorded identically; a mismatch is refused | a missing ack means B2 can't run: retry the ack, or cancel |
+| **B2 confirm** — *point of no return* | api | the operation is `acquired{epoch}` **with `ack.prepared` for this epoch**; `attempt.opId == opId`, `attempt.epoch == epoch`, `attempt.state == held`; `authority.revision` equals the expected revision | `authority = { principal P′, revision n+1, opId, epoch, finalized: false }`; `attempt` cleared; the operation `confirmed` | `confirmed` returns; any guard failure → the operation becomes `cancel-required` | after B2, recovery only **rolls forward** (B3, B4, B5) |
 | **B3 finalize** | console | the console operation `prepared{epoch}` (or `finalized`, a no-op); X `continuing{opId}`; T `pending{opId}`; the api operation `confirmed` (B2's result) | X `read-only{opId}`; T `finalizing{opId}`; the console operation `finalized` | a no-op once `finalized` | rolled forward by replay |
-| **B4 acknowledge** | api | `authority.opId == opId`, `authority.epoch == epoch`, `authority.revision == n+1`, `finalized == false` | `authority.finalized = true`; the operation `completed` | `completed` returns; a mismatched opId, epoch or revision is refused (never sets another operation's flag) | rolled forward by replay |
-| **B5 unlock** | console | T `finalizing{opId}`; the api operation `completed` | T `active`; the console operation `completed` | a no-op once `active` | rolled forward by replay |
-| **B-cancel** | api, then console | api: the operation is not `confirmed` or `completed`; console cleanup: only states carrying **this** `opId` | api: the operation `cancelled`, and `attempt` cleared if held by this `opId`; then console: X `continuing{opId}` → `open`, T `pending{opId}` → `cancelled{opId}`, the console operation `cancelled` | a no-op once cancelled; a late B1 after cancel locks X and T under this `opId`, then the sweeper cleans them, since the api operation is terminal | never clears a lock with another `opId`; never runs after B2 |
+| **B3a finalized ack** | api | the operation `confirmed`; the acknowledgement's `opId`, epoch, revision n+1, T and X match | the operation records `ack.finalized` | a no-op if identical; a mismatch is refused | retry the ack (roll forward) |
+| **B4 acknowledge** — *authority usable (T ready, still locked)* | api | `authority.opId == opId`, `authority.epoch == epoch`, `authority.revision == n+1`, `finalized == false`, **and `ack.finalized` recorded** | `authority.finalized = true`; the operation `completed` | `completed` returns; a mismatched opId, epoch or revision is refused (never sets another operation's flag) | rolled forward by replay |
+| **B5 unlock** — *T unlocked* | console | T `finalizing{opId}`; the api operation `completed` | T `active`; the console operation `completed` | a no-op once `active` | rolled forward by replay |
+| **B-cancel** | api, then console | api: the operation is not `confirmed` or `completed`; console cleanup: only states carrying **this** `opId` | api: the operation `cancelled`, and `attempt` cleared if held by this `opId`; then console, in one transaction: the **tombstone** `continuation-ops/<opId> = cancelled` (created if absent), X `continuing{opId}` → `open`, T `pending{opId}` → `cancelled{opId}` | a no-op once cancelled; a B1 delayed past the tombstone is refused; one that committed before it is reverted by it | never clears a lock with another `opId`; never runs after B2 |
 
 **Submissions under (b)**, inside S4, reading `l0182-session-fences/<S>`:
 - `attempt` held → temporary refusal, `respondent-continuing`;
 - `authority` with `finalized: false` → temporary refusal;
-- `authority` with `finalized: true` → the caller must equal `authority.principal`, and the freeze records `authority.revision`;
+- `authority` with `finalized: true` (T ready; it may still be locked) → the caller must equal `authority.principal`, and the freeze records `authority.revision`;
 - `authority` absent → the derived principal from S2. The fence document must be unchanged since it was read before S2: same `attempt` epoch, or the same absence.
 
 Clocks decide only liveness, through `heldUntil` and when a fence is abandoned.
@@ -143,18 +161,19 @@ The console mirrors the operation in `continuation-ops/<opId>`.
 | Step | Transaction | Expected phase and guards | Atomic writes | Replay | Recovery |
 |---|---|---|---|---|---|
 | **C0 register** | api | barrier `open`; no record for `opId` (or the same digest); the expected revision recorded | the operation `registered{expectedRevision n, X, source version v, T id}`; T's id is allocated here | the same digest returns the registration | nothing has moved |
-| **C1 allocate** | console | C0's result for `opId`; X `open` at version v; T absent | X `continuing{opId}`; T `pending{opId}`; the console operation `allocated` | a no-op if already allocated by `opId` | cancel (C-cancel) |
+| **C1 allocate** | console | C0's result for `opId`; **no `cancelled` tombstone for `opId`** (read in this transaction); X `open` at version v; T absent | X `continuing{opId}`; T `pending{opId}`; the console operation `allocated` | a no-op if already allocated by `opId` | cancel (C-cancel) |
 | **C2 bind-prepare** | api | the operation `registered` (or `prepared`, a no-op); `active.revision == n` (or absent for unbound); `prepared` absent | `prepared = { opId, revision n+1 }`; the operation `prepared` | a no-op once `prepared` by this `opId` | cancel, or roll forward |
 | **C3 finalize** | console | the console operation `allocated`; X `continuing{opId}`; T `pending{opId}`; the api operation `prepared` (C2's result) | X `read-only{opId}`; T `finalizing{opId}` (**still protected: no answers, edits or deletion**); the console operation `finalized` | a no-op once `finalized` | cancel (until C4), or roll forward |
-| **C4 activate** — *point of no return* | api | the operation `prepared`; `prepared.opId == opId`; `active.revision == n` (or absent) | `active = { principal P′, revision n+1, opId }`; `prepared` cleared; the operation `completed` | a no-op once `completed` | after C4, recovery only **rolls forward** (C5) |
-| **C5 unlock** | console | T `finalizing{opId}`; the api operation `completed` | T `active`; the console operation `completed` | a no-op once `active` | rolled forward by replay |
-| **C-cancel** | api, then console | api: the operation `registered` or `prepared`, **not** `completed`; console: only states carrying **this** `opId` | api: the operation `cancelled`, and `prepared` cleared if it is this `opId`'s; then console: X (`continuing{opId}` or `read-only{opId}`) → `open`, T (`pending{opId}` or `finalizing{opId}`) → `cancelled{opId}`, the console operation `cancelled` | a no-op once cancelled; a late C2 or C4 fails on the terminal record; a late C1 or C3 locks under this `opId`, and the sweeper reverts it | never clears another `opId`'s lock; impossible after C4 |
+| **C3a finalized ack** | api | the operation `prepared`; the acknowledgement's `opId`, revision n+1, T and X match the record | the operation records `ack.finalized = { revision, T }` | a no-op if identical; a mismatch is refused | retry the ack, or cancel (until C4) |
+| **C4 activate** — *point of no return; authority usable (T ready, still locked)* | api | the operation `prepared` **with `ack.finalized` recorded**; `prepared.opId == opId`; `active.revision == n` (or absent) | `active = { principal P′, revision n+1, opId }`; `prepared` cleared; the operation `completed` | a no-op once `completed` | after C4, recovery only **rolls forward** (C5) |
+| **C5 unlock** — *T unlocked* | console | T `finalizing{opId}`; the api operation `completed` | T `active`; the console operation `completed` | a no-op once `active` | rolled forward by replay |
+| **C-cancel** | api, then console | api: the operation `registered` or `prepared`, **not** `completed`; console: only states carrying **this** `opId` | api: the operation `cancelled`, and `prepared` cleared if it is this `opId`'s; then console, in one transaction: the **tombstone** `continuation-ops/<opId> = cancelled` (created even if C1 never ran), X (`continuing{opId}` or `read-only{opId}`) → `open`, T (`pending{opId}` or `finalizing{opId}`) → `cancelled{opId}` | a no-op once cancelled; a late C2, C3a or C4 fails on the terminal record; a C1 delayed past the tombstone is refused; a C1 or C3 that committed before it is reverted by it | never clears another `opId`'s lock; impossible after C4 |
 
-**Ordering of cancel against finalize and activate.** Both cancel and activate are api transactions on the same operation record, so exactly one wins. Cancel is allowed until C4 commits, even after C3: it then reverts the console's `read-only{opId}` and `finalizing{opId}`. After C4, cancel is refused and recovery rolls forward.
+**Ordering of cancel against finalize and activate.** Both cancel and activate are api transactions on the same operation record, so exactly one wins. Activate also requires the finalized acknowledgement, so it can't run after C2 unless C3 really committed. Cancel is allowed until C4 commits, even after C3: it then reverts the console's `read-only{opId}` and `finalizing{opId}`. After C4, cancel is refused and recovery rolls forward.
 
 **Submissions under (c)**, inside S4, reading `respondent-bindings/<S>`:
 - `prepared` present → temporary refusal from **either** principal, including calls made straight to the api;
-- `active` → the caller must equal `active.principal`, and the freeze records `active.revision`;
+- `active` (T ready; it may still be locked) → the caller must equal `active.principal`, and the freeze records `active.revision`;
 - absent → the derived principal from S2, with the document still absent in S4.
 
 **Item writes** are refused by the console states (§3) from C1 until C5, or until cancel cleanup.
@@ -185,7 +204,8 @@ So:
    - prepared bindings (c);
    - console operations not `completed` or `cancelled`;
    - console items in `continuing`, `pending` or `finalizing`;
-   - cancel cleanup still pending in the console.
+   - cancel cleanup still pending in the console: an api-cancelled operation with no console tombstone;
+   - acknowledgements outstanding: a console phase committed but not yet recorded in the api.
 5. Only then may a **W** floor be lowered. The **R** and **K** floors stay.
 
 **For (a):** there are no api writers, and the console's continuation is one transaction. K-console still applies once respondent sessions exist. Its audit store has no rollback constraint.
@@ -212,12 +232,13 @@ So:
    - the cancellation sweeper and when it runs (before C4 only);
    - tombstone retention;
    - how long submissions may be paused during a continuation.
-5. **For every option:**
+5. **Publication point for (b) and (c):** at **ready** (B4/C4, T still locked; as written), or only at **unlocked** (after B5/C5, adding a final api step). The second keeps I4 at "active", at the cost of one more round trip.
+6. **For every option:**
    - a racing submission gets a temporary refusal (proposed) or is queued;
    - multi-item claim progress reporting;
    - the floors (R-api, K-console, W-api, W-console), the barrier, the drain procedure and who runs it;
    - the tests in §8.
-6. **Unchanged and still open:** the backfill's migration gaps (decision 10), sessionless programs (decision 4), and historical-copy resolution.
+7. **Unchanged and still open:** the backfill's migration gaps (decision 10), sessionless programs (decision 4), and historical-copy resolution.
 
 ## 9. Tests any chosen option must pass
 
@@ -237,6 +258,8 @@ So:
   - an abandoned attempt after an earlier confirmation leaves that confirmed principal in place (the original owner is never restored);
   - B0 refused while a confirmation is unfinalized;
   - B4 with a mismatched `opId`, epoch or revision is refused;
+  - B2 without a prepared acknowledgement, and B4 without a finalized one, are refused;
+  - B0 → cancel → tombstone → delayed B1 is refused;
   - a crash at each step;
   - submissions refused while held or unfinalized;
 - **for (c):**
@@ -246,6 +269,9 @@ So:
   - cancel after C3 and before C4 reverts the console locks, and activate after cancel fails;
   - cancel after C4 is refused, and recovery rolls forward;
   - a late finalize or cleanup for an old `opId` never clears a newer operation's lock;
+  - **C0 → cancel → cleanup and drain complete → delayed C1**: refused by the tombstone, and nothing is locked;
+  - **C2 → C4 without a successful C3**: refused (no finalized acknowledgement), and authority doesn't move;
+  - a C3a acknowledgement with a mismatched `opId`, revision or T is refused;
   - T `finalizing` refuses edits and deletion;
   - the source locked from allocate until finalize or cancel;
   - T never answerable before activate.
