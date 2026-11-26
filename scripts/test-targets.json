@@ -71,6 +71,12 @@
       ]
     },
     {
+      "name": "c4-continuation-harness",
+      "cwd": "docs/evidence/interpreter-c4-l0182/continuation-harness",
+      "config": "docs/evidence/interpreter-c4-l0182/continuation-harness/jest.config.mjs",
+      "$comment": "C4 option (c) continuation protocol harness (docs/c4-continuation-race-review.md). Emulator only; no allowSkips, so any skip fails CI. Not part of any service: deploy.json excludes docs/."
+    },
+    {
       "name": "broker-firestore",
       "cwd": "packages/broker",
       "args": [
