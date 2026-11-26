@@ -10,7 +10,10 @@ import { fileURLToPath } from "node:url";
 export default {
   rootDir: dirname(fileURLToPath(import.meta.url)),
   testMatch: ["<rootDir>/**/*.harness.mjs"],
-  moduleFileExtensions: ["mjs", "js", "json"],
+  // "js" first: a dependency whose package.json `main` has no extension
+  // (abort-controller, under the Firestore client) must resolve to its CJS
+  // build, not its .mjs one.
+  moduleFileExtensions: ["js", "mjs", "cjs", "json"],
   transform: {},
   testEnvironment: "node",
   testTimeout: 60000,
