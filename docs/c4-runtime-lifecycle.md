@@ -51,7 +51,18 @@
 **Constraint from §1:** submission needs a respondent principal. With no session there is nothing to look up, so a sessionless occurrence can never be submitted by anyone. Slice 0 found **1** current-vocabulary sessionless occurrence. The console proposal refuses revisions of existing sessionless programs until this decision is made, or until the owner starts an explicit new response.
 
 **Selected (2026-11-27): sessionless occurrences are stateless reads, handled entirely in the language.** No implicit respondent identity is created for them.
-- **The pick:** the candidate at index `sha256(model digest ‖ survey ref ‖ ordinal) mod n`, over the current candidates sorted by instance name. The ordinal counts that ref's sessionless occurrences in evaluation order.
+- **The pick** (formula updated with slice 2, the owner accepting the program-digest substitution, 2026-11-27): over the current candidates sorted by instance name, the candidate at index `u64_be(first 8 bytes of SHA-256(UTF-8 "<program digest>\n<survey ref>\n<ordinal>")) mod n`, where:
+  - the program digest is in lower-case hex;
+  - the ordinal is in decimal, counting that ref's sessionless occurrences in evaluation order.
+
+  `languages/l0182/crates/core/src/assigned.rs` implements it as `pick`.
+  - **The program digest** (`program_digest`), not the api's model digest, which the language never sees. It is the lower-case hex SHA-256 of a canonical text of the program's graph:
+    - `root <id>`;
+    - then one line per node reachable from the root, each visited once, in `Ast::reachable` order: `<id> <node>`;
+    - a form is written `(<TAG> <child id>…)`, and a literal as `n:<number>`, `s:`/`i:`/`t:<JSON string>`, `true`, `false` or `null`.
+
+    Node ids are written, never expanded, so the work is linear: a shared subtree is written once and a cycle is a back reference. Source positions are excluded. It is fixed for one stored program, as the model digest is.
+  - **Deferral:** once anything earlier in the run is pending, a sessionless occurrence is suspended rather than picked, so its ordinal is always the final call's.
 - **Nothing is requested or written.** The occurrence isn't reported in `needsAssignment`, so the api creates no record, touches no draw cycle, and freezes nothing. A `response` in it is validated and served as a read.
 - **Not balanced**, since there is no respondent to balance for.
 - **Zero candidates** gives today's "no survey" error, with today's wording.

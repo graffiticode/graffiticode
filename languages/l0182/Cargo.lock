@@ -652,9 +652,11 @@ dependencies = [
  "async-trait",
  "fastrand",
  "graffiticode-l0000",
+ "hex",
  "indexmap",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
 ]
 

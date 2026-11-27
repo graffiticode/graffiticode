@@ -16,7 +16,9 @@
 //! attribute that evaluates to a one-key record; `survey`, `response` and each `ratings` entry
 //! merge a list of them. All checking happens where a value is used.
 
+pub mod assigned;
 pub mod attributes;
+pub mod backfill;
 pub mod js;
 pub mod ranked;
 pub mod rating;
@@ -91,30 +93,47 @@ impl Dialect for L0182 {
 
     async fn eval(&self, cx: &mut Evaluator<'_>, id: NodeId, op: &Op, elts: &[NodeId]) -> Option<Value> {
         let tag = op.tag();
+        if tag != "SURVEY" && tag != "RESPONSE" && !VOCAB.attributes.contains_key(tag) {
+            return None;
+        }
+        let arg = cx.eval_arg(id, elts, 0).await;
+        // C4: a word that receives a pending value is suspended, never computed on. Only an
+        // interpretation with an assignment table can produce one (`assigned.rs`).
+        if arg.contains_pending() {
+            return Some(cx.suspend(&[]));
+        }
+        let raw = Js::from_value(&arg);
         if tag == "SURVEY" {
-            let raw = Js::from_value(&cx.eval_arg(id, elts, 0).await);
             let asked = match survey::read_survey_attributes(&raw) {
                 Ok(asked) => asked,
                 Err(message) => return Some(refuse(cx, message)),
             };
-            let built = self
-                .source
-                .load(&asked.id, asked.session.as_deref())
-                .and_then(|loaded| survey::build_survey(&asked, &loaded));
+            // `/compile` has no table and keeps the legacy draw; `/interpret` always has one
+            // (empty when the api passed none) and resolves from it, never drawing.
+            let loaded = match cx.assignments() {
+                None => self.source.load(&asked.id, asked.session.as_deref()),
+                Some(table) => match assigned::resolve(cx, &*self.source, &asked, table) {
+                    assigned::Resolved::Loaded(loaded) => Ok(loaded),
+                    assigned::Resolved::Pending(pending) => return Some(pending),
+                    assigned::Resolved::Refused(diagnostic) => {
+                        cx.report_diagnostic(diagnostic);
+                        return Some(empty());
+                    }
+                },
+            };
+            let built = loaded.and_then(|loaded| survey::build_survey(&asked, &loaded));
             return Some(match built {
                 Ok(compiled) => compiled.to_value(),
                 Err(message) => refuse(cx, message),
             });
         }
         if tag == "RESPONSE" {
-            let raw = Js::from_value(&cx.eval_arg(id, elts, 0).await);
             return Some(match survey::build_response(&raw) {
                 Ok(response) => record("response", response),
                 Err(message) => refuse(cx, message),
             });
         }
         let row = VOCAB.attributes.get(tag)?;
-        let raw = Js::from_value(&cx.eval_arg(id, elts, 0).await);
         Some(match check_value(tag, row, &raw) {
             Some(message) => refuse(cx, message),
             None => record(&row.field, raw),

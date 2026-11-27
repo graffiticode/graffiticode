@@ -35,8 +35,10 @@ This repo previously held a survey proxy, an in-memory mock backend, an adaptive
 five-screen React player. All of it is gone — see "What was deleted, and why it is not coming
 back" before proposing anything that resembles it.
 
-> **Two implementations live here.** `packages/` is the TypeScript L0182 that production runs;
-> `crates/` is L0182 in Rust. Everything down to "The Rust implementation" describes the
+> **Two implementations live here.** `crates/` is L0182 in Rust, which production runs
+> (`l0182r`, since the interpreter plan's Track A; `COMPILE_GENERATION_L0182=rust-1`);
+> `packages/` is the TypeScript L0182, which stays the source of truth for the vocabulary, the
+> spec and the conformance fixtures. Everything down to "The Rust implementation" describes the
 > TypeScript side.
 
 ## Commands
@@ -538,7 +540,9 @@ Aggregating across responses — a group ranking, an average rating, an NPS scor
 live result. Authoring a survey: the options, items, scales, wording and bounds belong to `data/`
 and no word writes them. Reading a survey
 from anywhere but the filesystem, or authenticating to one — `setSource` is where that would go.
-A durable session→version memory (see the limits above). Sampling within a survey: a version is
+A durable session→version memory in production: the language side is built (`/interpret`
+resolves from the api's assignment table, "The assignment exchange" below), and the api side,
+its store and its activation are not. Sampling within a survey: a version is
 served whole and in order. An interactive survey-taking flow. Mixing the two styles in one survey — a file is one style.
 Other questionnaire items — demographics, fixed free-text questions, branching logic. Reverse-coded
 items or any scoring of a scale. Ranking or rating objects other than a line of text. Any analysis of the responses collected. Enforced one-response-per-person.
@@ -565,9 +569,9 @@ items or any scoring of a scale. Ranking or rating objects other than a line of 
 ## The Rust implementation (`crates/`)
 
 This directory holds **two implementations of L0182**. `packages/core` and `packages/api` are the
-TypeScript compiler and server, which production runs (Cloud Run service `l0182`). `crates/` is
-the same language in Rust, released to its own service `l0182r` so it can be vetted before it
-replaces the TypeScript. `packages/view`, the spec and the surveys in `packages/core/data/` are
+TypeScript compiler and server (Cloud Run service `l0182`, retired from production by the
+interpreter plan's A7). `crates/` is the same language in Rust, on its own service `l0182r`,
+which production runs. `packages/view`, the spec and the surveys in `packages/core/data/` are
 shared by both.
 
 - `crates/core` (`graffiticode-l0182`) — `L0182` implements `Dialect` from `graffiticode-l0000`
@@ -655,6 +659,72 @@ The deliberate differences, each pinned by its own test:
   internal fields as words.
 - **A survey file that is not valid JSON** would name the parser's error in its message, which
   differs between `JSON.parse` and `serde_json`. No installed survey reaches it (untested).
+
+### The assignment exchange (`/interpret`, C4 slice 2)
+
+`/compile` is unchanged: it has no assignment table, so `survey` keeps the legacy draw in
+`source.rs`. `/interpret` always has a table (empty when the api passes none), and `survey`
+resolves from it in `assigned.rs`, never drawing (`docs/c4-l0182-assignment-plan.md` decisions
+1, 2 and 7; the policies selected in `docs/c4-runtime-lifecycle.md` §10). Nothing calls it yet:
+L0182 isn't in the interpreter manifest, and the api side is a later, separately approved slice.
+
+- **With a session,** the identity is `(survey ref, session)`, keyed in the table as the JSON
+  text of `[ref, session]` (`assigned::key`). An entry is `{ instance, digest, content? }`, or
+  `{ "absent": true }`, which gives today's "no survey" message.
+  - **A hit** serves the retained `content` when present, after checking that its digest matches
+    (`assignment-content-mismatch`). Otherwise it serves the current candidate with that instance
+    and digest (`assignment-content-missing` when none has it).
+  - **The instance must fit the ref** (`assignment-invalid` otherwise), retained content
+    included. A named ref (`SurveySource::named`) is served only as itself, and a survey id only
+    as `<id>-<n>`, never as itself.
+  - **A miss** asks: `{ identity: { survey, session }, key, ordinal, candidates: [{ instance,
+    digest, content }] }`, possibly with no candidates. The occurrence is pending, and the same
+    identity is asked for once per run.
+  - The digest is the SHA-256 of the file's exact bytes (`source::digest_of`).
+- **Without a session** (selected: stateless reads), nothing is requested, assigned or frozen.
+  - **The pick:** over the candidates sorted by instance name, the candidate at index
+    `u64_be(first 8 bytes of SHA-256("<program digest>\n<ref>\n<ordinal>")) mod n`
+    (`assigned::pick`).
+  - **The program digest** (`assigned::program_digest`) is the hex SHA-256 of a canonical text of
+    the program's graph: each node reachable from the root, visited once, written with its
+    children's ids. The work is linear, and shared subgraphs and cycles are safe. The dialect
+    never sees the api's model digest.
+  - Once anything in the run is pending, a later sessionless occurrence is suspended, so every
+    pick is made with the final call's ordinals.
+- **Pending** suspends every L0182 word that receives it.
+- **`SurveySource`** gained `candidates` and `missing`, which `Files` and `Fixture` implement from
+  the same rules as `load`.
+
+**The gate** (`tests/interpret.rs`) plays the api over every conformance case. Each case is
+exchanged to a result with progress on every call. It must equal a compile whose source serves
+exactly what the interpreter served, and it must equal today's compile except for the
+deliberate differences, which it counts:
+- a sessionless occurrence of a multi-version survey;
+- one session taking several surveys;
+- an identity computed at run time.
+
+`tests/assigned.rs` covers:
+- requests and hits;
+- one record per identity;
+- zero candidates and `absent`;
+- retained content after a version is removed;
+- the sessionless pick and its deferral;
+- an input-dependent session;
+- branching, computed sessions, suspended `set-var`, `map` and `filter`;
+- a six-call dependency chain.
+
+**The backfill extractor** (`backfill::extract`, CLI `l0182-extract`, reading
+`{ program, output?, errors? }` on stdin) is pure. From a stored program and its saved output it
+reports:
+- demonstrated identities, with instance, response and error-free. An identity counts as
+  demonstrated only when exactly one literal occurrence and exactly one record match it;
+- unresolved identities, with a reason: absent from the output, an ambiguous match, conflicting
+  instances, or an instance that isn't a version;
+- task-level quarantine reasons: a computed id, session or attribute list, or an unattributable
+  or unmatched record;
+- sessionless occurrences, for review only.
+
+It never draws, evaluates a survey, or reads a store. `tests/backfill.rs` covers it on fixtures.
 
 ### Deploying the Rust server
 

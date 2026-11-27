@@ -10,9 +10,11 @@ build = "build.rs"
 [dependencies]
 async-trait = "0.1"
 fastrand = "2"
+hex = "0.4.3"
 graffiticode-l0000 = { path = "../../../l0000/crates/core", default-features = false }
 indexmap = "2"
 serde_json = { version = "1", features = ["preserve_order"] }
+sha2 = "0.11.1"
 
 [dev-dependencies]
 serde = { version = "1", features = ["derive"] }
