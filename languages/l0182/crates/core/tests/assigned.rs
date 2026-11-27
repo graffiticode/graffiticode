@@ -7,9 +7,9 @@
 
 use std::collections::HashSet;
 
-use graffiticode_l0000::{Compilation, Compiler, Identity, Mode, json_text};
+use graffiticode_l0000::{Ast, Compilation, Compiler, Identity, Mode, json_text};
 use graffiticode_l0182::L0182;
-use graffiticode_l0182::assigned::key;
+use graffiticode_l0182::assigned::{key, program_digest};
 use graffiticode_l0182::js::Js;
 use graffiticode_l0182::source::{Candidate, Files, Loaded, SurveySource, digest_of};
 use serde_json::{Value as Json, json};
@@ -98,6 +98,9 @@ impl SurveySource for Without {
     }
     fn missing(&self, id: &Js) -> String {
         self.0.missing(id)
+    }
+    fn named(&self, id: &Js) -> bool {
+        self.0.named(id)
     }
 }
 
@@ -239,6 +242,81 @@ async fn retained_content_must_match_its_digest_and_the_instance_must_be_a_versi
     assert_eq!(errors(&interpret(&code, &stranger).await)[0].0.as_deref(), Some("assignment-invalid"));
     let stale = json!({ &k: { "instance": "civic-priorities-3", "digest": "00" } });
     assert_eq!(errors(&interpret(&code, &stale).await)[0].0.as_deref(), Some("assignment-content-missing"));
+}
+
+#[tokio::test]
+async fn a_survey_id_is_never_served_as_itself_nor_a_named_version_as_one_of_its_own() {
+    // Bare ref, instance equal to the ref; named ref, instance `<ref>-1`. Both refused, whether
+    // served from a candidate or from retained content whose digest matches.
+    let content = file("civic-priorities-3");
+    for (id, instance) in [("civic-priorities", "civic-priorities"), ("civic-priorities-3", "civic-priorities-3-1")] {
+        let mut p = Prog::default();
+        let s = p.session(id, "s-1");
+        let code = p.program(&[s]);
+        let k = key(id, "s-1");
+        let retained = json!({ &k: { "instance": instance, "digest": digest_of(&content), "content": content } });
+        assert_eq!(errors(&interpret(&code, &retained).await)[0].0.as_deref(), Some("assignment-invalid"), "{id}");
+        let plain = json!({ &k: { "instance": instance, "digest": digest_of(&content) } });
+        assert_eq!(errors(&interpret(&code, &plain).await)[0].0.as_deref(), Some("assignment-invalid"), "{id}");
+    }
+}
+
+// ---- The program digest: bounded, with shared subgraphs and cycles ----
+
+/// A program whose untaken branch holds `shape` (a DAG or a cycle) and whose taken branch is a
+/// sessionless survey, so the program digest is computed.
+fn untaken(build: impl FnOnce(&mut Prog) -> u32) -> Json {
+    let mut p = Prog::default();
+    let hidden = build(&mut p);
+    let no = p.node("BOOL", vec![json!(false)]);
+    let shown = p.survey("civic-priorities", None, &[]);
+    let branch = p.form("IF", &[no, hidden, shown]);
+    p.program(&[branch])
+}
+
+#[tokio::test]
+async fn the_program_digest_is_bounded_for_a_shared_dag_and_a_cycle() {
+    // 45 nodes, each referring twice to the one before: 2^44 paths if expanded.
+    let dag = untaken(|p| {
+        let mut prev = p.str("leaf");
+        for _ in 0..44 {
+            prev = p.form("LIST", &[prev, prev]);
+        }
+        prev
+    });
+    // A list that contains itself.
+    let cycle = untaken(|p| {
+        let leaf = p.str("leaf");
+        let list = p.form("LIST", &[leaf]);
+        let mut pool = std::mem::take(p);
+        pool.set_elts(list, &[leaf, list]);
+        *p = pool;
+        list
+    });
+    for code in [dag, cycle] {
+        // Expanding the graph (the previous digest) never returned for either; this is linear.
+        let started = std::time::Instant::now();
+        let first = value(&interpret(&code, &json!({})).await);
+        assert!(started.elapsed() < std::time::Duration::from_secs(5), "{:?}", started.elapsed());
+        assert_eq!(value(&interpret(&code, &json!({})).await), first);
+        let digest = program_digest(&Ast::from_json(&code).unwrap());
+        assert_eq!(digest, program_digest(&Ast::from_json(&code).unwrap()));
+    }
+}
+
+#[test]
+fn the_program_digest_covers_the_program_and_nothing_else() {
+    let make = |text: &str| {
+        let mut p = Prog::default();
+        let s = p.str(text);
+        p.program(&[s])
+    };
+    let a = program_digest(&Ast::from_json(&make("a")).unwrap());
+    assert_ne!(a, program_digest(&Ast::from_json(&make("b")).unwrap()));
+    // Source positions don't count.
+    let mut placed = make("a");
+    placed["1"]["coord"] = json!({ "from": 0, "to": 3 });
+    assert_eq!(a, program_digest(&Ast::from_json(&placed).unwrap()));
 }
 
 // ---- Sessionless (selected: stateless reads) ----

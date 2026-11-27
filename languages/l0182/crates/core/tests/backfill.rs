@@ -60,30 +60,67 @@ async fn an_answered_session_demonstrates_its_version_and_response() {
 }
 
 #[tokio::test]
-async fn a_bare_id_is_confirmed_by_its_instance_and_repeated_occurrences_must_agree() {
+async fn a_bare_id_is_confirmed_by_its_instance() {
+    let mut p = Prog::default();
+    let a = p.session("civic-priorities", "a");
+    let code = p.program(&[a]);
+    let output = saved(&code, |_| 0).await;
+    let report = extract(&code, Some(&output), false);
+    assert_eq!(report["identities"][0]["instance"], json!("civic-priorities-1"));
+    assert_eq!(report["identities"][0]["response"], json!(false));
+
+    // The bare/named distinction: a survey id is never shown as itself, and a version of
+    // another survey isn't one of its versions.
+    for shown in ["civic-priorities", "workplace-pulse-1", "civic-priorities-x"] {
+        let mut wrong = output.clone();
+        wrong["survey"]["instance"] = json!(shown);
+        let report = extract(&code, Some(&wrong), false);
+        assert_eq!(report["identities"], json!([]), "{shown}");
+        assert_eq!(report["unresolved"][0]["reason"], json!("instance-not-a-version"), "{shown}");
+    }
+}
+
+#[tokio::test]
+async fn a_named_version_is_confirmed_only_by_itself() {
+    let mut p = Prog::default();
+    let s = p.session("civic-priorities-3", "a");
+    let code = p.program(&[s]);
+    let output = saved(&code, |_| 0).await;
+    assert_eq!(extract(&code, Some(&output), false)["identities"][0]["instance"], json!("civic-priorities-3"));
+    let mut wrong = output;
+    wrong["survey"]["instance"] = json!("civic-priorities-3-1");
+    let report = extract(&code, Some(&wrong), false);
+    assert_eq!(report["identities"], json!([]));
+    assert_eq!(report["unresolved"][0]["reason"], json!("instance-not-a-version"));
+}
+
+#[tokio::test]
+async fn an_ambiguous_match_stays_unresolved_even_when_the_records_agree() {
+    // Two literal occurrences of one identity: each record fits both, so neither is evidence.
     let mut p = Prog::default();
     let a = p.session("civic-priorities", "a");
     let b = p.session("civic-priorities", "a");
     let list = p.form("LIST", &[a, b]);
     let code = p.program(&[list]);
     let output = saved(&code, |_| 0).await;
+    assert_eq!(output[0]["survey"]["instance"], output[1]["survey"]["instance"]);
     let report = extract(&code, Some(&output), false);
-    assert_eq!(report["identities"][0]["instance"], json!("civic-priorities-1"));
-    assert_eq!(report["identities"][0]["response"], json!(false));
-
-    // Two records for one identity showing different versions: today's process-local loss.
-    let mut split = output.clone();
-    split[1]["survey"]["instance"] = json!("civic-priorities-4");
-    let report = extract(&code, Some(&split), false);
     assert_eq!(report["identities"], json!([]));
+    assert_eq!(report["unresolved"][0]["reason"], json!("ambiguous-match"));
+
+    // One occurrence with several records (it ran more than once): agreeing is still
+    // ambiguous, and disagreeing is today's process-local loss.
+    let mut p = Prog::default();
+    let s = p.session("civic-priorities", "a");
+    let code = p.program(&[s]);
+    let record =
+        |instance: &str| json!({ "survey": { "id": "civic-priorities", "sessionId": "a", "instance": instance } });
+    let agree = json!([record("civic-priorities-1"), record("civic-priorities-1")]);
+    assert_eq!(extract(&code, Some(&agree), false)["unresolved"][0]["reason"], json!("ambiguous-match"));
+    let split = json!([record("civic-priorities-1"), record("civic-priorities-4")]);
+    let report = extract(&code, Some(&split), false);
     assert_eq!(report["unresolved"][0]["reason"], json!("conflicting-instances"));
     assert_eq!(report["unresolved"][0]["shown"], json!(["civic-priorities-1", "civic-priorities-4"]));
-
-    // An instance that isn't a version of the ref.
-    let mut stranger = output;
-    stranger[0]["survey"]["instance"] = json!("workplace-pulse-1");
-    stranger[1]["survey"]["instance"] = json!("workplace-pulse-1");
-    assert_eq!(extract(&code, Some(&stranger), false)["unresolved"][0]["reason"], json!("instance-not-a-version"));
 }
 
 #[tokio::test]

@@ -21,7 +21,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use graffiticode_l0000::{Ast, Diagnostic, Evaluator, Node, NodeId, Value, json_text};
+use graffiticode_l0000::{Ast, Diagnostic, Evaluator, Node, Value, json_text};
 use serde_json::{Value as Json, json};
 use sha2::{Digest, Sha256};
 
@@ -88,14 +88,16 @@ pub fn resolve(cx: &mut Evaluator<'_>, source: &dyn SurveySource, asked: &Asked,
     Resolved::Pending(cx.request_assignment(request))
 }
 
-/// Whether `instance` is a version of `survey`: the ref itself (a named version) or
-/// `<ref>-<n>`.
-fn is_version_of(instance: &str, survey: &str) -> bool {
-    instance == survey
-        || instance
-            .strip_prefix(survey)
-            .and_then(|rest| rest.strip_prefix('-'))
-            .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+/// Whether `instance` is what `survey` may be served as: the ref itself for a named version,
+/// `<ref>-<n>` for a survey id (decision 10's bare/named distinction), never the other.
+pub fn is_version_of(instance: &str, survey: &str, named: bool) -> bool {
+    if named {
+        return instance == survey;
+    }
+    instance
+        .strip_prefix(survey)
+        .and_then(|rest| rest.strip_prefix('-'))
+        .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 fn refused(code: &str, message: String) -> Resolved {
@@ -117,7 +119,7 @@ fn from_entry(
     let (Some(instance), Some(digest)) = (entry["instance"].as_str(), entry["digest"].as_str()) else {
         return refused("assignment-invalid", format!("the assignment for {key} has no instance and digest."));
     };
-    if !is_version_of(instance, survey) {
+    if !is_version_of(instance, survey, source.named(&asked.id)) {
         return refused(
             "assignment-invalid",
             format!("the assignment for {key} names {instance}, which is not a version of {survey}."),
@@ -185,7 +187,9 @@ fn sessionless(
     }
 }
 
-/// The index `sha256(program ‖ ref ‖ ordinal) mod n`, over the digest's first eight bytes.
+/// The sessionless pick: SHA-256 over the UTF-8 text `"<program>\n<ref>\n<ordinal>"` (the
+/// program digest in lower-case hex, the ordinal in decimal), its first eight bytes read as a
+/// big-endian `u64`, modulo `n`.
 pub fn pick(program: &str, survey: &str, ordinal: usize, n: usize) -> usize {
     let hash = Sha256::digest(format!("{program}\n{survey}\n{ordinal}").as_bytes());
     let mut first = [0u8; 8];
@@ -193,44 +197,41 @@ pub fn pick(program: &str, survey: &str, ordinal: usize, n: usize) -> usize {
     (u64::from_be_bytes(first) % n as u64) as usize
 }
 
-/// A canonical digest of the program, from its root: every node's literal or operator and
-/// children, without node ids or source positions. The same program always gives the same
-/// digest.
+/// The program digest: lower-case hex SHA-256 of a canonical text of the program's graph, with
+/// bounded work and cycles allowed. The text is `root <id>` and then one line per node reachable
+/// from the root, each visited once (`Ast::reachable`), in that order: `<id> <node>`, where a
+/// form is `(<TAG> <child id>…)` and a literal is `n:<number>`, `s:<JSON string>`,
+/// `i:<JSON string>`, `t:<JSON string>`, `true`, `false` or `null`. Node ids are written, not
+/// expanded, so a shared subtree is written once and a cycle is a back reference. Source
+/// positions are left out. One stored program always gives the same digest, as its model does.
 pub fn program_digest(ast: &Ast) -> String {
-    let mut text = String::new();
-    let mut stack = vec![Some(ast.root())];
-    while let Some(next) = stack.pop() {
-        let Some(id) = next else {
-            text.push(')');
-            continue;
-        };
-        write_node(&mut text, ast, id, &mut stack);
-    }
-    digest_of(&text)
-}
-
-fn write_node(text: &mut String, ast: &Ast, id: NodeId, stack: &mut Vec<Option<NodeId>>) {
-    match ast.get(id) {
-        None => text.push('?'),
-        Some(Node::Num(n)) => {
-            text.push_str("n:");
-            text.push_str(&Value::Num(n.clone()).to_json().map(|j| json_text(&j)).unwrap_or_default());
-        }
-        Some(Node::Str(s)) => text.push_str(&format!("s:{}", Json::String(s.clone()))),
-        Some(Node::Ident(s)) => text.push_str(&format!("i:{}", Json::String(s.clone()))),
-        Some(Node::Bool(b)) => text.push_str(if *b { "true" } else { "false" }),
-        Some(Node::Tag(s)) => text.push_str(&format!("t:{}", Json::String(s.clone()))),
-        Some(Node::Null) => text.push_str("null"),
-        Some(Node::Form { op, elts }) => {
-            text.push('(');
-            text.push_str(op.tag());
-            stack.push(None);
-            for &elt in elts.iter().rev() {
-                stack.push(Some(elt));
+    let mut text = format!("root {}\n", ast.root());
+    for (id, node) in ast.reachable() {
+        text.push_str(&id.to_string());
+        text.push(' ');
+        match node {
+            Node::Num(n) => {
+                text.push_str("n:");
+                text.push_str(&Value::Num(n.clone()).to_json().map(|j| json_text(&j)).unwrap_or_default());
+            }
+            Node::Str(s) => text.push_str(&format!("s:{}", Json::String(s.clone()))),
+            Node::Ident(s) => text.push_str(&format!("i:{}", Json::String(s.clone()))),
+            Node::Bool(b) => text.push_str(if *b { "true" } else { "false" }),
+            Node::Tag(s) => text.push_str(&format!("t:{}", Json::String(s.clone()))),
+            Node::Null => text.push_str("null"),
+            Node::Form { op, elts } => {
+                text.push('(');
+                text.push_str(op.tag());
+                for elt in elts {
+                    text.push(' ');
+                    text.push_str(&elt.to_string());
+                }
+                text.push(')');
             }
         }
+        text.push('\n');
     }
-    text.push(' ');
+    digest_of(&text)
 }
 
 #[cfg(test)]
@@ -245,11 +246,14 @@ mod tests {
 
     #[test]
     fn versions_of_a_ref() {
-        assert!(is_version_of("civic-priorities-7", "civic-priorities"));
-        assert!(is_version_of("civic-priorities-7", "civic-priorities-7"));
-        assert!(!is_version_of("civic-priorities-x", "civic-priorities"));
-        assert!(!is_version_of("civic-prioritiesx-1", "civic-priorities"));
-        assert!(!is_version_of("workplace-pulse-1", "civic-priorities"));
+        assert!(is_version_of("civic-priorities-7", "civic-priorities", false));
+        assert!(is_version_of("civic-priorities-7", "civic-priorities-7", true));
+        // The bare/named distinction: neither is served as the other.
+        assert!(!is_version_of("civic-priorities", "civic-priorities", false));
+        assert!(!is_version_of("civic-priorities-3-1", "civic-priorities-3", true));
+        assert!(!is_version_of("civic-priorities-x", "civic-priorities", false));
+        assert!(!is_version_of("civic-prioritiesx-1", "civic-priorities", false));
+        assert!(!is_version_of("workplace-pulse-1", "civic-priorities", false));
     }
 
     #[test]

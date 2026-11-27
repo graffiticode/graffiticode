@@ -13,11 +13,13 @@
 //! - **An output survey record** is an object `{ survey: { id, instance, sessionId? }, response? }`
 //!   anywhere in the saved output. It is matched to the occurrences whose literal `id` and
 //!   `session-id` fit it.
-//! - **Per identity:** demonstrated when its occurrences are matched by records that all show one
-//!   version, and that version is a version of the ref (`<ref>-<n>` for a survey id, the ref itself
-//!   for a named version). Otherwise unresolved, with the reason: fewer records than occurrences
-//!   (a survey consumed by a computation, or dropped by `PROG` keeping the last expression),
-//!   records that disagree, or an instance that isn't a version of the ref.
+//! - **Per identity:** demonstrated only when exactly one literal occurrence has the identity and
+//!   exactly one record matches it, showing a version of the ref (`<ref>-<n>` for a survey id, the
+//!   ref itself for a named version, never the other). Otherwise unresolved, with the reason:
+//!   no record (a survey consumed by a computation, or dropped by `PROG` keeping the last
+//!   expression), an ambiguous match (several occurrences of the identity, or one occurrence
+//!   with several records), records that disagree, or an instance that isn't a version of the
+//!   ref.
 //! - **Quarantine** (task-level): an occurrence whose identity can't be named at all, or a record
 //!   that no literal occurrence can account for while some occurrence is unknown.
 //! - **Sessionless** occurrences are listed with what was shown, for review only: under the
@@ -26,11 +28,18 @@
 //! A response is "error-free" only if the saved compile reported no errors.
 
 use std::collections::BTreeMap;
+use std::sync::LazyLock;
 
 use graffiticode_l0000::{Ast, Node, NodeId, Op};
 use serde_json::{Value as Json, json};
 
-use crate::assigned::key;
+use crate::assigned::{is_version_of, key};
+use crate::js::Js;
+use crate::source::{Files, SurveySource};
+
+/// The installed surveys, for telling a named ref from a survey id (read from the embedded
+/// files, nothing else).
+static INSTALLED: LazyLock<Files> = LazyLock::new(|| Files::installed(|_| 0));
 
 /// One `survey` occurrence in the program, as far as its literals say.
 #[derive(Debug)]
@@ -103,13 +112,20 @@ pub fn extract(program: &Json, output: Option<&Json>, errors: bool) -> Json {
             entry["shown"] = records.iter().map(|r| json!(r.instance)).collect();
             entry
         };
-        if records.len() < wanted {
-            unresolved.push(unresolved_with("absent-from-output"));
-        } else if records.len() > wanted {
+        // Each record must fit exactly one occurrence: several literal occurrences of one
+        // identity make every record for it ambiguous, however many there are and whether or
+        // not they agree. Matching counts are not provenance.
+        if wanted > 1 {
             unresolved.push(unresolved_with("ambiguous-match"));
+        } else if records.is_empty() {
+            unresolved.push(unresolved_with("absent-from-output"));
         } else if records.iter().any(|r| r.instance != records[0].instance) {
             unresolved.push(unresolved_with("conflicting-instances"));
-        } else if !is_version(&records[0].instance, survey) {
+        } else if records.len() > 1 {
+            // One occurrence evaluated more than once (inside `map`): nothing says which record
+            // was saved last.
+            unresolved.push(unresolved_with("ambiguous-match"));
+        } else if !is_version_of(&records[0].instance, survey, INSTALLED.named(&Js::Str(survey.clone()))) {
             unresolved.push(unresolved_with("instance-not-a-version"));
         } else {
             let mut entry = identity;
@@ -152,14 +168,6 @@ pub fn extract(program: &Json, output: Option<&Json>, errors: bool) -> Json {
         "quarantine": quarantine,
         "sessionless": sessionless,
     })
-}
-
-fn is_version(instance: &str, survey: &str) -> bool {
-    instance == survey
-        || instance
-            .strip_prefix(survey)
-            .and_then(|rest| rest.strip_prefix('-'))
-            .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 fn dialect(op: &Op) -> Option<&str> {

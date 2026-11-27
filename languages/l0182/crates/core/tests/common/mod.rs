@@ -18,6 +18,11 @@ impl Prog {
         self.pool.insert(self.next.to_string(), json!({ "tag": tag, "elts": elts }));
         self.next
     }
+    /// Rewrites a node's children: how a test builds a cycle.
+    pub fn set_elts(&mut self, node: u32, elts: &[u32]) {
+        let elts: Vec<Json> = elts.iter().map(|&elt| json!(elt)).collect();
+        self.pool[&node.to_string()]["elts"] = json!(elts);
+    }
     pub fn form(&mut self, tag: &str, elts: &[u32]) -> u32 {
         self.node(tag, elts.iter().map(|&elt| json!(elt)).collect())
     }

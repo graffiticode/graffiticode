@@ -673,17 +673,22 @@ L0182 isn't in the interpreter manifest, and the api side is a later, separately
   `{ "absent": true }`, which gives today's "no survey" message.
   - **A hit** serves the retained `content` when present, after checking that its digest matches
     (`assignment-content-mismatch`). Otherwise it serves the current candidate with that instance
-    and digest (`assignment-content-missing` when none has it). An instance that isn't a version
-    of the ref is `assignment-invalid`.
+    and digest (`assignment-content-missing` when none has it).
+  - **The instance must fit the ref** (`assignment-invalid` otherwise), retained content
+    included. A named ref (`SurveySource::named`) is served only as itself, and a survey id only
+    as `<id>-<n>`, never as itself.
   - **A miss** asks: `{ identity: { survey, session }, key, ordinal, candidates: [{ instance,
     digest, content }] }`, possibly with no candidates. The occurrence is pending, and the same
     identity is asked for once per run.
   - The digest is the SHA-256 of the file's exact bytes (`source::digest_of`).
 - **Without a session** (selected: stateless reads), nothing is requested, assigned or frozen.
-  - The pick is `sha256(program digest, ref, ordinal) mod n` over the candidates sorted by
-    instance name.
-  - The program digest is `assigned::program_digest`, a canonical digest of the program's tree.
-    The dialect never sees the api's model digest.
+  - **The pick:** over the candidates sorted by instance name, the candidate at index
+    `u64_be(first 8 bytes of SHA-256("<program digest>\n<ref>\n<ordinal>")) mod n`
+    (`assigned::pick`).
+  - **The program digest** (`assigned::program_digest`) is the hex SHA-256 of a canonical text of
+    the program's graph: each node reachable from the root, visited once, written with its
+    children's ids. The work is linear, and shared subgraphs and cycles are safe. The dialect
+    never sees the api's model digest.
   - Once anything in the run is pending, a later sessionless occurrence is suspended, so every
     pick is made with the final call's ordinals.
 - **Pending** suspends every L0182 word that receives it.
@@ -711,7 +716,8 @@ deliberate differences, which it counts:
 **The backfill extractor** (`backfill::extract`, CLI `l0182-extract`, reading
 `{ program, output?, errors? }` on stdin) is pure. From a stored program and its saved output it
 reports:
-- demonstrated identities, with instance, response and error-free;
+- demonstrated identities, with instance, response and error-free. An identity counts as
+  demonstrated only when exactly one literal occurrence and exactly one record match it;
 - unresolved identities, with a reason: absent from the output, an ambiguous match, conflicting
   instances, or an instance that isn't a version;
 - task-level quarantine reasons: a computed id, session or attribute list, or an unattributable

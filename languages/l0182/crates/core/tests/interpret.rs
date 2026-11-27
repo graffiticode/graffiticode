@@ -149,6 +149,9 @@ impl SurveySource for BoxedSource {
     fn missing(&self, id: &Js) -> String {
         self.0.missing(id)
     }
+    fn named(&self, id: &Js) -> bool {
+        self.0.named(id)
+    }
 }
 
 /// A compile-time source serving exactly what the interpreter served: the table's version for a
@@ -194,6 +197,9 @@ impl SurveySource for Mirror {
     }
     fn missing(&self, id: &Js) -> String {
         self.inner.missing(id)
+    }
+    fn named(&self, id: &Js) -> bool {
+        self.inner.named(id)
     }
 }
 
