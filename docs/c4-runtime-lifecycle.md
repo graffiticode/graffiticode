@@ -19,6 +19,12 @@
 
    Items, their lock states and the console tombstone `continuation-ops/<opId>` stay in the console's Firestore. The steps are C0 register, C1 allocate, C2 bind-prepare, C3 finalize, C3a finalized ack, C4 activate, C5 unlock, and C-cancel, exactly as tabled in the race review §5. Options (a) and (b) are not pursued.
 2. **Publication at ready.** C4 activate is the point of no return. It publishes authority while T is ready (finalized, still locked), and makes three writes in one api transaction: the active binding, history entry n+1, and the operation's result. C5 unlock then allows console edits. No extra api step after unlock.
+
+   **Two kinds of record:**
+   - **The current binding pointer,** `respondent-bindings/<S>.active`, is mutable. Each activation overwrites it, so it always names the current revision.
+   - **The per-revision descriptor,** history entry `<S>:<n>`, is immutable. Written once, it holds that revision's principal, destination, `opId` and time.
+
+   The pointer says which revision applies now. The descriptor says what that revision granted.
 3. **Direct API-store authority reads.** The submission's freeze transaction (S4) reads `respondent-bindings/<S>` itself:
    - `prepared` → temporary `respondent-continuing`, from either principal;
    - `active` → the caller must equal `active.principal`, compared on every field, and the freeze records `active.revision`;
@@ -104,8 +110,11 @@
 | `l0182-assignments` (frozen and unfrozen) | api | forever | tasks are kept forever; a frozen record is the answer's model |
 | `l0182-survey-models/<digest>` | api | forever, immutable, content-addressed | the only copy once a version is removed |
 | `l0182-draw-cycles` | api | current state only (overwritten) | it holds no history of who drew what; the assignment records that |
-| `respondent-bindings`, `respondent-binding-history` | api | forever | I3 needs history 1…k; the R-api floor reads them |
+| `respondent-bindings/<S>` (the mutable current pointer) | api | forever, overwritten only by activation (or withdrawal, §6 alternative) | the R-api floor reads it |
+| `respondent-binding-history/<S>:<n>` (immutable per-revision descriptors) | api | forever, never rewritten | I3 needs history 1…k; the descriptor is what revision n granted (§6) |
 | `respondent-operations` (terminal included) | api | forever | I6: replay answers from them regardless of later rebindings |
+| `respondent-operation-index/<opId>` (§9) | api | forever, create-only | pins an operation's namespace across retries and configuration changes |
+| `l0182-session-namespace/<S>` (§9) | api | forever, create-only | pins a session's namespace |
 | `continuation-ops/<opId>` tombstones and records | console | forever | a delayed C1 has no proven time bound; the tombstone is what refuses it |
 | `l0182-task-quarantine`, `l0182-resolutions`, cutover state | api | quarantines until resolved; resolutions forever | the audit trail |
 | canary counterparts (§9) | both | as production; deletable only by a separately approved canary cleanup | canary-owned records only |
@@ -125,9 +134,10 @@
 - **No code path hard-deletes an item.**
 
 **Proposed: a minimal retained destination record. Authority lives in the binding, not in T's continued existence.**
-- **At C4,** the active binding already carries `{ principal, revision, opId, destination: T }`. Add `readyAt`, the C4 commit time. This record, with history entry n+1, is the **destination descriptor**. It is written once, never rewritten, and kept forever (§5).
-- **I4 is restated:** at activation, T existed and was ready, which the finalized acknowledgement proves. From then on, the descriptor is the authority. T's later archive, expiry, unpublishing or removal doesn't change who may submit for S.
-- **Submissions:** S4 reads only the binding (§1.3). An archived T doesn't withdraw authority. The respondent can still submit through any path that carries S and attests their full principal. Frozen records keep their attribution and models regardless.
+- **The descriptor is per revision and immutable.** C4 writes history entry `<S>:<n+1>` = `{ revision n+1, principal, destination: T, opId, readyAt }`, where `readyAt` is the C4 commit time. It is written once in C4's transaction, never rewritten, and kept forever (§5). It is the **destination descriptor** for revision n+1.
+- **The pointer is mutable.** In the same transaction, C4 sets `respondent-bindings/<S>.active` = `{ revision n+1, principal, opId, destination: T }`, a copy of the descriptor's fields, so S4 needs one read. A later activation overwrites the pointer with revision n+2 and writes descriptor n+2. Descriptor n+1 is unchanged and still answers what revision n+1 granted, for audits and for freezes that recorded n+1 (I2).
+- **I4 is restated:** at activation, T existed and was ready, which the finalized acknowledgement proves. From then on, the descriptor for the pointer's current revision is the authority. T's later archive, expiry, unpublishing or removal doesn't change who may submit for S.
+- **Submissions:** S4 reads only the pointer (§1.3). An archived T doesn't withdraw authority. The respondent can still submit through any path that carries S and attests their full principal. Frozen records keep their attribution and models regardless.
 - **Unbound sessions:** authority is derived from the item whose id is S, through the console's `respondent-authority` route:
   - **Archive** (`mark: 5`) doesn't change the answer.
   - **Free-plan expiry** doesn't change it either. The route answers from the stored document whether or not `expiresAt` has passed. Expiry hides the item from listings and from claims, so in practice the respondent can no longer reach it, but authority is unchanged.
@@ -141,42 +151,63 @@
 - **Continuation sources:** a source X in `read-only{opId}` may be archived or expire like any item. Authority has already moved to the binding.
 - **Cost:** a respondent keeps authority over S after hiding T. That is consistent with authority belonging to the principal, not the item. It needs no new cross-store protocol.
 
-**Alternative: authority withdrawal ordered against submissions.** Removal of T, or of an unbound item S, withdraws authority through an api-ordered protocol, in the shape of option (c):
+**Alternative: authority withdrawal ordered against submissions.** Removal of an item holding authority withdraws that authority through an api-ordered protocol, in the shape of option (c). The withdrawn item W is:
+- **bound case:** the destination T named by the current pointer, at revision n;
+- **unbound case:** the item whose id is S, at console version v, with **no** binding document for S. There is no revision and no bound destination.
 
-| Step | Store | Guards | Writes |
-|---|---|---|---|
-| **W0 register** | api | barrier `open`; the binding's active revision n, or absent for unbound | the operation `withdraw-registered{n}` |
-| **W1 lock** | console | no tombstone for `opId`; T `active` | T `withdrawing{opId}`: no answers, edits or deletion |
-| **W2 withdraw** — *point of no return* | api | the operation registered; `active.revision == n`; `prepared` absent | `active = { withdrawn: true, revision n+1, opId }`; history n+1 |
-| **W3 remove** | console | T `withdrawing{opId}`; the api operation completed | archive or remove T |
-| **W-cancel** | api, then console | before W2 | the tombstone; T back to `active` |
+A withdrawal is an operation in `respondent-operations/<opId>`, with `kind: "withdraw"`. Its states are `withdraw-registered` → `completed`, or `cancelled`. Completed and cancelled are terminal. The console mirrors it in `continuation-ops/<opId>`, as for continuations.
 
-- S4 refuses a withdrawn binding with the permanent `respondent-withdrawn`. A submission that commits before W2 keeps its freeze (I2). One that starts after is refused. Ordering is the api transaction, as with activation.
-- **Expiry needs a writer.** Read-side expiry never runs W0–W3, so a sweeper must drive it, or authority stays until it does.
+| Step | Transaction | Expected phase and guards | Atomic writes | Replay | Recovery |
+|---|---|---|---|---|---|
+| **W0 register** | api | barrier `open`; no record for `opId` (or the same digest); **bound:** `active.revision == n`, `active.destination == W`, not withdrawn, `prepared` absent; **unbound:** no binding document for S, and W's id equals S | the operation `withdraw-registered{ basis }`, where basis is `{ bound, n, W }` or `{ unbound, S, v }` | the same digest returns the registration | nothing has moved |
+| **W1 lock** | console | W0's result for `opId`; **no `cancelled` tombstone** for `opId` (read in this transaction); **bound:** W `active`; **unbound:** W `open` at version v | W `withdrawing{opId}` (no answers, edits, deletion, or use as a continuation source); the console operation `locked` | a no-op if already locked by this `opId` | W-cancel |
+| **W1a locked ack** | api | the operation `withdraw-registered`; the acknowledgement's `opId`, W and basis match | the operation records `ack.locked` | a no-op if identical; a mismatch is refused | retry the ack, or W-cancel |
+| **W2 withdraw** — *point of no return* | api | the operation `withdraw-registered` **with `ack.locked`**; **bound:** `active.revision == n`, `active.opId` unchanged since W0, `prepared` absent; **unbound:** still no binding document for S | the pointer `active = { withdrawn: true, revision r, opId }`, where r is n+1 bound or 1 unbound (unbound: the binding document is created); immutable descriptor `<S>:<r>` = `{ revision r, withdrawn: true, item: W, opId, at }`; the operation `completed` with result `{ revision r, withdrawn: W }` | `completed` returns its recorded result; `cancelled` returns its cancellation, with no writes | after W2, only roll forward (W3) |
+| **W3 remove** | console | W `withdrawing{opId}`; the api operation `completed` (W2's result) | W archived (`mark: 5`), or removed if a future contract allows; the console operation `completed` | a no-op once completed | rolled forward by replay or the runner (§7) |
+| **W-cancel** | api, then console | api: the operation `withdraw-registered`, **not** `completed` | api, first: the operation `cancelled` with its reason, **terminal**. Then the console, in one transaction: the tombstone `continuation-ops/<opId> = cancelled` (created even if W1 never ran), and W `withdrawing{opId}` → its prior state | a no-op once cancelled; a delayed W2 finds the terminal record and is refused; a delayed W1 finds the tombstone and is refused | never touches another `opId`'s lock; impossible after W2 |
+
+**How it orders against the rest of (c):**
+- **Against submissions.** S4 reads the pointer. A freeze that commits before W2 keeps its freeze and attribution (I2). After W2, `active.withdrawn` refuses it with the permanent `respondent-withdrawn`. In the unbound case, S4's "absent" branch requires the document still absent, so it conflicts with W2's creation and, retried, is refused. Until W2, submissions aren't paused: the order is the api transaction, as with activation.
+- **Against continuations.** W1 locks W, which is the only item a continuation of S may use as its source: T when bound, S's item when unbound. So C1 can't allocate on it. A continuation that allocated first makes W1's guard fail, and the withdrawal is cancelled. W0 and W2 require `prepared` absent and the revision unchanged, so a continuation that prepared or activated in between makes the withdrawal fail too. After W2, C0 refuses any continuation of S (`respondent-withdrawn`): an unbound C0 needs revision 0, and a bound one needs a principal.
+- **Final:** a withdrawn session is never re-bound. Its frozen records stay readable.
+
+**What drives it:**
+- **Expiry needs a writer.** Read-side expiry never runs W0–W3, so a sweeper must drive it for expired items holding authority, or authority stays until it does.
 - **Account deletion** drives one withdrawal per affected session.
-- **Costs:**
-  - every removal of an L0182 item becomes a multi-step cross-store protocol;
-  - the drain and floors grow by one operation kind;
-  - the harness must be extended to cover it before any write path relies on it.
+- **The drain** (§8) also counts:
+  - non-terminal withdrawals;
+  - items in `withdrawing`;
+  - missing tombstones;
+  - outstanding `locked` acks.
+
+**Costs:**
+- every removal of an L0182 item that holds authority becomes a multi-step cross-store protocol;
+- the drain and floors grow by one operation kind;
+- the harness must be extended to cover W0–W3 before any write path relies on it.
 
 ## 7. Recovery
 
 **Proposed, with three parts.**
 - **Resumption by replay.** Every continuation request carries its `opId`. A retry of the same request resumes from whatever committed, as the harness driver does: completed steps are no-ops, and a refused child keeps its recorded reason.
-- **A recovery runner**, scheduled in the console (`graffiticode-app`), because its console writes need the console's identity. It calls api internal routes for api steps. Every few minutes (proposed: 5) it lists api operations that are not terminal and older than a threshold (proposed: 15 minutes), and for each:
+- **A settled flag on every api operation.** `settled: false` is written at C0 (or W0). It becomes `true` only through a guarded **settled acknowledgement** from the console, sent after the console's last transaction for that `opId` commits: C5 unlock or W3 remove for a completed operation, or the tombstone cleanup for a cancelled one. The ack writes nothing else. A terminal api state alone therefore doesn't mean the operation is finished.
+- **A recovery runner**, scheduled in the console (`graffiticode-app`), because its console writes need the console's identity. It calls api internal routes for api steps. Every few minutes (proposed: 5) it lists api operations with `settled == false` that are older than a threshold (proposed: 15 minutes). That covers non-terminal operations, **completed operations awaiting C5 or W3**, and **cancelled operations awaiting console cleanup**. As a cross-check, it also lists console items in `continuing`, `pending`, `finalizing` or `withdrawing`, and console operations not `completed` or `cancelled`, then looks up each `opId`. For each one:
 
   | Found | Action |
   |---|---|
-  | `completed`, console not `completed` | roll forward: C5 unlock |
-  | `prepared` with `ack.finalized` | roll forward: C4 activate, then C5 |
-  | console `finalized`, ack not recorded | resend C3a, then roll forward |
-  | `registered`, or `prepared` without the console finalized | C-cancel, recording `cancelReason: "abandoned"` |
-  | api `cancelled` with no console tombstone | write the tombstone and revert this `opId`'s locks |
+  | api `completed`, console not `completed` | roll forward: C5 unlock (or W3), then the settled ack |
+  | api `completed`, console `completed`, not settled | resend the settled ack |
+  | api `prepared` with `ack.finalized` | roll forward: C4 activate, then C5 and the settled ack |
+  | console `finalized` (or `locked`), ack not recorded | resend C3a (or W1a), then continue by the rows above |
+  | api `registered` or `prepared` without the console finalized; `withdraw-registered` without `ack.locked` | cancel (api first, terminal), recording `cancelReason: "abandoned"` |
+  | api `cancelled`, console tombstone missing or a lock with this `opId` remaining | write the tombstone, revert this `opId`'s locks, then the settled ack |
+  | api `cancelled`, cleanup done, not settled | resend the settled ack |
 
-  It never acts on another `opId`'s state, and every action is a guarded step from the race review's table. So running it concurrently with a client retry is safe: one transaction wins and the other is a no-op or refused.
-- **Acknowledgement transport:** C3a is an authenticated call to an api internal route, made as the console's service identity. The api verifies the Google ID token, its audience and a caller allowlist, as in decision 3. It is retried with the same body until recorded or refused.
+  It never acts on another `opId`'s state, and every action is a guarded step from the race review's table or §6. So running it concurrently with a client retry is safe: one transaction wins and the other is a no-op or refused.
+- **Acknowledgement transport:** C3a, W1a and the settled ack are authenticated calls to api internal routes, made as the console's service identity. The api verifies the Google ID token, its audience and a caller allowlist, as in decision 3. Each is retried with the same body until recorded or refused.
 
-**Submission pauses:** a submission racing a continuation gets the temporary `respondent-continuing` and retries. It is not queued. The pause is bounded by the threshold plus one runner interval (proposed: at most 20 minutes) before the runner cancels or completes the operation.
+**Submission pauses:** a submission racing a continuation gets the temporary `respondent-continuing` and retries. It is not queued.
+- **The target, for a healthy service:** the threshold plus one runner interval, so about 20 minutes before the runner cancels or completes the operation.
+- **It is not a bound.** If the api, the console, either Firestore or the runner itself is unavailable, steps fail closed, and the pause lasts until the outage ends and recovery runs. The barrier and the drain counts make such operations visible. Nothing ever times out into publishing authority, or into releasing a lock that a later step still needs.
 
 **Multi-item claims:** the parent claim records its children once. Its result lists each child's outcome (completed, refused with reason, or still pending), as the harness does.
 
@@ -194,23 +225,34 @@
 **Proposed mechanics:**
 - **api milestones:**
   - `c4-assignments` (plan §6 step 3), with `requires` on `l0182r`;
-  - `c4-continuations`, the first api with S4's binding read. This is R-api, and it is a permanent baseline once any binding is active.
+  - `c4-continuations`, the first api with S4's binding read. This is R-api.
 
-  Both go in `deploy.json` `baselines`, so `npm run deploy -- rollback` refuses to go below them.
+  Both go in `deploy.json` `baselines`, with different strength:
+  - `c4-continuations` is `{ milestone, commit, floor: true }`, a floor. The deploy CLI never releases or rolls back below it, and no override applies, `--allow-dirty` included (`packages/deploy/src/release.js`). It is added when the first continuation can be created, before any binding exists, and is permanent.
+  - `c4-assignments` is an **ordinary** baseline entry, which permits the CLI's override. Plan decision 11 lets the interpreter flag be turned off. The `requires` on `l0182r` holds only while `INTERPRETER_L0182` is on.
 - **The console** needs the same guarantee in `graffiticode-app`'s release tooling for K-console and W-console. Its mechanism is that repository's decision, and it must exist before the first continuation is created.
 - **Two switches, independent:**
   - `INTERPRETER_L0182` gates assignment and freezing (plan decisions 9 and 11);
   - **the creation barrier** is the off switch for continuations. Closing it is one api transaction, with no release, and stops new continuations while existing ones roll forward or cancel.
 
   Turning the interpreter flag off doesn't close the barrier, and closing the barrier doesn't stop freezes. With the flag off, existing bindings still govern who may continue a response in the console.
-- **The drain is a script:** `scripts/c4-continuation-drain.js`, `--dry-run` by default. It reports the race review §6 counts (`drainCounts` in the harness). Closing the barrier is its one write, made only with approval. It never lowers a floor itself. It reports whether W may be lowered, and R and K stay.
+- **The drain is a script:** `scripts/c4-continuation-drain.js`, `--dry-run` by default. It reports the race review §6 counts (`drainCounts` in the harness). Closing the barrier is its one write, made only with approval. It never lowers a floor itself. It reports whether W may be lowered, and R and K stay. Its counts include unsettled operations (§7) and, if the withdrawal alternative is chosen, the withdrawal counts (§6).
 
 ## 9. Canary isolation
 
 **Extends plan decision 12** to continuation state.
 
 **Proposed:**
-- **One namespace decision, made once.** The api chooses the namespace from the session and `L0182_CANARY_SESSIONS`, before any read, at C0. It records the namespace in the operation and returns it in C0's result. Every later step, in both stores, uses the recorded namespace. The console never decides it independently, so the two stores can't disagree.
+- **A namespace is decided once and then pinned.** Configuration changes never move existing state. Two create-only records in a single, un-namespaced api collection each:
+  - **the session pin** `l0182-session-namespace/<S>` = `{ namespace, at }`. It is created by the first api transaction that writes anything for S: an assignment, a C0, a W0, or a freeze. The namespace is chosen then from `L0182_CANARY_SESSIONS`. Every later read and write for S uses the pin, never the current list.
+  - **the operation index** `respondent-operation-index/<opId>` = `{ namespace, digest, session }`. It is created in C0's (or W0's) transaction, together with the namespaced operation record.
+- **C0, including its retries,** reads in this order:
+  1. the operation index for `opId`. If present, C0 uses its namespace and compares its digest. A retry after a lost response therefore replays in the original namespace whatever the list now says, and a different digest is `operation-mismatch`;
+  2. otherwise, the session pin for S. If present, it uses that namespace;
+  3. only for a session never seen before, the current list. It creates the pin, the index and the operation together.
+
+  C0 returns the namespace, and every later step, in both stores, uses it. The console never decides it independently. A console that lost C0's response learns the namespace by replaying C0, and the cancel path and the runner (§7) read it from the index. So the two stores can't disagree, and the same `opId` can never exist in two namespaces.
+- **Configuration changes:** a session added to or removed from `L0182_CANARY_SESSIONS` after it is pinned keeps its pin. A release-time check reports every listed session pinned `production`, and every unlisted session pinned `canary`, as a configuration error. The pin still wins. Moving a session between namespaces is a separate, explicit migration, never a configuration side effect.
 - **Collections:**
   - api: `l0182-canary-assignments`, `-draw-cycles`, `-survey-models`, `-cutover` (decision 12), plus `canary-respondent-bindings`, `canary-respondent-binding-history`, `canary-respondent-operations`, and `canary-continuation-barrier`;
   - console: `canary-continuation-ops`.
@@ -218,7 +260,12 @@
 - **Sources and destinations** are only canary-owned items: the canary and verify accounts, and the two canary free-plan workspaces. C0 refuses a canary operation whose source or destination principal isn't on that list, and a production operation naming a canary session.
 - **A program's text can't choose a namespace.** A stranger naming a canary session reaches only isolated records, where full-principal checks still apply.
 - **No production user's response** is claimed, transferred, frozen or withdrawn by a canary. The scheduled canary never writes production records.
-- **Tests:** the api slice's emulator tests cover routing at C0, the recorded namespace on every step, refusal of mixed principals, and the independent barriers. Staged checks use real frontend attestations (decision 12).
+- **Tests:** the api slice's emulator tests cover:
+  - routing at C0, and the recorded namespace on every step;
+  - **a C0 retry after a lost response, with the list changed in between, replaying in the original namespace**;
+  - a pinned session keeping its namespace after a list change;
+  - refusal of mixed principals;
+  - the independent barriers. Staged checks use real frontend attestations (decision 12).
 
 ## 10. Decisions for the owner
 
@@ -229,8 +276,8 @@ Each is **proposed** above. Choosing one approves only the choice, not its imple
 3. **Content changes** (§4): moving an unfrozen record to the new digest, or a fresh draw, or refusing such releases. Also the release rule.
 4. **Retention** (§5): everything forever, including tombstones, or tombstone expiry once its bound is proven.
 5. **Deletion and expiry** (§6): the minimal retained destination record, with the constraint on future removal paths, or authority withdrawal ordered against submissions.
-6. **Recovery** (§7): the console-side runner and its thresholds, and roll forward versus cancel for a finalized but unactivated operation.
-7. **Floors and switches** (§8): the `c4-continuations` baseline, the console's floor mechanism, independent switches, and the drain script.
-8. **Canary** (§9): the C0-recorded namespace and the canary continuation collections.
+6. **Recovery** (§7): the settled flag, the console-side runner and its thresholds (a healthy-service target, not a bound), and roll forward versus cancel for a finalized but unactivated operation.
+7. **Floors and switches** (§8): `c4-continuations` as a `floor: true` baseline, `c4-assignments` as an ordinary one, the console's floor mechanism, independent switches, and the drain script.
+8. **Canary** (§9): the session pin and operation index, C0's replay order, and the canary continuation collections.
 
 **Still outside this document:** migration and backfill classification (decision 10), with no automatic resets, the ten eval-only candidates included. Also outside: installation-specific namespaces (decision 3), and the language, API and harness slices. Each needs its own approval.
