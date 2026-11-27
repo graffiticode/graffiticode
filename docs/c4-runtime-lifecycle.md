@@ -113,6 +113,7 @@
 | `respondent-bindings/<S>` (the mutable current pointer) | api | forever, overwritten only by activation (or withdrawal, §6 alternative) | the R-api floor reads it |
 | `respondent-binding-history/<S>:<n>` (immutable per-revision descriptors) | api | forever, never rewritten | I3 needs history 1…k; the descriptor is what revision n granted (§6) |
 | `respondent-operations` (terminal included) | api | forever | I6: replay answers from them regardless of later rebindings |
+| `respondent-operation-settlement/<opId>` (§7) | api | forever | bookkeeping only; outside I6, and never read by a replay |
 | `respondent-operation-index/<opId>` (§9) | api | forever, create-only | pins an operation's namespace across retries and configuration changes |
 | `l0182-session-namespace/<S>` (§9) | api | forever, create-only | pins a session's namespace |
 | `continuation-ops/<opId>` tombstones and records | console | forever | a delayed C1 has no proven time bound; the tombstone is what refuses it |
@@ -155,12 +156,25 @@
 - **bound case:** the destination T named by the current pointer, at revision n;
 - **unbound case:** the item whose id is S, at console version v, with **no** binding document for S. There is no revision and no bound destination.
 
+**Who may withdraw.** Checking state is not enough: the request must prove permission over S. A frontend's or worker's service authentication identifies the caller, but never by itself grants that permission. Every withdrawal names exactly one **actor**, and its **action proof** is part of the request digest. So a replay with a different actor or proof is `operation-mismatch`.
+
+- **The verified respondent.** The caller principal is built at ingress as in decision 3: the verified user token, plus an attested installation and workspace from a registered frontend.
+  - **Bound:** it must equal `active.principal` on every field, inside W0's transaction.
+  - **Unbound:** the api first calls the console's `respondent-authority` for S. Only `{ bound: false, principal }` whose principal equals the caller proceeds. `unknown`, `ambiguous`, or a `bound: true` answer (a binding the api's store doesn't yet show) is refused with `respondent-unknown`, `respondent-ambiguous` or a temporary `respondent-authority-unavailable`, and nothing is registered. The answer is recorded in the basis, and W1 re-proves it in the console's transaction (below).
+  - **Proof in the digest:** `{ kind: "respondent", principal }`.
+- **A scoped lifecycle worker.** A separate service identity, listed in `C4_LIFECYCLE_WORKERS`, distinct from the frontends' identities and from the runner's. It may register only these events, each with evidence that W1 re-checks in the console's transaction:
+  - **`expiry`:** unbound sessions only. W is the free-plan item S, unclaimed, whose stored `expiresAt` is at or before W1's transaction time. A bound T has no `expiresAt` (a claim removes it), so a worker `expiry` on a bound session is refused.
+  - **`account-deletion`:** a recorded deletion, `account-deletions/<uid>`, written by the deletion path. The authority's principal must be that uid's `user` principal: `active.principal` when bound, or the unique holder of S when unbound. A free-plan principal is never matched by uid alone.
+
+  Proof in the digest: `{ kind: "worker", identity, event, evidence }`, where `evidence` is `{ expiresAt }` or `{ uid, deletionRecordId }`.
+- **Anyone else** is refused, including a frontend identity without a verified respondent, and the runner. The runner may only roll forward or cancel an operation that already exists.
+
 A withdrawal is an operation in `respondent-operations/<opId>`, with `kind: "withdraw"`. Its states are `withdraw-registered` → `completed`, or `cancelled`. Completed and cancelled are terminal. The console mirrors it in `continuation-ops/<opId>`, as for continuations.
 
 | Step | Transaction | Expected phase and guards | Atomic writes | Replay | Recovery |
 |---|---|---|---|---|---|
-| **W0 register** | api | barrier `open`; no record for `opId` (or the same digest); **bound:** `active.revision == n`, `active.destination == W`, not withdrawn, `prepared` absent; **unbound:** no binding document for S, and W's id equals S | the operation `withdraw-registered{ basis }`, where basis is `{ bound, n, W }` or `{ unbound, S, v }` | the same digest returns the registration | nothing has moved |
-| **W1 lock** | console | W0's result for `opId`; **no `cancelled` tombstone** for `opId` (read in this transaction); **bound:** W `active`; **unbound:** W `open` at version v | W `withdrawing{opId}` (no answers, edits, deletion, or use as a continuation source); the console operation `locked` | a no-op if already locked by this `opId` | W-cancel |
+| **W0 register** | api | barrier `open`; no record for `opId` (or the same digest, **actor and proof included**); the actor is permitted (above); **bound:** `active.revision == n`, `active.destination == W`, not withdrawn, `prepared` absent, and a respondent actor equals `active.principal`; **unbound:** no binding document for S, W's id equals S, and the pre-read answer was `{ bound: false, principal }` (never `unknown` or `ambiguous`) | the operation `withdraw-registered{ basis, actor, proof }`, where basis is `{ bound, n, W }` or `{ unbound, S, v, principal }` | the same digest returns the registration | nothing has moved |
+| **W1 lock** | console | W0's result for `opId`; **no `cancelled` tombstone** for `opId` (read in this transaction); **bound:** W `active`; **unbound:** W `open` at version v, **held uniquely** (no other holder) by the basis principal, with that principal's workspace for a free-plan item; **worker evidence** re-checked here (`expiresAt` passed and unclaimed, or the deletion record present for that uid) | W `withdrawing{opId}` (no answers, edits, deletion, or use as a continuation source); the console operation `locked` | a no-op if already locked by this `opId` | W-cancel |
 | **W1a locked ack** | api | the operation `withdraw-registered`; the acknowledgement's `opId`, W and basis match | the operation records `ack.locked` | a no-op if identical; a mismatch is refused | retry the ack, or W-cancel |
 | **W2 withdraw** — *point of no return* | api | the operation `withdraw-registered` **with `ack.locked`**; **bound:** `active.revision == n`, `active.opId` unchanged since W0, `prepared` absent; **unbound:** still no binding document for S | the pointer `active = { withdrawn: true, revision r, opId }`, where r is n+1 bound or 1 unbound (unbound: the binding document is created); immutable descriptor `<S>:<r>` = `{ revision r, withdrawn: true, item: W, opId, at }`; the operation `completed` with result `{ revision r, withdrawn: W }` | `completed` returns its recorded result; `cancelled` returns its cancellation, with no writes | after W2, only roll forward (W3) |
 | **W3 remove** | console | W `withdrawing{opId}`; the api operation `completed` (W2's result) | W archived (`mark: 5`), or removed if a future contract allows; the console operation `completed` | a no-op once completed | rolled forward by replay or the runner (§7) |
@@ -189,15 +203,20 @@ A withdrawal is an operation in `respondent-operations/<opId>`, with `kind: "wit
 
 **Proposed, with three parts.**
 - **Resumption by replay.** Every continuation request carries its `opId`. A retry of the same request resumes from whatever committed, as the harness driver does: completed steps are no-ops, and a refused child keeps its recorded reason.
-- **A settled flag on every api operation.** `settled: false` is written at C0 (or W0). It becomes `true` only through a guarded **settled acknowledgement** from the console, sent after the console's last transaction for that `opId` commits: C5 unlock or W3 remove for a completed operation, or the tombstone cleanup for a cancelled one. The ack writes nothing else. A terminal api state alone therefore doesn't mean the operation is finished.
-- **A recovery runner**, scheduled in the console (`graffiticode-app`), because its console writes need the console's identity. It calls api internal routes for api steps. Every few minutes (proposed: 5) it lists api operations with `settled == false` that are older than a threshold (proposed: 15 minutes). That covers non-terminal operations, **completed operations awaiting C5 or W3**, and **cancelled operations awaiting console cleanup**. As a cross-check, it also lists console items in `continuing`, `pending`, `finalizing` or `withdrawing`, and console operations not `completed` or `cancelled`, then looks up each `opId`. For each one:
+- **Settlement is a separate record, so I6 is unchanged.** C0 (or W0) creates `respondent-operation-settlement/<opId>` = `{ opId, settled: false, createdAt }` in its own transaction, beside the operation record and in the same namespace.
+  - The record becomes `{ settled: true, at }` only through a guarded **settled acknowledgement** from the console. That ack is sent after the console's last transaction for that `opId` commits: C5 unlock or W3 remove for a completed operation, or the tombstone cleanup for a cancelled one. The ack is refused unless the operation is already terminal.
+  - The ack writes **only** the settlement record. The operation record, once `completed` or `cancelled`, is never written again, and replays answer from it alone (I6).
+  - A terminal operation with an unsettled record is finished in the api but not yet in the console.
+- **A recovery runner**, scheduled in the console (`graffiticode-app`), because its console writes need the console's identity. It calls api internal routes for api steps. Every few minutes (proposed: 5) it lists settlement records with `settled == false` whose `createdAt` is older than a threshold (proposed: 15 minutes). That covers non-terminal operations, **completed operations awaiting C5 or W3**, and **cancelled operations awaiting console cleanup**. As a cross-check, it also lists console items in `continuing`, `pending`, `finalizing` or `withdrawing`, and console operations not `completed` or `cancelled`, then looks up each `opId`. For each one:
 
   | Found | Action |
   |---|---|
   | api `completed`, console not `completed` | roll forward: C5 unlock (or W3), then the settled ack |
   | api `completed`, console `completed`, not settled | resend the settled ack |
   | api `prepared` with `ack.finalized` | roll forward: C4 activate, then C5 and the settled ack |
-  | console `finalized` (or `locked`), ack not recorded | resend C3a (or W1a), then continue by the rows above |
+  | api `withdraw-registered` with `ack.locked` | roll forward: W2 withdraw, then W3 remove and the settled ack. If W2's guards now fail (the revision moved, or `prepared` appeared), W-cancel instead |
+  | console `finalized`, C3a not recorded | resend C3a; then the `prepared` with `ack.finalized` row |
+  | console `locked`, W1a not recorded | resend W1a; then the `withdraw-registered` with `ack.locked` row |
   | api `registered` or `prepared` without the console finalized; `withdraw-registered` without `ack.locked` | cancel (api first, terminal), recording `cancelReason: "abandoned"` |
   | api `cancelled`, console tombstone missing or a lock with this `opId` remaining | write the tombstone, revert this `opId`'s locks, then the settled ack |
   | api `cancelled`, cleanup done, not settled | resend the settled ack |
@@ -229,7 +248,22 @@ A withdrawal is an operation in `respondent-operations/<opId>`, with `kind: "wit
 
   Both go in `deploy.json` `baselines`, with different strength:
   - `c4-continuations` is `{ milestone, commit, floor: true }`, a floor. The deploy CLI never releases or rolls back below it, and no override applies, `--allow-dirty` included (`packages/deploy/src/release.js`). It is added when the first continuation can be created, before any binding exists, and is permanent.
-  - `c4-assignments` is an **ordinary** baseline entry, which permits the CLI's override. Plan decision 11 lets the interpreter flag be turned off. The `requires` on `l0182r` holds only while `INTERPRETER_L0182` is on.
+  - `c4-assignments` is an **ordinary** baseline entry, which permits the CLI's override.
+- **The api's `requires` on `l0182r` is static.** The deploy CLI resolves `requires` from `deploy.json` alone (`packages/deploy/src/config.js`). Turning `INTERPRETER_L0182` off doesn't remove it. **Proposed: a guarded configuration change**, each direction its own `deploy.json` PR and its own approval:
+  - **Removing it** (after rollback, plan decision 11):
+    1. the off release (`INTERPRETER_L0182="off"`, generation `rust-2`) is promoted;
+    2. every older api revision's tag and traffic is retired;
+    3. `npm run deploy -- release-check api` passes. It is read-only, and refuses while stale tags remain, so the promoted revision is the only reachable one;
+    4. a read-only `gcloud run revisions describe` of that revision shows `INTERPRETER_L0182=off`. `release-check` doesn't report environment values.
+
+    Only then does the PR delete the `requires` entry. Its description carries both outputs. Until it merges, `l0182r` stays at or above the milestone.
+  - **Reinstating it**, before re-activation:
+    1. the PR adds `requires` back;
+    2. `npm run deploy -- release-check api` passes with the restored entry, which checks that every reachable `l0182r` revision is at or above the required milestone;
+    3. only then is an api with the flag on staged.
+
+    So no api with the flag on is ever reachable without the dependency in force.
+  - **Alternative:** conditional dependency support in the deploy CLI, for example `{ service, milestone, whenEnv: { INTERPRETER_L0182: "on" } }`, evaluated against the environment of every reachable api revision. That is a separate code proposal, with its own tests, and nothing here assumes it.
 - **The console** needs the same guarantee in `graffiticode-app`'s release tooling for K-console and W-console. Its mechanism is that repository's decision, and it must exist before the first continuation is created.
 - **Two switches, independent:**
   - `INTERPRETER_L0182` gates assignment and freezing (plan decisions 9 and 11);
@@ -275,9 +309,9 @@ Each is **proposed** above. Choosing one approves only the choice, not its imple
 2. **Balancing** (§3): a durable draw without replacement, or a uniform pick, or least-assigned.
 3. **Content changes** (§4): moving an unfrozen record to the new digest, or a fresh draw, or refusing such releases. Also the release rule.
 4. **Retention** (§5): everything forever, including tombstones, or tombstone expiry once its bound is proven.
-5. **Deletion and expiry** (§6): the minimal retained destination record, with the constraint on future removal paths, or authority withdrawal ordered against submissions.
-6. **Recovery** (§7): the settled flag, the console-side runner and its thresholds (a healthy-service target, not a bound), and roll forward versus cancel for a finalized but unactivated operation.
-7. **Floors and switches** (§8): `c4-continuations` as a `floor: true` baseline, `c4-assignments` as an ordinary one, the console's floor mechanism, independent switches, and the drain script.
+5. **Deletion and expiry** (§6): the minimal retained destination record, with the constraint on future removal paths, or authority withdrawal ordered against submissions, including who may withdraw (the verified respondent, or the scoped lifecycle worker and its events).
+6. **Recovery** (§7): the separate settlement record, the console-side runner and its thresholds (a healthy-service target, not a bound), and roll forward versus cancel for a finalized but unactivated operation.
+7. **Floors and switches** (§8): `c4-continuations` as a `floor: true` baseline, `c4-assignments` as an ordinary one, the guarded removal and reinstatement of the static `requires` (or conditional dependency support), the console's floor mechanism, independent switches, and the drain script.
 8. **Canary** (§9): the session pin and operation index, C0's replay order, and the canary continuation collections.
 
 **Still outside this document:** migration and backfill classification (decision 10), with no automatic resets, the ten eval-only candidates included. Also outside: installation-specific namespaces (decision 3), and the language, API and harness slices. Each needs its own approval.
