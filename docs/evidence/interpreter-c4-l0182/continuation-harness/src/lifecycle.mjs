@@ -142,6 +142,12 @@ export async function submitRouted(stores, config, args) {
     const pins = await Promise.all(args.sessions.map(S => tx.get(PIN(base, S))));
     const spaces = args.sessions.map((S, i) => pins[i].data()?.namespace ?? (listed(config, S) ? "canary" : "production"));
     if (new Set(spaces).size !== 1) refuse("namespace-mixed");
+    // The selected fixture restriction (§9) holds on the submission path too:
+    // a canary session is frozen, and pinned by a first write, only for
+    // canary-owned principals. Refused before any write, so nothing is left.
+    if (spaces[0] === "canary" && !(canaryOwned(config, args.caller) && canaryOwned(config, args.submitter))) {
+      refuse("canary-fixture-only");
+    }
     const api = scoped(base, spaces[0]);
     const out = await submitInTx(api, tx, args);
     const now = clock(config);
@@ -218,10 +224,13 @@ async function lockRemains(con, op) {
   });
 }
 
-export async function recoverOne(s, opId, { now }) {
+// `hooks.before(name)` runs before each action; tests use it to commit a
+// concurrent step between the runner's snapshot and its transaction.
+export async function recoverOne(s, opId, { now, hooks = {} }) {
   const actions = [];
   const attempt = async (name, fn) => {
     try {
+      if (hooks.before) await hooks.before(name, opId);
       await fn();
       actions.push(name);
     } catch (err) {
@@ -264,8 +273,12 @@ export async function recoverOne(s, opId, { now }) {
       continue;
     }
     // Row 9: registered, or prepared without the console finalized: abandoned.
+    // The cancellation carries the observed phase as a precondition, so if
+    // C2 or C3a advanced it since this snapshot, it is refused and the loop
+    // restarts from row 1.
     if (op.state === "registered" || op.state === "prepared") {
-      await attempt("cancel", () => cancelApi(s.api, opId, { reason: "abandoned" }));
+      const ifPhase = { state: op.state, ackFinalized: Boolean(op.ack?.finalized) };
+      await attempt("cancel", () => cancelApi(s.api, opId, { reason: "abandoned", ifPhase }));
       continue;
     }
     refuse("unexpected-phase", { detail: op.state });
@@ -273,7 +286,7 @@ export async function recoverOne(s, opId, { now }) {
   refuse("recovery-stalled", { detail: opId });
 }
 
-export async function recoveryPass(stores, { now, threshold = THRESHOLD_MS, namespaces = NAMESPACES } = {}) {
+export async function recoveryPass(stores, { now, threshold = THRESHOLD_MS, namespaces = NAMESPACES, hooks } = {}) {
   const report = [];
   for (const namespace of namespaces) {
     const s = scopedStores(stores, namespace);
@@ -290,7 +303,7 @@ export async function recoveryPass(stores, { now, threshold = THRESHOLD_MS, name
       if (old.has(opId)) due.add(opId);
     }
     for (const opId of [...due].sort()) {
-      report.push({ namespace, opId, actions: await recoverOne(s, opId, { now }) });
+      report.push({ namespace, opId, actions: await recoverOne(s, opId, { now, hooks }) });
     }
   }
   return report;

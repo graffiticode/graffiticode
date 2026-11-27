@@ -132,12 +132,23 @@ export async function consoleWrite(con, itemId, kind) {
 // update that removes nothing, permitted only where the state table permits
 // deletion. It never changes respondent authority (c4-runtime-lifecycle.md
 // §6, selected 2026-11-27).
+//
+// A read-only source may be archived once the continuation that locked it has
+// completed (its console operation `completed`, after C5): read-only is then
+// terminal, and archiving changes visibility only. While that continuation is
+// unfinished (finalized, or cancellable before C4) it stays protected. Archive
+// never lifts read-only's refusal of answers and edits.
 export async function archiveItem(con, itemId) {
   return con.run(async tx => {
     const ref = CON.item(con, itemId);
     const item = (await tx.get(ref)).data();
     if (!item) refuse("unknown-item");
-    if (!PERMITS[item.state]?.delete) refuse("item-locked", { detail: `${itemId} is ${item.state}` });
+    let allowed = PERMITS[item.state]?.delete;
+    if (item.state === "read-only" && item.lockOp) {
+      const cop = (await tx.get(CON.cop(con, item.lockOp))).data();
+      allowed = cop?.state === "completed";
+    }
+    if (!allowed) refuse("item-locked", { detail: `${itemId} is ${item.state}` });
     tx.update(ref, { mark: 5 });
     return { itemId, mark: 5 };
   });
@@ -370,13 +381,23 @@ export async function unlock(con, apiOp) {
 // `reason`, when given, is stored atomically with the cancellation, so a
 // replay or an overlapping resumption can recover WHY the operation was
 // cancelled. The first reason recorded wins; a later cancel never replaces it.
-export async function cancelApi(api, opId, { reason = null } = {}) {
+//
+// `ifPhase` is the recovery runner's precondition (c4-runtime-lifecycle.md
+// §7): `{ state, ackFinalized }` as the runner observed them. Rechecked inside
+// this transaction, so a phase or acknowledgement that advanced after the
+// runner's snapshot (a C2 or C3a committing meanwhile) refuses the
+// cancellation with the temporary `phase-advanced`, and the runner restarts
+// from row 1 instead of cancelling a continuation that moved on.
+export async function cancelApi(api, opId, { reason = null, ifPhase = null } = {}) {
   return api.run(async tx => {
     const opRef = API.op(api, opId);
     const op = (await tx.get(opRef)).data();
     if (!op) refuse("unknown-operation");
     const bRef = API.binding(api, op.request.session);
     const binding = (await tx.get(bRef)).data();
+    if (ifPhase && (op.state !== ifPhase.state || Boolean(op.ack?.finalized) !== ifPhase.ackFinalized)) {
+      refuse("phase-advanced", { temporary: true, detail: op.state });
+    }
     if (op.state === "cancelled") return op;
     if (op.state === "completed") refuse("past-point-of-no-return");
     tx.update(opRef, { state: "cancelled", cancelReason: reason });

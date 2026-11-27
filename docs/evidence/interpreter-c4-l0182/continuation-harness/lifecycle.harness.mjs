@@ -9,12 +9,16 @@ import { afterAll, describe, expect, it } from "@jest/globals";
 import { closeStores, makeStores } from "./src/stores.mjs";
 import {
   ProtocolError,
+  ackFinalized,
   archiveItem,
+  bindPrepare,
   cancelApi,
   closeBarrier,
+  consoleWrite,
   createItem,
   deriveAuthority,
   drainCounts,
+  finalize,
   openBarrier,
   readAssignment,
   readBinding,
@@ -227,6 +231,25 @@ describe("§9 namespaces: the session pin and the operation index", () => {
     const out = await runRoutedChild(stores, config(), canaryRequest("op-c"));
     expect(out.namespace).toBe("canary");
   });
+  it("a canary submission by a non-canary principal is refused, and leaves no pin and no freeze", async () => {
+    const { stores, canary } = await setup("ns-submit-fixtures");
+    const forged = { c1: { principal: P } }; // whatever authority evidence is supplied
+    await refusedWith(
+      submitRouted(stores, config(), { sessions: ["c1"], caller: P, submitter: P, taskId: "t1", derived: forged }),
+      "canary-fixture-only",
+    );
+    expect(await readPin(stores, "c1")).toBeNull();
+    expect(await readAssignment(canary.api, "c1")).toBeNull();
+    // Once pinned canary, the same restriction holds.
+    await runRoutedChild(stores, config(), canaryRequest("op-c"));
+    await refusedWith(
+      submitRouted(stores, config(), { sessions: ["c1"], caller: P, submitter: P, taskId: "t2", derived: forged }),
+      "canary-fixture-only",
+    );
+    expect(await readAssignment(canary.api, "c1")).toBeNull();
+    const out = await submitRouted(stores, config(), { sessions: ["c1"], caller: VERIFY, submitter: VERIFY, taskId: "t3" });
+    expect(out).toMatchObject({ frozen: ["c1"], namespace: "canary" });
+  });
   it("a submission whose sessions resolve to different namespaces is refused", async () => {
     const { stores } = await setup("ns-mixed");
     await refusedWith(
@@ -307,6 +330,41 @@ describe("§7 recovery: the runner's ordered, api-phase-guarded rows", () => {
     expect(await readHistory(prod.api, "x1")).toHaveLength(1);
     expect(await drainCounts(prod)).toEqual(zero);
   });
+  it("a C3a committing between the runner's snapshot and its cancel refuses the cancel; recovery restarts and rolls forward", async () => {
+    const { stores, prod } = await setup("rec-advance-ack");
+    await crashed(runRoutedChild(stores, config(), request("op-1"), { crashAfter: "C2" }));
+    let raced = false;
+    const before = async name => {
+      if (name !== "cancel" || raced) return;
+      raced = true; // the client finishes C3 and C3a after the runner's snapshot
+      await finalize(prod.console, await readOp(prod.api, "op-1"));
+      const op = await readOp(prod.api, "op-1");
+      await ackFinalized(prod.api, { opId: "op-1", revision: 1, T: op.T, X: "x1" });
+    };
+    const [entry] = await recoveryPass(stores, { now: T0 + THRESHOLD_MS + MIN, hooks: { before } });
+    expect(entry.actions).toEqual(["cancel:refused:phase-advanced", "C4", "C5", "settle"]);
+    const op = await readOp(prod.api, "op-1");
+    expect(op.state).toBe("completed");
+    expect(op.cancelReason).toBeUndefined();
+    expect(await readHistory(prod.api, "x1")).toHaveLength(1);
+    expect(await drainCounts(prod)).toEqual(zero);
+  });
+  it("a C2 committing between the runner's snapshot and its cancel refuses that cancel; the restart re-reads the phase", async () => {
+    const { stores, prod } = await setup("rec-advance-prepare");
+    await crashed(runRoutedChild(stores, config(), request("op-1"), { crashAfter: "C1" }));
+    let raced = false;
+    const before = async name => {
+      if (name !== "cancel" || raced) return;
+      raced = true;
+      await bindPrepare(prod.api, "op-1");
+    };
+    const [entry] = await recoveryPass(stores, { now: T0 + THRESHOLD_MS + MIN, hooks: { before } });
+    // The prepared operation still has no finalized console: row 9 again, now
+    // with the prepared phase as its precondition.
+    expect(entry.actions).toEqual(["cancel:refused:phase-advanced", "cancel", "cleanup", "settle"]);
+    expect((await readOp(prod.api, "op-1")).state).toBe("cancelled");
+    expect(await drainCounts(prod)).toEqual(zero);
+  });
   it("a submission racing a prepared continuation is refused temporarily, not queued; it succeeds after recovery", async () => {
     const { stores, prod } = await setup("rec-submit");
     await crashed(runRoutedChild(stores, config(), request("op-1"), { crashAfter: "C2" }));
@@ -379,6 +437,15 @@ describe("§6 the retained per-revision descriptor: archive and expiry never wit
     expect((await readBinding(prod.api, "x1")).active).toMatchObject({ principal: P, destination: out.T });
     expect((await submitRouted(stores, config(), { sessions: ["x1"], caller: P, submitter: P, taskId: "t1" })).frozen).toEqual(["x1"]);
   });
+  it("a completed continuation's read-only source can be archived; it still refuses answers and edits", async () => {
+    const { stores, prod } = await setup("desc-archive-source");
+    await runRoutedChild(stores, config(), request("op-1"));
+    await archiveItem(prod.console, "x1");
+    expect(await readItem(prod.console, "x1")).toMatchObject({ state: "read-only", mark: 5, lockOp: "op-1" });
+    await refusedWith(consoleWrite(prod.console, "x1", "answer"), "item-locked");
+    await refusedWith(consoleWrite(prod.console, "x1", "edit"), "item-locked");
+    expect((await readBinding(prod.api, "x1")).active).toMatchObject({ principal: P, revision: 1 });
+  });
   it("archive is refused while an item is locked by a continuation", async () => {
     const { stores, prod } = await setup("desc-locked");
     await crashed(runRoutedChild(stores, config(), request("op-1"), { crashAfter: "C3" }));
@@ -386,5 +453,9 @@ describe("§6 the retained per-revision descriptor: archive and expiry never wit
     await refusedWith(archiveItem(prod.console, "x1"), "item-locked");
     await refusedWith(archiveItem(prod.console, T), "item-locked");
     expect((await readItem(prod.console, T)).mark).toBe(1);
+    // Past C4 but before C5, the source stays protected until the console completes.
+    await crashed(runRoutedChild(stores, config(), request("op-1"), { crashAfter: "C4" }));
+    await refusedWith(archiveItem(prod.console, "x1"), "item-locked");
+    expect((await readItem(prod.console, "x1")).mark).toBe(1);
   });
 });

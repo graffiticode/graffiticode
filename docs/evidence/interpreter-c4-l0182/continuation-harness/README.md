@@ -89,7 +89,8 @@ The canary prefix is uniform in the harness (`canary-<name>`). The plan's produc
   - a pin survives a list change, and the configuration check reports it;
   - canary-only fixtures;
   - separate barriers;
-  - mixed-namespace submissions are refused.
+  - mixed-namespace submissions are refused;
+  - a canary submission by a non-canary principal is refused, and leaves no pin and no freeze.
 - **Recovery:**
   - the selected targets;
   - nothing younger than the threshold is touched;
@@ -98,13 +99,15 @@ The canary prefix is uniform in the harness (`canary-<name>`). The plan's produc
   - api-cancelled cleanup takes precedence over a console still `finalized`;
   - a settle-only repair;
   - the runner racing a client resume;
-  - a racing submission is refused temporarily, not queued.
+  - a racing submission is refused temporarily, not queued;
+  - **a C2 or C3a committing between the runner's snapshot and its cancellation refuses the cancel** (`phase-advanced`, the runner's in-transaction precondition), and recovery restarts from row 1.
 - **The retained descriptor:**
   - archiving T keeps the pointer and descriptor, and the respondent can still submit;
   - a transfer moves the pointer while descriptor 1 and its freeze are unchanged;
   - an expired and archived unbound free-plan item keeps its derived authority;
   - a claimed source's expiry changes nothing;
-  - archive is refused while an item is locked.
+  - a completed continuation's read-only source can be archived, and still refuses answers and edits;
+  - archive is refused while an item is locked, including a source whose continuation is past C4 but not yet unlocked.
 
 ## Running
 
