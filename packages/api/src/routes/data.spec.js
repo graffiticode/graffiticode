@@ -45,6 +45,33 @@ describe.each(["ephemeral", "persistent"])("routes/data[%s]", (storageType) => {
       .expect(200, createSuccessResponse({ data: DATA1 }));
   });
 
+  // Error handling proposal, step 1 (PR 1a): an answer that reports an error
+  // is never held as immutable, since the next attempt may succeed.
+  it("never holds a failed compile", async () => {
+    const FAILED = { data: null, errors: [{ message: "a compile error", from: 0, to: 1 }] };
+    const failing = { lang: "0000", code: { 1: { tag: "STR", elts: ["failing"] }, 2: { tag: "EXPRS", elts: [1] }, 3: { tag: "PROG", elts: [2] }, root: 3 } };
+    langApp.setData(failing.code, FAILED);
+    const res = await request(app)
+      .post("/task")
+      .set("x-graffiticode-storage-type", storageType)
+      .send({ task: failing })
+      .expect(200);
+    const id = res.body.data.id;
+
+    const ok = await request(app).get("/data").query({ id }).expect(200);
+    expect(ok.body).toEqual(createSuccessResponse({ data: FAILED }));
+    expect(ok.headers["cache-control"]).toBe("no-store");
+
+    // A succeeding id beside it doesn't make the answer holdable.
+    const other = await request(app)
+      .post("/task")
+      .set("x-graffiticode-storage-type", storageType)
+      .send({ task: TASK1 })
+      .expect(200);
+    const both = await request(app).get("/data").query({ id: [id, other.body.data.id].join(",") }).expect(200);
+    expect(both.headers["cache-control"]).toBe("no-store");
+  });
+
   it("get single data using ephemeral flag", async () => {
     const res = await request(app)
       .post("/task")

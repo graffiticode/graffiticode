@@ -291,10 +291,17 @@ const buildGetData = ({
     const bypassCache =
       overriding || Boolean(refresh) || Boolean(connectionId) || requiresProtected || interpretedChain;
     // There exists a task that we are authorized to see.
+    // A stored failure is never served: it is compiled again, and replaced
+    // only by a result that succeeds (error handling proposal, step 1). Older
+    // releases stored failures, so this is decided on read, not only on write.
+    let storedFailure = false;
     if (!bypassCache) {
       const cached = await compileStorer.get({ id: cacheKey, auth });
       if (cached && cached.data) {
-        return cached.data;
+        if (!cached.data.errors?.length) {
+          return cached.data;
+        }
+        storedFailure = true;
       }
     }
     // A language whose output expires answers `cache: false` in its compile
@@ -505,10 +512,12 @@ const buildGetData = ({
       const store = Boolean(key) && inputSharable && sharable(effective, now()) && !out?.errors?.length && reply?.revision === revision;
       return { out, own, baseUrl, store: store ? { key, revision, ...effective } : null, mode, record: { ...record, revision, cache: key && inputSharable && !refresh ? "miss" : "skip" } };
     };
-    const obj = await tasks.reduceRight(
-      // OPTIMIZATION Call getData recursively using the longest id suffix to
-      // use any existing compiles.
-      async (dataPromise, task, index) => {
+    // The first stage whose own compile failed, and whether a later stage's
+    // success has replaced that failure. Measured before ordinary chains stop
+    // at a failure as admitted ones do (proposal, step 1, PR 1b).
+    let failedStage = null;
+    let failureOverwritten = false;
+    const runStage = async (dataPromise, task, index) => {
         const data = await dataPromise;
         // Under a plan, the first failing stage stops the chain: later stages
         // never execute (spec ADMIT-03). Its effects are already reported.
@@ -603,6 +612,21 @@ const buildGetData = ({
           return checkShape(lang, rest, stageBaseUrl);
         }
         return checkShape(lang, out, stageBaseUrl);
+    };
+    const obj = await tasks.reduceRight(
+      // OPTIMIZATION Call getData recursively using the longest id suffix to
+      // use any existing compiles.
+      async (dataPromise, task, index) => {
+        const out = await runStage(dataPromise, task, index);
+        if (out?.errors?.length) {
+          failedStage ??= { index, lang: normalizeLang(task.lang) };
+        } else if (failedStage && !failureOverwritten) {
+          failureOverwritten = true;
+          console.log("stage-failure-overwritten", JSON.stringify({
+            id, failed: `s${failedStage.index}`, failedLang: failedStage.lang, by: `s${index}`, byLang: normalizeLang(task.lang), admitted: Boolean(admitted)
+          }));
+        }
+        return out;
       },
       Promise.resolve({})
     );
@@ -682,16 +706,18 @@ const buildGetData = ({
         upstream.expiresAt !== null && !obj.errors?.length;
       if (bounded) {
         action.cacheClass = "shared";
-      } else if (!mayHold || !permanent(upstream)) {
+      } else if (!mayHold || !permanent(upstream) || obj.errors?.length) {
         // Let the route drop the immutable cache headers — an expiring compile
-        // must not be held by the browser or the CDN either.
+        // must not be held by the browser or the CDN either, and neither may
+        // a failure: the next attempt may succeed.
         action.noStore = true;
       }
     }
     // A refresh writes its fresh result back; an override must not, even with
     // a refresh, since its result is specific to that user's language-server
     // revision and would pollute the shared cache for everyone else.
-    if (!overriding && (!bypassCache || refresh) && cacheable && !interpretedChain) {
+    // A failure is never stored, so it is never served from here.
+    if (!overriding && (!bypassCache || refresh) && cacheable && !interpretedChain && !obj.errors?.length) {
       await compileStorer.create({
         id: cacheKey,
         compile: {
@@ -701,7 +727,8 @@ const buildGetData = ({
         // Existing docs are otherwise never rewritten (only count/lastCompile
         // move), which is what made a stale verdict permanent: nothing short of
         // deleting the doc could correct it.
-        overwrite: Boolean(refresh)
+        // A stored failure is replaced by this success.
+        overwrite: Boolean(refresh) || storedFailure
       });
     }
     const result = effects.length ? { ...obj, effects } : obj;

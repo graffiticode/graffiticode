@@ -59,6 +59,10 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
   };
 };
 
+// Whether a response's data (one id's result, or an array of them) reports
+// an error anywhere.
+const carriesErrors = data => (Array.isArray(data) ? data.some(carriesErrors) : Boolean(data?.errors?.length));
+
 const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) => {
   const getData = buildGetData({ taskStorer, compileStorer, dataApi });
   return buildHttpHandler(async (req, res) => {
@@ -120,8 +124,9 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimite
       res.status(200).json(body);
       return;
     }
-    if (action.noStore || connectionId || publicationId) {
-      // At least one of these ids compiles to output that expires.
+    if (action.noStore || connectionId || publicationId || carriesErrors(data)) {
+      // At least one of these ids compiles to output that expires, or failed:
+      // a failure is never held, since the next attempt may succeed.
       setNoStoreCacheHeaders(res);
     } else if (action.cacheClass === "shared") {
       // Every id may be held, at least one only until it expires (C3): for the

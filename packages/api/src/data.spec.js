@@ -385,6 +385,72 @@ describe("data", () => {
     });
   });
 
+  // Error handling proposal, step 1 (PR 1a): a failure is never stored,
+  // never served from the store, and never held by a browser or the CDN.
+  describe("a compile that fails", () => {
+    const FAILURE = { data: null, errors: [{ message: "Language server error: Forbidden", from: -1, to: -1 }] };
+    const api = () => /** @type {any} */ (dataApi);
+
+    it("is not stored, and says so to the route", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      mockCompileData(FAILURE);
+      const action = /** @type {any} */ ({});
+
+      await expect(api().get({ taskStorer, compileStorer, id, action })).resolves.toStrictEqual(FAILURE);
+
+      expect(action.compiled).toBeUndefined();
+      expect(action.noStore).toBe(true);
+      await expect(compileStorer.get({ id })).resolves.toBeUndefined();
+    });
+
+    it("is compiled again rather than served when an older release stored it", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      await compileStorer.create({ id, compile: { timestamp: Date.now(), data: FAILURE } });
+      mockCompileData(DATA1);
+
+      await expect(api().get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA1);
+
+      expect(compile).toHaveBeenCalledTimes(1);
+      // The success replaces the stored failure, and is served from then on.
+      await expect(compileStorer.get({ id })).resolves.toEqual(expect.objectContaining({ data: DATA1 }));
+      await expect(api().get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA1);
+      expect(compile).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves a stored failure in place when it fails again", async () => {
+      const id = await taskStorer.create({ task: TASK1 });
+      await compileStorer.create({ id, compile: { timestamp: Date.now(), data: FAILURE } });
+      const again = { data: null, errors: [{ message: "Language server error: still failing", from: -1, to: -1 }] };
+      mockCompileData(again);
+      const action = /** @type {any} */ ({});
+
+      await expect(api().get({ taskStorer, compileStorer, id, action })).resolves.toStrictEqual(again);
+
+      expect(action.noStore).toBe(true);
+      await expect(compileStorer.get({ id })).resolves.toEqual(expect.objectContaining({ data: FAILURE }));
+    });
+
+    it("logs a later stage that replaces an earlier stage's failure", async () => {
+      const log = jest.spyOn(console, "log").mockImplementation(() => {});
+      try {
+        const id1 = await taskStorer.create({ task: TASK1 });
+        const id2 = await taskStorer.create({ task: TASK2 });
+        const id = taskStorer.appendIds(id1, id2);
+        // Right to left: TASK2 fails, then TASK1 succeeds on its output.
+        mockCompileData(FAILURE);
+        mockCompileData(DATA1);
+
+        await expect(api().get({ taskStorer, compileStorer, id })).resolves.toStrictEqual(DATA1);
+
+        const lines = log.mock.calls.filter(([what]) => what === "stage-failure-overwritten");
+        expect(lines).toHaveLength(1);
+        expect(JSON.parse(String(lines[0][1]))).toEqual(expect.objectContaining({ id, failed: "s1", by: "s0", admitted: false }));
+      } finally {
+        log.mockRestore();
+      }
+    });
+  });
+
   describe("a compile whose data does not match its language's schema", () => {
     const SCHEMA_ERROR = { message: "L0000 compiler output does not match its schema.json", from: -1, to: -1, internal: true, kind: "schema" };
     const RESULT = { data: { bad: true }, errors: [] };
