@@ -177,8 +177,15 @@ A withdrawal is an operation in `respondent-operations/<opId>`, with `kind: "wit
 | **W1 lock** | console | W0's result for `opId`; **no `cancelled` tombstone** for `opId` (read in this transaction); **bound:** W `active`; **unbound:** W `open` at version v, **held uniquely** (no other holder) by the basis principal, with that principal's workspace for a free-plan item; **worker evidence** re-checked here (`expiresAt` passed and unclaimed, or the deletion record present for that uid) | W `withdrawing{opId}` (no answers, edits, deletion, or use as a continuation source); the console operation `locked` | a no-op if already locked by this `opId` | W-cancel |
 | **W1a locked ack** | api | the operation `withdraw-registered`; the acknowledgement's `opId`, W and basis match | the operation records `ack.locked` | a no-op if identical; a mismatch is refused | retry the ack, or W-cancel |
 | **W2 withdraw** — *point of no return* | api | the operation `withdraw-registered` **with `ack.locked`**; **bound:** `active.revision == n`, `active.opId` unchanged since W0, `prepared` absent; **unbound:** still no binding document for S | the pointer `active = { withdrawn: true, revision r, opId }`, where r is n+1 bound or 1 unbound (unbound: the binding document is created); immutable descriptor `<S>:<r>` = `{ revision r, withdrawn: true, item: W, opId, at }`; the operation `completed` with result `{ revision r, withdrawn: W }` | `completed` returns its recorded result; `cancelled` returns its cancellation, with no writes | after W2, only roll forward (W3) |
-| **W3 remove** | console | W `withdrawing{opId}`; the api operation `completed` (W2's result) | W archived (`mark: 5`), or removed if a future contract allows; the console operation `completed` | a no-op once completed | rolled forward by replay or the runner (§7) |
+| **W3 remove** | console | W `withdrawing{opId}`; the api operation `completed` (W2's result) | W `withdrawn{opId}`, a **terminal** state replacing the transient lock, and also archived (`mark: 5`); the console operation `completed` | a no-op once W is `withdrawn{opId}` | rolled forward by replay or the runner (§7) |
 | **W-cancel** | api, then console | api: the operation `withdraw-registered`, **not** `completed` | api, first: the operation `cancelled` with its reason, **terminal**. Then the console, in one transaction: the tombstone `continuation-ops/<opId> = cancelled` (created even if W1 never ran), and W `withdrawing{opId}` → its prior state | a no-op once cancelled; a delayed W2 finds the terminal record and is refused; a delayed W1 finds the tombstone and is refused | never touches another `opId`'s lock; impossible after W2 |
+
+**The terminal item state `withdrawn{opId}`** keeps every restriction of the lock, permanently:
+- no answers, regenerations, edits, or use as a continuation source;
+- no un-archive. Setting `mark` back from 5 is refused, so archive is not the only guard;
+- no hard deletion unless a future approved contract allows it.
+
+It is not a transient state. The runner's cross-check and the drain count `withdrawing`, never `withdrawn`, so a completed withdrawal is never found again as unfinished. The K-console floor covers `withdrawn` like `read-only`: a console below it would ignore the state.
 
 **How it orders against the rest of (c):**
 - **Against submissions.** S4 reads the pointer. A freeze that commits before W2 keeps its freeze and attribution (I2). After W2, `active.withdrawn` refuses it with the permanent `respondent-withdrawn`. In the unbound case, S4's "absent" branch requires the document still absent, so it conflicts with W2's creation and, retried, is refused. Until W2, submissions aren't paused: the order is the api transaction, as with activation.
@@ -209,17 +216,19 @@ A withdrawal is an operation in `respondent-operations/<opId>`, with `kind: "wit
   - A terminal operation with an unsettled record is finished in the api but not yet in the console.
 - **A recovery runner**, scheduled in the console (`graffiticode-app`), because its console writes need the console's identity. It calls api internal routes for api steps. Every few minutes (proposed: 5) it lists settlement records with `settled == false` whose `createdAt` is older than a threshold (proposed: 15 minutes). That covers non-terminal operations, **completed operations awaiting C5 or W3**, and **cancelled operations awaiting console cleanup**. As a cross-check, it also lists console items in `continuing`, `pending`, `finalizing` or `withdrawing`, and console operations not `completed` or `cancelled`, then looks up each `opId`. For each one:
 
-  | Found | Action |
-  |---|---|
-  | api `completed`, console not `completed` | roll forward: C5 unlock (or W3), then the settled ack |
-  | api `completed`, console `completed`, not settled | resend the settled ack |
-  | api `prepared` with `ack.finalized` | roll forward: C4 activate, then C5 and the settled ack |
-  | api `withdraw-registered` with `ack.locked` | roll forward: W2 withdraw, then W3 remove and the settled ack. If W2's guards now fail (the revision moved, or `prepared` appeared), W-cancel instead |
-  | console `finalized`, C3a not recorded | resend C3a; then the `prepared` with `ack.finalized` row |
-  | console `locked`, W1a not recorded | resend W1a; then the `withdraw-registered` with `ack.locked` row |
-  | api `registered` or `prepared` without the console finalized; `withdraw-registered` without `ack.locked` | cancel (api first, terminal), recording `cancelReason: "abandoned"` |
-  | api `cancelled`, console tombstone missing or a lock with this `opId` remaining | write the tombstone, revert this `opId`'s locks, then the settled ack |
-  | api `cancelled`, cleanup done, not settled | resend the settled ack |
+  The rows are checked **in order, and the first match wins**. Each is guarded by the api phase, read first, because the console's record can lag it. For example, an api-cancelled operation can still have a console record that is `finalized` or `locked`.
+
+  | # | api phase (and ack) | console | Action |
+  |---|---|---|---|
+  | 1 | `cancelled` | tombstone missing, or any lock carrying this `opId` (`continuing`, `read-only`, `pending`, `finalizing`, `withdrawing`), whatever the console operation's phase, `finalized` and `locked` included | cleanup: write the tombstone and revert this `opId`'s locks, then the settled ack. **Terminal cleanup takes precedence; no ack is resent** |
+  | 2 | `cancelled` | cleanup done | the settled ack, if not settled |
+  | 3 | `completed` | not `completed` | roll forward: C5 unlock (or W3 to `withdrawn`), then the settled ack |
+  | 4 | `completed` | `completed` | the settled ack, if not settled |
+  | 5 | `prepared` with `ack.finalized` | any | roll forward: C4 activate, then rows 3–4 |
+  | 6 | `withdraw-registered` with `ack.locked` | any | roll forward: W2 withdraw, then rows 3–4. If W2's guards now fail (the revision moved, or `prepared` appeared), W-cancel, then rows 1–2 |
+  | 7 | `prepared` without `ack.finalized` | `finalized` | resend C3a, **only while the api is `prepared`**; then row 5. A refusal means the phase moved: re-read and start again from row 1 |
+  | 8 | `withdraw-registered` without `ack.locked` | `locked` | resend W1a, **only while the api is `withdraw-registered`**; then row 6. A refusal re-reads as in row 7 |
+  | 9 | `registered`; `prepared` without `ack.finalized`; or `withdraw-registered` without `ack.locked` | not `finalized` (or not `locked` for a withdrawal) | cancel (api first, terminal), with `cancelReason: "abandoned"`; then rows 1–2 |
 
   It never acts on another `opId`'s state, and every action is a guarded step from the race review's table or §6. So running it concurrently with a client retry is safe: one transaction wins and the other is a no-op or refused.
 - **Acknowledgement transport:** C3a, W1a and the settled ack are authenticated calls to api internal routes, made as the console's service identity. The api verifies the Google ID token, its audience and a caller allowlist, as in decision 3. Each is retried with the same body until recorded or refused.
@@ -253,10 +262,11 @@ A withdrawal is an operation in `respondent-operations/<opId>`, with `kind: "wit
   - **Removing it** (after rollback, plan decision 11):
     1. the off release (`INTERPRETER_L0182="off"`, generation `rust-2`) is promoted;
     2. every older api revision's tag and traffic is retired;
-    3. `npm run deploy -- release-check api` passes. It is read-only, and refuses while stale tags remain, so the promoted revision is the only reachable one;
-    4. a read-only `gcloud run revisions describe` of that revision shows `INTERPRETER_L0182=off`. `release-check` doesn't report environment values.
+    3. **in-flight flag-on requests drain.** Retiring traffic stops new requests, but a request already running on a flag-on revision can still call `l0182r`'s exchange. Wait at least the api's request timeout (300 s) plus a margin after the last flag-on revision stopped receiving traffic. Then verify the drain from logs: no request on any flag-on api revision is still open or completes after that point, and `l0182r` shows no `/interpret` call after it. The `requires` stays in force throughout;
+    4. `npm run deploy -- release-check api` passes. It is read-only, and refuses while stale tags remain, so the promoted revision is the only reachable one;
+    5. a read-only `gcloud run revisions describe` of that revision shows `INTERPRETER_L0182=off`. `release-check` doesn't report environment values.
 
-    Only then does the PR delete the `requires` entry. Its description carries both outputs. Until it merges, `l0182r` stays at or above the milestone.
+    Only then does the PR delete the `requires` entry. Its description carries the drain verification and both outputs. Until it merges, `l0182r` stays at or above the milestone.
   - **Reinstating it**, before re-activation:
     1. the PR adds `requires` back;
     2. `npm run deploy -- release-check api` passes with the restored entry, which checks that every reachable `l0182r` revision is at or above the required milestone;
