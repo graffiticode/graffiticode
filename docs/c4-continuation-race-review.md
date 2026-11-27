@@ -1,6 +1,6 @@
 # C4: continuation and submission race, protocol review
 
-**Status:** review, docs only, revised after the owner's third review (2026-11-25). It selects **no** option. It works through the three options that `docs/c4-l0182-assignment-plan.md` decision 7 leaves open, so that the owner can choose one, and it lists the decisions that remain. Nothing here is implemented or approved.
+**Status:** review, docs only, revised after the owner's third review (2026-11-25). **Outcome:** the owner accepted option **(c)** with publication at **ready** and direct API-store authority reads (2026-11-25); the emulator harness is merged (#487). The §8 items that remain for (c) are proposed in [c4-runtime-lifecycle.md](c4-runtime-lifecycle.md). As written, the review below selects **no** option. It works through the three options that `docs/c4-l0182-assignment-plan.md` decision 7 leaves open, so that the owner can choose one, and it lists the decisions that remain. Nothing here is implemented or approved.
 
 **What the first review changed:**
 1. **(b)** no longer relies on clock skew for safety. The binding becomes effective only when an api transaction confirms it under a still-held fence, so expiry can't let a delayed binding take effect.

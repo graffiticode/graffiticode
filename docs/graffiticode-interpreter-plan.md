@@ -438,7 +438,7 @@ Activation is API env, like the switch: `INTERPRETER_LNNNN=on` (and, for C5 and 
      - **C2 is done.** All ten languages that read their input are interpreted.
 3. **C3 L0185:** fetching moves into `interpret`, results are `shared`, and fetched reads are recorded for commands.
 4. **C4 L0182:** the durable get-or-create assignment (atomic, stable across revisions, frozen on submission), plus keeping the survey model that answers were given against.
-   - Planned in [c4-l0182-assignment-plan.md](c4-l0182-assignment-plan.md) (draft, 2026-11-25; its open decisions await the owner).
+   - Planned in [c4-l0182-assignment-plan.md](c4-l0182-assignment-plan.md) (draft, 2026-11-25; its open decisions await the owner). The continuation protocol (c) is accepted, with emulator evidence merged (#487); runtime and lifecycle choices are proposed in [c4-runtime-lifecycle.md](c4-runtime-lifecycle.md).
 5. **C5 L0013 snapshots become brokered commands** (plan: `docs/c5-l0013-commands-plan.md`). Today `l0013r` uploads directly with its own service account, `l0013r-run` (`languages/l0013/crates/capture/src/storage.rs:88`, `predefinedAcl=publicRead`); the TypeScript `l0013` service was retired at A7. There is no Policy invocation, broker receipt or fencing, so nothing exists to adopt or replay. C5 builds that path first:
    - **C5a Authorization without a provider connection: scopes per intent, within the chain's one invocation.**
      - Policy's allocation requires a connection today (`allocateInvocation`, `packages/policy/src/policy.ts:232`), and the broker normally loads credentials from that connection. Snapshot callers have neither.
