@@ -90,6 +90,7 @@ const zeroCounts = {
   lockedItems: 0,
   missingTombstones: 0,
   outstandingAcks: 0,
+  unsettledOperations: 0,
 };
 
 // ---------------------------------------------------------------------------
@@ -111,7 +112,7 @@ describe("C0–C5 happy path", () => {
     expect(binding.active).toMatchObject({ principal: P, revision: 1, opId: "op-1", destination: out.T });
     expect(binding.prepared).toBeNull();
     expect(await readHistory(stores.api, "x1")).toEqual([
-      { session: "x1", revision: 1, principal: P, opId: "op-1", destination: out.T },
+      { session: "x1", revision: 1, principal: P, opId: "op-1", destination: out.T, readyAt: expect.anything() },
     ]);
     expect((await readOp(stores.api, "op-1")).result).toEqual({ revision: 1, destination: out.T });
     expect((await readItem(stores.console, "x1")).state).toBe("read-only");
