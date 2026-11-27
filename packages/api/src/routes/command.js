@@ -38,7 +38,7 @@ import { buildChainWithData } from "./chain.js";
 import { inputDigest } from "../invocations.js";
 import { classify } from "@graffiticode/common/failures";
 import { PolicyRefused } from "../commands/policy-commands.js";
-import { normalizeLang } from "../admission.js";
+import { normalizeLang, PreflightRefused, PreflightUnavailable } from "../admission.js";
 import { legacyOutcome } from "../commands/dispatch.js";
 import { commandsEnabled, connectionRequired, eligibilityOf, runCommand, scopesEnabled } from "../commands/bridge.js";
 
@@ -135,7 +135,17 @@ export const buildCommandRouter = ({ taskStorer, policy, run, worker = `api-${ra
       }
     }
     if (!outcome) {
-      const verdict = eligibilityOf(await isEligible(tasks));
+      let verdict;
+      try {
+        verdict = eligibilityOf(await isEligible(tasks));
+      } catch (e) {
+        // A compiler refused its preflight: its reason, at the status its
+        // category maps to (the category read from its answer, never from the
+        // reason again). One it couldn't answer: unavailable, not a 500.
+        if (e instanceof PreflightRefused) return refused(res, STATUS_OF[e.category] ?? 503, e.reason);
+        if (e instanceof PreflightUnavailable) return refused(res, 503, "preflight-unavailable");
+        throw e;
+      }
       restricted = verdict?.refusal ?? (!connectionId && connectionRequired(verdict) ? "connection-required" : null);
       if (restricted) return refused(res, STATUS_OF[classify(restricted).category] ?? 403, restricted);
       const create = Boolean(verdict);

@@ -7,7 +7,7 @@ import request from "supertest";
 import { buildCommandRouter } from "./command.js";
 import { PolicyRefused } from "../commands/policy-commands.js";
 import { buildChainEligibility } from "../commands/bridge.js";
-import { PreflightUnavailable } from "../admission.js";
+import { PreflightRefused, PreflightUnavailable } from "../admission.js";
 
 const UID = "0xuser";
 const TASKS = [{ lang: "0176", code: { root: "save" } }];
@@ -214,6 +214,35 @@ describe("POST /command with COMMAND_SCOPES", () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({ commandId: "c:held", outcome: "completed" });
     expect(calls.map(([, x]) => x.create)).toEqual([false]);
+  });
+
+  // Error handling proposal, PR 1c: a preflight the compiler refused or
+  // couldn't answer is a refusal at its category's status, never a 500.
+  const refusingApp = eligible => {
+    const a = express();
+    a.use(express.json());
+    a.use((/** @type {any} */ req, _res, next) => { req.auth = { context: { uid: UID } }; next(); });
+    a.use("/command", buildCommandRouter({ taskStorer: { get: async () => chainOf(["snap"]), create: async () => "task-data" }, policy, run: async () => { throw new Error("no run"); }, worker: "w1", env: ENV, eligible }));
+    return a;
+  };
+  it.each([
+    [{ reason: "not-granted", category: "permission", status: 403 }, 403],
+    [{ reason: "token-expired", category: "authentication", status: 401 }, 401],
+    [{ reason: "preflight-refused", category: "malformed", status: 400 }, 400],
+    [{ reason: "preflight-refused", category: "authentication", status: 401 }, 401],
+    [{ reason: "preflight-refused", category: "unavailable", status: 429 }, 503],
+    [{ reason: "some-unknown-reason", category: "unavailable", status: 403 }, 503],
+  ])("answers a refused preflight (%j) at its category's status, with its reason", async (refusal, status) => {
+    const res = await post(refusingApp(async () => { throw new PreflightRefused("refused", refusal); }), CONNECTIONLESS);
+    expect(res.status).toBe(status);
+    expect(res.body.error).toMatchObject({ reason: refusal.reason });
+    expect(runs).toEqual([]);
+  });
+
+  it("answers a preflight that couldn't be answered as 503 preflight-unavailable", async () => {
+    const res = await post(refusingApp(async () => { throw new PreflightUnavailable("s0 unreachable"); }), CONNECTIONLESS);
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatchObject({ reason: "preflight-unavailable" });
   });
 
   it("still requires a signed-in user and a key, and a connection without COMMAND_SCOPES", async () => {

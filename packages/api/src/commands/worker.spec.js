@@ -26,6 +26,7 @@ import {
 } from "@graffiticode/policy";
 import { createMemoryReceiptStore, createReceiptReader, argsDigest } from "@graffiticode/broker";
 import { buildCommandWorker, LEASE_RENEW_MS } from "./worker.js";
+import { PreflightRefused, PreflightUnavailable } from "../admission.js";
 import { parseCommandFaults } from "./faults.js";
 import { buildSweep } from "./sweep.js";
 import { buildCommandBridge, buildCompileEnvelope } from "./bridge.js";
@@ -215,6 +216,44 @@ describe("a command, start to finish", () => {
     const again = await workerAs("w1")({ commandId, generation });
     expect(again.status).toBe("completed");
     expect(provider).toHaveLength(1);
+  });
+});
+
+// Error handling proposal, PR 1c: before admission, a compiler's refusal is
+// its definite answer, so nothing runs and it isn't asked again; one it
+// couldn't give leaves the command pending for recovery.
+describe("a refusal before admission", () => {
+  const stateOf = commandId => policy.commandRead({ caller: GATEWAY, commandId, what: "state" });
+
+  it("finishes the command failed when a stage's model is refused, and runs nothing", async () => {
+    const { commandId, generation } = await allocate();
+    let models = 0;
+    const refusing = { ...language, model: async () => { models++; return { errors: [{ message: "refused", from: -1, to: -1, code: "not-granted", category: "permission", status: 403 }], refused: true }; } };
+    const state = await workerAs("w1", refusing)({ commandId, generation });
+    expect(state.status).toBe("failed");
+    expect(models).toBe(1);
+    expect(provider).toHaveLength(0);
+  });
+
+  it("finishes the command failed when a stage's preflight is refused, and runs nothing", async () => {
+    const { commandId, generation } = await allocate();
+    let preflights = 0;
+    const refusing = { ...language, preflight: async () => { preflights++; throw new PreflightRefused("refused", { reason: "not-granted", category: "permission", status: 403 }); } };
+    const state = await workerAs("w1", refusing)({ commandId, generation });
+    expect(state.status).toBe("failed");
+    expect(preflights).toBe(1);
+    expect(provider).toHaveLength(0);
+  });
+
+  it("leaves the command pending when a preflight can't be answered", async () => {
+    const { commandId, generation } = await allocate();
+    const down = { ...language, preflight: async () => { throw new PreflightUnavailable("s0 unreachable"); } };
+    await expect(workerAs("w1", down)({ commandId, generation })).rejects.toBeInstanceOf(PreflightUnavailable);
+    expect((await stateOf(commandId)).status).toBe("pending");
+    expect(provider).toHaveLength(0);
+    // Recovery asks again, and the command runs.
+    const taken = await takeOver(commandId, generation, "w2");
+    expect((await workerAs("w2")({ commandId, generation: taken.generation })).status).toBe("completed");
   });
 });
 

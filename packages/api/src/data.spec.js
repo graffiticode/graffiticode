@@ -864,6 +864,13 @@ describe("data", () => {
         return JSON.stringify({ type: "object" });
       };
     };
+    // And for fetch, which the language client uses: the same record, from
+    // the URL it posts to.
+    const fakeFetch = async (url, init) => {
+      const baseUrl = String(url).replace(/\/compile$/, "");
+      const answer = await fakeBent(baseUrl, "POST")("/compile", JSON.parse(init.body));
+      return new Response(JSON.stringify(answer), { status: 200, headers: { "Content-Type": "application/json" } });
+    };
     const overrideApi = ({ ttlMs = 0 } = {}) => {
       const langOverrideStorer = buildLangOverrideStorer({ ttlMs });
       const getBaseUrlForLanguage = buildGetBaseUrlForLanguage({
@@ -874,7 +881,7 @@ describe("data", () => {
         getCompilerPort: () => 0,
         getOverrideBaseUrl: langOverrideStorer.getBaseUrl
       });
-      const langCompile = buildLangCompile({ getBaseUrlForLanguage, bent: fakeBent });
+      const langCompile = buildLangCompile({ getBaseUrlForLanguage, fetch: fakeFetch });
       const getAsset = buildGetAsset({ getBaseUrlForLanguage, bent: fakeBent });
       return /** @type {any} */ (buildDataApi(/** @type {any} */ ({
         compile: buildCompile({ langCompile }),

@@ -60,7 +60,6 @@
       "name": "api",
       "cwd": "packages/api",
       "allowSkips": [
-        "packages/api/src/lang/compile.spec.js > compile should throw error if call throws",
         "packages/api/src/routes/compile.spec.js > routes/compile should compile multiple items",
         "packages/api/src/routes/form.spec.js > routes/form should handle bad id param"
       ],
@@ -138,7 +137,6 @@
       "cwd": "packages/api",
       "config": "packages/api/.compiled-test/jest.config.js",
       "allowSkips": [
-        "packages/api/.compiled-test/lang/compile.spec.js > compile should throw error if call throws",
         "packages/api/.compiled-test/routes/compile.spec.js > routes/compile should compile multiple items",
         "packages/api/.compiled-test/routes/form.spec.js > routes/form should handle bad id param"
       ]

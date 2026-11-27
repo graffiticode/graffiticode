@@ -9,7 +9,7 @@ import { canonicalDigest } from "@graffiticode/common/canonical";
 import { buildDataApi } from "./data.js";
 import { createApiAudit } from "./audit.js";
 import { InvocationRefused } from "./invocations.js";
-import { buildChainAdmission, parseChainAdmission, PreflightUnavailable } from "./admission.js";
+import { buildChainAdmission, parseChainAdmission, PreflightRefused, PreflightUnavailable } from "./admission.js";
 import { buildValidateOutput } from "./lang/validate-output.js";
 import { buildMemoryArtifactStorer } from "./storage/artifacts.js";
 import { createStorers } from "./storage/index.js";
@@ -54,12 +54,13 @@ const manifestFor = (task, stage) => ({
   requiredFunctions: [],
 });
 // A stand-in for the admission client, recording every call.
-const fakeChain = ({ plan = null, manifests = null, refuse = null, preflightDown = false } = {}) => /** @type {any} */ ({
+const fakeChain = ({ plan = null, manifests = null, refuse = null, preflightDown = false, preflightRefusal = null } = {}) => /** @type {any} */ ({
   baseUrlFor: jest.fn(async lang => `https://serving-${lang}`),
   lookupPlan: jest.fn(async () => { calls.push(["lookup"]); return { contract: 2, plan }; }),
   preflight: jest.fn(async ({ baseUrl, lang, stage, code }) => {
     calls.push(["preflight", stage, baseUrl]);
     if (preflightDown) throw new PreflightUnavailable(`preflight of ${stage} unreachable`);
+    if (preflightRefusal) throw new PreflightRefused(`preflight of ${stage} refused`, preflightRefusal);
     // A compiler pins the program it was sent: the stored task's.
     return { manifest: manifests ? manifests[stage] : manifestFor({ lang, code }, stage) };
   }),
@@ -233,6 +234,27 @@ describe("refusals run nothing", () => {
     expect(records.at(-1)).toMatchObject({ event: "admission", outcome: "failed", reason: "preflight-unavailable", stage: "s0", invocationId: "inv-1" });
   });
 
+  // Error handling proposal, PR 1c: a compiler's refusal keeps its reason,
+  // and the category read from its answer, never one reclassified from it.
+  it.each([
+    [{ reason: "not-granted", category: "permission", status: 403 }, "denied"],
+    [{ reason: "preflight-refused", category: "malformed", status: 400 }, "denied"],
+    [{ reason: "preflight-refused", category: "authentication", status: 401 }, "denied"],
+    [{ reason: "preflight-refused", category: "unavailable", status: 429 }, "denied"],
+    [{ reason: "some-unknown-reason", category: "unavailable", status: 403 }, "denied"],
+  ])("a stage whose compiler refuses its preflight (%j)", async (refusal, outcome) => {
+    chain = fakeChain({ preflightRefusal: refusal });
+    const { id } = await chainOf();
+    const out = await get(api().dataApi, id);
+    expect(out.errors[0]).toMatchObject({ code: refusal.reason, category: refusal.category });
+    expect(chain.admit).not.toHaveBeenCalled();
+    expectNothingRan();
+    // The audit records only reasons it knows (its value validators): an
+    // unknown one is recorded as invalid, with the category it arrived with.
+    const audited = refusal.reason === "some-unknown-reason" ? "invalid" : refusal.reason;
+    expect(records.at(-1)).toMatchObject({ event: "admission", outcome, reason: audited, category: refusal.category, stage: "s0", invocationId: "inv-1" });
+  });
+
   it("a manifest for another program than the stored task", async () => {
     chain = fakeChain({ manifests: { s0: { ...manifestFor(TASK1, "s0"), sourceDigest: hex("e") }, s1: manifestFor(TASK2, "s1") } });
     const { id } = await chainOf();
@@ -281,6 +303,32 @@ describe("what the gateway mustn't hide or ignore", () => {
     expect(JSON.stringify(out)).not.toContain("plan-binding-mismatch");
     // The chain stopped there.
     expect(compiles().map(c => c[1])).toEqual(["s1"]);
+  });
+
+  // Error handling proposal, PR 1c.
+  it("reports a stage's refusal with its reason, and an uncertain effect where it could have acted", async () => {
+    chain = fakeChain({ manifests: { s0: { ...manifestFor(TASK1, "s0") }, s1: { ...manifestFor(TASK2, "s1"), requiredFunctions: ["save-to-itembank"] } } });
+    compile = jest.fn(async (/** @type {any} */ req) => {
+      calls.push(["compile", req.stage]);
+      return { errors: [{ message: "Language server refused the call (403, not-granted)", from: -1, to: -1, code: "not-granted", category: "permission", status: 403 }], refused: true };
+    });
+    const { id } = await chainOf();
+    const out = await get(api().dataApi, id);
+    expect(out.errors[0]).toMatchObject({ code: "not-granted", category: "permission" });
+    // A pinned TypeScript revision can refuse after acting: receipts decide.
+    expect(out.effects).toEqual([{ status: "uncertain", steps: [], reason: "compile-refused", category: "unavailable", stage: "s1" }]);
+    expect(JSON.stringify(out)).not.toContain("plan-binding-mismatch");
+    expect(JSON.stringify(out)).not.toContain("compile-response-lost");
+    expect(compiles().map(c => c[1])).toEqual(["s1"]);
+  });
+
+  it("reports a refusal from a stage that could do nothing with its reason, and no effect", async () => {
+    chain = fakeChain();
+    compile = jest.fn(async () => ({ errors: [{ message: "Language server refused the call (401, caller-rejected)", from: -1, to: -1, code: "caller-rejected", category: "authentication", status: 401 }], refused: true }));
+    const { id } = await chainOf();
+    const out = await get(api().dataApi, id);
+    expect(out.errors[0]).toMatchObject({ code: "caller-rejected", category: "authentication" });
+    expect(out.effects).toBeUndefined();
   });
 
   it("reports a lost response from a stage that could do nothing without an effect", async () => {
@@ -370,10 +418,43 @@ describe("the admission client (HTTP)", () => {
     expect(JSON.parse(fetched[0].init.body)).toEqual({ stage: "s1", lang: "0176", code: { root: 1 } });
   });
 
-  it("reports an unreachable or refusing compiler as preflight-unavailable", async () => {
-    await expect(client(() => { throw new TypeError("fetch failed"); }).preflight({ baseUrl: "https://x", lang: "0176", stage: "s0", code: {} })).rejects.toBeInstanceOf(PreflightUnavailable);
-    await expect(client(() => reply(403, { status: "error", error: { reason: "route-not-allowed-for-caller" } })).preflight({ baseUrl: "https://x", lang: "0176", stage: "s0", code: {} }))
-      .rejects.toThrow(/route-not-allowed-for-caller/);
+  const preflightOf = c => c.preflight({ baseUrl: "https://x", lang: "0176", stage: "s0", code: {} });
+
+  it("reports an unreachable compiler, or one that fails, as preflight-unavailable", async () => {
+    await expect(preflightOf(client(() => { throw new TypeError("fetch failed"); }))).rejects.toBeInstanceOf(PreflightUnavailable);
+    await expect(preflightOf(client(() => reply(503, { status: "error", error: { reason: "auth-unavailable" } })))).rejects.toBeInstanceOf(PreflightUnavailable);
+    await expect(preflightOf(client(() => reply(500, null)))).rejects.toBeInstanceOf(PreflightUnavailable);
+  });
+
+  // Error handling proposal, PR 1c: a refusal (a 4xx) is the compiler's answer.
+  it("reports a refusing compiler as PreflightRefused, with its reason and the category read from its answer", async () => {
+    await expect(preflightOf(client(() => reply(403, { status: "error", error: { reason: "route-not-allowed-for-caller" } }))))
+      .rejects.toMatchObject({ constructor: PreflightRefused, reason: "route-not-allowed-for-caller", category: "permission", status: 403 });
+    const empty = status => () => new Response(null, { status });
+    await expect(preflightOf(client(empty(400)))).rejects.toMatchObject({ constructor: PreflightRefused, reason: "preflight-refused", category: "malformed", status: 400 });
+    await expect(preflightOf(client(empty(401)))).rejects.toMatchObject({ reason: "preflight-refused", category: "authentication" });
+    await expect(preflightOf(client(empty(429)))).rejects.toMatchObject({ reason: "preflight-refused", category: "unavailable" });
+    await expect(preflightOf(client(() => reply(403, { error: { reason: "some-unknown-reason" } }))))
+      .rejects.toMatchObject({ reason: "some-unknown-reason", category: "unavailable" });
+  });
+
+  it("reports a refusal whose body never arrives as preflight-unavailable, at its deadline", async () => {
+    const stalled = buildChainAdmission({
+      policyUrl: "https://policy.example",
+      idToken: async () => "id",
+      baseUrlFor: async () => "https://serving",
+      preflightDeadlineMs: 50,
+      fetch: /** @type {any} */ async (_url, init) => {
+        const body = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode("{\"error\":"));
+            init.signal.addEventListener("abort", () => controller.error(new Error("aborted")));
+          },
+        });
+        return new Response(body, { status: 403 });
+      },
+    });
+    await expect(preflightOf(stalled)).rejects.toBeInstanceOf(PreflightUnavailable);
   });
 
   it("turns any policy answer that names a reason into a refusal (403, 409, 503)", async () => {

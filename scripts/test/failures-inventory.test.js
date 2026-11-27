@@ -27,6 +27,7 @@ const FORMS = [
   /\bnew CommandRefused\("([a-z0-9-]+)"/g, // policy: command records (B5)
   /\bnew NotWritten\("([a-z0-9-]+)"/g, // broker: a write that wrote nothing, with its reason (C5, gcs.js)
   /\brefused\(res, [^;]*?"([a-z0-9-]+)"(?: : "([a-z0-9-]+)")?\);/g, // api: refused(res, status, "reason") (/command, B5)
+  /\bconst [A-Z_]+_REASON = "([a-z0-9-]+)";/g, // api: a named fallback reason (PREFLIGHT_REFUSED_REASON, error handling 1c)
 ];
 // Reasons returned from a function rather than in one of the forms above.
 const RETURNED = {

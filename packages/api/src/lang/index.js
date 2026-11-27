@@ -24,7 +24,7 @@ export const buildLang = ({ langOverrideStorer }) => {
     getOverrideBaseUrl: langOverrideStorer.getBaseUrl,
     getBaseUrlForLanguage,
   });
-  const compile = buildCompile({ getBaseUrlForLanguage, bent });
+  const compile = buildCompile({ getBaseUrlForLanguage });
   const getLangAsset = buildGetAsset({ getBaseUrlForLanguage, bent });
   const pingLang = buildPingLang({
     getBaseUrlForLanguage,
