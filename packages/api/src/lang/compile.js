@@ -1,4 +1,4 @@
-import { readRefusal } from "./bounded-body.js";
+import { loggableReason, readRefusal } from "./bounded-body.js";
 
 // `baseUrl`, when given, is a pinned revision's URL (chain admission, W4): it
 // is used as is, never resolved, so no override or redeploy can redirect it.
@@ -115,7 +115,7 @@ export const buildCompile = ({ getBaseUrlForLanguage, fetch: doFetch = fetch, de
       attempt,
       status: x?.statusCode ?? null,
       code: typeof x?.code === "string" ? x.code : null,
-      ...(refusal ? { reason: refusal.reason, category: refusal.category, bytesRead: refusal.bytesRead, truncated: refusal.truncated } : {}),
+      ...(refusal ? { reason: loggableReason(refusal.reason), category: refusal.category, bytesRead: refusal.bytesRead, truncated: refusal.truncated } : {}),
     });
     if (refusal) return refusalEnvelope(refusal);
     // No usable answer: the compiler may have acted before it was lost. The

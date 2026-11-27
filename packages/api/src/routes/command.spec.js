@@ -7,7 +7,7 @@ import request from "supertest";
 import { buildCommandRouter } from "./command.js";
 import { PolicyRefused } from "../commands/policy-commands.js";
 import { buildChainEligibility } from "../commands/bridge.js";
-import { PreflightRefused, PreflightUnavailable } from "../admission.js";
+import { buildChainAdmission, PreflightRefused, PreflightUnavailable } from "../admission.js";
 
 const UID = "0xuser";
 const TASKS = [{ lang: "0176", code: { root: "save" } }];
@@ -236,6 +236,20 @@ describe("POST /command with COMMAND_SCOPES", () => {
     const res = await post(refusingApp(async () => { throw new PreflightRefused("refused", refusal); }), CONNECTIONLESS);
     expect(res.status).toBe(status);
     expect(res.body.error).toMatchObject({ reason: refusal.reason });
+    expect(runs).toEqual([]);
+  });
+
+  it("answers a preflight it couldn't get an identity token for as 503, not a 500", async () => {
+    const admission = buildChainAdmission({
+      policyUrl: "https://policy.example",
+      idToken: async () => { throw new Error("metadata server unreachable"); },
+      baseUrlFor: async lang => `https://${lang}`,
+      fetch: /** @type {any} */ async () => { throw new Error("never fetched"); },
+    });
+    const eligible = buildChainEligibility({ preflight: admission.preflight, baseUrlFor: admission.baseUrlFor, env: ENV });
+    const res = await post(refusingApp(eligible), CONNECTIONLESS);
+    expect(res.status).toBe(503);
+    expect(res.body.error).toMatchObject({ reason: "preflight-unavailable" });
     expect(runs).toEqual([]);
   });
 

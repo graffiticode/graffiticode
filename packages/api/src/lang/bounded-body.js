@@ -7,6 +7,15 @@
 import { categoryForStatus, classify } from "@graffiticode/common/failures";
 
 export const REFUSAL_BODY_LIMIT = 64 * 1024;
+
+// What a log line may say of a reason another service sent: the reason when
+// it is registered (common/failures), otherwise a fixed marker. An unknown
+// reason is the sender's text, and the logs carry no body text.
+export const UNREGISTERED_MARKER = "unregistered-reason";
+export const loggableReason = reason => {
+  if (reason === null || reason === undefined) return null;
+  return typeof reason === "string" && classify(reason).classified ? reason : UNREGISTERED_MARKER;
+};
 const MESSAGE_LIMIT = 500;
 
 // At most `limit` bytes of `res`'s body, as text: { text, bytesRead, truncated }.

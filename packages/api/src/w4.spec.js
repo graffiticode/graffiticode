@@ -438,6 +438,18 @@ describe("the admission client (HTTP)", () => {
       .rejects.toMatchObject({ reason: "some-unknown-reason", category: "unavailable" });
   });
 
+  it("reports a preflight it couldn't get an identity token for as preflight-unavailable", async () => {
+    let fetches = 0;
+    const tokenless = buildChainAdmission({
+      policyUrl: "https://policy.example",
+      idToken: async () => { throw new Error("metadata server unreachable"); },
+      baseUrlFor: async () => "https://serving",
+      fetch: /** @type {any} */ async () => { fetches++; return reply(200, {}); },
+    });
+    await expect(preflightOf(tokenless)).rejects.toBeInstanceOf(PreflightUnavailable);
+    expect(fetches).toBe(0);
+  });
+
   it("reports a refusal whose body never arrives as preflight-unavailable, at its deadline", async () => {
     const stalled = buildChainAdmission({
       policyUrl: "https://policy.example",

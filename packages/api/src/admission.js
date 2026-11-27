@@ -74,7 +74,13 @@ export const buildChainAdmission = ({ policyUrl, idToken, baseUrlFor, fetch: doF
     // the compile request's own program and (absent) config, so the compiler
     // pins the options it will actually run with.
     async preflight({ baseUrl, lang, stage, code }) {
-      const identity = await idToken(languageAudience(lang));
+      // No identity token, no preflight: the compiler couldn't be asked.
+      let identity;
+      try {
+        identity = await idToken(languageAudience(lang));
+      } catch (e) {
+        throw new PreflightUnavailable(`preflight of ${stage} unreachable: no identity token (${e?.name ?? "error"})`);
+      }
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), preflightDeadlineMs);
       try {

@@ -28,6 +28,7 @@ import { canonicalDigest } from "@graffiticode/common/canonical";
 import { commandArtifactRegistryVersion } from "@graffiticode/common/protected-registry";
 import { PolicyRefused } from "./policy-commands.js";
 import { PreflightRefused } from "../admission.js";
+import { loggableReason } from "../lang/bounded-body.js";
 import { readOriginal, recordedFor, materializeFromRecords } from "./records.js";
 import { ARTIFACT_RESULT_FORM } from "../read.js";
 
@@ -154,7 +155,7 @@ export const buildCommandWorker = ({
         // The compiler refused (a 4xx, before running anything): a definite
         // answer, so nothing runs and it isn't asked again.
         if (out?.refused) {
-          log(`WARN command ${id}: ${stage}'s model was refused (${out.errors?.[0]?.code ?? out.errors?.[0]?.status ?? "refused"}); nothing runs`);
+          log(`WARN command ${id}: ${stage}'s model was refused (${loggableReason(out.errors?.[0]?.code) ?? out.errors?.[0]?.status ?? "refused"}); nothing runs`);
           return false;
         }
         if (!out?.model || failed(out)) {
@@ -171,7 +172,7 @@ export const buildCommandWorker = ({
         // couldn't give (PreflightUnavailable) leaves the command pending, as
         // before, for recovery to ask again.
         if (!(e instanceof PreflightRefused)) throw e;
-        log(`WARN command ${id}: ${stage}'s preflight was refused (${e.reason}, ${e.category}); nothing runs`);
+        log(`WARN command ${id}: ${stage}'s preflight was refused (${loggableReason(e.reason)}, ${e.category}); nothing runs`);
         return false;
       }
       const manifest = out?.manifest;

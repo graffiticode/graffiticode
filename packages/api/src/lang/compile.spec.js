@@ -167,6 +167,18 @@ describe("compile", () => {
       expect(logged).toContain("\"truncated\":true");
     });
 
+    it("logs a registered reason as itself, and any other as a fixed marker", async () => {
+      const MARKER = "SENTINEL-reason-8d2e";
+      server = await startServer((_req, res, n) => json(res, 403, { error: { reason: n === 1 ? "not-granted" : `leak-${MARKER}` } }));
+      await client()("L0176", { code: {} });
+      const out = await client()("L0176", { code: {} });
+      // The caller still gets the reason the language sent; only logs drop it.
+      expect(out.errors[0].code).toBe(`leak-${MARKER}`);
+      const logged = lines.filter(line => line.startsWith("ERROR language call")).map(line => JSON.parse(line.replace("ERROR language call ", "")));
+      expect(logged.map(l => l.reason)).toEqual(["not-granted", "unregistered-reason"]);
+      for (const line of lines) expect(line).not.toContain(MARKER);
+    });
+
     it("logs only allowlisted fields, never the body", async () => {
       const SENTINEL = "SENTINEL-6f1c-secret";
       server = await startServer((_req, res) => json(res, 403, { error: { reason: "not-granted", message: `token ${SENTINEL}`, detail: { secret: SENTINEL } } }));

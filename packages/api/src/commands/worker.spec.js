@@ -245,6 +245,20 @@ describe("a refusal before admission", () => {
     expect(provider).toHaveLength(0);
   });
 
+  it("logs only a registered reason for a refusal, never the compiler's own text", async () => {
+    const MARKER = "SENTINEL-worker-4b7a";
+    const lines = [];
+    const logging = lang => buildCommandWorker({ policy: client(), taskStorer, language: lang, artifactStorer: artifacts, worker: "w1", setInterval: () => null, clearInterval: () => {}, log: line => lines.push(String(line)) });
+    const first = await allocate();
+    const refusedPreflight = { ...language, preflight: async () => { throw new PreflightRefused(`refused (${MARKER})`, { reason: `leak-${MARKER}`, category: "unavailable", status: 403 }); } };
+    expect((await logging(refusedPreflight)({ commandId: first.commandId, generation: first.generation })).status).toBe("failed");
+    const second = await allocate("k2");
+    const refusedModel = { ...language, model: async () => ({ errors: [{ message: MARKER, from: -1, to: -1, code: `leak-${MARKER}`, category: "unavailable", status: 403 }], refused: true }) };
+    expect((await logging(refusedModel)({ commandId: second.commandId, generation: second.generation })).status).toBe("failed");
+    expect(lines.some(line => line.includes("unregistered-reason"))).toBe(true);
+    for (const line of lines) expect(line).not.toContain(MARKER);
+  });
+
   it("leaves the command pending when a preflight can't be answered", async () => {
     const { commandId, generation } = await allocate();
     const down = { ...language, preflight: async () => { throw new PreflightUnavailable("s0 unreachable"); } };
