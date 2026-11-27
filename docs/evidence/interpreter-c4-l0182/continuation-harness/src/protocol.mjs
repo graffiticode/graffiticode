@@ -15,6 +15,7 @@
 // deploy configuration and no production collection uses it.
 
 import { createHash, randomUUID } from "node:crypto";
+import { FieldValue } from "@google-cloud/firestore";
 
 // ---------------------------------------------------------------------------
 // Errors, principals, digests
@@ -96,14 +97,16 @@ export async function closeBarrier(api) {
 
 // A console item. `owner` is its principal; `respondentSession` the session
 // its programs carry (its own id for a fresh item).
-export async function createItem(con, { id, owner, respondentSession = id, state = "open" }) {
-  await CON.item(con, id).create({ id, owner, respondentSession, state, lockOp: null, version: 1 });
+// `expiresAt` (ms) marks an unclaimed free-plan item; `mark` 5 is archived.
+export async function createItem(con, { id, owner, respondentSession = id, state = "open", expiresAt = null }) {
+  await CON.item(con, id).create({ id, owner, respondentSession, state, lockOp: null, version: 1, mark: 1, expiresAt });
 }
 
 // The console's write paths (§3 "Console item states"): answers or
-// regenerations, edits, deletion. Deletion after unlock is a separate,
-// undecided contract (§3), so the harness never deletes; it only reports
-// whether the state table permits the attempt.
+// regenerations, edits, deletion. Deletion is archive (`mark: 5`,
+// archiveItem below): the owner selected the retained descriptor
+// (c4-runtime-lifecycle.md §6), so hard deletion, TTL and cascades need their
+// own contract, and the harness never deletes.
 const PERMITS = {
   open: { answer: true, edit: true, delete: true },
   active: { answer: true, edit: true, delete: true },
@@ -125,6 +128,21 @@ export async function consoleWrite(con, itemId, kind) {
   });
 }
 
+// Archive (`mark: 5`), as the console's `updateItem` does today: a field
+// update that removes nothing, permitted only where the state table permits
+// deletion. It never changes respondent authority (c4-runtime-lifecycle.md
+// §6, selected 2026-11-27).
+export async function archiveItem(con, itemId) {
+  return con.run(async tx => {
+    const ref = CON.item(con, itemId);
+    const item = (await tx.get(ref)).data();
+    if (!item) refuse("unknown-item");
+    if (!PERMITS[item.state]?.delete) refuse("item-locked", { detail: `${itemId} is ${item.state}` });
+    tx.update(ref, { mark: 5 });
+    return { itemId, mark: 5 };
+  });
+}
+
 // ---------------------------------------------------------------------------
 // C0 register (api): barrier open; no record, or the same digest. Proves the
 // api-side half of authority over S: with an active binding, the caller is its
@@ -132,42 +150,51 @@ export async function consoleWrite(con, itemId, kind) {
 // unbound, the source IS the session's item at revision 0 (the console proves
 // its owner at C1). T's id is allocated here and kept for replay.
 
+export const requestDigest = ({ opId, session: S, source: X, sourceVersion, expectedRevision, caller, destPrincipal }) =>
+  digestOf({ opId, S, X, sourceVersion, expectedRevision, caller, destPrincipal });
+
 export async function register(api, request) {
+  return api.run(async tx => (await registerInTx(api, tx, request)).op);
+}
+
+// C0's body, inside a caller's transaction, so lifecycle.mjs can route it
+// through the namespace pin and operation index in the SAME transaction. It
+// performs all its reads before its one write, and reports whether it created
+// the operation (false for a replay).
+export async function registerInTx(api, tx, request) {
   const { opId, session: S, source: X, sourceVersion, expectedRevision, caller, destPrincipal } = request;
-  const digest = digestOf({ opId, S, X, sourceVersion, expectedRevision, caller, destPrincipal });
-  return api.run(async tx => {
-    const opRef = API.op(api, opId);
-    const [barrier, opSnap, bindingSnap] = await Promise.all([
-      tx.get(API.barrier(api)),
-      tx.get(opRef),
-      tx.get(API.binding(api, S)),
-    ]);
-    if (opSnap.exists) {
-      const op = opSnap.data();
-      if (op.digest !== digest) refuse("operation-mismatch");
-      return op;
-    }
-    if (barrier.data()?.state !== "open") refuse("barrier-closed", { temporary: true });
-    const active = bindingSnap.data()?.active ?? null;
-    if (active) {
-      if (expectedRevision !== active.revision) refuse("revision-changed");
-      if (X !== active.destination) refuse("not-current-holder");
-      if (!samePrincipal(caller, active.principal)) refuse("not-respondent");
-    } else if (expectedRevision !== 0 || X !== S) {
-      refuse("not-session-source");
-    }
-    const op = {
-      opId,
-      state: "registered",
-      digest,
-      request: { session: S, source: X, sourceVersion, expectedRevision, caller, destPrincipal },
-      T: `dest-${randomUUID().slice(0, 12)}`,
-      ack: {},
-      result: null,
-    };
-    tx.create(opRef, op);
-    return op;
-  });
+  const digest = requestDigest(request);
+  const opRef = API.op(api, opId);
+  const [barrier, opSnap, bindingSnap] = await Promise.all([
+    tx.get(API.barrier(api)),
+    tx.get(opRef),
+    tx.get(API.binding(api, S)),
+  ]);
+  if (opSnap.exists) {
+    const op = opSnap.data();
+    if (op.digest !== digest) refuse("operation-mismatch");
+    return { op, created: false };
+  }
+  if (barrier.data()?.state !== "open") refuse("barrier-closed", { temporary: true });
+  const active = bindingSnap.data()?.active ?? null;
+  if (active) {
+    if (expectedRevision !== active.revision) refuse("revision-changed");
+    if (X !== active.destination) refuse("not-current-holder");
+    if (!samePrincipal(caller, active.principal)) refuse("not-respondent");
+  } else if (expectedRevision !== 0 || X !== S) {
+    refuse("not-session-source");
+  }
+  const op = {
+    opId,
+    state: "registered",
+    digest,
+    request: { session: S, source: X, sourceVersion, expectedRevision, caller, destPrincipal },
+    T: `dest-${randomUUID().slice(0, 12)}`,
+    ack: {},
+    result: null,
+  };
+  tx.create(opRef, op);
+  return { op, created: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -199,6 +226,8 @@ export async function allocate(con, reg) {
       state: "pending",
       lockOp: opId,
       version: 1,
+      mark: 1,
+      expiresAt: null,
     });
     const created = { opId, state: "allocated", S, X, T, revision: expectedRevision + 1 };
     tx.create(copRef, created);
@@ -304,7 +333,9 @@ export async function activate(api, opId) {
     const active = { principal: op.request.destPrincipal, revision, opId, destination: op.T };
     const result = { revision, destination: op.T };
     tx.set(bRef, { active, prepared: null });
-    tx.create(hRef, { session: S, revision, principal: active.principal, opId, destination: op.T });
+    // The immutable per-revision descriptor (c4-runtime-lifecycle.md §6):
+    // written once, never rewritten; readyAt is this transaction's commit time.
+    tx.create(hRef, { session: S, revision, principal: active.principal, opId, destination: op.T, readyAt: FieldValue.serverTimestamp() });
     tx.update(opRef, { state: "completed", result });
     return result;
   });
@@ -384,28 +415,31 @@ export async function deriveAuthority(con, S) {
   return item && item.respondentSession === S ? { principal: item.owner } : { unknown: true };
 }
 
-export async function submit(api, { sessions, caller, submitter, taskId, derived = {} }) {
-  return api.run(async tx => {
-    const bindings = await Promise.all(sessions.map(S => tx.get(API.binding(api, S))));
-    const assignments = await Promise.all(sessions.map(S => tx.get(API.assignment(api, S))));
-    const freezes = [];
-    sessions.forEach((S, i) => {
-      const binding = bindings[i].data() ?? { active: null, prepared: null };
-      if (binding.prepared) refuse("respondent-continuing", { temporary: true, detail: S });
-      let authority;
-      if (binding.active) authority = { principal: binding.active.principal, revision: binding.active.revision };
-      else if (derived[S]?.principal) authority = { principal: derived[S].principal, revision: 0 };
-      else refuse("respondent-unknown", { detail: S });
-      if (!samePrincipal(caller, authority.principal)) refuse("not-respondent", { detail: S });
-      // An assignment frozen earlier keeps its original attribution (I2). The
-      // CURRENT respondent (checked above) may still submit against it, for
-      // example after a transfer; nothing is rewritten.
-      if (assignments[i].data()?.frozen) return;
-      freezes.push({ S, frozen: { principal: authority.principal, revision: authority.revision, submitter, taskId } });
-    });
-    for (const { S, frozen } of freezes) tx.set(API.assignment(api, S), { session: S, frozen });
-    return { frozen: freezes.map(f => f.S) };
+export async function submit(api, args) {
+  return api.run(tx => submitInTx(api, tx, args));
+}
+
+// S4's body inside a caller's transaction (see registerInTx).
+export async function submitInTx(api, tx, { sessions, caller, submitter, taskId, derived = {} }) {
+  const bindings = await Promise.all(sessions.map(S => tx.get(API.binding(api, S))));
+  const assignments = await Promise.all(sessions.map(S => tx.get(API.assignment(api, S))));
+  const freezes = [];
+  sessions.forEach((S, i) => {
+    const binding = bindings[i].data() ?? { active: null, prepared: null };
+    if (binding.prepared) refuse("respondent-continuing", { temporary: true, detail: S });
+    let authority;
+    if (binding.active) authority = { principal: binding.active.principal, revision: binding.active.revision };
+    else if (derived[S]?.principal) authority = { principal: derived[S].principal, revision: 0 };
+    else refuse("respondent-unknown", { detail: S });
+    if (!samePrincipal(caller, authority.principal)) refuse("not-respondent", { detail: S });
+    // An assignment frozen earlier keeps its original attribution (I2). The
+    // CURRENT respondent (checked above) may still submit against it, for
+    // example after a transfer; nothing is rewritten.
+    if (assignments[i].data()?.frozen) return;
+    freezes.push({ S, frozen: { principal: authority.principal, revision: authority.revision, submitter, taskId } });
   });
+  for (const { S, frozen } of freezes) tx.set(API.assignment(api, S), { session: S, frozen });
+  return { frozen: freezes.map(f => f.S) };
 }
 
 // ---------------------------------------------------------------------------
@@ -425,11 +459,12 @@ export async function readHistory(api, S) {
 // The verified drain (§6) and the floors.
 
 export async function drainCounts({ api, console: con }) {
-  const [ops, bindings, cops, items] = await Promise.all([
+  const [ops, bindings, cops, items, settlements] = await Promise.all([
     API.ops(api).get(),
     API.bindings(api).get(),
     CON.cops(con).get(),
     CON.items(con).get(),
+    api.col("respondent-operation-settlement").get(),
   ]);
   const opData = ops.docs.map(d => d.data());
   const copById = new Map(cops.docs.map(d => [d.id, d.data()]));
@@ -440,6 +475,8 @@ export async function drainCounts({ api, console: con }) {
     lockedItems: items.docs.filter(d => LOCKED_ITEM_STATES.has(d.data().state)).length,
     missingTombstones: opData.filter(o => o.state === "cancelled" && copById.get(o.opId)?.state !== "cancelled").length,
     outstandingAcks: opData.filter(o => o.state === "prepared" && !o.ack?.finalized && copById.get(o.opId)?.state === "finalized").length,
+    // Settlement records (lifecycle.mjs) not yet acknowledged by the console.
+    unsettledOperations: settlements.docs.filter(d => !d.data().settled).length,
   };
 }
 

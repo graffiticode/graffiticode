@@ -1,6 +1,6 @@
 # C4: runtime and lifecycle decisions
 
-**Status:** proposal, docs only (2026-11-26). §1 records what the owner has already accepted. Every other section is a **proposal**: nothing in §2–§9 is selected, implemented or approved. This document approves no implementation, migration, backfill, reset, release, or merge. The ten verified eval-only reset candidates from slice 0 get **no automatic reset** under any proposal here. C5d and its legacy command remain held.
+**Status:** policies **selected** (owner, 2026-11-27). The owner selected the primary proposal of each of §2–§9; §10 records the selections. The withdrawal alternative (§6) and every other alternative are **not selected**. Selection approves the policies only, not their production implementation. The emulator harness covers the selected settlement, namespace pin and index, ordered recovery, and retained-descriptor behavior (`docs/evidence/interpreter-c4-l0182/continuation-harness/`, `lifecycle.harness.mjs`). Merged 2026-11-27 as a draft (#488), first written as a proposal (2026-11-26). This document approves no implementation, migration, backfill, reset or release. The ten verified eval-only reset candidates from slice 0 get **no automatic reset** under any proposal here. C5d and its legacy command remain held.
 
 **Sources:**
 - `docs/c4-l0182-assignment-plan.md`: decisions 3–7 and 10–12, §5 and §6.
@@ -50,7 +50,7 @@
 
 **Constraint from §1:** submission needs a respondent principal. With no session there is nothing to look up, so a sessionless occurrence can never be submitted by anyone. Slice 0 found **1** current-vocabulary sessionless occurrence. The console proposal refuses revisions of existing sessionless programs until this decision is made, or until the owner starts an explicit new response.
 
-**Proposed: sessionless occurrences are stateless reads, handled entirely in the language.**
+**Selected (2026-11-27): sessionless occurrences are stateless reads, handled entirely in the language.** No implicit respondent identity is created for them.
 - **The pick:** the candidate at index `sha256(model digest ‖ survey ref ‖ ordinal) mod n`, over the current candidates sorted by instance name. The ordinal counts that ref's sessionless occurrences in evaluation order.
 - **Nothing is requested or written.** The occurrence isn't reported in `needsAssignment`, so the api creates no record, touches no draw cycle, and freezes nothing. A `response` in it is validated and served as a read.
 - **Not balanced**, since there is no respondent to balance for.
@@ -66,7 +66,7 @@
 
 **Scope from slice 0:** only 2 installed surveys have more than one version (`civic-priorities` with 12, `workplace-pulse` with 3), covering about 29 identities. Named versions never draw.
 
-**Proposed: today's draw without replacement, made durable.**
+**Selected (2026-11-27): today's draw without replacement, made durable.**
 - **State:** `l0182-draw-cycles/<survey id>` = `{ cycle, taken: [instance…], candidates: [instance…] }`. The canary namespace keeps its own copy (§9).
 - **Creating an unfrozen assignment for a bare id** reads and updates the cycle in the same transaction as the record, which also checks the cutover state:
   - it restricts `taken` to the current candidates;
@@ -83,7 +83,7 @@
 
 ## 4. Content changes and removed versions (plan decision 6)
 
-**Proposed**, per record state:
+**Selected (2026-11-27)**, per record state:
 
 | Change in a release | Unfrozen record | Frozen record |
 |---|---|---|
@@ -103,7 +103,7 @@
 
 ## 5. Retention
 
-**Proposed:** every C4 record is kept for as long as tasks are, which is forever, except where noted.
+**Selected (2026-11-27):** every C4 record is kept for as long as tasks are, which is forever, except where noted. No time-based expiry of cancellation tombstones.
 
 | Record | Store | Retention | Why |
 |---|---|---|---|
@@ -134,7 +134,7 @@
 - **Account deletion.** `DELETE /api/user/<name>` deletes the `users/<uid>` document only. Firestore doesn't cascade, so `users/<uid>/items/*` remain.
 - **No code path hard-deletes an item.**
 
-**Proposed: a minimal retained destination record. Authority lives in the binding, not in T's continued existence.**
+**Selected (2026-11-27): a minimal retained destination record. Authority lives in the binding, not in T's continued existence.**
 - **The descriptor is per revision and immutable.** C4 writes history entry `<S>:<n+1>` = `{ revision n+1, principal, destination: T, opId, readyAt }`, where `readyAt` is the C4 commit time. It is written once in C4's transaction, never rewritten, and kept forever (§5). It is the **destination descriptor** for revision n+1.
 - **The pointer is mutable.** In the same transaction, C4 sets `respondent-bindings/<S>.active` = `{ revision n+1, principal, opId, destination: T }`, a copy of the descriptor's fields, so S4 needs one read. A later activation overwrites the pointer with revision n+2 and writes descriptor n+2. Descriptor n+1 is unchanged and still answers what revision n+1 granted, for audits and for freezes that recorded n+1 (I2).
 - **I4 is restated:** at activation, T existed and was ready, which the finalized acknowledgement proves. From then on, the descriptor for the pointer's current revision is the authority. T's later archive, expiry, unpublishing or removal doesn't change who may submit for S.
@@ -152,7 +152,7 @@
 - **Continuation sources:** a source X in `read-only{opId}` may be archived or expire like any item. Authority has already moved to the binding.
 - **Cost:** a respondent keeps authority over S after hiding T. That is consistent with authority belonging to the principal, not the item. It needs no new cross-store protocol.
 
-**Alternative: authority withdrawal ordered against submissions.** Removal of an item holding authority withdraws that authority through an api-ordered protocol, in the shape of option (c). The withdrawn item W is:
+**Alternative, not selected (2026-11-27): authority withdrawal ordered against submissions.** It stays here as the reviewed design a future removal contract could adopt; nothing implements it. Removal of an item holding authority withdraws that authority through an api-ordered protocol, in the shape of option (c). The withdrawn item W is:
 - **bound case:** the destination T named by the current pointer, at revision n;
 - **unbound case:** the item whose id is S, at console version v, with **no** binding document for S. There is no revision and no bound destination.
 
@@ -208,7 +208,7 @@ It is not a transient state. The runner's cross-check and the drain count `withd
 
 ## 7. Recovery
 
-**Proposed, with three parts.**
+**Selected (2026-11-27), with three parts.** The 15-minute threshold and 5-minute interval are selected as healthy-service targets, a finalized continuation is rolled forward, and a racing submission gets a temporary refusal, not a queue. The rows for withdrawal operations apply only if a future contract adopts withdrawal.
 - **Resumption by replay.** Every continuation request carries its `opId`. A retry of the same request resumes from whatever committed, as the harness driver does: completed steps are no-ops, and a refused child keeps its recorded reason.
 - **Settlement is a separate record, so I6 is unchanged.** C0 (or W0) creates `respondent-operation-settlement/<opId>` = `{ opId, settled: false, createdAt }` in its own transaction, beside the operation record and in the same namespace.
   - The record becomes `{ settled: true, at }` only through a guarded **settled acknowledgement** from the console. That ack is sent after the console's last transaction for that `opId` commits: C5 unlock or W3 remove for a completed operation, or the tombstone cleanup for a cancelled one. The ack is refused unless the operation is already terminal.
@@ -250,7 +250,7 @@ It is not a transient state. The runner's cross-check and the drain count `withd
 - **K-console:** never lowered once any item carries another item's session, or any source is read-only. Draining doesn't justify lowering it.
 - **W-api and W-console:** lowered only after a verified drain with the barrier closed.
 
-**Proposed mechanics:**
+**Selected mechanics (2026-11-27).** The documented legacy semantics during a flag-off rollback are accepted; re-activation needs a separately approved reconciliation.
 - **api milestones:**
   - `c4-assignments` (plan §6 step 3), with `requires` on `l0182r`;
   - `c4-continuations`, the first api with S4's binding read. This is R-api.
@@ -286,7 +286,7 @@ It is not a transient state. The runner's cross-check and the drain count `withd
 
 **Extends plan decision 12** to continuation state.
 
-**Proposed:**
+**Selected (2026-11-27):**
 - **A namespace is decided once and then pinned.** Configuration changes never move existing state. Two create-only records in a single, un-namespaced api collection each:
   - **the session pin** `l0182-session-namespace/<S>` = `{ namespace, at }`. It is created by the first api transaction that writes anything for S: an assignment, a C0, a W0, or a freeze. The namespace is chosen then from `L0182_CANARY_SESSIONS`. Every later read and write for S uses the pin, never the current list.
   - **the operation index** `respondent-operation-index/<opId>` = `{ namespace, digest, session }`. It is created in C0's (or W0's) transaction, together with the namespaced operation record.
@@ -311,17 +311,46 @@ It is not a transient state. The runner's cross-check and the drain count `withd
   - refusal of mixed principals;
   - the independent barriers. Staged checks use real frontend attestations (decision 12).
 
-## 10. Decisions for the owner
+## 10. Decisions (selected by the owner, 2026-11-27)
 
-Each is **proposed** above. Choosing one approves only the choice, not its implementation.
+The owner selected the primary proposal for all eight. Selection approves the policies, not their production implementation.
 
-1. **Sessionless** (§2): stateless reads in the language, or refuse, or keep a record per identity.
-2. **Balancing** (§3): a durable draw without replacement, or a uniform pick, or least-assigned.
-3. **Content changes** (§4): moving an unfrozen record to the new digest, or a fresh draw, or refusing such releases. Also the release rule.
-4. **Retention** (§5): everything forever, including tombstones, or tombstone expiry once its bound is proven.
-5. **Deletion and expiry** (§6): the minimal retained destination record, with the constraint on future removal paths, or authority withdrawal ordered against submissions, including who may withdraw (the verified respondent, or the scoped lifecycle worker and its events).
-6. **Recovery** (§7): the separate settlement record, the console-side runner and its thresholds (a healthy-service target, not a bound), and roll forward versus cancel for a finalized but unactivated operation.
-7. **Floors and switches** (§8): `c4-continuations` as a `floor: true` baseline, `c4-assignments` as an ordinary one, the guarded removal and reinstatement of the static `requires` (or conditional dependency support), the console's floor mechanism, independent switches, and the drain script.
-8. **Canary** (§9): the session pin and operation index, C0's replay order, and the canary continuation collections.
+1. **Sessionless** (§2): stateless language reads; never assigned, balanced or frozen. No implicit respondent identity.
+2. **Balancing** (§3): durable draws without replacement, with the assignment and the cycle updated atomically.
+3. **Content changes** (§4): an unfrozen record keeps its instance and moves to the new digest, with the change recorded in its history. A frozen record keeps its original content. Survey changes need reviewed releases.
+4. **Retention** (§5): the records listed in §5 are kept indefinitely, subject to its stated exceptions. No time-based expiry of cancellation tombstones.
+5. **Deletion and expiry** (§6): the retained per-revision destination descriptor. Archive and expiry don't withdraw authority. A future hard deletion, TTL or cascading deletion needs a separate contract that covers unbound sessions. Withdrawal is **not** selected.
+6. **Recovery** (§7):
+   - the console-side runner;
+   - separate settlement records;
+   - the ordered recovery rows;
+   - the 15-minute threshold and 5-minute interval, as healthy-service targets;
+   - finalized continuations rolled forward;
+   - submissions temporarily refused, not queued.
+7. **Floors and switches** (§8):
+   - the permanent reader and console floors;
+   - independent switches;
+   - the verified drain;
+   - the guarded changes to the static dependency;
+   - the documented legacy semantics during a flag-off rollback.
 
-**Still outside this document:** migration and backfill classification (decision 10), with no automatic resets, the ten eval-only candidates included. Also outside: installation-specific namespaces (decision 3), and the language, API and harness slices. Each needs its own approval.
+   Re-activation needs a separately approved reconciliation.
+8. **Canary** (§9):
+   - the permanent session pin and operation index;
+   - the recorded namespace on every step;
+   - separate barriers;
+   - canary-owned fixtures.
+
+**Executable evidence:** `lifecycle.harness.mjs` in the continuation harness (emulator-only) covers:
+- settlement;
+- the namespace pin and index, including replay after a lost response or a configuration change;
+- the ordered recovery rows;
+- the retained descriptor through archive and expiry.
+
+**Still unapproved:**
+- production implementation: routes, deployment configuration, and the language, API and frontend slices;
+- migration and backfill classification (decision 10), with no automatic resets, the ten eval-only candidates included;
+- releases;
+- installation-specific namespaces (decision 3).
+
+Each needs its own approval.
