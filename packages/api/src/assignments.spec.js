@@ -62,6 +62,8 @@ const setup = async ({ cutover = "done", ...options } = {}) => {
 const recordOf = async (store, survey, session, namespace = "production") =>
   (await store.refs(namespace).record(identityKey(survey, session)).get()).data();
 const countDocs = async (prefix, name) => (await db.collection(`${prefix}${name}`).get()).size;
+const readOf = (session, reason, survey = "civic-priorities") =>
+  ({ status: "read", namespace: "production", frozen: [], already: [], read: [{ key: identityKey(survey, session), reason }] });
 const refused = async (promise, code) => {
   const err = await promise.then(() => null, e => e);
   expect(err).toBeInstanceOf(AssignmentError);
@@ -151,7 +153,7 @@ describe("C4 assignments: get-or-create and the durable draw", () => {
     await refused(store.resolve({ requests: [request("civic-priorities", "s", forged)], taskId: "t1" }), "assignment-request-invalid");
     const bare = [version("civic-priorities")];
     await refused(store.resolve({ requests: [request("civic-priorities", "s", [...CIVIC, ...bare])], taskId: "t1" }), "assignment-request-invalid");
-    await refused(store.resolve({ requests: [request("civic-priorities", "a/b", CIVIC)], taskId: "t1" }), "assignment-request-invalid");
+    await refused(store.resolve({ requests: [request("civic-priorities", "", CIVIC)], taskId: "t1" }), "assignment-request-invalid");
   });
 });
 
@@ -292,7 +294,7 @@ describe("C4 assignments: atomic submission freezes", () => {
   it("the respondent's response freezes with its authority evidence and retained model; a retry rewrites nothing", async () => {
     const { store } = await setup();
     const { entry, out } = await resolveAndFreeze(store, "s");
-    expect(out).toEqual({ status: "frozen", namespace: "production", frozen: [identityKey("civic-priorities", "s")], already: [] });
+    expect(out).toEqual({ status: "frozen", namespace: "production", frozen: [identityKey("civic-priorities", "s")], already: [], read: [] });
     const record = await recordOf(store, "civic-priorities", "s");
     expect(record).toMatchObject({ state: "frozen", frozen: { principal: WS_A, revision: 0, basis: "derived", submitter: WS_A, taskId: "t1" } });
     const retry = await store.submit({ taskId: "t2", caller: WS_A, used: [used("civic-priorities", "s", entry)], derived: { s: { principal: WS_A } } });
@@ -311,7 +313,7 @@ describe("C4 assignments: atomic submission freezes", () => {
     ];
     for (const [caller, derived, reason] of cases) {
       const { out } = await resolveAndFreeze(store, "s", { caller, derived });
-      expect(out).toEqual({ status: "read", reason });
+      expect(out).toEqual(readOf("s", reason));
     }
     expect((await recordOf(store, "civic-priorities", "s")).frozen).toBeUndefined();
   });
@@ -354,7 +356,7 @@ describe("C4 assignments: atomic submission freezes", () => {
     const binding = store.refs("production").binding("s");
     await binding.set({ active: { principal: P, revision: 1, opId: "op-1", destination: "dest-1" }, prepared: null });
     const old = await resolveAndFreeze(store, "s", { caller: WS_A, derived: { s: { principal: WS_A } } });
-    expect(old.out).toEqual({ status: "read", reason: "not-respondent" });
+    expect(old.out).toEqual(readOf("s", "not-respondent"));
     await binding.set({ active: { principal: P, revision: 1, opId: "op-1", destination: "dest-1" }, prepared: { opId: "op-2", revision: 2 } });
     const waiting = await refused(resolveAndFreeze(store, "s", { caller: P }), "respondent-continuing");
     expect(waiting.temporary).toBe(true);
@@ -373,7 +375,7 @@ describe("C4 assignments: atomic submission freezes", () => {
     await binding.set({ active: { principal: Q, revision: 2, opId: "op-2", destination: "dest-2" }, prepared: null });
     // P may no longer submit; Q may, against the record P froze, which stays P's.
     const before = await store.submit({ taskId: "t2", caller: P, used: [used("civic-priorities", "s", entry)] });
-    expect(before).toEqual({ status: "read", reason: "not-respondent" });
+    expect(before).toEqual(readOf("s", "not-respondent"));
     const after = await store.submit({ taskId: "t3", caller: Q, used: [used("civic-priorities", "s", entry)] });
     expect(after).toMatchObject({ status: "frozen", frozen: [], already: [identityKey("civic-priorities", "s")] });
     expect(await recordOf(store, "civic-priorities", "s")).toEqual(frozen);
@@ -400,9 +402,99 @@ describe("C4 assignments: atomic submission freezes", () => {
         // The freeze committed first: it records the unbound authority that admitted it.
         expect(record.frozen).toMatchObject({ principal: WS_A, revision: 0, basis: "derived" });
       } else {
-        expect(out).toEqual({ status: "read", reason: "not-respondent" });
+        expect(out).toEqual(readOf("s", "not-respondent"));
         expect(record.frozen).toBeUndefined();
       }
     }
+  });
+});
+
+describe("C4 assignments: review regressions", () => {
+  it("a mixed-ownership submission freezes the caller's authorized identities and reads the rest", async () => {
+    const { store } = await setup();
+    const requests = [request("civic-priorities", "mine", CIVIC), request("civic-priorities", "theirs", CIVIC)];
+    const { table } = await store.resolve({ requests, taskId: "t1" });
+    const entries = ["mine", "theirs"].map(s => {
+      const e = table[identityKey("civic-priorities", s)];
+      return used("civic-priorities", s, { ...e, content: CIVIC.find(c => c.instance === e.instance).content });
+    });
+    const out = await store.submit({
+      taskId: "t1",
+      caller: WS_A,
+      used: entries,
+      derived: { mine: { principal: WS_A }, theirs: { principal: WS_B } },
+    });
+    expect(out).toEqual({
+      status: "frozen",
+      namespace: "production",
+      frozen: [identityKey("civic-priorities", "mine")],
+      already: [],
+      read: [{ key: identityKey("civic-priorities", "theirs"), reason: "not-respondent" }],
+    });
+    expect((await recordOf(store, "civic-priorities", "mine")).frozen.principal).toEqual(WS_A);
+    expect((await recordOf(store, "civic-priorities", "theirs")).frozen).toBeUndefined();
+  });
+
+  it("a non-owner's read is answered while reconciling: it writes nothing, so nothing fences it", async () => {
+    const { store } = await setup();
+    const { table } = await store.resolve({ requests: [request("civic-priorities", "s", CIVIC)], taskId: "t1" });
+    await store.setCutover({ from: "done", to: "reconciling" });
+    const entry = { ...table[identityKey("civic-priorities", "s")], content: CIVIC[0].content };
+    const out = await store.submit({ taskId: "t1", caller: WS_B, used: [used("civic-priorities", "s", entry)], derived: { s: { principal: WS_A } } });
+    expect(out).toEqual(readOf("s", "not-respondent"));
+    // The owner's freeze is still fenced.
+    await refused(store.submit({ taskId: "t1", caller: WS_A, used: [used("civic-priorities", "s", entry)], derived: { s: { principal: WS_A } } }),
+      "assignment-reconciling");
+  });
+
+  it("a session with a slash works end to end; its pin and binding are keyed by digest and keep the session", async () => {
+    const { store } = await setup();
+    const session = "items/abc/def";
+    const binding = store.refs("production").binding(session);
+    const { out } = await resolveAndFreeze(store, session, { derived: { [session]: { principal: WS_A } } });
+    expect(out.status).toBe("frozen");
+    expect((await store.pinRef(session).get()).data()).toMatchObject({ session, namespace: "production" });
+    await binding.set({ session, active: { principal: P, revision: 1, opId: "op-1", destination: "d" }, prepared: null });
+    expect(binding.id).toBe(createHash("sha256").update(session).digest("hex"));
+    const entry = { ...CIVIC[0] };
+    const again = await store.submit({ taskId: "t2", caller: P, used: [used("civic-priorities", session, entry)] });
+    expect(again.already).toEqual([identityKey("civic-priorities", session)]);
+  });
+
+  it("an invalid namespace never falls back to production: a corrupt pin, and setCutover", async () => {
+    const { store, prefix } = await setup();
+    await store.pinRef("bad").set({ session: "bad", namespace: "canry", at: 1 });
+    await refused(store.resolve({ requests: [request("civic-priorities", "bad", CIVIC)], taskId: "t1" }), "namespace-invalid");
+    await refused(store.submit({ taskId: "t1", caller: WS_A, used: [used("civic-priorities", "bad", CIVIC[0])], derived: { bad: { principal: WS_A } } }),
+      "namespace-invalid");
+    expect(await countDocs(prefix, "l0182-assignments")).toBe(0);
+    const before = (await store.refs("production").cutover().get()).data();
+    await refused(store.setCutover({ namespace: "canry", from: "done", to: "reconciling" }), "namespace-invalid");
+    expect((await store.refs("production").cutover().get()).data()).toEqual(before);
+    expect(() => store.refs("canry")).not.toThrow(); // building the map is harmless; every reference refuses
+    expect(() => store.refs("canry").record("k")).toThrow(AssignmentError);
+  });
+
+  it("an already-frozen record without its retained model is restored from verified bytes before success", async () => {
+    const { store, prefix } = await setup();
+    // A frozen record whose model was never written (as a partial import might leave one).
+    const key = identityKey("civic-priorities", "s");
+    await store.refs("production").record(key).set({
+      key,
+      survey: "civic-priorities",
+      session: "s",
+      state: "frozen",
+      instance: CIVIC[1].instance,
+      digest: CIVIC[1].digest,
+      frozen: { principal: WS_A, revision: 0, basis: "derived", submitter: WS_A, taskId: "t0", submittedAt: 1 },
+    });
+    // Resolving it, once its version is gone, refuses rather than serving nothing.
+    await refused(store.resolve({ requests: [request("civic-priorities", "s", [CIVIC[0]])], taskId: "t1" }), "assignment-model-missing");
+    const out = await store.submit({ taskId: "t1", caller: WS_A, used: [used("civic-priorities", "s", CIVIC[1])], derived: { s: { principal: WS_A } } });
+    expect(out).toMatchObject({ status: "frozen", frozen: [], already: [key] });
+    expect(await store.retained(CIVIC[1].digest)).toBe(CIVIC[1].content);
+    expect(await countDocs(prefix, "l0182-survey-models")).toBe(1);
+    const { table } = await store.resolve({ requests: [request("civic-priorities", "s", [CIVIC[0]])], taskId: "t2" });
+    expect(table[key]).toEqual({ instance: CIVIC[1].instance, digest: CIVIC[1].digest, content: CIVIC[1].content });
   });
 });

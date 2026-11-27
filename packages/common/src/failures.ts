@@ -169,6 +169,24 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // C5 render grants: a private item with no task to render, or one whose
   // task is no longer the one its reservation pinned.
   ...cat("conflict", ["render-target-missing", "render-target-changed"]),
+  // C4 assignments (packages/api/src/assignments.js; docs/c4-l0182-assignment-plan.md
+  // decisions 3, 7, 10 and 12; docs/c4-runtime-lifecycle.md §9). Why a response is a read
+  // for a session: the caller isn't its respondent, or its authority is unknown or ambiguous;
+  // and a canary namespace's fixtures-only rule.
+  ...cat("permission", ["not-respondent", "respondent-unknown", "respondent-ambiguous", "canary-fixture-only"]),
+  // A request, principal or cutover state that isn't one, and one program reaching two
+  // namespaces.
+  ...cat("malformed", ["assignment-request-invalid", "principal-invalid", "cutover-invalid", "namespace-mixed"]),
+  // Recorded state that refuses: an unresolved record or quarantined task (until the owner
+  // decides it), a record that moved between interpret and freeze, retained bytes that
+  // differ or are missing, a cutover state that changed, and a pin naming no namespace.
+  ...cat("conflict", [
+    "assignment-under-review", "assignment-changed", "survey-model-conflict", "assignment-model-missing",
+    "cutover-changed", "namespace-invalid",
+  ]),
+  // Temporary: the cutover's write barrier, a continuation in progress, respondent authority
+  // that couldn't be asked, and a free-plan caller whose workspace wasn't attested.
+  ...cat("unavailable", ["assignment-reconciling", "respondent-continuing", "respondent-authority-unavailable", "respondent-unattested"]),
 ]));
 
 // Broker wraps Policy's reason (`authorization-denied:<reason>`); the category

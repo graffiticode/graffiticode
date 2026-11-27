@@ -17,8 +17,10 @@
 //     table L0182 resolves from.
 //
 //   submit({ taskId, caller, submitter, used, derived })
-//     -> { status: "frozen", namespace, frozen, already } | { status: "read", reason }
-//     The freeze, one transaction, all or nothing. `used` is every identity the interpret
+//     -> { status: "frozen" | "read", namespace, frozen, already, read: [{ key, reason }] }
+//     The freeze, one transaction. Per session, the caller holds its authority or the
+//     response is a read for it; the authorized identities freeze together or not at all,
+//     and a submission with none is a read, which writes nothing. `used` is every identity the interpret
 //     served and the response answers ({ key, survey, session, instance, digest, content });
 //     `derived` the console's respondent-authority answer for each unbound session.
 //
@@ -29,13 +31,13 @@
 // refused transaction meant to write is written.
 //
 // Storage, every document server-only and read by id (no index needed):
-//   l0182-session-namespace/<session>           the session's pinned namespace (create-only)
+//   l0182-session-namespace/<sha256(session)>   the session's pinned namespace (create-only)
 //   <ns>l0182-assignments/<sha256(key)>          one record per (survey ref, session)
 //   <ns>l0182-draw-cycles/<survey id>            the draw without replacement
 //   <ns>l0182-survey-models/<digest>             retained content (create-only, byte-identical)
 //   <ns>l0182-cutover/state                      backfill | reconciling | done
 //   <ns>l0182-task-quarantine/<sha256(taskId)>   written by the backfill; blocks the task
-//   <ns>respondent-bindings/<session>            option (c)'s binding pointer (read here)
+//   <ns>respondent-bindings/<sha256(session)>    option (c)'s binding pointer (read here)
 // where <ns> is "" for production and "canary-" for the canary namespace. Nothing here is
 // ever deleted (§5 retention): a frozen record and a retained model never change.
 
@@ -60,6 +62,13 @@ const refuse = (code, opts) => {
 };
 
 export const NAMESPACES = ["production", "canary"];
+
+// Why a response is a read rather than a submission, for one session (decision 3).
+const READ = {
+  notRespondent: { reason: "not-respondent" },
+  unknown: { reason: "respondent-unknown" },
+  ambiguous: { reason: "respondent-ambiguous" },
+};
 export const CUTOVER_STATES = ["backfill", "reconciling", "done"];
 
 const sha256 = text => createHash("sha256").update(text, "utf8").digest("hex");
@@ -93,12 +102,13 @@ export const samePrincipal = (a, b) => validPrincipal(a) && validPrincipal(b) &&
 // The identity's table key, as L0182 writes it (assigned::key): the JSON text of [ref, session].
 export const identityKey = (survey, session) => JSON.stringify([survey, session]);
 
-// A named ref is served only as itself; a survey id only as <id>-<n> (decision 10).
-// A session is a Firestore document id here (the pin and the binding are keyed by it).
-const validSession = session =>
-  typeof session === "string" && session.length > 0 && session.length <= 512 &&
-  !session.includes("/") && session !== "." && session !== ".." && !/^__.*__$/.test(session);
+// A session is any non-empty string L0182 accepts (a slash included). Documents keyed by a
+// session (its pin and its binding) use its digest as their id, and keep the session itself
+// as a field: Firestore's id rules never become the language's.
+const validSession = session => typeof session === "string" && session.length > 0;
+export const sessionDocId = session => sha256(session);
 
+// A named ref is served only as itself; a survey id only as <id>-<n> (decision 10).
 const isVersionOf = (instance, survey, named) =>
   named ? instance === survey : instance.startsWith(`${survey}-`) && /^\d+$/.test(instance.slice(survey.length + 1));
 
@@ -113,16 +123,21 @@ export const buildAssignmentStore = ({
 } = {}) => {
   const listed = new Set(canarySessions);
   const canaryOwned = principal => canaryPrincipals.some(p => samePrincipal(p, principal));
-  const col = (namespace, name) => db.collection(`${prefix}${namespace === "canary" ? "canary-" : ""}${name}`);
+  // Every namespace is checked before a reference is built: an unknown one never falls back
+  // to production.
+  const col = (namespace, name) => {
+    if (!NAMESPACES.includes(namespace)) refuse("namespace-invalid", { detail: String(namespace) });
+    return db.collection(`${prefix}${namespace === "canary" ? "canary-" : ""}${name}`);
+  };
   const refs = namespace => ({
     record: key => col(namespace, "l0182-assignments").doc(sha256(key)),
     cycle: survey => col(namespace, "l0182-draw-cycles").doc(survey),
     model: digest => col(namespace, "l0182-survey-models").doc(digest),
     cutover: () => col(namespace, "l0182-cutover").doc("state"),
     quarantine: taskId => col(namespace, "l0182-task-quarantine").doc(sha256(taskId)),
-    binding: session => col(namespace, "respondent-bindings").doc(session),
+    binding: session => col(namespace, "respondent-bindings").doc(sessionDocId(session)),
   });
-  const pinRef = session => db.collection(`${prefix}l0182-session-namespace`).doc(session);
+  const pinRef = session => db.collection(`${prefix}l0182-session-namespace`).doc(sessionDocId(session));
 
   // The production cutover starts in `backfill` (decision 10), so a missing state refuses
   // every api write. The canary namespace's is `done` from the start (decision 12).
@@ -134,6 +149,9 @@ export const buildAssignmentStore = ({
   const namespaceFor = async (tx, sessions) => {
     const pins = await Promise.all(sessions.map(s => tx.get(pinRef(s))));
     const spaces = sessions.map((s, i) => pins[i].exists ? pins[i].data().namespace : listed.has(s) ? "canary" : "production");
+    for (const space of spaces) {
+      if (!NAMESPACES.includes(space)) refuse("namespace-invalid", { detail: String(space) });
+    }
     if (new Set(spaces).size > 1) refuse("namespace-mixed");
     return { namespace: spaces[0] ?? "production", missingPins: sessions.filter((_, i) => !pins[i].exists) };
   };
@@ -305,36 +323,48 @@ export const buildAssignmentStore = ({
       const r = refs(namespace);
       const [cutoverSnap, quarantineSnap] = await Promise.all([tx.get(r.cutover()), tx.get(r.quarantine(taskId))]);
       if (quarantineSnap.exists) refuse("assignment-under-review", { detail: "task" });
-      if (cutoverState(namespace, cutoverSnap) !== "done") refuse("assignment-reconciling", { temporary: true });
       const bindings = await Promise.all(sessions.map(s => tx.get(r.binding(s))));
       const records = await Promise.all(used.map(u => tx.get(r.record(u.key))));
       const digests = [...new Set(used.map(u => u.digest))];
       const models = await Promise.all(digests.map(d => tx.get(r.model(d))));
 
-      // Authority, per session, read inside this transaction (option (c), §1.3).
+      // Authority, per session, read inside this transaction (option (c), §1.3). A session the
+      // caller doesn't hold is a read; one that can't be decided now refuses the whole
+      // submission temporarily, since its classification is unknown.
       const authority = {};
+      const readReason = {};
       for (const [i, session] of sessions.entries()) {
         const binding = bindings[i].exists ? bindings[i].data() : null;
         if (binding?.prepared) refuse("respondent-continuing", { temporary: true, detail: session });
+        let held;
         if (binding?.active) {
-          authority[session] = { principal: binding.active.principal, revision: binding.active.revision, basis: "binding" };
+          held = { principal: binding.active.principal, revision: binding.active.revision, basis: "binding" };
         } else {
           const answer = derived[session];
           if (!answer) refuse("respondent-authority-unavailable", { temporary: true, detail: session });
           if (answer.unknown || answer.ambiguous || !answer.principal) {
-            return { status: "read", reason: answer.ambiguous ? "respondent-ambiguous" : "respondent-unknown" };
+            readReason[session] = (answer.ambiguous ? READ.ambiguous : READ.unknown).reason;
+            continue;
           }
-          authority[session] = { principal: answer.principal, revision: 0, basis: "derived" };
+          held = { principal: answer.principal, revision: 0, basis: "derived" };
         }
-        if (!samePrincipal(caller, authority[session].principal)) return { status: "read", reason: "not-respondent" };
+        if (samePrincipal(caller, held.principal)) authority[session] = held;
+        else readReason[session] = READ.notRespondent.reason;
       }
+      const read = used.filter(u => readReason[u.session]).map(u => ({ key: u.key, reason: readReason[u.session] }));
+      const authorized = used.map((u, i) => ({ u, snap: records[i] })).filter(({ u }) => authority[u.session]);
+      // Nothing the caller may freeze: a read, which writes nothing and so is never fenced.
+      if (authorized.length === 0) return { status: "read", namespace, frozen: [], already: [], read };
+      // The authorized subset freezes atomically; it is a write, fenced by the cutover.
+      if (cutoverState(namespace, cutoverSnap) !== "done") refuse("assignment-reconciling", { temporary: true });
 
-      // Every identity must still hold exactly the version and digest the interpret used.
+      // Every authorized identity must still hold exactly the version and digest the
+      // interpret used.
       const frozen = [];
       const already = [];
       const writes = [];
-      for (const [i, u] of used.entries()) {
-        const record = records[i].exists ? records[i].data() : null;
+      for (const { u, snap } of authorized) {
+        const record = snap.exists ? snap.data() : null;
         if (!record || record.state === "unresolved" || record.instance !== u.instance || record.digest !== u.digest) {
           refuse("assignment-changed", { temporary: true, detail: u.key });
         }
@@ -349,17 +379,22 @@ export const buildAssignmentStore = ({
         }));
         frozen.push(u.key);
       }
+      // Success is acknowledged only with every authorized identity's model retained: created
+      // now, or restored for an already-frozen record whose model is missing, from bytes whose
+      // digest is the record's own (checked above). Existing bytes must be identical.
       for (const [i, digest] of digests.entries()) {
-        const content = used.find(u => u.digest === digest).content;
+        if (!authorized.some(({ u }) => u.digest === digest)) continue;
+        const content = authorized.find(({ u }) => u.digest === digest).u.content;
         if (models[i].exists) {
           if (models[i].data().content !== content) refuse("survey-model-conflict", { detail: digest });
-        } else if (frozen.length > 0) {
+        } else {
           writes.push(() => tx.create(r.model(digest), { digest, content, at: now() }));
         }
       }
-      if (frozen.length > 0) writes.push(() => writePins(tx, missingPins, namespace));
+      const written = new Set(authorized.map(({ u }) => u.session));
+      writes.push(() => writePins(tx, missingPins.filter(s => written.has(s)), namespace));
       writes.forEach(write => write());
-      return { status: "frozen", namespace, frozen, already };
+      return { status: "frozen", namespace, frozen, already, read };
     });
   };
 
