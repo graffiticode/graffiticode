@@ -10,7 +10,7 @@ import { canonicalDigest } from "@graffiticode/common/canonical";
 import { modelCacheKey } from "./model-cache.js";
 import { decodeChainId } from "@graffiticode/common/chain";
 import { noAudit } from "./audit.js";
-import { normalizeLang, PreflightUnavailable } from "./admission.js";
+import { normalizeLang, PreflightRefused, PreflightUnavailable } from "./admission.js";
 import { checkGeneration, checkGenerationWithDataTask, compileCacheKey, languageGenerationSuffix, getActiveGeneration as readActiveGeneration, getLanguageGenerations as readLanguageGenerations } from "./generation.js";
 import { INTERPRETER_DECLARATIONS, interpreterLangFor } from "@graffiticode/common/interpreter-manifest";
 import {
@@ -20,7 +20,9 @@ import {
 
 // A compile error that names why it failed (spec FAIL-01): `message` is the
 // text callers already read; `code` and `category` say which kind of failure.
-const failedWith = (message, code) => ({ message, from: -1, to: -1, code, category: classify(code).category });
+// `category`, when given, was decided where the failure was read (a
+// refusal's, from its status when it named no reason) and is kept as is.
+const failedWith = (message, code, category = classify(code).category) => ({ message, from: -1, to: -1, code, category });
 
 const ARTIFACT_WRITE_ATTEMPTS = 3;
 const ARTIFACT_RETRY_MS = 100;
@@ -120,9 +122,9 @@ const buildGetData = ({
   // { admissionToken, stages: [{ stage, lang, revision, tagUrl }] }, or
   // { errors } with nothing executed.
   const admitChain = async ({ tasks, id, invocation, authToken, connectionId, attemptId, override = null }) => {
-    const refuseChain = async (message, code, stage = undefined) => {
-      await audit({ event: "admission", outcome: code === "preflight-unavailable" || code === "policy-unavailable" ? "failed" : "denied", reason: code, category: classify(code).category, stage, invocationId: invocation.invocationId, connectionId, attemptId });
-      return { errors: [failedWith(message, code)] };
+    const refuseChain = async (message, code, stage = undefined, category = classify(code).category) => {
+      await audit({ event: "admission", outcome: code === "preflight-unavailable" || code === "policy-unavailable" ? "failed" : "denied", reason: code, category, stage, invocationId: invocation.invocationId, connectionId, attemptId });
+      return { errors: [failedWith(message, code, category)] };
     };
     if (!chainAdmission) return refuseChain("Error: this server can't run an admitted plan", "connections-unavailable");
     const { invocationToken } = invocation;
@@ -167,6 +169,9 @@ const buildGetData = ({
       try {
         out = await chainAdmission.preflight({ baseUrl, lang: task.lang, stage, code: task.code });
       } catch (e) {
+        // The compiler refused (a 4xx): its reason, with the category read
+        // from its answer.
+        if (e instanceof PreflightRefused) return refuseChain(`Error: ${e.message}`, e.reason, stage, e.category);
         if (!(e instanceof PreflightUnavailable)) throw e;
         return refuseChain(`Error: ${e.message}`, "preflight-unavailable", stage);
       }
@@ -501,7 +506,7 @@ const buildGetData = ({
       const reply = await timed("interpret", () => interpreter.interpret({ lang: interpreterLang, model, input: data, mode, auth: authToken, options, uid, baseUrl }));
       // A cached model from before a deploy: the next request compiles it afresh.
       if (cachedModel && typeof reply?.revision === "string" && reply.revision !== revision) modelCache.drop(modelKey);
-      const own = reply?.responseLost ? NO_STORE : capped(reply);
+      const own = reply?.responseLost || reply?.refused ? NO_STORE : capped(reply);
       const out = takeEffects(withoutStageMetadata(reply), index);
       // What the entry may be kept as: the result's own terms and its input's
       // together, so it is never retained longer or shared more widely than
@@ -569,7 +574,20 @@ const buildGetData = ({
       });
       if (pinned) {
         const { revision, responseLost, ...rest } = obj ?? {};
-        if (responseLost) {
+        if (rest.refused) {
+          // The compiler refused (a 4xx). Its reason and category are kept.
+          // The Rust services refuse only before executing (a caller's token,
+          // a malformed request, a preflight), but a pinned TypeScript
+          // revision can answer a 4xx for an error thrown mid-run, so a stage
+          // that could have acted through the connection still reports what
+          // it did as uncertain: receipts, not the refusal, establish it.
+          const mayHaveActed = pinned.requiredFunctions.length > 0;
+          obj = {
+            ...rest,
+            data: null,
+            ...(mayHaveActed ? { effects: [{ status: "uncertain", steps: [], reason: "compile-refused", category: "unavailable" }] } : {}),
+          };
+        } else if (responseLost) {
           // No answer is not a mismatch: the stage may have acted through
           // the connection before the response was lost. If it could have
           // (its plan admits protected functions), that is reported as an

@@ -2,7 +2,7 @@
 // docs/c6-l0176-commands-plan.md §4, decisions 5 and 7).
 import { buildEligibility, buildChainEligibility, buildCompileEnvelope, buildCommandBridge, commandOnlyChain, connectionRequired, isWriteFunction, keyKindOf } from "./bridge.js";
 import { PolicyRefused } from "./policy-commands.js";
-import { PreflightUnavailable } from "../admission.js";
+import { PreflightRefused, PreflightUnavailable } from "../admission.js";
 
 const SAVE = { lang: "0176", code: { root: "save" } };
 const PREVIEW = { lang: "0176", code: { root: "preview" } };
@@ -186,6 +186,20 @@ describe("the bridge", () => {
     expect(envelope.errors[0]).toMatchObject({ code: "connection-disabled", category: "permission" });
     const down = await buildCommandBridge({ eligible: async () => { throw new PreflightUnavailable("unreachable"); }, getRunner: () => runner(), compileEnvelope })(args);
     expect(down.errors[0].code).toBe("preflight-unavailable");
+  });
+
+  // Error handling proposal, PR 1c: a compiler's refusal keeps its reason and
+  // the category read from its answer.
+  it.each([
+    [{ reason: "not-granted", category: "permission", status: 403 }],
+    [{ reason: "preflight-refused", category: "malformed", status: 400 }],
+    [{ reason: "preflight-refused", category: "authentication", status: 401 }],
+    [{ reason: "preflight-refused", category: "unavailable", status: 429 }],
+    [{ reason: "some-unknown-reason", category: "unavailable", status: 403 }],
+  ])("answers a compiler's preflight refusal in the envelope with its reason and category (%j)", async refusal => {
+    const refusing = async () => { throw new PreflightRefused("refused", refusal); };
+    const envelope = await buildCommandBridge({ eligible: refusing, getRunner: () => runner(), compileEnvelope })(args);
+    expect(envelope.errors[0]).toMatchObject({ code: refusal.reason, category: refusal.category });
   });
 });
 

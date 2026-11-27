@@ -27,6 +27,8 @@ import { decodeChainId } from "@graffiticode/common/chain";
 import { canonicalDigest } from "@graffiticode/common/canonical";
 import { commandArtifactRegistryVersion } from "@graffiticode/common/protected-registry";
 import { PolicyRefused } from "./policy-commands.js";
+import { PreflightRefused } from "../admission.js";
+import { loggableReason } from "../lang/bounded-body.js";
 import { readOriginal, recordedFor, materializeFromRecords } from "./records.js";
 import { ARTIFACT_RESULT_FORM } from "../read.js";
 
@@ -55,6 +57,10 @@ export class OwnershipLost extends Error {
 // What a stage passes on: its data in the envelope a compile receives.
 const envelopeOf = answer => ({ data: answer?.data ?? null, errors: [] });
 const failed = answer => Boolean(answer?.responseLost) || (Array.isArray(answer?.errors) && answer.errors.length > 0);
+// After admission, a stage's refusal (a 4xx) is routed as a lost answer was
+// before refusals were told apart (error handling proposal, PR 1c): what ran
+// is settled from receipts, never from the refusal.
+const lostOrRefused = answer => Boolean(answer?.responseLost || answer?.refused);
 
 // `policy`: buildPolicyCommands (or an in-process equivalent in tests).
 // `language`: { model, preflight, interpret, start, materialize, baseUrlFor } for the
@@ -146,13 +152,29 @@ export const buildCommandWorker = ({
         // No answer: try again later (the command stays pending, and recovery
         // continues it). A compile error is the program's: nothing runs.
         if (out?.responseLost) throw new Error(`command ${id}: ${stage}'s model got no answer`);
+        // The compiler refused (a 4xx, before running anything): a definite
+        // answer, so nothing runs and it isn't asked again.
+        if (out?.refused) {
+          log(`WARN command ${id}: ${stage}'s model was refused (${loggableReason(out.errors?.[0]?.code) ?? out.errors?.[0]?.status ?? "refused"}); nothing runs`);
+          return false;
+        }
         if (!out?.model || failed(out)) {
           log(`WARN command ${id}: ${stage} has no model; nothing runs`);
           return false;
         }
         await step(() => policy.installModel({ commandId: id, generation: g, stage, text: JSON.stringify(out.model), revision: out.revision ?? null }));
       }
-      const out = await language.preflight({ baseUrl, lang: task.lang, stage, code: task.code });
+      let out;
+      try {
+        out = await language.preflight({ baseUrl, lang: task.lang, stage, code: task.code });
+      } catch (e) {
+        // A refusal is the compiler's definite answer: nothing runs. One it
+        // couldn't give (PreflightUnavailable) leaves the command pending, as
+        // before, for recovery to ask again.
+        if (!(e instanceof PreflightRefused)) throw e;
+        log(`WARN command ${id}: ${stage}'s preflight was refused (${loggableReason(e.reason)}, ${e.category}); nothing runs`);
+        return false;
+      }
       const manifest = out?.manifest;
       if (!manifest || manifest.stage !== stage || manifest.sourceDigest !== canonicalDigest(task.code)) {
         log(`WARN command ${id}: ${stage} preflight didn't match the stored task; nothing runs`);
@@ -332,7 +354,7 @@ export const buildCommandWorker = ({
         const answer = await language.interpret({ lang: admitted.lang, model, input, mode: "evaluate", baseUrl: admitted.tagUrl });
         // A stage with no effects is safe to ask again: a lost answer leaves
         // the command pending for recovery, never failed.
-        if (answer?.responseLost) throw new ResumeLater(`${stage} got no answer`);
+        if (lostOrRefused(answer)) throw new ResumeLater(`${stage} got no answer`);
         if (failed(answer)) return stop();
         input = envelopeOf(answer);
         await recordOutput(stage, position);
@@ -357,7 +379,7 @@ export const buildCommandWorker = ({
       let answer = await language.start({ lang: admitted.lang, model, input: JSON.parse(pinned.text), commandSession: sessionToken, stage, baseUrl: admitted.tagUrl, ...(recorded ? { recorded: recorded(stage) } : {}) });
       // The drive's faults (faults.js), never set in production: the writes
       // have run, and the worker dies, or the head's answer is lost.
-      if (faults?.appliesTo(state.uid) && !answer?.responseLost) {
+      if (faults?.appliesTo(state.uid) && !lostOrRefused(answer)) {
         if (faults.exitAfterWrite) {
           log(`WARN command ${id}: fault exit-after-write`);
           faults.exit();
@@ -368,7 +390,7 @@ export const buildCommandWorker = ({
           answer = { responseLost: true };
         }
       }
-      if (answer?.responseLost) {
+      if (lostOrRefused(answer)) {
         await step(() => policy.settle({ commandId: id, generation: g }));
         // A runtime expansion closes only from the stage's own answer, so an
         // open one can't be settled done (B5 fix G): it is resumed instead.

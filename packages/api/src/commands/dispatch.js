@@ -43,7 +43,10 @@ export const buildCommandEnvelope = ({ policy }) => async ({ uid, idempotencyKey
 export const legacyOutcome = envelope => {
   const effects = Array.isArray(envelope?.effects) ? envelope.effects : [];
   const statuses = effects.map(e => e.status);
-  if (envelope?.responseLost || statuses.includes("uncertain")) return "uncertain";
+  // A refusal is routed as a lost answer was before refusals were told apart
+  // (error handling, PR 1c): a pinned TypeScript revision can refuse after
+  // acting, so only its receipts say what happened.
+  if (envelope?.responseLost || envelope?.refused || statuses.includes("uncertain")) return "uncertain";
   const errors = Array.isArray(envelope?.errors) && envelope.errors.length > 0;
   if (!statuses.length) return errors ? "failed" : "completed";
   if (statuses.every(s => s === "succeeded") && !errors) return "completed";

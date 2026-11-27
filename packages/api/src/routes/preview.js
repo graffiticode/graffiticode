@@ -106,12 +106,14 @@ export const buildInterpretedSign = ({ interpreter, modelCache = null, getLangua
     const cached = key ? modelCache.get(key) : null;
     const compiled = cached ?? await interpreter.model({ lang, code: INIT_DATA_CODE, auth: null, options: {}, uid: null });
     if (compiled?.responseLost) return { responseLost: true };
+    if (compiled?.refused) return { data: null, errors: compiled.errors, refused: true };
     if (Array.isArray(compiled?.errors) && compiled.errors.length) return { data: null, errors: compiled.errors };
     const model = compiled?.model;
     if (!model || typeof model.digest !== "string") return { data: null };
     if (key && !cached && typeof compiled.revision === "string") modelCache.put(key, { model, revision: compiled.revision });
     const reply = await interpreter.interpret({ lang, model, input: activity, mode: "present", auth: null, options: {}, uid: null });
     if (reply?.responseLost) return { responseLost: true };
+    if (reply?.refused) return { data: null, errors: reply.errors, refused: true };
     // A cached model from before a deploy: the next call compiles it afresh.
     if (cached && typeof reply?.revision === "string" && reply.revision !== cached.revision) modelCache.drop(key);
     return withoutStageMetadata(reply);
@@ -119,6 +121,9 @@ export const buildInterpretedSign = ({ interpreter, modelCache = null, getLangua
 
 // The routing record (C6 part 2): which path signed, in this revision's log, so
 // a staged revision's evidence is its own. No activity, user or signature.
+// A refusal's HTTP status, from its category (as routes/command.js maps it).
+const REFUSAL_STATUS = { authentication: 401, permission: 403, malformed: 400, conflict: 409, unavailable: 503 };
+
 const logPreviewSign = record => console.log("preview-sign", JSON.stringify(record));
 
 const buildPostSignHandler = ({
@@ -134,9 +139,21 @@ const buildPostSignHandler = ({
   const obj = run === "interpret"
     ? await interpretedSign(activity)
     : await compile({ lang: SIGNING_LANG, code: INIT_DATA_CODE, data: activity, auth: null, options: {}, uid: null });
-  log({ run, type: activity.type, outcome: obj?.responseLost ? "lost" : obj?.errors?.length ? "errors" : signResult(obj)?.request ? "signed" : "unsigned" });
+  log({ run, type: activity.type, outcome: obj?.responseLost ? "lost" : obj?.refused ? "refused" : obj?.errors?.length ? "errors" : signResult(obj)?.request ? "signed" : "unsigned" });
   if (obj?.responseLost) {
     res.status(502).json(createErrorResponse({ ...createError(502, "the preview signer didn't answer"), category: "unavailable" }));
+    return;
+  }
+  // The signer refused (a 4xx): its reason and category, at the status the
+  // category maps to, never a 502 (error handling proposal, PR 1c).
+  if (obj?.refused) {
+    const first = obj.errors?.[0] ?? {};
+    const status = REFUSAL_STATUS[first.category] ?? 503;
+    res.status(status).json(createErrorResponse({
+      ...createError(status, "the preview signer refused the request"),
+      ...(typeof first.code === "string" ? { reason: first.code } : {}),
+      category: first.category ?? "unavailable",
+    }));
     return;
   }
   if (Array.isArray(obj?.errors) && obj.errors.length > 0) {

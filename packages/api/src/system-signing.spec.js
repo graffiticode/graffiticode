@@ -287,9 +287,24 @@ describe("POST /preview/sign", () => {
   });
 
   it("is a 502 when L0176 doesn't answer", async () => {
-    langApp.setData(INIT_DATA_CODE, undefined);
+    langApp.setFailure(INIT_DATA_CODE, 500);
     const res = await request(appWith()).post("/preview/sign").send({ activity }).expect(502);
     expect(res.headers["cache-control"]).toBe("no-store");
+  });
+
+  // Error handling proposal, PR 1c: a refusal is L0176's answer, not a lost one.
+  it("keeps L0176's refusal: its reason and category, at the category's status", async () => {
+    langApp.setFailure(INIT_DATA_CODE, 403, { status: "error", error: { code: 403, message: "denied", reason: "route-not-allowed-for-caller" } });
+    const res = await request(appWith()).post("/preview/sign").send({ activity }).expect(403);
+    expect(res.headers["cache-control"]).toBe("no-store");
+    expect(res.body).toEqual({ status: "error", error: expect.objectContaining({ code: 403, reason: "route-not-allowed-for-caller", category: "permission" }) });
+  });
+
+  it("gives a refusal that names no reason its status's category", async () => {
+    langApp.setFailure(INIT_DATA_CODE, 401);
+    const res = await request(appWith()).post("/preview/sign").send({ activity }).expect(401);
+    expect(res.body.error).toEqual(expect.objectContaining({ category: "authentication" }));
+    expect(res.body.error.reason).toBeUndefined();
   });
 
   it("checks the activity's shape only, and sends only type and data", async () => {

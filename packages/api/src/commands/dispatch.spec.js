@@ -46,5 +46,7 @@ describe("legacyOutcome", () => {
     expect(legacyOutcome(with_(["succeeded", "failed"], { errors: [{}] }))).toBe("partial");
     expect(legacyOutcome(with_(["succeeded", "uncertain"]))).toBe("uncertain");
     expect(legacyOutcome(with_(["succeeded"], { responseLost: true }))).toBe("uncertain");
+    // A refusal, as a lost answer: receipts decide (error handling, PR 1c).
+    expect(legacyOutcome(with_([], { errors: [{ code: "not-granted" }], refused: true }))).toBe("uncertain");
   });
 });

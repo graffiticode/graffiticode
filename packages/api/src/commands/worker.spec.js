@@ -26,6 +26,7 @@ import {
 } from "@graffiticode/policy";
 import { createMemoryReceiptStore, createReceiptReader, argsDigest } from "@graffiticode/broker";
 import { buildCommandWorker, LEASE_RENEW_MS } from "./worker.js";
+import { PreflightRefused, PreflightUnavailable } from "../admission.js";
 import { parseCommandFaults } from "./faults.js";
 import { buildSweep } from "./sweep.js";
 import { buildCommandBridge, buildCompileEnvelope } from "./bridge.js";
@@ -215,6 +216,58 @@ describe("a command, start to finish", () => {
     const again = await workerAs("w1")({ commandId, generation });
     expect(again.status).toBe("completed");
     expect(provider).toHaveLength(1);
+  });
+});
+
+// Error handling proposal, PR 1c: before admission, a compiler's refusal is
+// its definite answer, so nothing runs and it isn't asked again; one it
+// couldn't give leaves the command pending for recovery.
+describe("a refusal before admission", () => {
+  const stateOf = commandId => policy.commandRead({ caller: GATEWAY, commandId, what: "state" });
+
+  it("finishes the command failed when a stage's model is refused, and runs nothing", async () => {
+    const { commandId, generation } = await allocate();
+    let models = 0;
+    const refusing = { ...language, model: async () => { models++; return { errors: [{ message: "refused", from: -1, to: -1, code: "not-granted", category: "permission", status: 403 }], refused: true }; } };
+    const state = await workerAs("w1", refusing)({ commandId, generation });
+    expect(state.status).toBe("failed");
+    expect(models).toBe(1);
+    expect(provider).toHaveLength(0);
+  });
+
+  it("finishes the command failed when a stage's preflight is refused, and runs nothing", async () => {
+    const { commandId, generation } = await allocate();
+    let preflights = 0;
+    const refusing = { ...language, preflight: async () => { preflights++; throw new PreflightRefused("refused", { reason: "not-granted", category: "permission", status: 403 }); } };
+    const state = await workerAs("w1", refusing)({ commandId, generation });
+    expect(state.status).toBe("failed");
+    expect(preflights).toBe(1);
+    expect(provider).toHaveLength(0);
+  });
+
+  it("logs only a registered reason for a refusal, never the compiler's own text", async () => {
+    const MARKER = "SENTINEL-worker-4b7a";
+    const lines = [];
+    const logging = lang => buildCommandWorker({ policy: client(), taskStorer, language: lang, artifactStorer: artifacts, worker: "w1", setInterval: () => null, clearInterval: () => {}, log: line => lines.push(String(line)) });
+    const first = await allocate();
+    const refusedPreflight = { ...language, preflight: async () => { throw new PreflightRefused(`refused (${MARKER})`, { reason: `leak-${MARKER}`, category: "unavailable", status: 403 }); } };
+    expect((await logging(refusedPreflight)({ commandId: first.commandId, generation: first.generation })).status).toBe("failed");
+    const second = await allocate("k2");
+    const refusedModel = { ...language, model: async () => ({ errors: [{ message: MARKER, from: -1, to: -1, code: `leak-${MARKER}`, category: "unavailable", status: 403 }], refused: true }) };
+    expect((await logging(refusedModel)({ commandId: second.commandId, generation: second.generation })).status).toBe("failed");
+    expect(lines.some(line => line.includes("unregistered-reason"))).toBe(true);
+    for (const line of lines) expect(line).not.toContain(MARKER);
+  });
+
+  it("leaves the command pending when a preflight can't be answered", async () => {
+    const { commandId, generation } = await allocate();
+    const down = { ...language, preflight: async () => { throw new PreflightUnavailable("s0 unreachable"); } };
+    await expect(workerAs("w1", down)({ commandId, generation })).rejects.toBeInstanceOf(PreflightUnavailable);
+    expect((await stateOf(commandId)).status).toBe("pending");
+    expect(provider).toHaveLength(0);
+    // Recovery asks again, and the command runs.
+    const taken = await takeOver(commandId, generation, "w2");
+    expect((await workerAs("w2")({ commandId, generation: taken.generation })).status).toBe("completed");
   });
 });
 
