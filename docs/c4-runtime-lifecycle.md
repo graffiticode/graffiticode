@@ -52,6 +52,8 @@
 
 **Selected (2026-11-27): sessionless occurrences are stateless reads, handled entirely in the language.** No implicit respondent identity is created for them.
 - **The pick:** the candidate at index `sha256(model digest ‖ survey ref ‖ ordinal) mod n`, over the current candidates sorted by instance name. The ordinal counts that ref's sessionless occurrences in evaluation order.
+  - **As implemented in slice 2** (`languages/l0182/crates/core/src/assigned.rs`): the language never sees the api's model digest, so it uses a canonical digest of the program it is running (`program_digest`). That is fixed for one model, as the model digest is.
+  - Once anything earlier in the run is pending, a sessionless occurrence is suspended rather than picked, so its ordinal is always the final call's.
 - **Nothing is requested or written.** The occurrence isn't reported in `needsAssignment`, so the api creates no record, touches no draw cycle, and freezes nothing. A `response` in it is validated and served as a read.
 - **Not balanced**, since there is no respondent to balance for.
 - **Zero candidates** gives today's "no survey" error, with today's wording.

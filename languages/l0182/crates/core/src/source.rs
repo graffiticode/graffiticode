@@ -19,6 +19,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use serde_json::Value as Json;
+use sha2::{Digest, Sha256};
 
 use crate::js::{Js, js_string, stringify};
 
@@ -29,10 +30,45 @@ pub struct Loaded {
     pub data: Js,
 }
 
+/// One version a survey id could be assigned (C4, `docs/c4-l0182-assignment-plan.md` decision
+/// 1): its instance name and the exact bytes of its file. Its digest is the SHA-256 of those
+/// bytes, so the api can retain the content an answer was given against.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Candidate {
+    pub instance: String,
+    pub text: String,
+}
+
+impl Candidate {
+    /// The lower-case hex SHA-256 of the file's exact bytes.
+    pub fn digest(&self) -> String {
+        digest_of(&self.text)
+    }
+
+    /// As a request carries it: `{ instance, digest, content }`.
+    pub fn to_json(&self) -> Json {
+        serde_json::json!({ "instance": self.instance, "digest": self.digest(), "content": self.text })
+    }
+}
+
+/// The lower-case hex SHA-256 of `text`'s bytes.
+pub fn digest_of(text: &str) -> String {
+    hex::encode(Sha256::digest(text.as_bytes()))
+}
+
 /// Finds the survey a program names. `id` is the program's `id` as written; `session` the
 /// trimmed, non-empty `session-id`, if any.
 pub trait SurveySource: Send + Sync {
+    /// The legacy load, used by `/compile`: it draws (or holds) a version itself.
     fn load(&self, id: &Js, session: Option<&str>) -> Result<Loaded, String>;
+
+    /// Every version `id` could be assigned, used by `/interpret` (C4): one for an id naming an
+    /// installed version, every version in version order for a survey id, or none. Refuses an
+    /// id that is not an id, with `load`'s message.
+    fn candidates(&self, id: &Js) -> Result<Vec<Candidate>, String>;
+
+    /// `load`'s message for an id with no version, given when nothing can be served for it.
+    fn missing(&self, id: &Js) -> String;
 }
 
 mod embedded {
@@ -85,12 +121,11 @@ impl Files {
 
     fn read(&self, instance: &str) -> Result<Option<Js>, String> {
         let Some((_, text)) = self.files.iter().find(|(name, _)| name == instance) else { return Ok(None) };
-        let json: Json = serde_json::from_str(text).map_err(|e| {
-            format!(
-                "survey: {instance}.json is not readable JSON — {e}. The survey's data is broken; this is not something the program can fix."
-            )
-        })?;
-        Ok(Some(Js::from_json(&json)))
+        parse(instance, text).map(Some)
+    }
+
+    fn text(&self, instance: &str) -> Option<&'static str> {
+        self.files.iter().find(|(name, _)| name == instance).map(|(_, text)| *text)
     }
 
     /// The versions of a survey, in version order.
@@ -135,14 +170,65 @@ impl Files {
     }
 }
 
+/// A survey file's text, parsed; the message names the file when it is not JSON.
+pub fn parse(instance: &str, text: &str) -> Result<Js, String> {
+    let json: Json = serde_json::from_str(text).map_err(|e| {
+        format!(
+            "survey: {instance}.json is not readable JSON — {e}. The survey's data is broken; this is not something the program can fix."
+        )
+    })?;
+    Ok(Js::from_json(&json))
+}
+
+fn not_an_id(id: &Js) -> String {
+    format!(
+        "survey: {} is not a survey id. An id is lower-case letters, digits and dashes, e.g. id \"civic-priorities\".",
+        stringify(id)
+    )
+}
+
+impl Files {
+    fn no_survey(&self, id: &Js) -> String {
+        let available = self.survey_ids();
+        format!(
+            "survey: there is no survey with id {}. {}",
+            stringify(id),
+            if available.is_empty() {
+                "No surveys are installed on this language server.".to_owned()
+            } else {
+                format!("The surveys available are: {}.", available.join(", "))
+            }
+        )
+    }
+}
+
 impl SurveySource for Files {
+    fn candidates(&self, id: &Js) -> Result<Vec<Candidate>, String> {
+        let text = js_string(id);
+        if !is_id(&text) {
+            return Err(not_an_id(id));
+        }
+        // As `load` decides: an id naming an installed version is that version alone.
+        if version_of(&text).is_some()
+            && let Some(file) = self.text(&text)
+        {
+            return Ok(vec![Candidate { instance: text, text: file.to_owned() }]);
+        }
+        Ok(self
+            .instances_of(&text)
+            .into_iter()
+            .filter_map(|instance| self.text(&instance).map(|file| Candidate { instance, text: file.to_owned() }))
+            .collect())
+    }
+
+    fn missing(&self, id: &Js) -> String {
+        self.no_survey(id)
+    }
+
     fn load(&self, id: &Js, session: Option<&str>) -> Result<Loaded, String> {
         let text = js_string(id);
         if !is_id(&text) {
-            return Err(format!(
-                "survey: {} is not a survey id. An id is lower-case letters, digits and dashes, e.g. id \"civic-priorities\".",
-                stringify(id)
-            ));
+            return Err(not_an_id(id));
         }
 
         // An id naming a version loads it outright: no draw, and no mark.
@@ -154,16 +240,7 @@ impl SurveySource for Files {
 
         let instances = self.instances_of(&text);
         if instances.is_empty() {
-            let available = self.survey_ids();
-            return Err(format!(
-                "survey: there is no survey with id {}. {}",
-                stringify(id),
-                if available.is_empty() {
-                    "No surveys are installed on this language server.".to_owned()
-                } else {
-                    format!("The surveys available are: {}.", available.join(", "))
-                }
-            ));
+            return Err(self.no_survey(id));
         }
 
         let instance = {
@@ -193,6 +270,14 @@ pub struct Fixture(pub Json);
 impl SurveySource for Fixture {
     fn load(&self, id: &Js, _session: Option<&str>) -> Result<Loaded, String> {
         Ok(Loaded { instance: Js::Str(format!("{}-1", js_string(id))), data: Js::from_json(&self.0) })
+    }
+
+    fn candidates(&self, id: &Js) -> Result<Vec<Candidate>, String> {
+        Ok(vec![Candidate { instance: format!("{}-1", js_string(id)), text: self.0.to_string() }])
+    }
+
+    fn missing(&self, id: &Js) -> String {
+        format!("survey: there is no survey with id {}.", stringify(id))
     }
 }
 
