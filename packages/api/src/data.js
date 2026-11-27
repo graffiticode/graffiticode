@@ -291,10 +291,17 @@ const buildGetData = ({
     const bypassCache =
       overriding || Boolean(refresh) || Boolean(connectionId) || requiresProtected || interpretedChain;
     // There exists a task that we are authorized to see.
+    // A stored failure is never served: it is compiled again, and replaced
+    // only by a result that succeeds (error handling proposal, step 1). Older
+    // releases stored failures, so this is decided on read, not only on write.
+    let storedFailure = false;
     if (!bypassCache) {
       const cached = await compileStorer.get({ id: cacheKey, auth });
       if (cached && cached.data) {
-        return cached.data;
+        if (!cached.data.errors?.length) {
+          return cached.data;
+        }
+        storedFailure = true;
       }
     }
     // A language whose output expires answers `cache: false` in its compile
@@ -505,104 +512,121 @@ const buildGetData = ({
       const store = Boolean(key) && inputSharable && sharable(effective, now()) && !out?.errors?.length && reply?.revision === revision;
       return { out, own, baseUrl, store: store ? { key, revision, ...effective } : null, mode, record: { ...record, revision, cache: key && inputSharable && !refresh ? "miss" : "skip" } };
     };
+    // The first stage whose own compile failed, and whether a later stage's
+    // success has replaced that failure. Measured before ordinary chains stop
+    // at a failure as admitted ones do (proposal, step 1, PR 1b).
+    let failedStage = null;
+    let failureOverwritten = false;
+    const runStage = async (dataPromise, task, index) => {
+      const data = await dataPromise;
+      // Under a plan, the first failing stage stops the chain: later stages
+      // never execute (spec ADMIT-03). Its effects are already reported.
+      if (admitted && data?.errors?.length) return data;
+      // A refused chain stops at the refusal: no later stage runs.
+      if (refused) return data;
+      const { lang, code } = task;
+      if (isInterpreted(task)) {
+        const { out, own, baseUrl, store, hit, mode, record } = await interpretStage({ task, index, data });
+        // Every stage after this one sees its restrictions, combined with
+        // its input's, on a cache hit as on a fresh result.
+        upstream = combineRestrictions(upstream, own);
+        await onStage({ ...record, own, result: upstream });
+        // A declared stage's no-store result never feeds another stage
+        // (design §5 rule 2): what it carries (a signature, say) must not
+        // reach a compiler that could keep or pass it on. Only legacy stages
+        // keep today's forwarding. An envelope with no data, only errors, is
+        // forwarded as any stage's errors are.
+        if (index > 0 && own.cacheClass === "no-store" && out?.data !== null && out?.data !== undefined) {
+          refused = true;
+          return { data: null, errors: [failedWith(`Error: stage s${index} (L${normalizeLang(lang)}) produced a result that can't be stored, so it can't feed stage s${index - 1}`, "no-store-intermediate")] };
+        }
+        if (hit) return out;
+        const checked = await checkShape(lang, out, baseUrl);
+        if (store && checked === out) {
+          try {
+            await stageResults.put({ key: store.key, data: out, cacheClass: store.cacheClass, expiresAt: store.expiresAt, lang: normalizeLang(lang), mode, revision: store.revision });
+          } catch (e) {
+            console.log("ERROR writing the stage cache", e?.message);
+          }
+        }
+        return checked;
+      }
+      const pinned = admitted?.stages[index];
+      // The admitted revision, else the snapshot's binding, else (null) the
+      // default resolution, which consults no override.
+      const stageBaseUrl = pinned?.tagUrl ?? routeFor(lang);
+      let obj = await compile({
+        lang,
+        code,
+        data,
+        auth: authToken,
+        options,
+        connectionId,
+        invocationToken: invocation?.invocationToken ?? null,
+        stage: invocation ? `s${index}` : null,
+        baseUrl: stageBaseUrl,
+        ...(pinned ? { admissionToken: admitted.admissionToken } : {})
+      });
+      if (pinned) {
+        const { revision, responseLost, ...rest } = obj ?? {};
+        if (responseLost) {
+          // No answer is not a mismatch: the stage may have acted through
+          // the connection before the response was lost. If it could have
+          // (its plan admits protected functions), that is reported as an
+          // uncertain effect, never hidden behind a compile error.
+          const mayHaveActed = pinned.requiredFunctions.length > 0;
+          obj = {
+            ...rest,
+            data: null,
+            errors: [failedWith(mayHaveActed
+              ? `Error: stage ${pinned.stage}'s compiler didn't answer, so what it did through the connection is uncertain. Check before running it again: a retry with the same key replays only what was recorded`
+              : `Error: stage ${pinned.stage}'s compiler didn't answer`, "compile-response-lost")],
+            ...(mayHaveActed ? { effects: [{ status: "uncertain", steps: [], reason: "compile-response-lost", category: "unavailable" }] } : {}),
+          };
+        } else if (revision !== pinned.revision) {
+          // The revision that answered must be the one the plan pins.
+          obj = { ...rest, data: null, errors: [failedWith(`Error: stage ${pinned.stage} answered from another compiler revision than the plan pins`, "plan-binding-mismatch")] };
+        } else {
+          obj = rest;
+        }
+      }
+      const out = takeEffects(obj, index);
+      const own = legacyRestrictions(out);
+      upstream = combineRestrictions(upstream, own);
+      if (interpretedChain) await onStage({ stage: `s${index}`, lang: normalizeLang(lang), run: "legacy", cache: "skip", own, result: upstream });
+      // Before L0176 is upgraded (plan C6), every chain where a no-store
+      // stage's output feeds another stage is recorded, to confirm none
+      // relies on a signed intermediate.
+      if (index > 0 && own.cacheClass === "no-store") {
+        console.log(`chain: a no-store stage (L${normalizeLang(lang)}, s${index}) feeds s${index - 1}`);
+      }
+      // A stage's cache metadata is for us, never data: it would otherwise
+      // ride along into the next layer's input data, out to the client and
+      // into the stored compile. `cache: false` still means no-store. On the
+      // legacy path a named class (`cache: "shared"`) and an `expiresAt`
+      // (C3: L0185's fetched results) are dropped, and the result is what
+      // legacy results have always been (legacyRestrictions, above).
+      if (out && typeof out === "object" && ("cache" in out || "expiresAt" in out)) {
+        if (out.cache === false) cacheable = false;
+        const { cache, expiresAt, ...rest } = out;
+        return checkShape(lang, rest, stageBaseUrl);
+      }
+      return checkShape(lang, out, stageBaseUrl);
+    };
     const obj = await tasks.reduceRight(
       // OPTIMIZATION Call getData recursively using the longest id suffix to
       // use any existing compiles.
       async (dataPromise, task, index) => {
-        const data = await dataPromise;
-        // Under a plan, the first failing stage stops the chain: later stages
-        // never execute (spec ADMIT-03). Its effects are already reported.
-        if (admitted && data?.errors?.length) return data;
-        // A refused chain stops at the refusal: no later stage runs.
-        if (refused) return data;
-        const { lang, code } = task;
-        if (isInterpreted(task)) {
-          const { out, own, baseUrl, store, hit, mode, record } = await interpretStage({ task, index, data });
-          // Every stage after this one sees its restrictions, combined with
-          // its input's, on a cache hit as on a fresh result.
-          upstream = combineRestrictions(upstream, own);
-          await onStage({ ...record, own, result: upstream });
-          // A declared stage's no-store result never feeds another stage
-          // (design §5 rule 2): what it carries (a signature, say) must not
-          // reach a compiler that could keep or pass it on. Only legacy stages
-          // keep today's forwarding. An envelope with no data, only errors, is
-          // forwarded as any stage's errors are.
-          if (index > 0 && own.cacheClass === "no-store" && out?.data !== null && out?.data !== undefined) {
-            refused = true;
-            return { data: null, errors: [failedWith(`Error: stage s${index} (L${normalizeLang(lang)}) produced a result that can't be stored, so it can't feed stage s${index - 1}`, "no-store-intermediate")] };
-          }
-          if (hit) return out;
-          const checked = await checkShape(lang, out, baseUrl);
-          if (store && checked === out) {
-            try {
-              await stageResults.put({ key: store.key, data: out, cacheClass: store.cacheClass, expiresAt: store.expiresAt, lang: normalizeLang(lang), mode, revision: store.revision });
-            } catch (e) {
-              console.log("ERROR writing the stage cache", e?.message);
-            }
-          }
-          return checked;
+        const out = await runStage(dataPromise, task, index);
+        if (out?.errors?.length) {
+          failedStage ??= { index, lang: normalizeLang(task.lang) };
+        } else if (failedStage && !failureOverwritten) {
+          failureOverwritten = true;
+          console.log("stage-failure-overwritten", JSON.stringify({
+            id, failed: `s${failedStage.index}`, failedLang: failedStage.lang, by: `s${index}`, byLang: normalizeLang(task.lang), admitted: Boolean(admitted)
+          }));
         }
-        const pinned = admitted?.stages[index];
-        // The admitted revision, else the snapshot's binding, else (null) the
-        // default resolution, which consults no override.
-        const stageBaseUrl = pinned?.tagUrl ?? routeFor(lang);
-        let obj = await compile({
-          lang,
-          code,
-          data,
-          auth: authToken,
-          options,
-          connectionId,
-          invocationToken: invocation?.invocationToken ?? null,
-          stage: invocation ? `s${index}` : null,
-          baseUrl: stageBaseUrl,
-          ...(pinned ? { admissionToken: admitted.admissionToken } : {})
-        });
-        if (pinned) {
-          const { revision, responseLost, ...rest } = obj ?? {};
-          if (responseLost) {
-            // No answer is not a mismatch: the stage may have acted through
-            // the connection before the response was lost. If it could have
-            // (its plan admits protected functions), that is reported as an
-            // uncertain effect, never hidden behind a compile error.
-            const mayHaveActed = pinned.requiredFunctions.length > 0;
-            obj = {
-              ...rest,
-              data: null,
-              errors: [failedWith(mayHaveActed
-                ? `Error: stage ${pinned.stage}'s compiler didn't answer, so what it did through the connection is uncertain. Check before running it again: a retry with the same key replays only what was recorded`
-                : `Error: stage ${pinned.stage}'s compiler didn't answer`, "compile-response-lost")],
-              ...(mayHaveActed ? { effects: [{ status: "uncertain", steps: [], reason: "compile-response-lost", category: "unavailable" }] } : {}),
-            };
-          } else if (revision !== pinned.revision) {
-            // The revision that answered must be the one the plan pins.
-            obj = { ...rest, data: null, errors: [failedWith(`Error: stage ${pinned.stage} answered from another compiler revision than the plan pins`, "plan-binding-mismatch")] };
-          } else {
-            obj = rest;
-          }
-        }
-        const out = takeEffects(obj, index);
-        const own = legacyRestrictions(out);
-        upstream = combineRestrictions(upstream, own);
-        if (interpretedChain) await onStage({ stage: `s${index}`, lang: normalizeLang(lang), run: "legacy", cache: "skip", own, result: upstream });
-        // Before L0176 is upgraded (plan C6), every chain where a no-store
-        // stage's output feeds another stage is recorded, to confirm none
-        // relies on a signed intermediate.
-        if (index > 0 && own.cacheClass === "no-store") {
-          console.log(`chain: a no-store stage (L${normalizeLang(lang)}, s${index}) feeds s${index - 1}`);
-        }
-        // A stage's cache metadata is for us, never data: it would otherwise
-        // ride along into the next layer's input data, out to the client and
-        // into the stored compile. `cache: false` still means no-store. On the
-        // legacy path a named class (`cache: "shared"`) and an `expiresAt`
-        // (C3: L0185's fetched results) are dropped, and the result is what
-        // legacy results have always been (legacyRestrictions, above).
-        if (out && typeof out === "object" && ("cache" in out || "expiresAt" in out)) {
-          if (out.cache === false) cacheable = false;
-          const { cache, expiresAt, ...rest } = out;
-          return checkShape(lang, rest, stageBaseUrl);
-        }
-        return checkShape(lang, out, stageBaseUrl);
+        return out;
       },
       Promise.resolve({})
     );
@@ -682,16 +706,18 @@ const buildGetData = ({
         upstream.expiresAt !== null && !obj.errors?.length;
       if (bounded) {
         action.cacheClass = "shared";
-      } else if (!mayHold || !permanent(upstream)) {
+      } else if (!mayHold || !permanent(upstream) || obj.errors?.length) {
         // Let the route drop the immutable cache headers — an expiring compile
-        // must not be held by the browser or the CDN either.
+        // must not be held by the browser or the CDN either, and neither may
+        // a failure: the next attempt may succeed.
         action.noStore = true;
       }
     }
     // A refresh writes its fresh result back; an override must not, even with
     // a refresh, since its result is specific to that user's language-server
     // revision and would pollute the shared cache for everyone else.
-    if (!overriding && (!bypassCache || refresh) && cacheable && !interpretedChain) {
+    // A failure is never stored, so it is never served from here.
+    if (!overriding && (!bypassCache || refresh) && cacheable && !interpretedChain && !obj.errors?.length) {
       await compileStorer.create({
         id: cacheKey,
         compile: {
@@ -701,7 +727,8 @@ const buildGetData = ({
         // Existing docs are otherwise never rewritten (only count/lastCompile
         // move), which is what made a stale verdict permanent: nothing short of
         // deleting the doc could correct it.
-        overwrite: Boolean(refresh)
+        // A stored failure is replaced by this success.
+        overwrite: Boolean(refresh) || storedFailure
       });
     }
     const result = effects.length ? { ...obj, effects } : obj;
