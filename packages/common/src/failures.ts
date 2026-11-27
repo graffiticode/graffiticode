@@ -63,6 +63,9 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
     "invocation-incompatible", "contract-version-unsupported",
   ]),
   ...cat("unavailable", ["admission-stale", "preflight-unavailable", "compile-response-lost"]),
+  // An admitted stage that could have acted was refused (error handling 1c):
+  // what it did is uncertain until its receipts are read.
+  ...cat("unavailable", ["compile-refused"]),
   // Commands (B5, docs/b5-commands-plan.md): a key the other protocol holds
   // (D2a), an owner request that isn't the current owner's, a takeover of a
   // live lease, and a command that is over or unknown.
@@ -169,6 +172,11 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // C5 render grants: a private item with no task to render, or one whose
   // task is no longer the one its reservation pinned.
   ...cat("conflict", ["render-target-missing", "render-target-changed"]),
+  // A compiler refused a preflight without naming a reason (error handling
+  // proposal, PR 1c). Listed so the reason is known; a refusal carries the
+  // category read from its answer (its status's), and that is never replaced
+  // by this one.
+  ...cat("permission", ["preflight-refused"]),
 ]));
 
 // Broker wraps Policy's reason (`authorization-denied:<reason>`); the category

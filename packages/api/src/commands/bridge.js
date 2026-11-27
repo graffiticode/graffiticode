@@ -44,7 +44,7 @@
 import { PROTECTED_FUNCTIONS, credentialOf, protectedFunctionsForLang, writesOutsideCommandControl } from "@graffiticode/common/protected-registry";
 import { classify } from "@graffiticode/common/failures";
 import { randomUUID } from "node:crypto";
-import { normalizeLang, PreflightUnavailable } from "../admission.js";
+import { normalizeLang, PreflightRefused, PreflightUnavailable } from "../admission.js";
 import { inputDigest } from "../invocations.js";
 import { PolicyRefused } from "./policy-commands.js";
 import { statusUrlFor } from "./dispatch.js";
@@ -131,7 +131,8 @@ export const runCommand = async ({ policy, run, worker, authToken, connectionId,
 };
 
 const STATUS = { completed: "succeeded", failed: "failed", partial: "partial", uncertain: "uncertain" };
-const failure = (message, code) => ({ message, from: -1, to: -1, code, category: classify(code).category });
+// `category`, when given, was decided where the failure was read and is kept.
+const failure = (message, code, category = classify(code).category) => ({ message, from: -1, to: -1, code, category });
 
 // Today's compile envelope from a command's records: the head's committed
 // result as `data` (only when there is one), an error for any outcome but
@@ -197,7 +198,7 @@ export const buildCompileEnvelope = ({ policy }) => async ({ state, reused }) =>
 // direct upload.
 export const buildCommandBridge = ({ eligible, getRunner, compileEnvelope, newKey = () => `bridge:${randomUUID()}`, env = process.env, log = line => console.log(line), scopes = scopesEnabled(env) }) =>
   async ({ tasks, id, auth = null, authToken, connectionId = null, options, idempotencyKey, client = null }) => {
-    const refusal = (message, code) => ({ errors: [failure(message, code)] });
+    const refusal = (message, code, category = undefined) => ({ errors: [failure(message, code, category)] });
     const commandOnly = commandOnlyChain(tasks, env);
     // What would otherwise fall back to the legacy compile.
     const noFallback = (message, code) => (commandOnly ? refusal(message, code) : null);
@@ -248,6 +249,8 @@ export const buildCommandBridge = ({ eligible, getRunner, compileEnvelope, newKe
     try {
       verdict = eligibilityOf(await eligible(tasks));
     } catch (e) {
+      // A compiler's refusal: its reason, with the category read from its answer.
+      if (e instanceof PreflightRefused) return refusal(`Error: ${e.message}`, e.reason, e.category);
       if (!(e instanceof PreflightUnavailable)) throw e;
       return refusal(`Error: ${e.message}`, "preflight-unavailable");
     }

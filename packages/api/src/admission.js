@@ -13,11 +13,35 @@
 // the chain with zero effects.
 
 import { buildPolicyRequest, PolicyRefused } from "@graffiticode/policy/client";
+import { readRefusal } from "./lang/bounded-body.js";
 
 export const normalizeLang = lang => String(lang ?? "").replace(/^L/i, "").padStart(4, "0");
 const languageAudience = lang => `urn:graffiticode:${normalizeLang(lang)}`;
 
 export class PreflightUnavailable extends Error {}
+
+// The compiler answered the preflight with a refusal (a 4xx): a definite
+// answer, not an outage, so nothing is sent again (error handling proposal,
+// PR 1c). `reason` is the compiler's, or `preflight-refused` when it named
+// none; `category` was decided where the answer was read (bounded-body.js:
+// the reason's, or with none the status's) and callers keep it as is, never
+// reclassifying `reason`.
+export class PreflightRefused extends Error {
+  constructor(message, { reason, category, status }) {
+    super(message);
+    this.name = "PreflightRefused";
+    this.reason = reason;
+    this.category = category;
+    this.status = status;
+  }
+}
+
+// The reason a refusal that names none is given.
+const PREFLIGHT_REFUSED_REASON = "preflight-refused";
+
+// A preflight runs nothing, so it needs no more than a read's deadline; it
+// covers the answer's body as well.
+export const PREFLIGHT_DEADLINE_MS = 30000;
 
 // `CHAIN_ADMISSION`: off (the default), canary (only the connections named by
 // CHAIN_ADMISSION_CONNECTIONS) or all. It decides whether a NEW invocation is
@@ -32,7 +56,7 @@ export const parseChainAdmission = (env = process.env) => {
 
 // `baseUrlFor(lang)`: the language's normal URL (env or config, never a
 // user's override). `idToken(audience)`: this service's Google ID token.
-export const buildChainAdmission = ({ policyUrl, idToken, baseUrlFor, fetch: doFetch = fetch }) => {
+export const buildChainAdmission = ({ policyUrl, idToken, baseUrlFor, fetch: doFetch = fetch, preflightDeadlineMs = PREFLIGHT_DEADLINE_MS }) => {
   const request = buildPolicyRequest({ policyUrl, idToken, fetch: doFetch });
   const policyData = async (path, authToken, body) => {
     const { ok, status, body: json } = await request("POST", path, { authToken, body });
@@ -50,22 +74,47 @@ export const buildChainAdmission = ({ policyUrl, idToken, baseUrlFor, fetch: doF
     // the compile request's own program and (absent) config, so the compiler
     // pins the options it will actually run with.
     async preflight({ baseUrl, lang, stage, code }) {
-      let res;
+      // No identity token, no preflight: the compiler couldn't be asked.
+      let identity;
       try {
-        res = await doFetch(`${baseUrl}/preflight`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Caller-Identity": await idToken(languageAudience(lang)) },
-          body: JSON.stringify({ stage, lang: normalizeLang(lang), code }),
-        });
+        identity = await idToken(languageAudience(lang));
       } catch (e) {
-        throw new PreflightUnavailable(`preflight of ${stage} unreachable: ${e?.message}`);
+        throw new PreflightUnavailable(`preflight of ${stage} unreachable: no identity token (${e?.name ?? "error"})`);
       }
-      /** @type {any} */
-      const json = await res.json().catch(() => null);
-      if (res.status !== 200 || json?.status !== "success" || !json.data) {
-        throw new PreflightUnavailable(`preflight of ${stage} failed (${res.status}${json?.error?.reason ? `, ${json.error.reason}` : ""})`);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), preflightDeadlineMs);
+      try {
+        let res;
+        try {
+          res = await doFetch(`${baseUrl}/preflight`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Caller-Identity": identity },
+            body: JSON.stringify({ stage, lang: normalizeLang(lang), code }),
+            signal: controller.signal,
+          });
+        } catch (e) {
+          throw new PreflightUnavailable(`preflight of ${stage} unreachable: ${controller.signal.aborted ? `no answer in ${preflightDeadlineMs} ms` : e?.message}`);
+        }
+        if (res.status >= 400 && res.status < 500) {
+          let refusal;
+          try {
+            refusal = await readRefusal(res);
+          } catch {
+            // The refusal's body never arrived (the deadline): no answer.
+            throw new PreflightUnavailable(`preflight of ${stage} gave no complete answer (${res.status})`);
+          }
+          const reason = refusal.reason ?? PREFLIGHT_REFUSED_REASON;
+          throw new PreflightRefused(`preflight of ${stage} refused (${res.status}, ${reason})`, { reason, category: refusal.category, status: res.status });
+        }
+        /** @type {any} */
+        const json = await res.json().catch(() => null);
+        if (res.status !== 200 || json?.status !== "success" || !json.data) {
+          throw new PreflightUnavailable(`preflight of ${stage} failed (${res.status}${json?.error?.reason ? `, ${json.error.reason}` : ""})`);
+        }
+        return json.data;
+      } finally {
+        clearTimeout(timer);
       }
-      return json.data;
     },
   };
 };

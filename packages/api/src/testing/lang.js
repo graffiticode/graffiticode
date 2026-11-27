@@ -28,6 +28,8 @@ const createKey = code => {
 
 export const startLangApp = async () => {
   const db = new Map();
+  // Codes the service answers with a status and body instead: { status, body }.
+  const failures = new Map();
   // Compiles received, and gates that hold the next compiles open: a held
   // compile answers with the data set when it arrived, once released.
   let calls = 0;
@@ -46,7 +48,10 @@ export const startLangApp = async () => {
         gate.arrived();
         await gate.released;
       }
-      if (answer !== undefined) {
+      const failure = failures.get(key);
+      if (failure) {
+        res.status(failure.status).json(failure.body ?? {});
+      } else if (answer !== undefined) {
         res.status(200).json(answer);
       } else {
         console.log(key);
@@ -60,6 +65,10 @@ export const startLangApp = async () => {
 
   const setData = (code, data) => (
     db.set(createKey(code), data)
+  );
+
+  const setFailure = (code, status, body = undefined) => (
+    failures.set(createKey(code), { status, body })
   );
 
   const cleanUp = async () => {
@@ -85,5 +94,5 @@ export const startLangApp = async () => {
     return { arrived, release };
   };
 
-  return { url, setData, cleanUp, hold, calls: () => calls, received: () => received };
+  return { url, setData, setFailure, cleanUp, hold, calls: () => calls, received: () => received };
 };
