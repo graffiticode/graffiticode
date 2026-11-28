@@ -41,6 +41,22 @@ describe("wrap", () => {
     expect(wrap(out, { lang: "0176" }).cause).toBe(cause);
   });
 
+  it("keeps a service error's own checked fields: its category, status, details and context", () => {
+    // As PreflightRefused (api admission.js) carries a refusal.
+    const refused = Object.assign(new Error("preflight of s0 refused (400, preflight-refused)"), { reason: "preflight-refused", category: "malformed", status: 400, stage: "s0" });
+    expect(wrap(refused, { lang: "0176" })).toMatchObject({ reason: "preflight-refused", category: "malformed", statusCode: 400, context: { stage: "s0", lang: "0176" } });
+    // As PolicyDenied carries its detail.
+    const denied = Object.assign(new Error("policy denied"), { reason: "rate-limited", statusCode: 429, detail: { retryAfter: 5 } });
+    expect(wrap(denied)).toMatchObject({ reason: "rate-limited", category: "unavailable", statusCode: 429, details: { retryAfter: 5 } });
+    // Fields that don't check out are not kept.
+    const odd = Object.assign(new Error("x"), { reason: "not-granted", category: "nonsense", status: 9999, details: ["a"], context: { stage: 7 } });
+    const out = wrap(odd);
+    expect(out).toMatchObject({ reason: "not-granted", category: "permission" });
+    expect(out.statusCode).toBeUndefined();
+    expect(out.details).toBeUndefined();
+    expect(out.context).toBeUndefined();
+  });
+
   it("makes anything else a FailureError caused by it", () => {
     const plain = Object.assign(new Error("policy said no"), { reason: "not-granted" });
     expect(wrap(plain, { stage: "s1" })).toMatchObject({ reason: "not-granted", category: "permission", message: "policy said no", context: { stage: "s1" } });

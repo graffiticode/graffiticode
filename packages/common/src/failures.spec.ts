@@ -1,4 +1,4 @@
-import { FAILURE_CATEGORIES, REASON_CATEGORIES, classify, underlyingReason, categoryForStatus, isMalformedBody, FAILURE_SPECS, SPEC_EXTRA_REASONS, RECOVERY_ACTIONS, STATUS_FOR_CATEGORY, recoveryFor, specOf, canonicalReason } from "./failures.js";
+import { FAILURE_CATEGORIES, REASON_CATEGORIES, classify, underlyingReason, categoryForStatus, isMalformedBody, FAILURE_SPECS, SPEC_EXTRA_REASONS, RECOVERY_ACTIONS, STATUS_FOR_CATEGORY, DETAIL_KINDS, recoveryFor, specOf, canonicalReason } from "./failures.js";
 
 describe("failure categories", () => {
   it("are the five FAIL-01 distinguishes", () => {
@@ -60,6 +60,7 @@ describe("failure specs", () => {
       const rule = spec.recovery;
       const actions = rule === undefined ? [] : typeof rule === "string" ? [rule] : [rule.read, rule.write];
       for (const action of actions) expect(RECOVERY_ACTIONS).toContain(action);
+      for (const kind of Object.values(spec.details ?? {})) expect(Object.keys(DETAIL_KINDS)).toContain(kind);
     }
   });
 
@@ -100,8 +101,26 @@ describe("recoveryFor", () => {
     expect(recoveryFor(undefined).action).toBe("none");
   });
 
-  it("reconciles an uncertain recorded state, whatever the reason", () => {
-    expect(recoveryFor("policy-unavailable", { operation: "write", recordedState: "uncertain" })).toEqual({ action: "reconcile", operation: "write" });
+  it("decides from a recorded outcome before any reason's rule", () => {
+    const write = recordedState => recoveryFor("policy-unavailable", { operation: "write", recordedState }).action;
+    expect(write("uncertain")).toBe("reconcile");
+    expect(write("partial")).toBe("read-existing");
+    expect(write("completed")).toBe("read-existing");
+    expect(write("pending")).toBe("read-existing");
+    expect(write("something-new")).toBe("read-existing");
+    // Nothing took effect, or no record: the reason decides.
+    expect(write("failed")).toBe("retry-same-key");
+    expect(write(null)).toBe("retry-same-key");
+    expect(recoveryFor("compile-response-lost", { operation: "read", recordedState: "completed" }).action).toBe("read-existing");
+  });
+
+  it("checks each detail kind's values", () => {
+    expect([0, 30, 604800].every(DETAIL_KINDS.seconds)).toBe(true);
+    expect([-1, 1.5, "30", 604801, null, { a: 1 }].some(DETAIL_KINDS.seconds)).toBe(false);
+    expect(DETAIL_KINDS.token("not-granted")).toBe(true);
+    expect(["Not Granted", "a".repeat(65), { x: 1 }, ""].some(DETAIL_KINDS.token)).toBe(false);
+    expect(DETAIL_KINDS.flag(false)).toBe(true);
+    expect(DETAIL_KINDS.flag("true")).toBe(false);
   });
 
   it("names the operation it decided for", () => {

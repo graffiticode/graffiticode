@@ -61,9 +61,17 @@ export class FailureError extends Error {
 // A failure with more context. A FailureError keeps its reason, category,
 // details, status and cause, and gains the context: it is copied, never
 // wrapped in another FailureError, so a chain of wraps stays one level deep.
-// Anything else becomes a FailureError whose cause it is, with its own string
-// `reason` if it has one; without one the reason is `internal`, which is
-// unregistered, so it reaches a caller only as its category.
+// Anything else becomes a FailureError whose cause it is, keeping what it
+// already says about itself once checked: its string `reason` (without one,
+// `internal`, unregistered, so it reaches a caller only as its category), a
+// category that is one of the five (a refusal's, decided where it was read),
+// an HTTP status in range (`statusCode` or `status`), its details or detail
+// as a plain object (public-error.ts allows fields of it), and its context.
+const statusOf = (value: unknown): number | undefined =>
+  (Number.isInteger(value) && (value as number) >= 100 && (value as number) <= 599 ? value as number : undefined);
+const plainObject = (value: unknown): Readonly<Record<string, unknown>> | undefined =>
+  (value && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype ? value as Record<string, unknown> : undefined);
+
 export const wrap = (err: unknown, context: FailureContext = {}): FailureError => {
   if (err instanceof FailureError) {
     const merged = contextOf({ ...(err.context ?? {}), ...context });
@@ -81,7 +89,15 @@ export const wrap = (err: unknown, context: FailureContext = {}): FailureError =
     copy.stack = err.stack;
     return copy;
   }
-  const reason = typeof (err as { reason?: unknown })?.reason === "string" ? (err as { reason: string }).reason : "internal";
+  const fields = (err && typeof err === "object" ? err : {}) as Record<string, unknown>;
+  const reason = typeof fields.reason === "string" && fields.reason ? fields.reason : "internal";
   const message = err instanceof Error ? err.message : String(err);
-  return new FailureError(reason, { message, context, cause: err });
+  return new FailureError(reason, {
+    message,
+    category: isCategory(fields.category) ? fields.category : undefined,
+    statusCode: statusOf(fields.statusCode) ?? statusOf(fields.status),
+    details: plainObject(fields.details) ?? plainObject(fields.detail),
+    context: contextOf({ ...(contextOf(fields.context ?? fields) ?? {}), ...context }),
+    cause: err,
+  });
 };

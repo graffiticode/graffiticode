@@ -16,7 +16,7 @@
 //
 // Stack traces, causes, credentials and upstream bodies never appear: every
 // field is chosen here, nothing is copied through.
-import { categoryForStatus, classify, canonicalReason, FAILURE_CATEGORIES, recoveryFor, specOf, type FailureCategory, type RecoveryAction } from "./failures.js";
+import { categoryForStatus, classify, canonicalReason, DETAIL_KINDS, FAILURE_CATEGORIES, recoveryFor, specOf, type FailureCategory, type RecoveryAction } from "./failures.js";
 import { contextOf, type FailureContext } from "./failure-error.js";
 import { currentRequestId } from "./request-context.js";
 
@@ -78,8 +78,10 @@ export const toPublicError = (error: unknown, { operation = null, recordedState 
   const rawDetails = (err.details ?? err.detail) as Record<string, unknown> | undefined;
   let details: Record<string, unknown> | undefined;
   if (spec?.details && rawDetails && typeof rawDetails === "object") {
-    for (const field of spec.details) {
-      if (rawDetails[field] !== undefined) (details ??= {})[field] = rawDetails[field];
+    for (const [field, kind] of Object.entries(spec.details)) {
+      const value = rawDetails[field];
+      // Only a value of the field's kind: a nested or malformed one is dropped.
+      if (DETAIL_KINDS[kind](value)) (details ??= {})[field] = value;
     }
   }
   const context = contextOf(err.context ?? err);

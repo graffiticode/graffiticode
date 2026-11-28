@@ -217,6 +217,17 @@ export type RecoveryAction = typeof RECOVERY_ACTIONS[number];
 // that may have acted is never simply sent again.
 export type RecoveryRule = RecoveryAction | Readonly<{ read: RecoveryAction, write: RecoveryAction }>;
 
+// The values a public detail may hold. Each is a scalar checked here: a
+// nested or malformed value is dropped, never passed through.
+export const DETAIL_KINDS = Object.freeze({
+  // Whole seconds, at most a week (Retry-After).
+  seconds: (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 7 * 24 * 3600,
+  // A registered-style token: lowercase words joined by hyphens.
+  token: (v: unknown): v is string => typeof v === "string" && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(v) && v.length <= 64,
+  flag: (v: unknown): v is boolean => typeof v === "boolean",
+});
+export type DetailKind = keyof typeof DETAIL_KINDS;
+
 export type FailureSpec = Readonly<{
   category: FailureCategory;
   // The HTTP status when the reason is a request's whole answer; by default
@@ -224,8 +235,10 @@ export type FailureSpec = Readonly<{
   status: number;
   // A safe public explanation, shown instead of any internal message.
   message?: string;
-  // The detail fields a caller may see. Any other field is dropped.
-  details?: readonly string[];
+  // The detail fields a caller may see, each with the kind of value it must
+  // hold (DETAIL_KINDS). Any other field, and any value not of its kind, is
+  // dropped.
+  details?: Readonly<Record<string, DetailKind>>;
   recovery?: RecoveryRule;
 }>;
 
@@ -249,8 +262,8 @@ const SPEC_EXTRAS: Readonly<Record<string, Omit<Partial<FailureSpec>, "category"
   // Nothing ran: the same request may be sent again.
   "preflight-unavailable": { recovery: "retry-same-key" },
   "policy-unavailable": { recovery: "retry-same-key" },
-  maintenance: { details: ["retryAfter"], recovery: "retry-same-key" },
-  "rate-limited": { status: 429, details: ["retryAfter"], recovery: "retry-same-key" },
+  maintenance: { details: { retryAfter: "seconds" }, recovery: "retry-same-key" },
+  "rate-limited": { status: 429, details: { retryAfter: "seconds" }, recovery: "retry-same-key" },
   // A lost answer: a read has no effects and may be asked again; a write may
   // have acted, so its existing record is read first.
   "compile-response-lost": { recovery: { read: "retry-same-key", write: "read-existing" } },
@@ -279,11 +292,26 @@ export const SPEC_EXTRA_REASONS: readonly string[] = Object.freeze(Object.keys(S
 export const specOf = (reason: unknown): FailureSpec | undefined =>
   (typeof reason === "string" ? FAILURE_SPECS[canonicalReason(underlyingReason(reason))] : undefined);
 
+// What an operation's recorded outcome decides before any reason's rule: an
+// operation that has a record is never simply sent again on a reason's
+// default. Uncertain is reconciled from receipts; one that completed, partly
+// completed or is still running is read; `failed` (nothing took effect) and
+// no record leave the decision to the reason.
+export const RECORDED_STATE_RECOVERY: Readonly<Record<string, RecoveryAction>> = Object.freeze({
+  uncertain: "reconcile",
+  partial: "read-existing",
+  completed: "read-existing",
+  pending: "read-existing",
+});
+
 // The recovery for a reason in an operation. `operation` is "read" (no
-// effects) or "write"; an unknown operation is taken as a write. An operation
-// whose recorded state is uncertain is reconciled, whatever the reason.
+// effects) or "write"; an unknown operation is taken as a write. A recorded
+// state (RECORDED_STATE_RECOVERY) decides first; an unknown recorded state is
+// read before anything, never retried.
 export const recoveryFor = (reason: unknown, { operation = null, recordedState = null }: { operation?: string | null, recordedState?: string | null } = {}): { action: RecoveryAction, operation: string | null } => {
-  if (recordedState === "uncertain") return { action: "reconcile", operation };
+  if (recordedState !== null && recordedState !== undefined && recordedState !== "failed") {
+    return { action: RECORDED_STATE_RECOVERY[recordedState] ?? "read-existing", operation };
+  }
   const rule = specOf(reason)?.recovery;
   if (!rule) return { action: "none", operation };
   if (typeof rule === "string") return { action: rule, operation };

@@ -4,75 +4,425 @@
   "cases": [
     {
       "name": "a registered reason, with its category and recovery",
-      "error": { "reason": "token-expired" },
-      "options": { "requestRef": "req-1" },
-      "expected": { "version": 1, "reason": "token-expired", "category": "authentication", "message": "The request's credentials weren't accepted.", "recovery": { "action": "reauthenticate", "operation": null }, "requestRef": "req-1", "retryable": false }
+      "error": {
+        "reason": "token-expired"
+      },
+      "options": {
+        "requestRef": "req-1"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "token-expired",
+        "category": "authentication",
+        "message": "The request's credentials weren't accepted.",
+        "recovery": {
+          "action": "reauthenticate",
+          "operation": null
+        },
+        "requestRef": "req-1",
+        "retryable": false
+      }
     },
     {
       "name": "a wrapped reason keeps its wrapper, and takes the wrapped reason's category and recovery",
-      "error": { "reason": "authorization-denied:not-granted" },
+      "error": {
+        "reason": "authorization-denied:not-granted"
+      },
       "options": {},
-      "expected": { "version": 1, "reason": "authorization-denied:not-granted", "category": "permission", "message": "The request isn't allowed.", "recovery": { "action": "change-connection", "operation": null }, "retryable": false }
+      "expected": {
+        "version": 1,
+        "reason": "authorization-denied:not-granted",
+        "category": "permission",
+        "message": "The request isn't allowed.",
+        "recovery": {
+          "action": "change-connection",
+          "operation": null
+        },
+        "retryable": false
+      }
     },
     {
       "name": "a lost answer on a read may be sent again with its key",
-      "error": { "code": "compile-response-lost", "message": "Language server error: socket hang up" },
-      "options": { "operation": "read" },
-      "expected": { "version": 1, "reason": "compile-response-lost", "category": "unavailable", "message": "The service couldn't handle the request now.", "recovery": { "action": "retry-same-key", "operation": "read" }, "retryable": true }
+      "error": {
+        "code": "compile-response-lost",
+        "message": "Language server error: socket hang up"
+      },
+      "options": {
+        "operation": "read"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "compile-response-lost",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "retry-same-key",
+          "operation": "read"
+        },
+        "retryable": true
+      }
     },
     {
       "name": "a lost answer on a write reads the existing record first",
-      "error": { "code": "compile-response-lost" },
-      "options": { "operation": "write" },
-      "expected": { "version": 1, "reason": "compile-response-lost", "category": "unavailable", "message": "The service couldn't handle the request now.", "recovery": { "action": "read-existing", "operation": "write" }, "retryable": false }
+      "error": {
+        "code": "compile-response-lost"
+      },
+      "options": {
+        "operation": "write"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "compile-response-lost",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "read-existing",
+          "operation": "write"
+        },
+        "retryable": false
+      }
     },
     {
       "name": "an unavailable category alone grants no retry",
-      "error": { "reason": "session-exhausted" },
-      "options": { "operation": "read" },
-      "expected": { "version": 1, "reason": "session-exhausted", "category": "unavailable", "message": "The service couldn't handle the request now.", "recovery": { "action": "none", "operation": "read" }, "retryable": false }
+      "error": {
+        "reason": "session-exhausted"
+      },
+      "options": {
+        "operation": "read"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "session-exhausted",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "none",
+          "operation": "read"
+        },
+        "retryable": false
+      }
     },
     {
       "name": "only a reason's allowed details are kept",
-      "error": { "reason": "rate-limited", "details": { "retryAfter": 30, "internalKey": "secret-value" } },
+      "error": {
+        "reason": "rate-limited",
+        "details": {
+          "retryAfter": 30,
+          "internalKey": "secret-value"
+        }
+      },
       "options": {},
-      "expected": { "version": 1, "reason": "rate-limited", "category": "unavailable", "message": "The service couldn't handle the request now.", "details": { "retryAfter": 30 }, "recovery": { "action": "retry-same-key", "operation": null }, "retryable": true }
+      "expected": {
+        "version": 1,
+        "reason": "rate-limited",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "details": {
+          "retryAfter": 30
+        },
+        "recovery": {
+          "action": "retry-same-key",
+          "operation": null
+        },
+        "retryable": true
+      }
     },
     {
       "name": "an unregistered reason isn't echoed, and gets no recovery",
-      "error": { "reason": "some-unknown-reason", "message": "internal detail" },
+      "error": {
+        "reason": "some-unknown-reason",
+        "message": "internal detail"
+      },
       "options": {},
-      "expected": { "version": 1, "reason": null, "category": "unavailable", "message": "The service couldn't handle the request now.", "recovery": { "action": "none", "operation": null }, "retryable": false }
+      "expected": {
+        "version": 1,
+        "reason": null,
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "none",
+          "operation": null
+        },
+        "retryable": false
+      }
     },
     {
       "name": "a category decided where the failure was read is kept",
-      "error": { "reason": "preflight-refused", "category": "malformed", "status": 400 },
+      "error": {
+        "reason": "preflight-refused",
+        "category": "malformed",
+        "status": 400
+      },
       "options": {},
-      "expected": { "version": 1, "reason": "preflight-refused", "category": "malformed", "message": "The request isn't valid.", "recovery": { "action": "none", "operation": null }, "retryable": false }
+      "expected": {
+        "version": 1,
+        "reason": "preflight-refused",
+        "category": "malformed",
+        "message": "The request isn't valid.",
+        "recovery": {
+          "action": "none",
+          "operation": null
+        },
+        "retryable": false
+      }
     },
     {
       "name": "with no reason, the status decides the category",
-      "error": { "statusCode": 401 },
+      "error": {
+        "statusCode": 401
+      },
       "options": {},
-      "expected": { "version": 1, "reason": null, "category": "authentication", "message": "The request's credentials weren't accepted.", "recovery": { "action": "none", "operation": null }, "retryable": false }
+      "expected": {
+        "version": 1,
+        "reason": null,
+        "category": "authentication",
+        "message": "The request's credentials weren't accepted.",
+        "recovery": {
+          "action": "none",
+          "operation": null
+        },
+        "retryable": false
+      }
     },
     {
       "name": "a diagnostic's stage and function are its context",
-      "error": { "code": "compile-refused", "category": "unavailable", "stage": "s1", "fn": "save-to-itembank", "from": -1, "to": -1 },
-      "options": { "operation": "write" },
-      "expected": { "version": 1, "reason": "compile-refused", "category": "unavailable", "message": "The service couldn't handle the request now.", "context": { "stage": "s1", "fn": "save-to-itembank" }, "recovery": { "action": "reconcile", "operation": "write" }, "retryable": false }
+      "error": {
+        "code": "compile-refused",
+        "category": "unavailable",
+        "stage": "s1",
+        "fn": "save-to-itembank",
+        "from": -1,
+        "to": -1
+      },
+      "options": {
+        "operation": "write"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "compile-refused",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "context": {
+          "stage": "s1",
+          "fn": "save-to-itembank"
+        },
+        "recovery": {
+          "action": "reconcile",
+          "operation": "write"
+        },
+        "retryable": false
+      }
     },
     {
       "name": "an uncertain recorded state is reconciled, whatever the reason",
-      "error": { "reason": "policy-unavailable" },
-      "options": { "operation": "write", "recordedState": "uncertain" },
-      "expected": { "version": 1, "reason": "policy-unavailable", "category": "unavailable", "message": "The service couldn't handle the request now.", "recovery": { "action": "reconcile", "operation": "write" }, "retryable": false }
+      "error": {
+        "reason": "policy-unavailable"
+      },
+      "options": {
+        "operation": "write",
+        "recordedState": "uncertain"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "policy-unavailable",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "reconcile",
+          "operation": "write"
+        },
+        "retryable": false
+      }
     },
     {
       "name": "a public message is shown, capped; the internal one never is",
-      "error": { "reason": "not-granted", "message": "token abc123 rejected", "publicMessage": "This connection doesn't allow saving." },
+      "error": {
+        "reason": "not-granted",
+        "message": "token abc123 rejected",
+        "publicMessage": "This connection doesn't allow saving."
+      },
       "options": {},
-      "expected": { "version": 1, "reason": "not-granted", "category": "permission", "message": "This connection doesn't allow saving.", "recovery": { "action": "change-connection", "operation": null }, "retryable": false }
+      "expected": {
+        "version": 1,
+        "reason": "not-granted",
+        "category": "permission",
+        "message": "This connection doesn't allow saving.",
+        "recovery": {
+          "action": "change-connection",
+          "operation": null
+        },
+        "retryable": false
+      }
+    },
+    {
+      "name": "a write recorded as partial is read, never retried on the reason's default",
+      "error": {
+        "reason": "policy-unavailable"
+      },
+      "options": {
+        "operation": "write",
+        "recordedState": "partial"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "policy-unavailable",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "read-existing",
+          "operation": "write"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "name": "a write recorded as completed is read, never retried",
+      "error": {
+        "reason": "policy-unavailable"
+      },
+      "options": {
+        "operation": "write",
+        "recordedState": "completed"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "policy-unavailable",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "read-existing",
+          "operation": "write"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "name": "a write still pending is read",
+      "error": {
+        "reason": "policy-unavailable"
+      },
+      "options": {
+        "operation": "write",
+        "recordedState": "pending"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "policy-unavailable",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "read-existing",
+          "operation": "write"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "name": "a write recorded as failed (nothing took effect) follows the reason's rule",
+      "error": {
+        "reason": "policy-unavailable"
+      },
+      "options": {
+        "operation": "write",
+        "recordedState": "failed"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "policy-unavailable",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "retry-same-key",
+          "operation": "write"
+        },
+        "retryable": true
+      }
+    },
+    {
+      "name": "an unknown recorded state is read before anything, never retried",
+      "error": {
+        "reason": "policy-unavailable"
+      },
+      "options": {
+        "operation": "write",
+        "recordedState": "something-new"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "policy-unavailable",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "read-existing",
+          "operation": "write"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "name": "an allowed detail with a nested value is dropped",
+      "error": {
+        "reason": "rate-limited",
+        "details": {
+          "retryAfter": {
+            "credential": "SENTINEL-nested-detail"
+          }
+        }
+      },
+      "options": {},
+      "expected": {
+        "version": 1,
+        "reason": "rate-limited",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "retry-same-key",
+          "operation": null
+        },
+        "retryable": true
+      }
+    },
+    {
+      "name": "an allowed detail of the wrong kind is dropped",
+      "error": {
+        "reason": "maintenance",
+        "detail": {
+          "retryAfter": "30"
+        }
+      },
+      "options": {},
+      "expected": {
+        "version": 1,
+        "reason": "maintenance",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "retry-same-key",
+          "operation": null
+        },
+        "retryable": true
+      }
+    },
+    {
+      "name": "an allowed detail out of range is dropped",
+      "error": {
+        "reason": "rate-limited",
+        "details": {
+          "retryAfter": -5
+        }
+      },
+      "options": {},
+      "expected": {
+        "version": 1,
+        "reason": "rate-limited",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "retry-same-key",
+          "operation": null
+        },
+        "retryable": true
+      }
     }
   ]
 }
