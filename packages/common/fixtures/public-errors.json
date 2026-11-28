@@ -423,6 +423,105 @@
         },
         "retryable": true
       }
+    },
+    {
+      "name": "a recorded state named constructor is unknown, so it is read",
+      "error": {
+        "reason": "policy-unavailable"
+      },
+      "options": {
+        "operation": "write",
+        "recordedState": "constructor"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "policy-unavailable",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "read-existing",
+          "operation": "write"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "name": "a recorded state named __proto__ is unknown, so it is read",
+      "error": {
+        "reason": "policy-unavailable"
+      },
+      "options": {
+        "operation": "write",
+        "recordedState": "__proto__"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "policy-unavailable",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "read-existing",
+          "operation": "write"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "name": "a recorded state named toString is unknown, so it is read",
+      "error": {
+        "reason": "policy-unavailable"
+      },
+      "options": {
+        "operation": "write",
+        "recordedState": "toString"
+      },
+      "expected": {
+        "version": 1,
+        "reason": "policy-unavailable",
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "read-existing",
+          "operation": "write"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "name": "a reason named constructor is unregistered",
+      "error": {
+        "reason": "constructor"
+      },
+      "options": {},
+      "expected": {
+        "version": 1,
+        "reason": null,
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "none",
+          "operation": null
+        },
+        "retryable": false
+      }
+    },
+    {
+      "name": "a reason named __proto__ is unregistered",
+      "error": {
+        "reason": "__proto__"
+      },
+      "options": {},
+      "expected": {
+        "version": 1,
+        "reason": null,
+        "category": "unavailable",
+        "message": "The service couldn't handle the request now.",
+        "recovery": {
+          "action": "none",
+          "operation": null
+        },
+        "retryable": false
+      }
     }
   ]
 }
