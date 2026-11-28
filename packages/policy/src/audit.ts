@@ -9,10 +9,10 @@
 // identifiers must have their bounded server-side form, enumerations their
 // listed values; anything else is recorded as "invalid", never as given.
 
-import { createHmac, randomUUID } from "node:crypto";
-import { AsyncLocalStorage } from "node:async_hooks";
+import { createHmac } from "node:crypto";
 import { OPERATIONS, operationSteps, protectedFunctionsForLang, MAX_CONDITIONAL_ATTEMPTS } from "@graffiticode/common/protected-registry";
 import { REASON_CATEGORIES, FAILURE_CATEGORIES, underlyingReason, classify } from "@graffiticode/common/failures";
+import { currentRequestId, requestContextMiddleware } from "@graffiticode/common/request-context";
 
 // One JSON line on stdout per record. On Cloud Run that is the
 // run.googleapis.com/stdout log, with `jsonPayload.logName="security_audit"`.
@@ -31,10 +31,10 @@ export const createPseudonymizer = ({ secret }) => {
 // The request a record belongs to (spec AUDIT-01 correlation). Each HTTP
 // request runs inside its own context with a server-generated id
 // (requestContextMiddleware); a record written within it carries that id, so
-// even a refusal before any invocation or verified token is traceable.
-const requestContext = new AsyncLocalStorage<{ requestId: string }>();
-export const requestContextMiddleware = (_req, _res, next) => requestContext.run({ requestId: randomUUID() }, next);
-export const currentRequestId = () => requestContext.getStore()?.requestId;
+// even a refusal before any invocation or verified token is traceable. The
+// context lives in common (request-context.ts), so a public error made in the
+// same request carries the same id; it is re-exported here for its importers.
+export { currentRequestId, requestContextMiddleware };
 
 const INVALID = "invalid";
 const match = re => v => (typeof v === "string" && re.test(v) ? v : INVALID);
