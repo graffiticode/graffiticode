@@ -15,6 +15,11 @@ export type FailureCategory = typeof FAILURE_CATEGORIES[number];
 
 const cat = (category: FailureCategory, reasons: string[]) => reasons.map(r => [r, category] as const);
 
+// A table's own entry for a key, never an inherited property: a reason or
+// state named "constructor", "toString" or "__proto__" is simply unknown.
+export const ownEntry = <T>(table: Readonly<Record<string, T>>, key: unknown): T | undefined =>
+  (typeof key === "string" && Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined);
+
 // Every refusal reason Policy, Broker and api emit. A reason missing here is a
 // test failure (scripts/test/failures-inventory.test.js), not a silent
 // category.
@@ -276,13 +281,13 @@ const SPEC_EXTRAS: Readonly<Record<string, Omit<Partial<FailureSpec>, "category"
 // one is added here, never by renaming a reason in the table.
 export const REASON_ALIASES: Readonly<Record<string, string>> = Object.freeze({});
 export const canonicalReason = (reason: string, aliases: Readonly<Record<string, string>> = REASON_ALIASES): string =>
-  aliases[reason] ?? reason;
+  ownEntry(aliases, reason) ?? reason;
 
 // Every registered reason's spec: its category from the table above, with its
 // extras. REASON_CATEGORIES stays the source of categories.
 export const FAILURE_SPECS: Readonly<Record<string, FailureSpec>> = Object.freeze(Object.fromEntries(
   Object.entries(REASON_CATEGORIES).map(([reason, category]) => {
-    const extras = SPEC_EXTRAS[reason] ?? {};
+    const extras = ownEntry(SPEC_EXTRAS, reason) ?? {};
     return [reason, Object.freeze({ category, status: STATUS_FOR_CATEGORY[category], ...extras })];
   })
 ));
@@ -290,7 +295,7 @@ export const SPEC_EXTRA_REASONS: readonly string[] = Object.freeze(Object.keys(S
 
 // The spec of a registered reason (wrapped or aliased), or undefined.
 export const specOf = (reason: unknown): FailureSpec | undefined =>
-  (typeof reason === "string" ? FAILURE_SPECS[canonicalReason(underlyingReason(reason))] : undefined);
+  (typeof reason === "string" ? ownEntry(FAILURE_SPECS, canonicalReason(underlyingReason(reason))) : undefined);
 
 // What an operation's recorded outcome decides before any reason's rule: an
 // operation that has a record is never simply sent again on a reason's
@@ -310,7 +315,7 @@ export const RECORDED_STATE_RECOVERY: Readonly<Record<string, RecoveryAction>> =
 // read before anything, never retried.
 export const recoveryFor = (reason: unknown, { operation = null, recordedState = null }: { operation?: string | null, recordedState?: string | null } = {}): { action: RecoveryAction, operation: string | null } => {
   if (recordedState !== null && recordedState !== undefined && recordedState !== "failed") {
-    return { action: RECORDED_STATE_RECOVERY[recordedState] ?? "read-existing", operation };
+    return { action: ownEntry(RECORDED_STATE_RECOVERY, recordedState) ?? "read-existing", operation };
   }
   const rule = specOf(reason)?.recovery;
   if (!rule) return { action: "none", operation };
@@ -334,7 +339,7 @@ export const underlyingReason = (reason: string): string => {
 // the caller to report it (without echoing the value, which may be untrusted).
 export const classify = (reason: unknown): { category: FailureCategory, classified: boolean } => {
   if (typeof reason === "string") {
-    const category = REASON_CATEGORIES[underlyingReason(reason)];
+    const category = ownEntry(REASON_CATEGORIES, underlyingReason(reason));
     if (category) return { category, classified: true };
   }
   return { category: "unavailable", classified: false };

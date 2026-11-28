@@ -77,6 +77,16 @@ describe("failure specs", () => {
     expect(specOf(42)).toBeUndefined();
   });
 
+  it("never take an inherited property for a reason, alias or state", () => {
+    for (const name of ["constructor", "__proto__", "toString", "hasOwnProperty"]) {
+      expect(classify(name)).toEqual({ category: "unavailable", classified: false });
+      expect(classify(`authorization-denied:${name}`)).toEqual({ category: "unavailable", classified: false });
+      expect(specOf(name)).toBeUndefined();
+      expect(canonicalReason(name)).toBe(name);
+      expect(recoveryFor("policy-unavailable", { operation: "write", recordedState: name }).action).toBe("read-existing");
+    }
+  });
+
   it("resolve a legacy spelling through an alias", () => {
     expect(canonicalReason("old-name", { "old-name": "not-granted" })).toBe("not-granted");
     expect(canonicalReason("not-granted")).toBe("not-granted");
