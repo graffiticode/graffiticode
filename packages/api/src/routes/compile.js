@@ -42,13 +42,22 @@ const signingStagesOf = async ({ taskStorer, item, auth }) => (
     : (isSigningLang(item.lang) ? 1 : 0)
 );
 
-const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) => {
+// `callerContext(req, auth)` (respondent.js): C4's verified caller, built only if a stage
+// needs it (a response to freeze), once per request.
+const lazyCaller = (callerContext, req, auth) => {
+  if (!callerContext) return null;
+  let made;
+  return () => (made ??= callerContext(req, auth));
+};
+
+const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLimiter = null, callerContext = null }) => {
   const getData = buildGetData({ taskStorer, compileStorer, dataApi });
   const postTasks = buildPostTasks({ taskStorer });
   const withData = buildChainWithData({ postTasks });
   return buildHttpHandler(async (req, res) => {
     const auth = req.auth.context;
     const authToken = parseAuthTokenFromRequest(req);
+    const caller = lazyCaller(callerContext, req, auth);
     const items = getItemsFromRequest(req);
     const connectionId = parseConnectionId(req.body?.connectionId, { auth });
     // C5: with COMMAND_SCOPES, a signed-in caller's key may name a command
@@ -86,7 +95,7 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLi
       ids.push(id);
       // One key per item, so a multi-item request's invocations stay distinct.
       const itemKey = idempotencyKey && items.length > 1 ? `${idempotencyKey}.${i}` : idempotencyKey;
-      return await getData({ auth, authToken, ids: [id], connectionId, idempotencyKey: itemKey, generation, generationDataTask, client: req.get("User-Agent")?.slice(0, 120) ?? null });
+      return await getData({ auth, authToken, ids: [id], connectionId, idempotencyKey: itemKey, generation, generationDataTask, client: req.get("User-Agent")?.slice(0, 120) ?? null, caller });
     }));
     if (data.length === 1) {
       data = data[0];
@@ -113,9 +122,9 @@ const buildPostCompileHandler = ({ taskStorer, compileStorer, dataApi, signingLi
 
 // `signingLimiter` (signing-limit.js), when given, charges each request's
 // system signing stages; without one nothing is charged.
-export default ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) => {
+export default ({ taskStorer, compileStorer, dataApi, signingLimiter = null, callerContext = null }) => {
   // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
-  router.post("/", buildPostCompileHandler({ taskStorer, compileStorer, dataApi, signingLimiter }));
+  router.post("/", buildPostCompileHandler({ taskStorer, compileStorer, dataApi, signingLimiter, callerContext }));
   return router;
 };

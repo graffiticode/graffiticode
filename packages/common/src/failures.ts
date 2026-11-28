@@ -200,6 +200,15 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   // Temporary: the cutover's write barrier, a continuation in progress, respondent authority
   // that couldn't be asked, and a free-plan caller whose workspace wasn't attested.
   ...cat("unavailable", ["assignment-reconciling", "respondent-continuing", "respondent-authority-unavailable", "respondent-unattested"]),
+  // C4's exchange and freeze in an interpreted stage (packages/api/src/assignment-exchange.js,
+  // respondent.js): an anonymous caller's response is a read; a language that asked again
+  // for what it was given, or past the call ceiling; assignments that kept changing, or no
+  // store to ask; and a frontend identity that didn't verify, isn't registered, or couldn't
+  // be checked.
+  ...cat("permission", ["respondent-anonymous", "frontend-not-registered"]),
+  ...cat("conflict", ["assignment-stalled", "assignment-depth"]),
+  ...cat("unavailable", ["assignment-contended", "assignment-unavailable", "frontend-identity-unavailable"]),
+  ...cat("authentication", ["frontend-identity-invalid"]),
 ]));
 
 // What a caller may safely do next (error handling proposal, step 2). An

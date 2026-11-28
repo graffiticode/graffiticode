@@ -35,8 +35,10 @@ export const buildInterpreter = ({ langCompile, callerIdentity = async _lang => 
   return {
     model: ({ lang, code, auth = null, options = {}, uid = null, baseUrl = null }) =>
       post(lang, "/compile", { code, data: {}, auth, options, form: "model" }, { uid, baseUrl }),
-    interpret: ({ lang, model, input, mode, auth = null, options = {}, uid = null, baseUrl = null }) =>
-      post(lang, "/interpret", { model, input, mode, auth, options }, { uid, baseUrl }),
+    // C4: `assignments`, the table of an assignment exchange (assignment-exchange.js), is sent
+    // only when given, so every other interpret is unchanged.
+    interpret: ({ lang, model, input, mode, auth = null, options = {}, uid = null, baseUrl = null, assignments = null }) =>
+      post(lang, "/interpret", { model, input, mode, auth, options, ...(assignments ? { assignments } : {}) }, { uid, baseUrl }),
   };
 };
 

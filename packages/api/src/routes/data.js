@@ -24,7 +24,9 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
     read = false, publicationId = null, generation = /** @type {string | undefined} */ (undefined),
     namedGenerations = /** @type {string | undefined} */ (undefined), generationDataTask = false,
     // Each id's tasks, already loaded by the route (or undefined).
-    preloadedTasks = /** @type {any[] | undefined} */ (undefined)
+    preloadedTasks = /** @type {any[] | undefined} */ (undefined),
+    // The verified caller context (respondent.js), or null.
+    caller = /** @type {any} */ (null)
   }) => {
     if (ids.length < 1) {
       throw new InvalidArgumentError("must provide at least one id");
@@ -47,6 +49,7 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
       generation,
       namedGenerations,
       generationDataTask,
+      caller,
       ...(preloadedTasks ? { preloadedTasks: preloadedTasks[i] } : {})
     })));
     let data;
@@ -63,7 +66,14 @@ export const buildGetData = ({ taskStorer, compileStorer, dataApi }) => {
 // an error anywhere.
 const carriesErrors = data => (Array.isArray(data) ? data.some(carriesErrors) : Boolean(data?.errors?.length));
 
-const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) => {
+// C4's verified caller (respondent.js), built only if a stage needs it, once per request.
+const lazyCaller = (callerContext, req, auth) => {
+  if (!callerContext) return null;
+  let made;
+  return () => (made ??= callerContext(req, auth));
+};
+
+const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimiter = null, callerContext = null }) => {
   const getData = buildGetData({ taskStorer, compileStorer, dataApi });
   return buildHttpHandler(async (req, res) => {
     if (req.renderGrant) return renderData(req, res);
@@ -109,7 +119,8 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimite
     const action = {};
     // GET /data is a view: through a connection it reads the caller's stored
     // result; through a publication, the published one.
-    const data = await getData({ auth, authToken, ids, action, refresh, connectionId, publicationId, read: true, generation, namedGenerations, preloadedTasks });
+    const caller = lazyCaller(callerContext, req, auth);
+    const data = await getData({ auth, authToken, ids, action, refresh, connectionId, publicationId, read: true, generation, namedGenerations, preloadedTasks, caller });
     // A refreshed response must not be held anywhere. The id is immutable but
     // we just proved its data is not, and the whole point of asking was to get
     // past a stale copy — an immutable header here would plant another one in
@@ -170,9 +181,9 @@ const buildGetDataHandler = ({ taskStorer, compileStorer, dataApi, signingLimite
 
 // `signingLimiter` (signing-limit.js), when given, charges each request's
 // system signing stages; without one nothing is charged.
-export default ({ taskStorer, compileStorer, dataApi, signingLimiter = null }) => {
+export default ({ taskStorer, compileStorer, dataApi, signingLimiter = null, callerContext = null }) => {
   // @ts-expect-error TS-MIGRATE: express Router is callable; its types reject `new`
   const router = new Router();
-  router.get("/", buildGetDataHandler({ taskStorer, compileStorer, dataApi, signingLimiter }));
+  router.get("/", buildGetDataHandler({ taskStorer, compileStorer, dataApi, signingLimiter, callerContext }));
   return router;
 };
