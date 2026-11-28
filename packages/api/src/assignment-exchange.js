@@ -121,7 +121,15 @@ export const runAssignedStage = async ({ interpret, assignments, respondentAutho
     const principal = context?.principal ?? null;
     if (!principal) return { reply, calls, submission: { status: "read", reason: "respondent-anonymous" } };
     const sessions = [...new Set(used.map(u => u.session))];
-    const derived = respondentAuthority ? await respondentAuthority(sessions) : Object.create(null);
+    let derived = Object.create(null);
+    try {
+      // Only unbound sessions are asked of the console; bound ones are decided by their
+      // binding inside the freeze.
+      const unbound = await assignments.unboundSessions(sessions);
+      if (respondentAuthority && unbound.length > 0) derived = await respondentAuthority(unbound);
+    } catch (e) {
+      return refusedBy(e);
+    }
     try {
       const submission = await assignments.submit({ taskId, caller: principal, submitter: principal, used, derived });
       return { reply, calls, submission };

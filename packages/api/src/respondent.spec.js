@@ -78,6 +78,73 @@ describe("buildRespondentAuthority", () => {
   });
 });
 
+describe("review regressions: authority replies, deadlines and verifier outages", () => {
+  const P = { kind: "user", uid: "p", installation: "graffiticode" };
+  const answering = body => buildRespondentAuthority({
+    url: "https://console/x",
+    audience: "aud",
+    idToken: async () => "tok",
+    log: () => {},
+    fetch: /** @type {any} */ async () => ({ ok: true, json: async () => body }),
+  });
+
+  it.each([
+    ["an invalid principal", { bound: false, principal: { kind: "user", uid: "p" } }],
+    ["a principal with an extra field", { bound: false, principal: { ...P, role: "admin" } }],
+    ["a principal with no `bound`", { principal: P }],
+    ["a console binding (bound: true)", { bound: true, principal: P, itemId: "t", revision: 3 }],
+    ["a non-object principal", { bound: false, principal: "p" }],
+  ])("%s is no answer, so the freeze is refused temporarily", async (_what, body) => {
+    expect(Object.hasOwn(await answering(body)(["s"]), "s")).toBe(false);
+  });
+
+  it("a valid unbound answer is taken", async () => {
+    expect((await answering({ bound: false, principal: P })(["s"])).s).toEqual({ principal: P });
+  });
+
+  it("one deadline covers minting the token: a stalled mint ends with no answer", async () => {
+    const authority = buildRespondentAuthority({
+      url: "https://console/x",
+      audience: "aud",
+      timeoutMs: 50,
+      log: () => {},
+      idToken: () => new Promise(() => {}),
+      fetch: /** @type {any} */ (jest.fn()),
+    });
+    const started = Date.now();
+    const answers = await authority(["s"]);
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(Object.keys(answers)).toEqual([]);
+  });
+
+  it("a slow body is bounded too", async () => {
+    const authority = buildRespondentAuthority({
+      url: "https://console/x",
+      audience: "aud",
+      timeoutMs: 50,
+      log: () => {},
+      idToken: async () => "tok",
+      fetch: /** @type {any} */ async () => ({ ok: true, json: () => new Promise(() => {}) }),
+    });
+    expect(Object.keys(await authority(["s"]))).toEqual([]);
+  });
+
+  it.each([
+    ["an HTTP 503 from the certificate service", Object.assign(new Error("Failed to retrieve verification certificates"), { response: { status: 503 } })],
+    ["a nested network cause", Object.assign(new Error("request failed"), { cause: Object.assign(new Error("socket"), { code: "ECONNRESET" }) })],
+    ["a deeper nested cause", Object.assign(new Error("x"), { cause: new Error("y", { cause: Object.assign(new Error("z"), { code: "ETIMEDOUT" }) }) })],
+  ])("%s is temporary, never invalid credentials", async (_what, err) => {
+    const context = buildCallerContext({ verifyIdToken: jest.fn(async () => { throw err; }), frontends: [FRONTEND], log: () => {} });
+    await expect(context(req({ "X-Caller-Identity": "tok" }), { uid: "u1" })).rejects.toMatchObject({ statusCode: 503, reason: "frontend-identity-unavailable" });
+  });
+
+  it("a 4xx-shaped verifier failure is still invalid", async () => {
+    const err = Object.assign(new Error("Wrong recipient"), { response: { status: 400 } });
+    const context = buildCallerContext({ verifyIdToken: jest.fn(async () => { throw err; }), frontends: [FRONTEND], log: () => {} });
+    await expect(context(req({ "X-Caller-Identity": "tok" }), { uid: "u1" })).rejects.toMatchObject({ statusCode: 401, reason: "frontend-identity-invalid" });
+  });
+});
+
 describe("parseRespondentConfig", () => {
   it("reads lists and defaults", () => {
     expect(parseRespondentConfig({ L0182_ATTESTING_FRONTENDS: "a@x, b@x", L0182_CANARY_SESSIONS: "c1" })).toMatchObject({

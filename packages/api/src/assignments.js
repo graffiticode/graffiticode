@@ -402,6 +402,20 @@ export const buildAssignmentStore = ({
     });
   };
 
+  // The sessions with no binding, as the store reads them now, outside any transaction: the
+  // only ones whose authority is asked of the console. The freeze re-reads every binding in
+  // its own transaction, so a session bound meanwhile is decided by its binding there, and
+  // one left without an answer is refused temporarily.
+  const unboundSessions = async sessions => {
+    const pins = await Promise.all(sessions.map(s => pinRef(s).get()));
+    const spaces = sessions.map((s, i) => pins[i].exists ? pins[i].data().namespace : listed.has(s) ? "canary" : "production");
+    const bindings = await Promise.all(sessions.map((s, i) => refs(spaces[i]).binding(s).get()));
+    return sessions.filter((_, i) => {
+      const binding = bindings[i].exists ? bindings[i].data() : null;
+      return !binding?.active && !binding?.prepared;
+    });
+  };
+
   const retained = async (digest, { namespace = "production" } = {}) =>
     (await refs(namespace).model(digest).get()).data()?.content;
 
@@ -417,5 +431,5 @@ export const buildAssignmentStore = ({
     });
   };
 
-  return { resolve, submit, retained, setCutover, refs, pinRef };
+  return { resolve, submit, unboundSessions, retained, setCutover, refs, pinRef };
 };

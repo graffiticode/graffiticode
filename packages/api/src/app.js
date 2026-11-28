@@ -39,12 +39,16 @@ import { createStorers } from "./storage/index.js";
 
 // The C4 assignment store, built on its first call, so an api that never interprets a
 // getOrCreate stage never constructs it.
+// PREREQUISITE before any canary activation: this passes canarySessions but no
+// canaryPrincipals, so every canary freeze is refused (canary-fixture-only) until the
+// canary-owned principals are configured.
 const lazyAssignmentStore = ({ canarySessions }) => {
   let store;
   const get = () => (store ??= buildAssignmentStore({ canarySessions }));
   return {
     resolve: args => get().resolve(args),
     submit: args => get().submit(args),
+    unboundSessions: sessions => get().unboundSessions(sessions),
   };
 };
 

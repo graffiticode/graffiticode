@@ -11,6 +11,7 @@ import { admin } from "./storage/firebase.js";
 import { buildAssignmentStore, identityKey } from "./assignments.js";
 import { MAX_ATTEMPTS, MAX_CALLS, answeredIdentities } from "./assignment-exchange.js";
 import { buildDataApi } from "./data.js";
+import { buildRespondentAuthority } from "./respondent.js";
 import { getInterpreterLanguages } from "./interpret.js";
 import { buildMemoryStageResultStorer } from "./storage/stage-results.js";
 
@@ -92,7 +93,7 @@ const memoryTasks = () => {
 const memoryCompiles = () => ({ async get() { return undefined; }, async create({ id }) { return id; } });
 
 /** @param {any} [options] */
-const setup = async ({ answers = {}, interpretReply = null, wrapStore = null, withStore = true, env = ON } = {}) => {
+const setup = async ({ answers = {}, interpretReply = null, wrapStore = null, withStore = true, env = ON, authority = null } = {}) => {
   const store = buildAssignmentStore({ db, prefix: `x-${randomUUID().slice(0, 8)}-`, pick: () => 0 });
   await store.setCutover({ from: "backfill", to: "reconciling" });
   await store.setCutover({ from: "reconciling", to: "done" });
@@ -114,7 +115,7 @@ const setup = async ({ answers = {}, interpretReply = null, wrapStore = null, wi
   const stageResults = buildMemoryStageResultStorer();
   jest.spyOn(stageResults, "get");
   jest.spyOn(stageResults, "put");
-  const respondentAuthority = jest.fn(async (/** @type {any} */ sessions) => {
+  const respondentAuthority = authority ?? jest.fn(async (/** @type {any} */ sessions) => {
     const out = Object.create(null);
     for (const s of sessions) if (Object.hasOwn(answers, s)) out[s] = answers[s];
     return out;
@@ -291,12 +292,54 @@ describe("C4 exchange: failing closed", () => {
   });
 });
 
+describe("C4 exchange: review regressions", () => {
+  // The real client over a console answering `body` for every session.
+  const console_ = body => buildRespondentAuthority({
+    url: "https://console/x",
+    audience: "aud",
+    idToken: async () => "tok",
+    log: () => {},
+    fetch: /** @type {any} */ async () => ({ ok: true, json: async () => body }),
+  });
+
+  it.each([
+    ["an invalid principal", { bound: false, principal: { kind: "freePlan", uid: "trial", installation: "graffiticode" } }],
+    ["a console binding", { bound: true, principal: WS_A, revision: 4 }],
+  ])("%s fails the stage temporarily, serving nothing and freezing nothing", async (_what, body) => {
+    const t = await setup({ authority: console_(body) });
+    const out = await t.run({ surveys: [survey("s", true)] }, { caller: context(WS_A) });
+    expect(out.data).toBeNull();
+    expect(out.errors[0]).toMatchObject({ code: "respondent-authority-unavailable", category: "unavailable" });
+    expect((await t.record("civic-priorities", "s")).frozen).toBeUndefined();
+  });
+
+  it("a bound session is never asked of the console", async () => {
+    const t = await setup({ answers: {} });
+    await t.store.refs("production").binding("s").set({ session: "s", active: { principal: P, revision: 1, opId: "op-1", destination: "d" }, prepared: null });
+    const out = await t.run({ surveys: [survey("s", true)] }, { caller: context(P) });
+    expect(out.errors ?? []).toEqual([]);
+    expect(t.respondentAuthority).not.toHaveBeenCalled();
+    expect((await t.record("civic-priorities", "s")).frozen).toMatchObject({ principal: P, basis: "binding" });
+  });
+
+  it("with bound and unbound sessions, only the unbound are asked", async () => {
+    const t = await setup({ answers: { free: { principal: P } } });
+    await t.store.refs("production").binding("held").set({ session: "held", active: { principal: P, revision: 2, opId: "op-1", destination: "d" }, prepared: null });
+    const out = await t.run({ surveys: [survey("held", true), survey("free", true)] }, { caller: context(P) });
+    expect(out.errors ?? []).toEqual([]);
+    expect(t.respondentAuthority.mock.calls).toEqual([[["free"]]]);
+    expect((await t.record("civic-priorities", "held")).frozen).toMatchObject({ basis: "binding", revision: 2 });
+    expect((await t.record("civic-priorities", "free")).frozen).toMatchObject({ basis: "derived", revision: 0 });
+  });
+});
+
 describe("C4 exchange: contention", () => {
   // A store whose record moves under the stage `times` times before its freeze.
   const moving = times => store => {
     let left = times;
     return {
       resolve: args => store.resolve(args),
+      unboundSessions: sessions => store.unboundSessions(sessions),
       submit: async args => {
         if (left-- > 0) {
           const u = args.used[0];

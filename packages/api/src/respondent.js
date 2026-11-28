@@ -17,6 +17,7 @@
 //   called as the api's own identity. Any failure leaves the session without an answer, and
 //   the store then refuses the freeze temporarily (fail closed).
 import { HttpError } from "./errors/http.js";
+import { validPrincipal } from "./assignments.js";
 
 export const FRONTEND_IDENTITY_HEADER = "X-Caller-Identity";
 export const ATTESTED_WORKSPACE_HEADER = "X-Attested-Workspace";
@@ -33,9 +34,18 @@ export const parseRespondentConfig = (env = process.env) => ({
   canarySessions: list(env.L0182_CANARY_SESSIONS),
 });
 
-// Reaching Google's certificates failed: the caller's token may be fine.
-const unavailable = err =>
-  /fetch failed|socket hang up|ECONN|ETIMEDOUT|EAI_AGAIN|ENOTFOUND/i.test(String(err?.message ?? err) + String(err?.code ?? ""));
+// Reaching Google's certificates failed, not the caller's token: a network error (at any
+// depth of `cause`) or an HTTP 5xx from the certificate service. A retry may succeed.
+const NETWORK_CODES = new Set(["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EAI_AGAIN", "ENOTFOUND", "EPIPE", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_SOCKET", "UND_ERR_HEADERS_TIMEOUT"]);
+export const verifierUnavailable = err => {
+  for (let e = err, depth = 0; e && depth < 5; e = e.cause, depth++) {
+    if (NETWORK_CODES.has(String(e.code))) return true;
+    const status = e.response?.status ?? e.status;
+    if (typeof status === "number" && status >= 500) return true;
+    if (/fetch failed|socket hang up|request to https:\/\/www\.googleapis\.com\/oauth2/i.test(String(e.message ?? ""))) return true;
+  }
+  return false;
+};
 
 const refusal = ({ statusCode, reason, message }) => new HttpError({ code: statusCode, statusCode, reason, message });
 
@@ -50,7 +60,7 @@ export const buildCallerContext = ({ verifyIdToken = null, audience = "urn:graff
     try {
       claims = await verifyIdToken(token, audience);
     } catch (err) {
-      if (unavailable(err)) throw refusal({ statusCode: 503, reason: "frontend-identity-unavailable", message: "caller identity could not be verified; retry" });
+      if (verifierUnavailable(err)) throw refusal({ statusCode: 503, reason: "frontend-identity-unavailable", message: "caller identity could not be verified; retry" });
       log(JSON.stringify({ event: "caller-context", outcome: "refused", why: "invalid" }));
       throw refusal({ statusCode: 401, reason: "frontend-identity-invalid", message: "invalid caller identity" });
     }
@@ -74,16 +84,28 @@ export const buildCallerContext = ({ verifyIdToken = null, audience = "urn:graff
 };
 
 // `idToken(audience)` mints the api's own Google ID token. Resolves each session to the
-// route's answer, `{ principal } | { unknown } | { ambiguous }`, as an own property; a session
-// with no answer (unconfigured, unreachable, refused, malformed) is left out.
+// route's answer as an own property:
+//   { bound: false, principal }  a valid full principal (assignments.js validPrincipal)
+//   { unknown: true } | { ambiguous: true }
+// Anything else is left out, and the store then refuses the freeze temporarily: unconfigured,
+// unreachable, refused, slow, malformed, an invalid principal, or `bound: true`. Under option
+// (c) a binding lives in the api's store, which the freeze reads itself, so a console claiming
+// one disagrees with it, and its answer is never taken as derived authority. One deadline
+// covers minting the token, the request and reading its body.
 export const buildRespondentAuthority = ({ url = null, audience = null, idToken = null, fetch: doFetch = globalThis.fetch, timeoutMs = 2000, log = console.log } = {}) =>
   async sessions => {
     const answers = Object.create(null);
     if (!url || !audience || !idToken) return answers;
     await Promise.all(sessions.map(async session => {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      try {
+      let timer;
+      const deadline = new Promise((_resolve, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error(`no answer within ${timeoutMs} ms`));
+        }, timeoutMs);
+      });
+      const ask = async () => {
         const token = await idToken(audience);
         const res = await doFetch(url, {
           method: "POST",
@@ -92,11 +114,14 @@ export const buildRespondentAuthority = ({ url = null, audience = null, idToken 
           signal: controller.signal,
         });
         if (!res.ok) throw new Error(`respondent authority answered ${res.status}`);
-        const body = /** @type {any} */ (await res.json());
+        return /** @type {any} */ (await res.json());
+      };
+      try {
+        const body = await Promise.race([ask(), deadline]);
         if (body?.unknown === true) answers[session] = { unknown: true };
         else if (body?.ambiguous === true) answers[session] = { ambiguous: true };
-        else if (body?.principal && typeof body.principal === "object") answers[session] = { principal: body.principal };
-        else throw new Error("respondent authority answered nothing usable");
+        else if (body?.bound === false && validPrincipal(body.principal)) answers[session] = { principal: body.principal };
+        else throw new Error(body?.bound === true ? "respondent authority answered a binding the api doesn't hold" : "respondent authority answered nothing usable");
       } catch (e) {
         log(`ERROR respondent authority unavailable: ${e?.message}`);
       } finally {
