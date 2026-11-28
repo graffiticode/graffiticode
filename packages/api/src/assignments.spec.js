@@ -498,3 +498,65 @@ describe("C4 assignments: review regressions", () => {
     expect(table[key]).toEqual({ instance: CIVIC[1].instance, digest: CIVIC[1].digest, content: CIVIC[1].content });
   });
 });
+
+describe("C4 assignments: sessions named like Object.prototype properties", () => {
+  const SESSIONS = ["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"];
+  // An own property for any session, "__proto__" included (a computed key, never the setter).
+  const answers = (session, answer) => Object.defineProperty({}, session, { value: answer, enumerable: true });
+
+  it.each(SESSIONS)("%s: resolving creates its record and table entry", async session => {
+    const { store } = await setup();
+    const { table, created } = await store.resolve({ requests: [request("civic-priorities", session, CIVIC)], taskId: "t1" });
+    expect(created).toEqual([identityKey("civic-priorities", session)]);
+    expect(Object.keys(table)).toEqual([identityKey("civic-priorities", session)]);
+    expect((await store.pinRef(session).get()).data()).toMatchObject({ session });
+  });
+
+  it.each(SESSIONS)("%s: a non-respondent's response is a read, and an earlier freeze stays the owner's", async session => {
+    const { store } = await setup();
+    const { entry } = await resolveAndFreeze(store, session, { derived: answers(session, { principal: WS_A }) });
+    const frozen = await recordOf(store, "civic-priorities", session);
+    expect(frozen.frozen.principal).toEqual(WS_A);
+    const out = await store.submit({
+      taskId: "t2",
+      caller: WS_B,
+      used: [used("civic-priorities", session, entry)],
+      derived: answers(session, { principal: WS_A }),
+    });
+    expect(out).toEqual(readOf(session, "not-respondent"));
+    expect(await recordOf(store, "civic-priorities", session)).toEqual(frozen);
+  });
+
+  it.each(SESSIONS)("%s: the respondent's freeze reports no read reasons", async session => {
+    const { store } = await setup();
+    const { out } = await resolveAndFreeze(store, session, { derived: answers(session, { principal: WS_A }) });
+    expect(out).toEqual({ status: "frozen", namespace: "production", frozen: [identityKey("civic-priorities", session)], already: [], read: [] });
+  });
+
+  it.each(SESSIONS)("%s: no own answer is unavailable authority, never an inherited one", async session => {
+    const { store } = await setup();
+    const err = await refused(resolveAndFreeze(store, session, { derived: {} }), "respondent-authority-unavailable");
+    expect(err.temporary).toBe(true);
+    const { out } = await resolveAndFreeze(store, session, { derived: answers(session, { unknown: true }) });
+    expect(out).toEqual(readOf(session, "respondent-unknown"));
+  });
+
+  it("a mixed submission across such sessions freezes only the caller's", async () => {
+    const { store } = await setup();
+    const requests = [request("civic-priorities", "constructor", CIVIC), request("civic-priorities", "__proto__", CIVIC)];
+    const { table } = await store.resolve({ requests, taskId: "t1" });
+    const entries = ["constructor", "__proto__"].map(s => {
+      const e = table[identityKey("civic-priorities", s)];
+      return used("civic-priorities", s, { ...e, content: CIVIC.find(c => c.instance === e.instance).content });
+    });
+    // A computed key: a literal `__proto__:` would set the prototype instead.
+    const derived = { ...answers("constructor", { principal: WS_A }), ...answers("__proto__", { principal: WS_B }) };
+    expect(Object.hasOwn(derived, "__proto__")).toBe(true);
+    const out = await store.submit({ taskId: "t1", caller: WS_A, used: entries, derived });
+    expect(out).toMatchObject({
+      status: "frozen",
+      frozen: [identityKey("civic-priorities", "constructor")],
+      read: [{ key: identityKey("civic-priorities", "__proto__"), reason: "not-respondent" }],
+    });
+  });
+});

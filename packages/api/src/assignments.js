@@ -226,7 +226,8 @@ export const buildAssignmentStore = ({
         ...[...models.keys()].map(async digest => models.set(digest, (await tx.get(r.model(digest))).data() ?? null)),
       ]);
 
-      const table = {};
+      // Keyed by caller-controlled strings: never an object with a prototype.
+      const table = Object.create(null);
       const created = [];
       const writes = [];
       const touched = new Set();
@@ -331,8 +332,10 @@ export const buildAssignmentStore = ({
       // Authority, per session, read inside this transaction (option (c), §1.3). A session the
       // caller doesn't hold is a read; one that can't be decided now refuses the whole
       // submission temporarily, since its classification is unknown.
-      const authority = {};
-      const readReason = {};
+      // Keyed by session, which may be any string ("constructor", "__proto__", …): Maps, so
+      // no lookup ever reads an inherited property.
+      const authority = new Map();
+      const readReason = new Map();
       for (const [i, session] of sessions.entries()) {
         const binding = bindings[i].exists ? bindings[i].data() : null;
         if (binding?.prepared) refuse("respondent-continuing", { temporary: true, detail: session });
@@ -340,19 +343,20 @@ export const buildAssignmentStore = ({
         if (binding?.active) {
           held = { principal: binding.active.principal, revision: binding.active.revision, basis: "binding" };
         } else {
-          const answer = derived[session];
+          // Only the caller's own answer for this session counts, never an inherited property.
+          const answer = Object.hasOwn(derived ?? {}, session) ? derived[session] : undefined;
           if (!answer) refuse("respondent-authority-unavailable", { temporary: true, detail: session });
           if (answer.unknown || answer.ambiguous || !answer.principal) {
-            readReason[session] = (answer.ambiguous ? READ.ambiguous : READ.unknown).reason;
+            readReason.set(session, (answer.ambiguous ? READ.ambiguous : READ.unknown).reason);
             continue;
           }
           held = { principal: answer.principal, revision: 0, basis: "derived" };
         }
-        if (samePrincipal(caller, held.principal)) authority[session] = held;
-        else readReason[session] = READ.notRespondent.reason;
+        if (samePrincipal(caller, held.principal)) authority.set(session, held);
+        else readReason.set(session, READ.notRespondent.reason);
       }
-      const read = used.filter(u => readReason[u.session]).map(u => ({ key: u.key, reason: readReason[u.session] }));
-      const authorized = used.map((u, i) => ({ u, snap: records[i] })).filter(({ u }) => authority[u.session]);
+      const read = used.filter(u => readReason.has(u.session)).map(u => ({ key: u.key, reason: readReason.get(u.session) }));
+      const authorized = used.map((u, i) => ({ u, snap: records[i] })).filter(({ u }) => authority.has(u.session));
       // Nothing the caller may freeze: a read, which writes nothing and so is never fenced.
       if (authorized.length === 0) return { status: "read", namespace, frozen: [], already: [], read };
       // The authorized subset freezes atomically; it is a write, fenced by the cutover.
@@ -372,7 +376,7 @@ export const buildAssignmentStore = ({
           already.push(u.key); // an idempotent retry, or the current respondent again: never rewritten
           continue;
         }
-        const { principal, revision, basis } = authority[u.session];
+        const { principal, revision, basis } = authority.get(u.session);
         writes.push(() => tx.update(r.record(u.key), {
           state: "frozen",
           frozen: { principal, revision, basis, submitter, taskId, submittedAt: now() },
