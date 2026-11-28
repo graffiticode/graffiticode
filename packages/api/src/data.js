@@ -12,7 +12,8 @@ import { decodeChainId } from "@graffiticode/common/chain";
 import { noAudit } from "./audit.js";
 import { normalizeLang, PreflightRefused, PreflightUnavailable } from "./admission.js";
 import { checkGeneration, checkGenerationWithDataTask, compileCacheKey, languageGenerationSuffix, getActiveGeneration as readActiveGeneration, getLanguageGenerations as readLanguageGenerations } from "./generation.js";
-import { INTERPRETER_DECLARATIONS, interpreterLangFor } from "@graffiticode/common/interpreter-manifest";
+import { INTERPRETER_DECLARATIONS, interpreterDeclarationFor, interpreterLangFor } from "@graffiticode/common/interpreter-manifest";
+import { runAssignedStage } from "./assignment-exchange.js";
 import {
   NO_STORE, PERMANENT, authorityFor, combineRestrictions, getInterpreterLanguages as readInterpreterLanguages,
   interpretedRestrictions, legacyRestrictions, permanent, sharable, stageCacheKey, withoutStageMetadata,
@@ -108,6 +109,10 @@ const buildGetData = ({
   // legacy.
   interpreter = null, stageResults = null, modelCache = null, getInterpreterLanguages = readInterpreterLanguages,
   declarations = INTERPRETER_DECLARATIONS, onStage = logStage, now = Date.now,
+  // C4 (assignment-exchange.js): the assignment store (assignments.js) and the console's
+  // respondent authority (respondent.js), for a stage whose language is declared
+  // `getOrCreate`. No language is declared, so neither is used yet.
+  assignments = null, respondentAuthority = null,
   // D2a (B5): a command's key arriving here is answered from its record
   // (commands/dispatch.js), never compiled. Without it, it is refused.
   commandEnvelope = null,
@@ -211,7 +216,10 @@ const buildGetData = ({
     namedGenerations = /** @type {string | undefined} */ (undefined),
     // The id's tasks, when the route already loaded them (to charge the
     // per-client signing limit, signing-limit.js), so they're read once.
-    preloadedTasks = /** @type {any} */ (undefined)
+    preloadedTasks = /** @type {any} */ (undefined),
+    // The caller context ingress built (respondent.js): the verified principal a C4
+    // submission is checked against. Never taken from the request body or the program.
+    caller = /** @type {any} */ (null)
   }) => {
     // Captured before anything else and kept for this request's read and its
     // write: a request that started without a generation, or before one was
@@ -423,6 +431,9 @@ const buildGetData = ({
       const interpreterLang = interpreterLangFor(lang, declarations);
       const stage = `s${index}`;
       const mode = index === 0 ? "present" : "evaluate";
+      // C4: a language with per-viewer state (L0182's assignments) is interpreted through the
+      // assignment exchange, and never read from or written to the stage cache.
+      const getOrCreate = interpreterDeclarationFor(lang, declarations)?.getOrCreate === true;
       const modelBaseUrl = routeFor(task.lang);
       const baseUrl = interpreterLang === lang ? modelBaseUrl : routeFor(interpreterLang);
       // How long each call took (ms), so a stage-cache hit's latency (still a model
@@ -469,7 +480,7 @@ const buildGetData = ({
       // is never stored or read; one that can't act (L0176's evaluate: the
       // kernel refuses every protected call in it) is stored as its class and
       // its input's expiry allow.
-      const key = stageResults && !overriding && revision
+      const key = stageResults && !overriding && revision && !getOrCreate
         ? stageCacheKey({
           lang,
           interpreterLang,
@@ -503,10 +514,36 @@ const buildGetData = ({
           return { out: hit.data, own, baseUrl, hit: true, record: { ...record, revision, cache: "hit" } };
         }
       }
-      const reply = await timed("interpret", () => interpreter.interpret({ lang: interpreterLang, model, input: data, mode, auth: authToken, options, uid, baseUrl }));
+      let reply;
+      if (getOrCreate) {
+        let taskId;
+        try {
+          taskId = decodeChainId(id)[index];
+        } catch {
+          taskId = undefined;
+        }
+        if (typeof taskId !== "string") return failure(`Error: stage ${stage}'s task can't be named`, "assignment-unavailable");
+        const ran = await timed("interpret", () => runAssignedStage({
+          interpret: table => interpreter.interpret({ lang: interpreterLang, model, input: data, mode, auth: authToken, options, uid, baseUrl, assignments: table }),
+          assignments,
+          respondentAuthority,
+          caller,
+          taskId,
+        }));
+        if (ran.failure) {
+          return { out: ran.failure, own: NO_STORE, baseUrl, record: { ...record, cache: "skip", outcome: ran.failure.errors[0].code } };
+        }
+        reply = ran.reply;
+        record.assignment = { calls: ran.calls, submission: ran.submission?.status ?? null };
+      } else {
+        reply = await timed("interpret", () => interpreter.interpret({ lang: interpreterLang, model, input: data, mode, auth: authToken, options, uid, baseUrl }));
+      }
       // A cached model from before a deploy: the next request compiles it afresh.
       if (cachedModel && typeof reply?.revision === "string" && reply.revision !== revision) modelCache.drop(modelKey);
-      const own = reply?.responseLost || reply?.refused ? NO_STORE : capped(reply);
+      // A getOrCreate result is per viewer: never more than private, whatever it claims.
+      const own = reply?.responseLost || reply?.refused
+        ? NO_STORE
+        : getOrCreate ? combineRestrictions(capped(reply), { cacheClass: "private", expiresAt: null }) : capped(reply);
       const out = takeEffects(withoutStageMetadata(reply), index);
       // What the entry may be kept as: the result's own terms and its input's
       // together, so it is never retained longer or shared more widely than
@@ -757,9 +794,9 @@ export const buildDataApi = ({
   compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission = null,
   admissionWanted = _connectionId => false, getActiveGeneration = readActiveGeneration, getLanguageGenerations = readLanguageGenerations,
   interpreter = null, stageResults = null, modelCache = null, getInterpreterLanguages = readInterpreterLanguages, declarations = INTERPRETER_DECLARATIONS,
-  onStage = logStage, now = Date.now, commandEnvelope = null, commandBridge = null
+  onStage = logStage, now = Date.now, commandEnvelope = null, commandBridge = null, assignments = null, respondentAuthority = null
 }) => {
   return {
-    get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted, getActiveGeneration, getLanguageGenerations, interpreter, stageResults, modelCache, getInterpreterLanguages, declarations, onStage, now, commandEnvelope, commandBridge })
+    get: buildGetData({ compile, langOverrideStorer, validateOutput, allocateInvocation, artifactStorer, publications, audit, chainAdmission, admissionWanted, getActiveGeneration, getLanguageGenerations, interpreter, stageResults, modelCache, getInterpreterLanguages, declarations, onStage, now, commandEnvelope, commandBridge, assignments, respondentAuthority })
   };
 };

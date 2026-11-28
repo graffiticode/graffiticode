@@ -26,6 +26,8 @@ import { OAuth2Client } from "google-auth-library";
 import { buildDataApi } from "./data.js";
 import { createApiAudit } from "./audit.js";
 import { buildCallerIdentity } from "./caller-identity.js";
+import { buildAssignmentStore } from "./assignments.js";
+import { buildCallerContext, buildRespondentAuthority, parseRespondentConfig } from "./respondent.js";
 import { buildSigningLimiter, parseSigningLimitConfig } from "./signing-limit.js";
 import { requestContextMiddleware } from "@graffiticode/policy/audit";
 import { buildAllocateInvocation, buildMetadataIdToken } from "./invocations.js";
@@ -34,6 +36,17 @@ import { buildLang } from "./lang/index.js";
 import { buildChainAdmission, parseChainAdmission } from "./admission.js";
 import * as routes from "./routes/index.js";
 import { createStorers } from "./storage/index.js";
+
+// The C4 assignment store, built on its first call, so an api that never interprets a
+// getOrCreate stage never constructs it.
+const lazyAssignmentStore = ({ canarySessions }) => {
+  let store;
+  const get = () => (store ??= buildAssignmentStore({ canarySessions }));
+  return {
+    resolve: args => get().resolve(args),
+    submit: args => get().submit(args),
+  };
+};
 
 const require = createRequire(import.meta.url);
 
@@ -103,6 +116,7 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
   const commandBridge = policyCommands && eligible
     ? buildCommandBridge({ eligible, getRunner: () => commandRunner, compileEnvelope, scopes })
     : null;
+  const respondentConfig = parseRespondentConfig(process.env);
   const dataApi = buildDataApi({
     // D2a: a command's key on /compile is answered from its record.
     commandEnvelope: policyCommands ? buildCommandEnvelope({ policy: policyCommands }) : null,
@@ -119,6 +133,21 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
     interpreter,
     stageResults: stageResultStorer,
     modelCache,
+    // C4 (assignment-exchange.js): used only for a stage whose language is declared
+    // `getOrCreate`, and none is, so nothing reaches them yet. The store is built on first
+    // use; respondent authority without its URL and audience answers nothing (fail closed).
+    assignments: lazyAssignmentStore(respondentConfig),
+    respondentAuthority: buildRespondentAuthority({
+      url: respondentConfig.respondentAuthorityUrl,
+      audience: respondentConfig.respondentAuthorityAudience,
+      idToken: identityMinter,
+    }),
+  });
+  const callerContext = buildCallerContext({
+    verifyIdToken: respondentConfig.frontends.length ? buildGoogleIdTokenVerifier({ OAuth2Client }) : null,
+    audience: respondentConfig.audience,
+    frontends: respondentConfig.frontends,
+    freePlanUid: respondentConfig.freePlanUid,
   });
 
   const app = express();
@@ -226,7 +255,7 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
 
   // Routes
   app.use("/", routes.root());
-  app.use("/compile", routes.compile({ taskStorer, compileStorer, dataApi, signingLimiter }));
+  app.use("/compile", routes.compile({ taskStorer, compileStorer, dataApi, signingLimiter, callerContext }));
   // Commands (B5, D1): only with Policy, and allocating only for languages
   // whose COMMANDS_LNNNN is on.
   if (commandWorker) {
@@ -236,7 +265,7 @@ export const createApp = ({ authUrl, validateToken: givenValidateToken, callerId
     app.use("/command", buildCommandRouter({ taskStorer, policy: commandWorker.policy, run: commandWorker.run, worker: commandWorker.worker, legacy, eligible, materialize: commandWorker.materialize }));
   }
   app.use("/config", routes.configHandler);
-  app.use("/data", routes.data({ taskStorer, compileStorer, dataApi, signingLimiter }));
+  app.use("/data", routes.data({ taskStorer, compileStorer, dataApi, signingLimiter, callerContext }));
   app.use("/preview", routes.preview({ compile, signingLimiter, interpreter, modelCache }));
   app.use("/lang-overrides", routes.langOverrides({ langOverrideStorer }));
   const langRouter = routes.buildLangRouter({ pingLang, getLangAsset });
