@@ -197,6 +197,99 @@ export const REASON_CATEGORIES: Readonly<Record<string, FailureCategory>> = Obje
   ...cat("unavailable", ["assignment-reconciling", "respondent-continuing", "respondent-authority-unavailable", "respondent-unattested"]),
 ]));
 
+// What a caller may safely do next (error handling proposal, step 2). An
+// action is decided from the reason together with the operation that failed
+// and its recorded state, never from the category alone: `unavailable` by
+// itself grants no retry.
+export const RECOVERY_ACTIONS = Object.freeze([
+  "retry-same-key", // send the same request again, with the same idempotency key
+  "read-existing", // read the existing command or job before deciding anything
+  "reauthenticate", // sign in again, then retry
+  "change-connection", // reconnect, or choose another connection
+  "edit-source", // the program needs changing
+  "supply-input", // input is missing
+  "reconcile", // an effect is uncertain: check it from its receipts
+  "repair", // eligible failed occurrences may be repaired
+  "none", // nothing to do automatically
+] as const);
+export type RecoveryAction = typeof RECOVERY_ACTIONS[number];
+// A rule names one action, or one for a read and one for a write: an operation
+// that may have acted is never simply sent again.
+export type RecoveryRule = RecoveryAction | Readonly<{ read: RecoveryAction, write: RecoveryAction }>;
+
+export type FailureSpec = Readonly<{
+  category: FailureCategory;
+  // The HTTP status when the reason is a request's whole answer; by default
+  // its category's (STATUS_FOR_CATEGORY).
+  status: number;
+  // A safe public explanation, shown instead of any internal message.
+  message?: string;
+  // The detail fields a caller may see. Any other field is dropped.
+  details?: readonly string[];
+  recovery?: RecoveryRule;
+}>;
+
+export const STATUS_FOR_CATEGORY: Readonly<Record<FailureCategory, number>> = Object.freeze({
+  authentication: 401, permission: 403, malformed: 400, conflict: 409, unavailable: 503,
+});
+
+// What a reason adds to its category. Only registered reasons appear here
+// (failures.spec.ts checks it); every other reason has its category's
+// defaults and no recovery.
+const SPEC_EXTRAS: Readonly<Record<string, Omit<Partial<FailureSpec>, "category">>> = Object.freeze({
+  // Credentials: sign in again.
+  "bad-token": { recovery: "reauthenticate" },
+  "token-expired": { recovery: "reauthenticate" },
+  "bad-session": { recovery: "reauthenticate" },
+  "no-user": { recovery: "reauthenticate" },
+  // A connection that doesn't allow it, or is gone.
+  "not-granted": { recovery: "change-connection" },
+  "connection-disabled": { recovery: "change-connection" },
+  "connection-not-found": { recovery: "change-connection" },
+  // Nothing ran: the same request may be sent again.
+  "preflight-unavailable": { recovery: "retry-same-key" },
+  "policy-unavailable": { recovery: "retry-same-key" },
+  maintenance: { details: ["retryAfter"], recovery: "retry-same-key" },
+  "rate-limited": { status: 429, details: ["retryAfter"], recovery: "retry-same-key" },
+  // A lost answer: a read has no effects and may be asked again; a write may
+  // have acted, so its existing record is read first.
+  "compile-response-lost": { recovery: { read: "retry-same-key", write: "read-existing" } },
+  // A refusal from a stage that could have acted (PR 1c): its receipts say.
+  "compile-refused": { recovery: { read: "none", write: "reconcile" } },
+  "command-not-found": { status: 404 },
+});
+
+// Legacy spellings of a reason, resolved before lookup. None are known yet;
+// one is added here, never by renaming a reason in the table.
+export const REASON_ALIASES: Readonly<Record<string, string>> = Object.freeze({});
+export const canonicalReason = (reason: string, aliases: Readonly<Record<string, string>> = REASON_ALIASES): string =>
+  aliases[reason] ?? reason;
+
+// Every registered reason's spec: its category from the table above, with its
+// extras. REASON_CATEGORIES stays the source of categories.
+export const FAILURE_SPECS: Readonly<Record<string, FailureSpec>> = Object.freeze(Object.fromEntries(
+  Object.entries(REASON_CATEGORIES).map(([reason, category]) => {
+    const extras = SPEC_EXTRAS[reason] ?? {};
+    return [reason, Object.freeze({ category, status: STATUS_FOR_CATEGORY[category], ...extras })];
+  })
+));
+export const SPEC_EXTRA_REASONS: readonly string[] = Object.freeze(Object.keys(SPEC_EXTRAS));
+
+// The spec of a registered reason (wrapped or aliased), or undefined.
+export const specOf = (reason: unknown): FailureSpec | undefined =>
+  (typeof reason === "string" ? FAILURE_SPECS[canonicalReason(underlyingReason(reason))] : undefined);
+
+// The recovery for a reason in an operation. `operation` is "read" (no
+// effects) or "write"; an unknown operation is taken as a write. An operation
+// whose recorded state is uncertain is reconciled, whatever the reason.
+export const recoveryFor = (reason: unknown, { operation = null, recordedState = null }: { operation?: string | null, recordedState?: string | null } = {}): { action: RecoveryAction, operation: string | null } => {
+  if (recordedState === "uncertain") return { action: "reconcile", operation };
+  const rule = specOf(reason)?.recovery;
+  if (!rule) return { action: "none", operation };
+  if (typeof rule === "string") return { action: rule, operation };
+  return { action: operation === "read" ? rule.read : rule.write, operation };
+};
+
 // Broker wraps Policy's reason (`authorization-denied:<reason>`); the category
 // is the underlying reason's, so a wrapped `token-expired` is authentication
 // and a wrapped `maintenance` unavailable, not a blanket permission denial.
